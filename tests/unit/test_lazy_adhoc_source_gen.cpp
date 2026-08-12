@@ -420,7 +420,7 @@ void check_catalog_stamp_roundtrip(std::vector<std::string> const& g320_ids) {
     ex::SourceGenFn const cat   = tlz::generated_make_catalog_source_gen(stamp);
     ex::SourceGenFn const lazy  = tlz::make_lazy_adhoc_source_gen(stamp);
 
-    std::size_t const sample = g320_ids.size() < 8 ? g320_ids.size() : 8; // wie (a): 8 ueber den Indexraum
+    std::size_t const sample   = g320_ids.size() < 8 ? g320_ids.size() : 8; // wie (a): 8 ueber den Indexraum
     std::size_t       nonempty = 0, matched = 0, m_form = 0;
     for (std::size_t k = 0; k < sample; ++k) {
         std::size_t const i = (g320_ids.size() * k) / sample;
@@ -445,8 +445,7 @@ void check_catalog_stamp_roundtrip(std::vector<std::string> const& g320_ids) {
     std::string const src    = tlz::generated_make_catalog_source_gen(abi::measurement_stamp_line(gewaehlt))(id);
     std::string const muss   = std::string{"measurement_tooling="} + gewaehlt + "@1.0.0.c";
     std::string const verbot = std::string{"measurement_tooling="} + andere + "@1.0.0.c";
-    check_true(("(g) gewaehlte Zeile MUSS in cat(stamp)(id): " + muss).c_str(),
-               src.find(muss) != std::string::npos);
+    check_true(("(g) gewaehlte Zeile MUSS in cat(stamp)(id): " + muss).c_str(), src.find(muss) != std::string::npos);
     check_true(("(g) NICHT gewaehlte Zeile DARF NICHT in cat(stamp)(id): " + verbot).c_str(),
                src.find(verbot) == std::string::npos);
 }

@@ -106,8 +106,7 @@ static_assert(kFremdInterfaceAnzahl == 7 && kFremdTraegerAnzahl == 4 &&
               kFremdInterfaceAnzahl * kFremdTraegerAnzahl == kFremdZellenAnzahl);
 static_assert(abi::kStempelInterfaceAnzahl == kFremdInterfaceAnzahl,
               "T-3: der Pruefling fuehrt nicht die 7 KON7-04-Interfaces");
-static_assert(abi::kStempelTraegerAnzahl == kFremdTraegerAnzahl,
-              "T-3: der Pruefling fuehrt nicht die 4 Traeger");
+static_assert(abi::kStempelTraegerAnzahl == kFremdTraegerAnzahl, "T-3: der Pruefling fuehrt nicht die 4 Traeger");
 
 inline constexpr auto P  = abi::StempelZulassung::Pflicht;
 inline constexpr auto V  = abi::StempelZulassung::Verboten;
@@ -146,9 +145,8 @@ static_assert(
 // ================================================================================================
 // T-4: Gegeneingaenge -- der Vertrag LEHNT AB (je Pflicht-Klasse ein vertragswidriger Probe-Struct)
 // ================================================================================================
-inline constexpr char kProbeSha128[] =
-    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+inline constexpr char kProbeSha128[] = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                                       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 static_assert(string_view{kProbeSha128}.size() == 128);
 
 // Test-lokale wohlgeformte Zeilen (NUR Vertragsflaechen-Probe; die ECHTEN Tier-/Hybrid-Erbinnen am
@@ -179,11 +177,11 @@ static_assert(abi::StempelVertrag<TierProbe, abi::StempelTraeger::Tier>,
 
 // POSITIV Hybrid-Flaeche: zusaetzlich der angeschlossene()-RT-Hook (KON47-02-Signatur).
 struct HybridProbe : abi::StempelBasis<HybridProbe, abi::StempelTraeger::Hybrid> {
-    static constexpr string_view mess_zeile() noexcept { return probe_mess_zeile(); }
-    static constexpr string_view system_zeile() noexcept { return probe_system_zeile(); }
-    static constexpr string_view organ_zeile() noexcept { return probe_organ_zeile(); }
-    static constexpr string_view fingerprint_sha() noexcept { return kProbeSha128; }
-    static constexpr string_view gesamt_stempel() noexcept { return kTierProbeKomp.view(); }
+    static constexpr string_view                mess_zeile() noexcept { return probe_mess_zeile(); }
+    static constexpr string_view                system_zeile() noexcept { return probe_system_zeile(); }
+    static constexpr string_view                organ_zeile() noexcept { return probe_organ_zeile(); }
+    static constexpr string_view                fingerprint_sha() noexcept { return kProbeSha128; }
+    static constexpr string_view                gesamt_stempel() noexcept { return kTierProbeKomp.view(); }
     static constexpr std::array<string_view, 1> kAngeschlossene{probe_organ_zeile()};
     [[nodiscard]] std::span<string_view const>  angeschlossene() const noexcept { return kAngeschlossene; }
 };
@@ -200,7 +198,7 @@ static_assert(!abi::StempelVertrag<Vertragslos, abi::StempelTraeger::Planer> &&
 // NEGATIV 2: Planer OHNE fingerprint_sha-BewusstLeer-Erklaerung (sha fehlt einfach) -- der
 // Koeder- der A-P1: wird die fingerprint-Pflicht aus dem Concept gestrichen, kippt DIESER Assert.
 constexpr std::array<string_view, 2> planer_neg_teile() noexcept { return {"planner@", "1.0.0.c"}; }
-inline constexpr auto kPlanerNegKomp = abi::stempel_kompositum<&planer_neg_teile>();
+inline constexpr auto                kPlanerNegKomp = abi::stempel_kompositum<&planer_neg_teile>();
 struct PlanerOhneShaErklaerung : abi::StempelBasis<PlanerOhneShaErklaerung, abi::StempelTraeger::Planer> {
     static constexpr string_view version_xyz() noexcept { return "1.0.0.c"; }
     static constexpr string_view gesamt_stempel() noexcept { return kPlanerNegKomp.view(); }
@@ -280,7 +278,7 @@ static_assert(!abi::StempelVertrag<OhneCrtpBasis, abi::StempelTraeger::Planer>,
 
 // NEGATIV 9: gesamt_stempel OHNE die eigene Mess-Zeile als Teilstring (Kompositum nennt sie nicht).
 constexpr std::array<string_view, 2> ceb_ohne_mess_teile() noexcept { return {";sha512=", kProbeSha128}; }
-inline constexpr auto kCebOhneMessKomp = abi::stempel_kompositum<&ceb_ohne_mess_teile>();
+inline constexpr auto                kCebOhneMessKomp = abi::stempel_kompositum<&ceb_ohne_mess_teile>();
 struct CebGesamtOhneMess : abi::StempelBasis<CebGesamtOhneMess, abi::StempelTraeger::Ceb> {
     static constexpr string_view mess_zeile() noexcept { return probe_mess_zeile(); }
     static constexpr string_view system_zeile() noexcept { return {}; }
@@ -296,17 +294,16 @@ static_assert(!abi::StempelVertrag<CebGesamtOhneMess, abi::StempelTraeger::Ceb>,
 // ================================================================================================
 // A-P2/P3: GENAU 10 gebundene Baustein-Typen (fremdquellige Liste) + der Nicht-Baustein
 // ================================================================================================
-using GebundeneBausteine =
-    std::tuple<abi::detail::StampSegment,                                 // 1 (KON6-03)
-               abi::detail::StampLineLiteral<4>,                          // 2 (KON6-03, NTTP-Traeger)
-               abi::CompletedSystemStampLine<4>,                          // 3 (KON6-03)
-               abi::ToolchainStampParts,                                  // 4 (KON6-03)
-               abi::AnatomyStampEntryV1,                                  // 5 (KON6-03)
-               abi::AnatomyVersionLines,                                  // 6
-               pff::PermToolchainGliedWert,                               // 7 (Naht)
-               pff::PermToolchainAchsen,                                  // 8 (Naht)
-               ceb::CebComboLegend<6>,                                    // 9 (Legende, "[all]")
-               ceb::detail::CebToolingList>;                              // 10 (ToolingListe)
+using GebundeneBausteine = std::tuple<abi::detail::StampSegment,        // 1 (KON6-03)
+                                      abi::detail::StampLineLiteral<4>, // 2 (KON6-03, NTTP-Traeger)
+                                      abi::CompletedSystemStampLine<4>, // 3 (KON6-03)
+                                      abi::ToolchainStampParts,         // 4 (KON6-03)
+                                      abi::AnatomyStampEntryV1,         // 5 (KON6-03)
+                                      abi::AnatomyVersionLines,         // 6
+                                      pff::PermToolchainGliedWert,      // 7 (Naht)
+                                      pff::PermToolchainAchsen,         // 8 (Naht)
+                                      ceb::CebComboLegend<6>,           // 9 (Legende, "[all]")
+                                      ceb::detail::CebToolingList>;     // 10 (ToolingListe)
 inline constexpr std::size_t kGebundeneBausteinAnzahl = 10;
 // ASSERT ==10 VOR der Schleife (fremdquelliger Nenner: KON6-03 + Explore-Liste des Schnitts):
 static_assert(std::tuple_size_v<GebundeneBausteine> == kGebundeneBausteinAnzahl,
@@ -331,8 +328,7 @@ static_assert(abi::ist_stempel_baustein<abi::AnatomyVersionLines>::rolle == abi:
 static_assert(abi::ist_stempel_baustein<pff::PermToolchainGliedWert>::rolle == abi::StempelBausteinRolle::NahtGlied);
 static_assert(abi::ist_stempel_baustein<pff::PermToolchainAchsen>::rolle == abi::StempelBausteinRolle::NahtGlied);
 static_assert(abi::ist_stempel_baustein<ceb::CebComboLegend<6>>::rolle == abi::StempelBausteinRolle::Legende);
-static_assert(abi::ist_stempel_baustein<ceb::detail::CebToolingList>::rolle ==
-              abi::StempelBausteinRolle::ToolingListe);
+static_assert(abi::ist_stempel_baustein<ceb::detail::CebToolingList>::rolle == abi::StempelBausteinRolle::ToolingListe);
 
 } // namespace
 
@@ -390,14 +386,15 @@ TEST(S1StempelBasisVertrag, CebDelegiertByteIdentisch) {
 // A-P6: der Dock-Nenner (FUENF) + VersionsLiteral-Bausteine
 // ================================================================================================
 // Fremdquellige Namensliste (KON6-03 / pruef_dock_version.hpp:58-64), ASSERT ==5 VOR der Schleife:
-inline constexpr std::array<string_view, 5> kFremdDockLiterale{
-    pfd::kSearchAlgorithmDockVersion, pfd::kSetDockVersion, pfd::kSequenceDockVersion, pfd::kAdapterDockVersion,
-    pfd::kViewDockVersion};
+inline constexpr std::array<string_view, 5> kFremdDockLiterale{pfd::kSearchAlgorithmDockVersion, pfd::kSetDockVersion,
+                                                               pfd::kSequenceDockVersion, pfd::kAdapterDockVersion,
+                                                               pfd::kViewDockVersion};
 static_assert(kFremdDockLiterale.size() == 5, "A-P6: Nenner-ASSERT vor der Schleife");
 static_assert(pfd::kPruefDockVersionsLiteralBausteine.size() == kFremdDockLiterale.size(),
               "A-P6: die P6-Baustein-Liste fuehrt nicht genau die fuenf Dock-Literale");
 static_assert(
     [] {
+        // cppcheck-suppress syntaxError // FP: cppcheck 2.21 parst das IIFE-Lambda im static_assert nicht -- gcc 15.3 + clang 22 bauen die TU (2x ctest 485/485 gruen)
         for (std::size_t i = 0; i < kFremdDockLiterale.size(); ++i)
             if (pfd::kPruefDockVersionsLiteralBausteine[i] != kFremdDockLiterale[i]) return false;
         return true;
@@ -420,7 +417,7 @@ TEST(S1StempelBasisVertrag, DockNennerIstFuenf) {
 // A-P7: der g1-Einordnungs-Block -- vier gelabelte Zeilen, jede non-empty, Zeile 1 == Planer-Rolle
 // ================================================================================================
 TEST(S1StempelBasisVertrag, G1BlockVierZeilenNonEmptyUndPlanerRolle) {
-    std::string const block = pfg::g1_binary_version_block("+ext=avx2+cxx=gcc:15.3.0+opt=O3+ceb=9.1");
+    std::string const          block = pfg::g1_binary_version_block("+ext=avx2+cxx=gcc:15.3.0+opt=O3+ceb=9.1");
     std::array<std::string, 4> zeilen{};
     std::size_t                n     = 0;
     std::size_t                start = 0;

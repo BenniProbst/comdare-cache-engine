@@ -404,12 +404,15 @@ template <class E>
 // -- die Pflicht-Pruefung je Interface (existiert + constexpr-auswertbar + noexcept + Wert-Regel) ------
 template <class E>
 [[nodiscard]] consteval bool version_xyz_pflicht_erfuellt() {
-    if constexpr (!hat_version_xyz<E>) return false;
-    else return version_xyz_politik_probe<E>(0);
+    if constexpr (!hat_version_xyz<E>)
+        return false;
+    else
+        return version_xyz_politik_probe<E>(0);
 }
 template <class E>
 [[nodiscard]] consteval bool mess_zeile_pflicht_erfuellt() {
-    if constexpr (!hat_mess_zeile<E>) return false;
+    if constexpr (!hat_mess_zeile<E>)
+        return false;
     else {
         if (!mess_zeile_scanner_probe<E>(0)) return false;
         if (mess_zeile_leer_probe<E>(0) && !mess_zeile_bewusst_leer_probe<E>(0)) return false;
@@ -418,7 +421,8 @@ template <class E>
 }
 template <class E>
 [[nodiscard]] consteval bool system_zeile_pflicht_erfuellt() {
-    if constexpr (!hat_system_zeile<E>) return false;
+    if constexpr (!hat_system_zeile<E>)
+        return false;
     else {
         if (!system_zeile_scanner_probe<E>(0)) return false;
         if (system_zeile_leer_probe<E>(0) && !system_zeile_bewusst_leer_probe<E>(0)) return false;
@@ -427,7 +431,8 @@ template <class E>
 }
 template <class E>
 [[nodiscard]] consteval bool organ_zeile_pflicht_erfuellt() {
-    if constexpr (!hat_organ_zeile<E>) return false;
+    if constexpr (!hat_organ_zeile<E>)
+        return false;
     else {
         if (!organ_zeile_scanner_probe<E>(0)) return false;
         if (organ_zeile_leer_probe<E>(0) && !organ_zeile_bewusst_leer_probe<E>(0)) return false;
@@ -436,7 +441,8 @@ template <class E>
 }
 template <class E>
 [[nodiscard]] consteval bool fingerprint_sha_pflicht_erfuellt() {
-    if constexpr (!hat_fingerprint_sha<E>) return false;
+    if constexpr (!hat_fingerprint_sha<E>)
+        return false;
     else {
         if (fingerprint_sha_laenge_probe<E>(0)) return true;
         return fingerprint_sha_leer_probe<E>(0) && fingerprint_sha_bewusst_leer_probe<E>(0);
@@ -444,7 +450,8 @@ template <class E>
 }
 template <class E, StempelTraeger T>
 [[nodiscard]] consteval bool gesamt_stempel_pflicht_erfuellt() {
-    if constexpr (!hat_gesamt_stempel<E>) return false;
+    if constexpr (!hat_gesamt_stempel<E>)
+        return false;
     else {
         if (!gesamt_stempel_nicht_leer_probe<E>(0)) return false;
         // "enthaelt jede eigene nicht-leere Zeile + den sha als TEILSTRING" -- je Interface nur dann
@@ -481,40 +488,54 @@ template <class E, StempelTraeger T, StempelInterface I>
 [[nodiscard]] consteval bool interface_vertrag() {
     constexpr StempelZulassung kZelle = stempel_zulassung(I, T);
     if constexpr (I == StempelInterface::VersionXyz) {
-        if constexpr (kZelle == StempelZulassung::Verboten) return !vorhanden_version_xyz<E>;
+        if constexpr (kZelle == StempelZulassung::Verboten)
+            return !vorhanden_version_xyz<E>;
         else if constexpr (kZelle == StempelZulassung::Erlaubt)
             return !vorhanden_version_xyz<E> || version_xyz_pflicht_erfuellt<E>();
-        else return version_xyz_pflicht_erfuellt<E>();
+        else
+            return version_xyz_pflicht_erfuellt<E>();
     } else if constexpr (I == StempelInterface::MessZeile) {
-        if constexpr (kZelle == StempelZulassung::Verboten) return !vorhanden_mess_zeile<E>;
+        if constexpr (kZelle == StempelZulassung::Verboten)
+            return !vorhanden_mess_zeile<E>;
         else if constexpr (kZelle == StempelZulassung::Erlaubt)
             return !vorhanden_mess_zeile<E> || mess_zeile_pflicht_erfuellt<E>();
-        else return mess_zeile_pflicht_erfuellt<E>();
+        else
+            return mess_zeile_pflicht_erfuellt<E>();
     } else if constexpr (I == StempelInterface::SystemZeile) {
-        if constexpr (kZelle == StempelZulassung::Verboten) return !vorhanden_system_zeile<E>;
+        if constexpr (kZelle == StempelZulassung::Verboten)
+            return !vorhanden_system_zeile<E>;
         else if constexpr (kZelle == StempelZulassung::Erlaubt)
             return !vorhanden_system_zeile<E> || system_zeile_pflicht_erfuellt<E>();
-        else return system_zeile_pflicht_erfuellt<E>();
+        else
+            return system_zeile_pflicht_erfuellt<E>();
     } else if constexpr (I == StempelInterface::OrganZeile) {
-        if constexpr (kZelle == StempelZulassung::Verboten) return !vorhanden_organ_zeile<E>;
+        if constexpr (kZelle == StempelZulassung::Verboten)
+            return !vorhanden_organ_zeile<E>;
         else if constexpr (kZelle == StempelZulassung::Erlaubt)
             return !vorhanden_organ_zeile<E> || organ_zeile_pflicht_erfuellt<E>();
-        else return organ_zeile_pflicht_erfuellt<E>();
+        else
+            return organ_zeile_pflicht_erfuellt<E>();
     } else if constexpr (I == StempelInterface::FingerprintSha) {
-        if constexpr (kZelle == StempelZulassung::Verboten) return !vorhanden_fingerprint_sha<E>;
+        if constexpr (kZelle == StempelZulassung::Verboten)
+            return !vorhanden_fingerprint_sha<E>;
         else if constexpr (kZelle == StempelZulassung::Erlaubt)
             return !vorhanden_fingerprint_sha<E> || fingerprint_sha_pflicht_erfuellt<E>();
-        else return fingerprint_sha_pflicht_erfuellt<E>();
+        else
+            return fingerprint_sha_pflicht_erfuellt<E>();
     } else if constexpr (I == StempelInterface::GesamtStempel) {
-        if constexpr (kZelle == StempelZulassung::Verboten) return !vorhanden_gesamt_stempel<E>;
+        if constexpr (kZelle == StempelZulassung::Verboten)
+            return !vorhanden_gesamt_stempel<E>;
         else if constexpr (kZelle == StempelZulassung::Erlaubt)
             return !vorhanden_gesamt_stempel<E> || gesamt_stempel_pflicht_erfuellt<E, T>();
-        else return gesamt_stempel_pflicht_erfuellt<E, T>();
+        else
+            return gesamt_stempel_pflicht_erfuellt<E, T>();
     } else {
-        if constexpr (kZelle == StempelZulassung::Verboten) return !vorhanden_angeschlossene<E>;
+        if constexpr (kZelle == StempelZulassung::Verboten)
+            return !vorhanden_angeschlossene<E>;
         else if constexpr (kZelle == StempelZulassung::Erlaubt)
             return !vorhanden_angeschlossene<E> || angeschlossene_pflicht_erfuellt<E>();
-        else return angeschlossene_pflicht_erfuellt<E>();
+        else
+            return angeschlossene_pflicht_erfuellt<E>();
     }
 }
 

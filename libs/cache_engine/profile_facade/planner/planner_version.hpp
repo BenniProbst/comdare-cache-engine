@@ -78,8 +78,8 @@ struct PlanerStempel
     /// fingerprint_sha: DEKLARIERTE LUECKE -- die KON6-03-IST-Luecke "Planer-SHA fehlt" wird hiermit LAUT
     /// statt still. Die Fuellung ist ein EIGENER Posten; der Preimage-/Glied-Entscheid faellt NICHT in S-1.
     [[nodiscard]] static constexpr std::string_view fingerprint_sha() noexcept { return {}; }
-    static constexpr bool             kFingerprintShaBewusstLeer = true;
-    static constexpr std::string_view kFingerprintShaBewusstLeerGrund =
+    static constexpr bool                           kFingerprintShaBewusstLeer = true;
+    static constexpr std::string_view               kFingerprintShaBewusstLeerGrund =
         "KON6-03-IST-Luecke, laut deklariert: der Planer traegt noch keinen SHA-512-Fingerprint; "
         "Fuellung = eigener Posten (Preimage-/Glied-Entscheid nicht in S-1)";
 
@@ -90,10 +90,10 @@ struct PlanerStempel
 };
 /// DER ZWANG (S-1/P1.2): die Erbin schliesst direkt unter ihrer Definition mit dem Vertrag. Die
 /// bestehenden Wachen unten bleiben VOLLSTAENDIG stehen -- die Erbin verschaerft, sie ersetzt nichts.
-static_assert(::comdare::cache_engine::abi::StempelVertrag<PlanerStempel,
-                                                           ::comdare::cache_engine::abi::StempelTraeger::Planer>,
-              "S-1: PlanerStempel verletzt den Stempel-Vertrag des Traegers PLANER (Zulassungsmatrix "
-              "kStempelZulassungsMatrix, stempel_basis.hpp)");
+static_assert(
+    ::comdare::cache_engine::abi::StempelVertrag<PlanerStempel, ::comdare::cache_engine::abi::StempelTraeger::Planer>,
+    "S-1: PlanerStempel verletzt den Stempel-Vertrag des Traegers PLANER (Zulassungsmatrix "
+    "kStempelZulassungsMatrix, stempel_basis.hpp)");
 
 /// Die Planer-Stempel-Zeile fuer den --dump-plan-Header: "planner@X.Y.Z[.flag]* isa=<isa> os=<os>".
 /// FLAG-GRAMMATIK v2: das 'v'-Praefix ist entfallen, rohe und gerenderte Form fallen damit zusammen --

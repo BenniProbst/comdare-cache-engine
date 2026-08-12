@@ -211,14 +211,14 @@ struct PermToolchainAchsen {
 // -- S-1 (P3): Baustein-Anbindung der beiden Naht-Glieder UNTER ihren Definitionen -- OHNE
 //    Basisklassen-Einbau (beide sind positional-init-Aggregate; eine leere Basis fraesse den ersten
 //    Initialisierer). Die Spezialisierung gehoert in den abi-Namensraum, deshalb das kurze Fenster.
-} // namespace comdare::cache_engine::profile_facade (S-1-Anbindungs-Fenster)
+} // namespace comdare::cache_engine::profile_facade
 namespace comdare::cache_engine::abi {
 template <>
 struct ist_stempel_baustein<profile_facade::PermToolchainGliedWert>
     : StempelBausteinTag<StempelBausteinRolle::NahtGlied> {};
 template <>
-struct ist_stempel_baustein<profile_facade::PermToolchainAchsen>
-    : StempelBausteinTag<StempelBausteinRolle::NahtGlied> {};
+struct ist_stempel_baustein<profile_facade::PermToolchainAchsen> : StempelBausteinTag<StempelBausteinRolle::NahtGlied> {
+};
 static_assert(StempelBaustein<profile_facade::PermToolchainGliedWert> &&
               StempelBaustein<profile_facade::PermToolchainAchsen>);
 } // namespace comdare::cache_engine::abi

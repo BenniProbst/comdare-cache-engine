@@ -208,7 +208,7 @@ struct RunExperimentResult {
     // Experiment-Paesse laengst gestempelt sind.
     ex::SourceGenFn const union_gen =
         make_union_source_gen(generated_make_catalog_source_gen(live_mess_zeile), std::move(fused));
-    ex::FreeRamFn         ram       = ex::make_system_free_ram_fn();
+    ex::FreeRamFn ram = ex::make_system_free_ram_fn();
 
     // ── (4) Die DynDims der Experiment-Pässe: Achse 2 (workload) + Wiederholungs-Achse (repetition). Beide
     //    is_static=false ⇒ verändern die binary_id NICHT (Round-Trip-Gate unberührt). Die workload-Ebene ist

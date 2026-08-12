@@ -628,8 +628,8 @@ struct CebStempel
     /// zellwertfrei", s. Fingerprint-Block oben) wird hier zur RIEGEL-KONSTANTE: die Leere ist benannt
     /// und begruendet statt still. Die FUELLUNG der System-Zeile ist der KON8-03-Bauauftrag, nicht S-1.
     [[nodiscard]] static constexpr std::string_view system_zeile() noexcept { return {}; }
-    static constexpr bool             kSystemZeileBewusstLeer = true;
-    static constexpr std::string_view kSystemZeileBewusstLeerGrund =
+    static constexpr bool                           kSystemZeileBewusstLeer = true;
+    static constexpr std::string_view               kSystemZeileBewusstLeerGrund =
         "W10-C3: der CEB-Selbst-Stempel bleibt zellwertfrei -- die CEB ist KEIN Tier-Binary; die "
         "Fuellung der System-Zeile ist der KON8-03-Bauauftrag, nicht S-1";
 
@@ -646,10 +646,10 @@ struct CebStempel
     // static_assert direkt unter dieser Definition ROT (Absenz-Assert der Zulassungsmatrix).
 };
 /// DER ZWANG (S-1/P1.2): die Erbin schliesst direkt unter ihrer Definition mit dem Vertrag.
-static_assert(::comdare::cache_engine::abi::StempelVertrag<CebStempel,
-                                                           ::comdare::cache_engine::abi::StempelTraeger::Ceb>,
-              "S-1: CebStempel verletzt den Stempel-Vertrag des Traegers CEB (Zulassungsmatrix "
-              "kStempelZulassungsMatrix, stempel_basis.hpp) -- u.a. ist organ_zeile hier VERBOTEN (KON7-07)");
+static_assert(
+    ::comdare::cache_engine::abi::StempelVertrag<CebStempel, ::comdare::cache_engine::abi::StempelTraeger::Ceb>,
+    "S-1: CebStempel verletzt den Stempel-Vertrag des Traegers CEB (Zulassungsmatrix "
+    "kStempelZulassungsMatrix, stempel_basis.hpp) -- u.a. ist organ_zeile hier VERBOTEN (KON7-07)");
 
 /// ceb_version_stamp() -- der CEB-Selbst-Stempel fuer den Log-Kopf/--version: die Mess-Array-Zeile + ihre SHA-512-
 /// Provenienz. Runtime-String (nur Ausgabe-Formatierung); beide Bestandteile sind consteval (registry- und
@@ -668,7 +668,7 @@ template <std::size_t N>
 struct ist_stempel_baustein<builder::CebComboLegend<N>> : StempelBausteinTag<StempelBausteinRolle::Legende> {};
 static_assert(StempelBaustein<builder::CebComboLegend<6>>); // "[all]" traegt N == 6
 template <>
-struct ist_stempel_baustein<builder::detail::CebToolingList>
-    : StempelBausteinTag<StempelBausteinRolle::ToolingListe> {};
+struct ist_stempel_baustein<builder::detail::CebToolingList> : StempelBausteinTag<StempelBausteinRolle::ToolingListe> {
+};
 static_assert(StempelBaustein<builder::detail::CebToolingList>);
 } // namespace comdare::cache_engine::abi

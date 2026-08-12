@@ -56,11 +56,10 @@ build_pilot_source_map(std::string_view measurement_stamp = {}) {
         std::string const path = serialize_composition_path<P>();
         // DENSELBEN geteilten Helfer + DENSELBEN binary_id (== path) wie der lazy Pfad durchreichen -> byte-
         // identische Stempel -> Round-Trip STRIKT. system_stamp_line = die statischen System-Achsen-Algo-Versionen.
-        by_path.emplace(
-            path, codegen::render_adhoc_module_source(idx, codegen::adhoc_macro_args<Comp>(),
-                                                      compose_organ_stamp_line(ceb_parse_path(path), version_table),
-                                                      ::comdare::cache_engine::abi::system_stamp_line(),
-                                                      measurement_stamp));
+        by_path.emplace(path, codegen::render_adhoc_module_source(
+                                  idx, codegen::adhoc_macro_args<Comp>(),
+                                  compose_organ_stamp_line(ceb_parse_path(path), version_table),
+                                  ::comdare::cache_engine::abi::system_stamp_line(), measurement_stamp));
         ++idx;
     });
     return by_path;

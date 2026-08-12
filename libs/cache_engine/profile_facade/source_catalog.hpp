@@ -498,8 +498,8 @@ using PrefetchSweepCatalog =
 /// 4 vertiefte + 10 uebrige; INC-2c: telemetry ist System-Achse).
 /// KON47-01/Option a: measurement_stamp wird in JEDEN Sweep-Zweig durchgereicht (Default {} = 2-arg) --
 /// sonst traefe jede Sweep-Zelle spaeter dasselbe Gate-Rot (KON44-01: deklaration_leer am fail-closed-Gate).
-[[nodiscard]] inline std::map<std::string, std::string>
-axis_sweep_source_map(std::string const& axis_name, std::string_view measurement_stamp = {}) {
+[[nodiscard]] inline std::map<std::string, std::string> axis_sweep_source_map(std::string const& axis_name,
+                                                                              std::string_view measurement_stamp = {}) {
     if (axis_name == "persistence_target")
         return ex::build_pilot_source_map<typename PersistenceTargetSweepCatalog::Engine>(measurement_stamp);
     if (axis_name == "search_algo")
@@ -649,8 +649,7 @@ struct KaryPerKCatalog {
 /// (KArySearchAlgoK2/4/8/16 × Baseline), je eine reale AdHocComposition (COMDARE_DEFINE_ANATOMY_MODULE_ADHOC).
 /// Analog axis_sweep_source_map, aber fuer die NICHT-vertiefte search_algo-Achse ueber die explizite per-K-Liste.
 /// KON47-01/Option a: measurement_stamp auch in den per-K-Sweep (Default {} = 2-arg byte-identisch).
-[[nodiscard]] inline std::map<std::string, std::string>
-kary_perk_source_map(std::string_view measurement_stamp = {}) {
+[[nodiscard]] inline std::map<std::string, std::string> kary_perk_source_map(std::string_view measurement_stamp = {}) {
     return ex::build_pilot_source_map<typename KaryPerKCatalog::Engine>(measurement_stamp);
 }
 

@@ -225,7 +225,7 @@ struct StampSegment {
 // -- S-1 (P2): Baustein-Anbindung UNTER der Definition -- OHNE Basisklassen-Einbau (StampSegment ist ein
 //    positional-init-Aggregat; eine leere Basis fraesse den ersten Initialisierer). Die Spezialisierung
 //    gehoert in den abi-Namensraum, deshalb das kurze Anbindungs-Fenster.
-} // namespace detail (S-1-Anbindungs-Fenster)
+} // namespace detail
 template <>
 struct ist_stempel_baustein<detail::StampSegment> : StempelBausteinTag<StempelBausteinRolle::Segment> {};
 static_assert(StempelBaustein<detail::StampSegment>);
@@ -476,7 +476,7 @@ StampLineLiteral(char const (&)[N]) -> StampLineLiteral<N>;
 
 // -- S-1 (P2): Baustein-Anbindung UNTER der Definition (NTTP-Traeger; kein Basisklassen-Einbau, das
 //    braeche die strukturelle NTTP-Form). Partielle Spezialisierung ueber alle Laengen N.
-} // namespace detail (S-1-Anbindungs-Fenster)
+} // namespace detail
 template <std::size_t N>
 struct ist_stempel_baustein<detail::StampLineLiteral<N>> : StempelBausteinTag<StempelBausteinRolle::ZeilenLiteral> {};
 static_assert(StempelBaustein<detail::StampLineLiteral<1>>);
