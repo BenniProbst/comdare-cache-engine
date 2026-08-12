@@ -225,13 +225,23 @@ static_assert(!abi::StempelVertrag<CebMitOrganZeile, abi::StempelTraeger::Ceb>,
               "KON7-07-Riegel: eine CEB mit organ_zeile() MUSS abgelehnt werden");
 
 // NEGATIV 4: unparsbare Mess-Zeile (geklebte Gruppe, F4-Fehlform) -- der EINE Scanner beisst.
+// EIGENES Kompositum PFLICHT: kCebNegKomp traegt die GUELTIGE probe_mess_zeile() -- damit fiele
+// dieser Typ schon an der Teilstring-Regel (gesamt_enthaelt), und der Assert bewiese NIE den
+// Grammatik-Scanner (##57-Klasse "Koeder beisst aus dem falschen Grund"; Zweitlens-Befund 12.08.).
+// Die Fehl-Zeile steht deshalb als EINE Konstante in mess_zeile() UND im Kompositum: der Typ
+// erfuellt jede andere Vertragsflaeche und faellt NUR am Scanner.
+inline constexpr string_view         kFehlgrammMessZeile = "a=b@1.0.0[c=d@1.0.0]";
+constexpr std::array<string_view, 4> ceb_fehlgramm_teile() noexcept {
+    return {"ceb-measurement=", kFehlgrammMessZeile, ";sha512=", kProbeSha128};
+}
+inline constexpr auto kCebFehlgrammKomp = abi::stempel_kompositum<&ceb_fehlgramm_teile>();
 struct CebMitFehlgrammatik : abi::StempelBasis<CebMitFehlgrammatik, abi::StempelTraeger::Ceb> {
-    static constexpr string_view mess_zeile() noexcept { return "a=b@1.0.0[c=d@1.0.0]"; }
+    static constexpr string_view mess_zeile() noexcept { return kFehlgrammMessZeile; }
     static constexpr string_view system_zeile() noexcept { return {}; }
     static constexpr bool        kSystemZeileBewusstLeer      = true;
     static constexpr string_view kSystemZeileBewusstLeerGrund = "Probe";
     static constexpr string_view fingerprint_sha() noexcept { return kProbeSha128; }
-    static constexpr string_view gesamt_stempel() noexcept { return kCebNegKomp.view(); }
+    static constexpr string_view gesamt_stempel() noexcept { return kCebFehlgrammKomp.view(); }
 };
 static_assert(!abi::StempelVertrag<CebMitFehlgrammatik, abi::StempelTraeger::Ceb>,
               "M/S/O-Zeilen laufen durch stamp_line_is_wellformed -- die geklebte Gruppe MUSS ablehnen");

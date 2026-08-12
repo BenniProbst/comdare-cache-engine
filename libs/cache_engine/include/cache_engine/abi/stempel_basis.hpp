@@ -356,8 +356,17 @@ consteval bool version_xyz_politik_probe(...) {
     return false;
 }
 
-// fingerprint_sha: Laenge == 128 ODER bewusst-leer mit Grund.
-template <class E, bool B = (std::string_view{E::fingerprint_sha()}.size() == kFingerprintShaHexLaenge)>
+// fingerprint_sha: 128 KLEINBUCHSTABEN-Hex-Zeichen ODER bewusst-leer mit Grund. Die Laenge allein
+// genuegt nicht -- 128x'g' oder NUL-Bytes erfuellten sonst den behaupteten SHA-512-Vertrag
+// (Zweitlens-Befund 12.08.). Kanonische Schreibweise der kFP-Ausgabe ist lowercase-hex
+// (anatomy_fingerprint_hex; decl.hpp:224-225 sha512_len-Doktrin).
+[[nodiscard]] consteval bool ist_sha512_hex_128(std::string_view s) noexcept {
+    if (s.size() != kFingerprintShaHexLaenge) return false;
+    for (char const c : s)
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
+    return true;
+}
+template <class E, bool B = ist_sha512_hex_128(std::string_view{E::fingerprint_sha()})>
 consteval bool fingerprint_sha_laenge_probe(int) {
     return B;
 }

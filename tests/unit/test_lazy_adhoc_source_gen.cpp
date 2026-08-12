@@ -435,19 +435,25 @@ void check_catalog_stamp_roundtrip(std::vector<std::string> const& g320_ids) {
     check_eq("(g) Katalog-Quelle traegt die 3-arg _M-Vollform", m_form, sample);
 
     // (3) K13-Wuerfel: der Koeder wird erzeugt, nie abgeschrieben -- und er beisst in BEIDE Richtungen.
+    // Der Wurf bestimmt NUR die Pruef-REIHENFOLGE; wertbezogen geprueft werden DETERMINISTISCH BEIDE
+    // Toolings. Vorher entschied der Wurf, WELCHES geprueft wird -- ein in beiden Gens gleich
+    // hartkodierter Fehler blieb so in ~50% der Laeufe gruen (Zweitlens-Befund 12.08.).
     char const* const  toolings[2] = {"wallclock", "macro"};
     std::random_device rd;
-    std::size_t const  wurf     = static_cast<std::size_t>(rd()) % 2u;
-    char const* const  gewaehlt = toolings[wurf];
-    char const* const  andere   = toolings[1u - wurf];
-    std::cout << "  (g) K13-Wurf: gewaehlte Combo = " << gewaehlt << "  (nicht gewaehlt: " << andere << ")\n";
-    std::string const id     = g320_ids.front();
-    std::string const src    = tlz::generated_make_catalog_source_gen(abi::measurement_stamp_line(gewaehlt))(id);
-    std::string const muss   = std::string{"measurement_tooling="} + gewaehlt + "@1.0.0.c";
-    std::string const verbot = std::string{"measurement_tooling="} + andere + "@1.0.0.c";
-    check_true(("(g) gewaehlte Zeile MUSS in cat(stamp)(id): " + muss).c_str(), src.find(muss) != std::string::npos);
-    check_true(("(g) NICHT gewaehlte Zeile DARF NICHT in cat(stamp)(id): " + verbot).c_str(),
-               src.find(verbot) == std::string::npos);
+    std::size_t const  wurf = static_cast<std::size_t>(rd()) % 2u;
+    std::cout << "  (g) K13-Wurf: Pruef-Reihenfolge beginnt bei = " << toolings[wurf] << "\n";
+    std::string const id = g320_ids.front();
+    for (std::size_t r = 0; r < 2u; ++r) {
+        char const* const gewaehlt = toolings[(wurf + r) % 2u];
+        char const* const andere   = toolings[(wurf + r + 1u) % 2u];
+        std::string const src      = tlz::generated_make_catalog_source_gen(abi::measurement_stamp_line(gewaehlt))(id);
+        std::string const muss     = std::string{"measurement_tooling="} + gewaehlt + "@1.0.0.c";
+        std::string const verbot   = std::string{"measurement_tooling="} + andere + "@1.0.0.c";
+        check_true(("(g) gewaehlte Zeile MUSS in cat(stamp)(id): " + muss).c_str(),
+                   src.find(muss) != std::string::npos);
+        check_true(("(g) NICHT gewaehlte Zeile DARF NICHT in cat(stamp)(id): " + verbot).c_str(),
+                   src.find(verbot) == std::string::npos);
+    }
 }
 
 // -- (a3) I2 Fingerprint-Drift-Beweis: der FingerprintFn == sha512 der EMITTIERTEN Stempel-Zeilen ---------------
