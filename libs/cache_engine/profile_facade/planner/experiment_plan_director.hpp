@@ -1340,8 +1340,20 @@ private:
         std::string const slug = legend::cmake_slug(combo_legend_);
         std::string const job  = legend::tier_batch_build_job(host);
         std::string const par  = std::to_string(lane_build_parallelism(host)); // §62-B Lane-Budget-Literal (T-Wert)
-        // S6-P1b Env-Bruecke (d): ab N>1 traegt das Treiber-Kommando die gewaehlte Mess-Combo. [all] => LEER =>
-        // byte-stabil. (i) §61-STUFEN: nur der Nicht-Default-Build (Debug) traegt COMDARE_BUILD_TYPE (Reuse-Schluessel).
+        // S6-P1b Env-Bruecke (d): ab N>1 traegt das Treiber-Kommando die gewaehlte Mess-Combo.
+        // [KORREKTUR 12.08.2026] Hier stand die Kurzform "[all] -> LEER -> byte-stabil". Sie ist missverstaendlich:
+        // LEER meint AUSSCHLIESSLICH die emittierte ENV-ZEILE (bei [all] wird KEIN COMDARE_MEASUREMENT_COMBO=
+        // exportiert), NICHT den Mess-Stempel. Der Code darunter ist unveraendert korrekt; nur die Kurzform
+        // verleitete Leser zu "[all] stempelt leer". Die Konsumentenseite leitet aus der FEHLENDEN Env die
+        // VOLLMENGE ab: UNGESETZT -> "[all]" (mess_achsen_naht.hpp:317) -> Vollmengen-Zeile
+        // (anatomy_version_stamp.hpp:378, Section 64-D1-B 22.07.2026). byte-stabil ist also die [all]-LANE
+        // (alle [all]-Laeufe rendern dieselbe Vollmengen-Zeile), nicht "leer".
+        // KEINE AUSSAGE UEBER DIE EMITTIERTE DLL: ob die Tier-Quelle diese Zeile auch TRAEGT, entscheidet nicht
+        // diese Env-Zeile, sondern welcher Source-Gen die id bedient (INC-G6-Vorrang base_union vor lazy_gen).
+        // Fuer Basis-320-Zellen ist das der Katalog mit der 2-arg-Form -- am Objekt gemessen 12.08.2026, Herleitung
+        // und Messwerte in profile_facade/profile_run_entry.hpp am lazy_gen (offener F1-Durchstich-Blocker).
+        // NUR KOMMENTAR -- kein Code geaendert. (i) §61-STUFEN: nur der Nicht-Default-Build (Debug) traegt
+        // COMDARE_BUILD_TYPE (Reuse-Schluessel).
         std::string const combo_env =
             combo_legend_ == "[all]" ? std::string{} : "COMDARE_MEASUREMENT_COMBO=\"" + combo_legend_ + "\" ";
         std::string const build_type_env =
@@ -1898,7 +1910,12 @@ private:
     void emit_batch_targets(std::string const& host, std::vector<PlanPerm> const& perms) {
         std::string const slug    = legend::cmake_slug(combo_legend_);
         std::string const stemdir = "${CMAKE_CURRENT_BINARY_DIR}/tier";
-        // S6-P1b Env-Bruecke (d): ab N>1 COMDARE_MEASUREMENT_COMBO im -E env-Block. [all] => LEER => byte-stabil.
+        // S6-P1b Env-Bruecke (d): ab N>1 COMDARE_MEASUREMENT_COMBO im -E env-Block.
+        // [KORREKTUR 12.08.2026] wie emit_batch_build_job (dort die ausfuehrliche Herleitung): LEER meint NUR die
+        // emittierte ENV-ZEILE im -E-Block, NICHT den Mess-Stempel. Die fehlende Env loest konsumentenseitig zur
+        // VOLLMENGE auf (mess_achsen_naht.hpp:317 -> anatomy_version_stamp.hpp:378). byte-stabil ist die
+        // [all]-LANE, nicht "leer"; was die emittierte DLL traegt, entscheidet der Source-Gen-Vorrang (INC-G6),
+        // nicht diese Zeile. NUR KOMMENTAR, kein Code.
         std::string const combo_line = combo_legend_ == "[all]"
                                            ? std::string{}
                                            : "            \"COMDARE_MEASUREMENT_COMBO=" + combo_legend_ + "\"\n";
