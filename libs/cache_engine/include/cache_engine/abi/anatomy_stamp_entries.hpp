@@ -93,8 +93,8 @@
 // und das dokumentierte Sentinel-Rendering "@0.0.0" (axis_variant_version_table: versionslose Eintraege)
 // bleibt ausdruecklich zulaessig -- verboten ist der UNPARSBARE Rest, nicht die Null-Version.
 
-#include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // AnatomyStampEntryV1
-#include <cache_engine/abi/stempel_basis.hpp>              // S-1: ist_stempel_baustein (Baustein-Anbindung)
+#include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // AnatomyStampEntryV1 (+ POD-Trait-Anbindung, 12.08.)
+#include <cache_engine/abi/stempel_basis.hpp>              // S-1: der EINE Zeilen-Scanner-Vertrag (Trait via decl)
 #include <cache_engine/measurement/algo_semver.hpp>        // parse_algo_semver + render_flag_tail
 
 #include <array>

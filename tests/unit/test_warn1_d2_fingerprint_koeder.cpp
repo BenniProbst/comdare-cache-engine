@@ -100,12 +100,14 @@ TEST(Warn1D2FingerprintKoeder, PermutationResultNulltSeineSkalareAuchAufSchmutzi
         // war die V7-Klasse "Zusicherung, die das Design nicht gibt": gcc nullte das Padding zufaellig
         // mit, clang/Debug liess das Muster legal stehen -- der Test war compiler-abhaengig rot
         // (#84-Vorbestand 09.-12.08., von der KON55-2x2-Matrix reproduziert).
-        auto const& rec = r->record;
-        record_genullt  = rec.version == 0u && rec.op_count == 0u && rec.total_cycles == 0u &&
-                          rec.cache_misses_l1 == 0u && rec.cache_misses_l2 == 0u && rec.cache_misses_l3 == 0u &&
-                          rec.dtlb_misses == 0u && rec.coherence_invalidations == 0u && rec.energy_micro_joules == 0u &&
-                          rec.bytes_allocated == 0u && rec.bytes_in_use_peak == 0u &&
-                          rec.external_fragmentation == 0.0 && rec.internal_fragmentation == 0.0;
+        // Structured Binding mit EXAKT 13 Namen (Zweitpass-Fix): ein 14. Feld bricht hier
+        // compile-hart ("too few names") statt still ungeprueft zu bleiben -- der 13er-Nenner
+        // ist damit gepinnt, Padding bleibt aussen.
+        auto const& [f_version, f_op_count, f_total_cycles, f_l1, f_l2, f_l3, f_dtlb, f_coherence, f_energy,
+                     f_bytes_alloc, f_bytes_peak, f_ext_frag, f_int_frag] = r->record;
+        record_genullt = f_version == 0u && f_op_count == 0u && f_total_cycles == 0u && f_l1 == 0u && f_l2 == 0u &&
+                         f_l3 == 0u && f_dtlb == 0u && f_coherence == 0u && f_energy == 0u && f_bytes_alloc == 0u &&
+                         f_bytes_peak == 0u && f_ext_frag == 0.0 && f_int_frag == 0.0;
     }
     if (record_genullt) ++erfuellt;
 

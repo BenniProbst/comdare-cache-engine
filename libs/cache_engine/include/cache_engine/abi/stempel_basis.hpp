@@ -49,8 +49,9 @@ namespace comdare::cache_engine::abi {
 
 namespace detail {
 // VORWAERTSDEKLARATION statt #include <cache_engine/abi/anatomy_stamp_entries.hpp>: entries.hpp
-// inkludiert die decl.hpp (AnatomyStampEntryV1), und die entries.hpp inkludiert DIESEN Header (S-1/P2-
-// Anbindung der beiden ABI-PODs) -- ein entries-Include hier waere der Zyklus. Die Definition liefert
+// inkludiert die decl.hpp (AnatomyStampEntryV1), und die entries.hpp inkludiert DIESEN Header (fuer
+// den Scanner-Vertrag; die POD-Trait-Anbindung lebt seit 12.08. in der decl selbst) -- ein
+// entries-Include hier waere der Zyklus. Die Definition liefert
 // anatomy_stamp_entries.hpp (der EINE Zeilen-Scanner); jede TU, die einen Traeger mit Mess-/System-/
 // Organ-PFLICHT schliesst, zieht sie VOR dem static_assert -- sonst bricht die Konstantauswertung LAUT
 // ("used before its definition"), nie still.
@@ -206,16 +207,29 @@ template <auto TeileFn>
 // P1.3 -- der Vertrag: "Erbin verschaerft, nie aufweicht" als deferred-consteval-Assert-Kette
 // ================================================================================================
 
+/// Erkennt jede echte span<string_view const, E>-Spezialisierung (dynamic UND fixed extent) --
+/// und NUR sie: ein Container/array, der erst implizit zum Span konvertierte, faellt durch
+/// (dessen Temporaer hinge nach dem Vollausdruck; Zweitlens-Befund 12.08.).
+template <class T>
+inline constexpr bool ist_stempelzeilen_span = false;
+template <std::size_t Extent>
+inline constexpr bool ist_stempelzeilen_span<std::span<std::string_view const, Extent>> = true;
+
 /// Der angeschlossene()-Vertrag (NUR Hybrid): ein RT-Hook, der die angeschlossenen Stempel-Zeilen als
 /// Span liefert. S-1 definiert AUSSCHLIESSLICH diese Signatur; der Datenbestand ist der
-/// KON47-02-Init-Cache am Dock, der Bau ist HY-A2 (WARTE-Liste W-D).
+/// KON47-02-Init-Cache am Dock, der Bau ist HY-A2 (WARTE-Liste W-D). API-INVARIANTE: der
+/// Backing-Storage des Spans ist statisch langlebig (der Init-Cache), nie ein Temporaer.
 /// EXAKTER Span-Rueckgabetyp (same_as, nicht convertible_to): convertible_to liesse auch ein per Wert
 /// zurueckgegebenes temporaeres std::array zu, dessen implizit erzeugter Span nach dem Vollausdruck
 /// haengt (Zweitlens-Befund 12.08.). API-INVARIANTE dazu: der Backing-Storage des Spans ist statisch
 /// langlebig (der Init-Cache am Dock), nie ein Temporaer der Aufruf-Stelle.
 template <class E>
 concept AngeschlosseneVertrag = requires(E const& e) {
-    { e.angeschlossene() } noexcept -> std::same_as<std::span<std::string_view const>>;
+    { e.angeschlossene() } noexcept;
+    // Zweitpass-Fix 12.08.: same_as<span<...>> verwarf auch den sicheren Fixed-Extent-Span
+    // (std::span{kArray} deduziert span<string_view const, N>) -- zugelassen ist jede echte
+    // span<string_view const, E>-Spezialisierung, NIE eine implizite Container-Konversion.
+    requires ist_stempelzeilen_span<std::remove_cvref_t<decltype(e.angeschlossene())>>;
 };
 
 namespace vertrag_detail {

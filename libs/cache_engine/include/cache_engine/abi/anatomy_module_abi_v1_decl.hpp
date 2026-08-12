@@ -306,13 +306,14 @@ static_assert(!stamp_pod_has_entries(detail::stamp_pod_layout_probe(5u)),
 static_assert(!stamp_pod_has_entries(detail::stamp_pod_layout_probe(7u)),
               "K-4: ein kuenftiges Layout 7 ist ebenfalls unbekannt -- Gleichheit, nicht Ordnung.");
 
-// -- S-1 (P2): die Baustein-Anbindung der beiden ABI-PODs (ist_stempel_baustein<AnatomyStampEntryV1/
-//    AnatomyVersionLines>, Rolle AbiPod) lebt in anatomy_stamp_entries.hpp -- der Parser-Seite
-//    DERSELBEN PODs. AUSDRUECKLICH NICHT HIER: dieses Decl-Header ist die bewusst LEICHTE Loader-Seite
-//    (Kopf, relative Includes, selbstgenuegsam fuer minimale TUs ohne include-Roots); ein
-//    stempel_basis-Include zoege measurement/algo_semver + Katalog in jeden dlopen-Host -- gemessen am
-//    Anlassfall test_best_binary_selector_parse_rank (fatal error: cache_engine/abi/stempel_basis.hpp:
-//    No such file or directory). Die Pins oben (:191-193/:254/:261-264) bleiben byte-unberuehrt.
+// -- S-1 (P2, NACHGEZOGEN 12.08.2026 -- Zweitpass-Fix): die Baustein-Anbindung der beiden ABI-PODs
+//    lebt seit dem Trait-Umzug DIREKT OBEN in dieser Datei (unter den POD-Definitionen), ueber den
+//    LEICHTEN stempel_baustein_trait.hpp -- NICHT mehr in anatomy_stamp_entries.hpp. Die Loader-
+//    Leichtheit dieser Decl-Seite bleibt gewahrt: der Trait-Header braucht nur <cstdint>/
+//    <type_traits>; das frueher gemessene Risiko (ein stempel_basis-Include zoege measurement/
+//    algo_semver + Katalog in jeden dlopen-Host, Anlassfall test_best_binary_selector_parse_rank)
+//    bleibt als Grund, warum es der Trait-SPLIT wurde und kein stempel_basis-Include. Die Pins
+//    (:191-193/:254/:261-264-Umgebung) bleiben byte-unberuehrt.
 
 } // namespace comdare::cache_engine::abi
 
