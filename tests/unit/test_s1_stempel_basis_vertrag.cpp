@@ -394,7 +394,9 @@ static_assert(pfd::kPruefDockVersionsLiteralBausteine.size() == kFremdDockLitera
               "A-P6: die P6-Baustein-Liste fuehrt nicht genau die fuenf Dock-Literale");
 static_assert(
     [] {
-        // cppcheck-suppress syntaxError // FP: cppcheck 2.21 parst das IIFE-Lambda im static_assert nicht -- gcc 15.3 + clang 22 bauen die TU (2x ctest 485/485 gruen)
+        // FP cppcheck 2.21: das IIFE-Lambda im static_assert wird nicht geparst --
+        // gcc 15.3 + clang 22 bauen die TU (Kombibau: 2x ctest 485/485 gruen).
+        // cppcheck-suppress syntaxError
         for (std::size_t i = 0; i < kFremdDockLiterale.size(); ++i)
             if (pfd::kPruefDockVersionsLiteralBausteine[i] != kFremdDockLiterale[i]) return false;
         return true;
