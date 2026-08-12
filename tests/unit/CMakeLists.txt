@@ -6845,3 +6845,32 @@ target_compile_definitions(test_vs_taxonomie_klassen_grep PRIVATE
 unset(_tax_semver)
 set_tests_properties(test_vs_taxonomie_klassen_grep PROPERTIES
     LABELS "wachen;taxonomie;versionierung;selbstwartung;koeder")
+
+# S-1 (P8): DER VERTRAGSTEST DER STEMPEL-BASISKLASSE (abi/stempel_basis.hpp) -- T-1..T-9.
+#
+# Beweist die 28 Matrixzellen gegen die fremde KON7-04-Quelle, die T-4-Gegeneingaenge (vertragslose/
+# teilvertragliche Probe-Structs werden abgelehnt, organ@CEB-Riegel, stille Leere unmoeglich), die
+# Baustein-Bindung (GENAU 10 Typen + PlanRegistryTrioAnnotation bleibt aussen), die byte-identische
+# Delegation von planner_version_stamp()/ceb_version_stamp() auf die Erbin-Komposita (Byte-Orakel mit
+# Praefix-Anker), den Dock-Nenner (5) und den g1-Ausgabe-Block (4 Zeilen non-empty).
+# Include-/Link-Menge == test_m_w12_stamp_bausteine (dieselbe Stempel-Flaeche): die TU zieht
+# builder/ceb_version_stamp.hpp und braucht deshalb die EINE Emissionsstelle
+# comdare_measurement_combo_ct (Verdrahtungs-Wache, s. Kommentar am m_w12-Block).
+add_executable(test_s1_stempel_basis_vertrag "test_s1_stempel_basis_vertrag.cpp")
+target_compile_features(test_s1_stempel_basis_vertrag PRIVATE cxx_std_23)
+target_include_directories(test_s1_stempel_basis_vertrag PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_s1_stempel_basis_vertrag PRIVATE gtest gtest_main Boost::mp11
+    comdare_measurement_combo_ct)
+comdare_set_platform_defines(test_s1_stempel_basis_vertrag)
+target_compile_definitions(test_s1_stempel_basis_vertrag PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+add_test(NAME test_s1_stempel_basis_vertrag COMMAND test_s1_stempel_basis_vertrag)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s1_stempel_basis_vertrag)
+set_tests_properties(test_s1_stempel_basis_vertrag PROPERTIES LABELS "s1;stempel;vertrag;koeder" TIMEOUT 60)

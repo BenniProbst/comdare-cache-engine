@@ -448,18 +448,25 @@ template <class E, StempelTraeger T>
     else {
         if (!gesamt_stempel_nicht_leer_probe<E>(0)) return false;
         // "enthaelt jede eigene nicht-leere Zeile + den sha als TEILSTRING" -- je Interface nur dann
-        // ausgewertet, wenn es der Traeger nach der Matrix ueberhaupt PFLICHTIG traegt UND die eigene
-        // Interface-Pruefung schon bestanden ist (Kurzschluss in stempel_vertrag_erfuellt).
+        // INSTANZIIERT, wenn es der Traeger nach der Matrix pflichtig traegt UND die Erbin das Mitglied
+        // wirklich hat (hat_*-Gate): fehlt ein Pflicht-Mitglied, faellt der Vertrag bereits an dessen
+        // eigener Zellen-Pruefung -- ein direkter E::xxx()-Zugriff HIER waere dann kein 'false', sondern
+        // ein harter Uebersetzungsfehler am T-4-Gegeneingang (genau das darf die Basis nie).
         bool ok = true;
-        if constexpr (stempel_zulassung(StempelInterface::VersionXyz, T) == StempelZulassung::Pflicht)
+        if constexpr (stempel_zulassung(StempelInterface::VersionXyz, T) == StempelZulassung::Pflicht &&
+                      hat_version_xyz<E>)
             ok = ok && gesamt_enthaelt<E>(std::string_view{E::version_xyz()});
-        if constexpr (stempel_zulassung(StempelInterface::MessZeile, T) == StempelZulassung::Pflicht)
+        if constexpr (stempel_zulassung(StempelInterface::MessZeile, T) == StempelZulassung::Pflicht &&
+                      hat_mess_zeile<E>)
             ok = ok && gesamt_enthaelt<E>(std::string_view{E::mess_zeile()});
-        if constexpr (stempel_zulassung(StempelInterface::SystemZeile, T) == StempelZulassung::Pflicht)
+        if constexpr (stempel_zulassung(StempelInterface::SystemZeile, T) == StempelZulassung::Pflicht &&
+                      hat_system_zeile<E>)
             ok = ok && gesamt_enthaelt<E>(std::string_view{E::system_zeile()});
-        if constexpr (stempel_zulassung(StempelInterface::OrganZeile, T) == StempelZulassung::Pflicht)
+        if constexpr (stempel_zulassung(StempelInterface::OrganZeile, T) == StempelZulassung::Pflicht &&
+                      hat_organ_zeile<E>)
             ok = ok && gesamt_enthaelt<E>(std::string_view{E::organ_zeile()});
-        if constexpr (stempel_zulassung(StempelInterface::FingerprintSha, T) == StempelZulassung::Pflicht)
+        if constexpr (stempel_zulassung(StempelInterface::FingerprintSha, T) == StempelZulassung::Pflicht &&
+                      hat_fingerprint_sha<E>)
             ok = ok && gesamt_enthaelt<E>(std::string_view{E::fingerprint_sha()});
         return ok;
     }
