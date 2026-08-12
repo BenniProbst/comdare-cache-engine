@@ -963,21 +963,32 @@ else
 
         # -- (i) HOST-PROBE: PFLICHT, sobald diese Achse faehrt --------------------
         if [ -z "$_ce_fremd_probe" ]; then
-            ce_fremd_befund "HOST-PROBE FEHLT: COMDARE_FREMD_HOST_PROBE ist ungesetzt. PFLICHT, sobald COMDARE_FREMD_INVENTUR gesetzt ist -- ohne die Klasse der Gegenseite ist eine ISA-Differenz von einem Defekt nicht unterscheidbar."
+            _ce_m="HOST-PROBE FEHLT: COMDARE_FREMD_HOST_PROBE ist ungesetzt. PFLICHT, sobald"
+            _ce_m="${_ce_m} COMDARE_FREMD_INVENTUR gesetzt ist -- ohne die Klasse der Gegenseite"
+            _ce_m="${_ce_m} ist eine ISA-Differenz von einem Defekt nicht unterscheidbar."
+            ce_fremd_befund "$_ce_m"
         elif [ ! -f "$_ce_fremd_probe" ]; then
-            ce_fremd_befund "HOST-PROBE FEHLT: angekuendigt ('${_ce_fremd_probe}'), aber nicht da. Angekuendigt und fehlend wird NICHT uebersprungen (fail-closed)."
+            _ce_m="HOST-PROBE FEHLT: angekuendigt ('${_ce_fremd_probe}'), aber nicht da."
+            _ce_m="${_ce_m} Angekuendigt und fehlend wird NICHT uebersprungen (fail-closed)."
+            ce_fremd_befund "$_ce_m"
         else
             if ce_host_klasse_lesen "$_ce_fremd_probe" fremd; then
                 CE_FREMD_KLASSE=$CE_HK_KLASSE
                 _ce_fh_da=$(sed -n '/^HOST=/p' "$_ce_fremd_probe" | wc -l | tr -d ' ')
                 if [ "$_ce_fh_da" -ne 1 ]; then
-                    ce_fremd_befund "HOST-PROBE INKONSISTENT: '${_ce_fremd_probe}' hat ${_ce_fh_da} 'HOST='-Zeilen, erwartet GENAU EINE (der Erzeuger schreibt sie hinter die Cache-Zeilen)."
+                    _ce_m="HOST-PROBE INKONSISTENT: '${_ce_fremd_probe}' hat ${_ce_fh_da}"
+                    _ce_m="${_ce_m} 'HOST='-Zeilen, erwartet GENAU EINE (der Erzeuger schreibt"
+                    _ce_m="${_ce_m} sie hinter die Cache-Zeilen)."
+                    ce_fremd_befund "$_ce_m"
                 else
                     CE_FREMD_HOST=$(sed -n 's/^HOST=//p' "$_ce_fremd_probe" | sed -n '1p')
-                    echo "  HOST-PROBE (fremd, ${_ce_fremd_probe}): Klasse ${CE_FREMD_KLASSE}, Host ${CE_FREMD_HOST}"
+                    _ce_m="  HOST-PROBE (fremd, ${_ce_fremd_probe}):"
+                    echo "${_ce_m} Klasse ${CE_FREMD_KLASSE}, Host ${CE_FREMD_HOST}"
                 fi
             else
-                ce_fremd_befund "HOST-PROBE UNBRAUCHBAR: '${_ce_fremd_probe}' -- Grund unmittelbar darueber. Eine Klasse, die nicht gemessen vorliegt, wird nicht geraten."
+                _ce_m="HOST-PROBE UNBRAUCHBAR: '${_ce_fremd_probe}' -- Grund unmittelbar"
+                _ce_m="${_ce_m} darueber. Eine Klasse, die nicht gemessen vorliegt, wird nicht geraten."
+                ce_fremd_befund "$_ce_m"
             fi
         fi
 
@@ -987,12 +998,16 @@ else
             for _ce_db in $_ce_fremd_delta; do
                 _ce_db_zeile=$(awk -F'|' -v k="$_ce_db" '$1==k {print; exit}' "${_ce_tmp}/bloecke.txt")
                 if [ -z "$_ce_db_zeile" ]; then
-                    ce_fremd_befund "SOLL-DELTA-BLOCK FEHLT: '${_ce_db}' steht nicht im Registrierungs-Protokoll dieses Baums -- die Deklaration zeigt ins Leere."
+                    _ce_m="SOLL-DELTA-BLOCK FEHLT: '${_ce_db}' steht nicht im Registrierungs-"
+                    _ce_m="${_ce_m}Protokoll dieses Baums -- die Deklaration zeigt ins Leere."
+                    ce_fremd_befund "$_ce_m"
                     continue
                 fi
                 _ce_db_status=$(printf '%s\n' "$_ce_db_zeile" | awk -F'|' '{print $2}')
                 if [ "$_ce_db_status" != "AKTIV" ]; then
-                    ce_fremd_befund "SOLL-DELTA-BLOCK NICHT AKTIV: '${_ce_db}' meldet '${_ce_db_status}' -- ein Delta aus einem Block, der gar nicht lief, ist keins."
+                    _ce_m="SOLL-DELTA-BLOCK NICHT AKTIV: '${_ce_db}' meldet '${_ce_db_status}'"
+                    _ce_m="${_ce_m} -- ein Delta aus einem Block, der gar nicht lief, ist keins."
+                    ce_fremd_befund "$_ce_m"
                     continue
                 fi
                 printf '%s\n' "$_ce_db_zeile" | awk -F'|' '{print $3}' | tr ',' '\n' \
@@ -1006,7 +1021,11 @@ else
                 if awk -v n="$_ce_dn" 'BEGIN{f=1} $0==n {f=0} END{exit f}' "${_ce_tmp}/nur_hier.txt"; then
                     echo "$_ce_dn" >> "${_ce_tmp}/solldelta_abgezogen.txt"
                 else
-                    ce_fremd_befund "STALE DEKLARATION: '${_ce_dn}' (SOLL-DELTA) ist NICHT 'nur hier' -- der Name steht auch im fremden Baum oder fehlt in diesem. Eine Deklaration, die nichts mehr abzieht, gehoert entfernt, nicht mitgeschleppt."
+                    _ce_m="STALE DEKLARATION: '${_ce_dn}' (SOLL-DELTA) ist NICHT 'nur hier'"
+                    _ce_m="${_ce_m} -- der Name steht auch im fremden Baum oder fehlt in diesem."
+                    _ce_m="${_ce_m} Eine Deklaration, die nichts mehr abzieht, gehoert entfernt,"
+                    _ce_m="${_ce_m} nicht mitgeschleppt."
+                    ce_fremd_befund "$_ce_m"
                 fi
             done < "${_ce_tmp}/solldelta.txt"
             # ABGEZOGENE NAMEN IMMER AUSWEISEN -- ein stiller Abzug waere ein
@@ -1023,7 +1042,11 @@ else
         _ce_nhr=$(wc -l < "${_ce_tmp}/nur_hier_rest.txt" | tr -d ' ')
 
         # -- BILANZZEILE: IMMER beide Klassen, beide Hosts, beide Zahlen -----------
-        echo "  BILANZ: eigen=${CE_GESAMT} (Klasse ${CE_HOST_KLASSE}, Host ${_ce_hostname}) gegen fremd=${CE_FREMD_N} (Klasse ${CE_FREMD_KLASSE:-unbestimmt}, Host ${CE_FREMD_HOST:-unbestimmt})"
+        # (EINE Ausgabezeile; nur der Quelltext ist umbrochen.)
+        _ce_m="  BILANZ: eigen=${CE_GESAMT} (Klasse ${CE_HOST_KLASSE}, Host ${_ce_hostname})"
+        _ce_m="${_ce_m} gegen fremd=${CE_FREMD_N} (Klasse ${CE_FREMD_KLASSE:-unbestimmt},"
+        _ce_m="${_ce_m} Host ${CE_FREMD_HOST:-unbestimmt})"
+        echo "$_ce_m"
 
         # -- (iii) VERGLEICHSREGELN -- nur ueber einem sauberen Fundament ----------
         if [ "$CE_FREMD_ROT" -ne 0 ]; then
@@ -1038,14 +1061,16 @@ else
                 if [ "$_ce_nhr" -eq 0 ] && [ "$_ce_nf" -eq 0 ]; then
                     if [ -s "${_ce_tmp}/solldelta_abgezogen.txt" ]; then
                         _ce_abz=$(wc -l < "${_ce_tmp}/solldelta_abgezogen.txt" | tr -d ' ')
-                        echo "  -> deckungsgleich nach SOLL-DELTA: ${CE_GESAMT} - ${_ce_abz} == ${CE_FREMD_N} (Klassen gleich: ${CE_HOST_KLASSE})."
+                        _ce_m="  -> deckungsgleich nach SOLL-DELTA: ${CE_GESAMT} - ${_ce_abz}"
+                        echo "${_ce_m} == ${CE_FREMD_N} (Klassen gleich: ${CE_HOST_KLASSE})."
                         CE_FREMD_STATUS="GRUEN (${CE_GESAMT} - ${_ce_abz} == ${CE_FREMD_N}, klassengleich)"
                     else
                         echo "  -> deckungsgleich (${CE_GESAMT} == ${CE_FREMD_N}), Namen identisch."
                         CE_FREMD_STATUS="GRUEN (${CE_GESAMT} == ${CE_FREMD_N})"
                     fi
                 else
-                    echo "  -> ABWEICHUNG (Klassen gleich: ${CE_HOST_KLASSE}): ${_ce_nhr} nur hier (nach SOLL-DELTA), ${_ce_nf} nur im fremden Baum -- erwartet 0 und 0."
+                    _ce_m="  -> ABWEICHUNG (Klassen gleich: ${CE_HOST_KLASSE}): ${_ce_nhr} nur"
+                    echo "${_ce_m} hier (nach SOLL-DELTA), ${_ce_nf} nur im fremden Baum -- erwartet 0 und 0."
                     CE_FREMD_STATUS="ROT (klassengleich, ${_ce_nhr} nur hier / ${_ce_nf} nur fremd)"
                     CE_FREMD_ROT=1
                 fi
@@ -1069,16 +1094,23 @@ else
                     _ce_rest_datei="${_ce_tmp}/nur_fremd.txt"
                     _ce_rest_marke="-"
                 fi
-                echo "  Leiter-Ausweis: floor(${_ce_reich})=$(ce_klasse_floor "$_ce_reich") - floor(${_ce_arm})=$(ce_klasse_floor "$_ce_arm") = ${_ce_soll_diff} erwartete klassengebundene Differenz."
+                _ce_m="  Leiter-Ausweis: floor(${_ce_reich})=$(ce_klasse_floor "$_ce_reich")"
+                _ce_m="${_ce_m} - floor(${_ce_arm})=$(ce_klasse_floor "$_ce_arm")"
+                echo "${_ce_m} = ${_ce_soll_diff} erwartete klassengebundene Differenz."
                 if [ "$_ce_gegen_leer" -eq 0 ] && [ "$_ce_ist_diff" -eq "$_ce_soll_diff" ]; then
-                    echo "  -> KLASSEN-DIFFERENZ ERKLAERT: genau ${_ce_ist_diff} Name(n) ${_ce_seite}, 0 ${_ce_gegen}:"
+                    _ce_m="  -> KLASSEN-DIFFERENZ ERKLAERT: genau ${_ce_ist_diff} Name(n)"
+                    echo "${_ce_m} ${_ce_seite}, 0 ${_ce_gegen}:"
                     while IFS= read -r _ce_t; do
                         echo "    ${_ce_rest_marke} ${_ce_t}"
                     done < "$_ce_rest_datei"
-                    CE_FREMD_STATUS="GRUEN (Klassen-Differenz ${_ce_soll_diff} erklaert, ${CE_HOST_KLASSE} gegen ${CE_FREMD_KLASSE})"
+                    _ce_m="GRUEN (Klassen-Differenz ${_ce_soll_diff} erklaert,"
+                    CE_FREMD_STATUS="${_ce_m} ${CE_HOST_KLASSE} gegen ${CE_FREMD_KLASSE})"
                 else
-                    echo "  -> ABWEICHUNG (Klassen ${CE_HOST_KLASSE} gegen ${CE_FREMD_KLASSE}): erwartet ${_ce_soll_diff} Name(n) ${_ce_seite} und 0 ${_ce_gegen}; gefunden ${_ce_ist_diff} ${_ce_seite}, ${_ce_gegen_leer} ${_ce_gegen}."
-                    CE_FREMD_STATUS="ROT (Klassen-Differenz ${_ce_soll_diff} erwartet, ${_ce_ist_diff}/${_ce_gegen_leer} gefunden)"
+                    _ce_m="  -> ABWEICHUNG (Klassen ${CE_HOST_KLASSE} gegen ${CE_FREMD_KLASSE}):"
+                    _ce_m="${_ce_m} erwartet ${_ce_soll_diff} Name(n) ${_ce_seite} und 0 ${_ce_gegen};"
+                    echo "${_ce_m} gefunden ${_ce_ist_diff} ${_ce_seite}, ${_ce_gegen_leer} ${_ce_gegen}."
+                    _ce_m="ROT (Klassen-Differenz ${_ce_soll_diff} erwartet,"
+                    CE_FREMD_STATUS="${_ce_m} ${_ce_ist_diff}/${_ce_gegen_leer} gefunden)"
                     CE_FREMD_ROT=1
                 fi
             fi

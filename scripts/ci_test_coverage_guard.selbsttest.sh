@@ -83,11 +83,14 @@ echo "INVENTUR des Baums: ${ST_N} Tests (zugleich die 'fremde' Quelle fuer den G
 # Bestandsfaelle (1)-(4) fahren deshalb mit der Probe des EIGENEN Baums (Klassen
 # gleich) -- sonst mass jeder Fall die Probe-Pflicht statt seines Gegenstands.
 _st_probe_eigen="${_st_tmp}/probe_eigen.txt"
-sed -n '/^COMDARE_HOST_RUNS_AVX2:/p;/^COMDARE_HOST_RUNS_AVX2_COMPILED:/p;/^COMDARE_HOST_RUNS_AVX2_EXITCODE:/p;/^COMDARE_HOST_RUNS_AVX512F:/p;/^COMDARE_HOST_RUNS_AVX512F_COMPILED:/p;/^COMDARE_HOST_RUNS_AVX512F_EXITCODE:/p' \
-    "${ST_BUILD}/CMakeCache.txt" > "$_st_probe_eigen"
+# Prefix-Muster ([:_] trennt AVX2 von AVX2_*): faengt Wertzeile, _COMPILED und
+# _EXITCODE je Variable; die 7-Zeilen-Pruefung darunter meldet jede Ueberraschung.
+sed -n '/^COMDARE_HOST_RUNS_AVX2[:_]/p'    "${ST_BUILD}/CMakeCache.txt" >  "$_st_probe_eigen"
+sed -n '/^COMDARE_HOST_RUNS_AVX512F[:_]/p' "${ST_BUILD}/CMakeCache.txt" >> "$_st_probe_eigen"
 echo "HOST=$( (hostname 2>/dev/null || echo unbekannt) | sed -n '1p')" >> "$_st_probe_eigen"
 _st_probe_zeilen=$(wc -l < "$_st_probe_eigen" | tr -d ' ')
-[ "$_st_probe_zeilen" -eq 7 ] || st_abbruch "eigene Host-Probe hat ${_st_probe_zeilen} Zeilen, erwartet 7 (6 Cache-Zeilen + HOST) -- CMakeCache ohne ISA-Probe?"
+[ "$_st_probe_zeilen" -eq 7 ] || st_abbruch "eigene Host-Probe hat ${_st_probe_zeilen} Zeilen, \
+erwartet 7 (6 Cache-Zeilen + HOST) -- CMakeCache ohne ISA-Probe?"
 
 # -- GRUNDLAUF: ohne die Achse (und ohne ihre F1-Zusatz-Auskuenfte). Nur wenn ---
 # -- der gruen ist, laesst sich der RC-BEITRAG der Achse ueberhaupt messen. -----
@@ -112,8 +115,10 @@ _st_eigen_klasse=$(sed -n 's/^HOST-KLASSE (gemessen, .*): //p' "${_st_tmp}/grund
 # -- Der SOLL-DELTA-Block fuer (6)-(8): AKTIV, mit Tests, FRISCH GEWUERFELT ----
 _st_prot="${ST_BUILD}/comdare_registrierungs_protokoll.txt"
 [ -f "$_st_prot" ] || st_abbruch "Registrierungs-Protokoll fehlt: ${_st_prot} ('make inventar' fahren)."
-sed -n 's/^BLOCK|//p' "$_st_prot" | awk -F'|' '$2=="AKTIV" && $3!="-" && $3!="" {print}' > "${_st_tmp}/aktive_bloecke.txt"
-[ -s "${_st_tmp}/aktive_bloecke.txt" ] || st_abbruch "kein AKTIVer Block mit Tests im Protokoll -- die Faelle (6)-(9) haetten keinen Gegenstand."
+sed -n 's/^BLOCK|//p' "$_st_prot" \
+    | awk -F'|' '$2=="AKTIV" && $3!="-" && $3!="" {print}' > "${_st_tmp}/aktive_bloecke.txt"
+[ -s "${_st_tmp}/aktive_bloecke.txt" ] || st_abbruch "kein AKTIVer Block mit Tests im Protokoll \
+-- die Faelle (6)-(9) haetten keinen Gegenstand."
 _st_block_zeile=$(shuf -n 1 --random-source=/dev/urandom "${_st_tmp}/aktive_bloecke.txt")
 _st_block=$(printf '%s\n' "$_st_block_zeile" | awk -F'|' '{print $1}')
 printf '%s\n' "$_st_block_zeile" | awk -F'|' '{print $3}' | tr ',' '\n' \
@@ -272,7 +277,8 @@ else
     done
     LC_ALL=C sort -u "${_st_tmp}/fremd_ohne_block.txt" "${_st_tmp}/klasse_diff.txt" > "${_st_tmp}/fremd9.txt"
 fi
-echo "  (Koeder Fall 9: eigen=${_st_eigen_klasse}, fremd synthetisch=${_st_syn_klasse}, K=${_st_k9} gewuerfelte Namen, Richtung ${_st_richtung})"
+echo "  (Koeder Fall 9: eigen=${_st_eigen_klasse}, fremd synthetisch=${_st_syn_klasse}, \
+K=${_st_k9} gewuerfelte Namen, Richtung ${_st_richtung})"
 st_fall 9 "klassen_differenz_k_gruen" 0 "${_st_tmp}/fremd9.txt" \
     "COMDARE_FREMD_HOST_PROBE=${_st_probe_syn} COMDARE_FREMD_SOLL_DELTA_BLOECKE=${_st_block}" \
     "Leiter-Ausweis" "KLASSEN-DIFFERENZ ERKLAERT" "Klasse ${_st_syn_klasse}, Host synthetische-probe"

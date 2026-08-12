@@ -55,7 +55,7 @@ git rev-parse --git-dir >/dev/null 2>&1 || abbruch "kein git-Repository"
 REPO_ROOT=$(git rev-parse --show-toplevel) || abbruch "Repo-Wurzel nicht bestimmbar"
 cd "$REPO_ROOT" || abbruch "cd in die Repo-Wurzel fehlgeschlagen"
 
-# ── Aufruf-Schalter --nur=format (#83, 2026-08-12) ──────────────────────────
+# -- Aufruf-Schalter --nur=format (#83, 2026-08-12) --------------------------
 # WAS ER TUT: er faehrt AUSSCHLIESSLICH Wache 2 (clang-format ueber die
 # CI-Vollmenge). Die ist seit der CI-Formel-Paritaet BEREICHSFREI -- sie prueft
 # den ARBEITSSTAND der Vollmenge, nicht einen Commit-Bereich, und braucht darum
@@ -127,7 +127,8 @@ wache2_format() {
         _w2_ver=$(_w2_version "$CF")
         if [ "$_w2_ver" != "$_w2_soll" ]; then
             abbruch "COMDARE_CLANG_FORMAT='$CF' hat Version '${_w2_ver:-unbekannt}', die CI faehrt ${_w2_soll} \
-(base-pipeline.yml:43). Abbruch statt Pruefung mit fremder Version -- ein Gruen daraus waere keine Aussage ueber die CI."
+(base-pipeline.yml:43). Abbruch statt Pruefung mit fremder Version -- \
+ein Gruen daraus waere keine Aussage ueber die CI."
         fi
     else
         CF=""
@@ -211,7 +212,7 @@ nicht der Baum sauber. Ein leeres Gate ist KEIN gruenes Gate."
     echo ""
 }
 
-# ── --nur=format: NUR Wache 2, dann Verdikt -- kein Bereich, kein Clean-Gate ─
+# -- --nur=format: NUR Wache 2, dann Verdikt -- kein Bereich, kein Clean-Gate -
 if [ "$NUR_FORMAT" -eq 1 ]; then
     ROT=0
     wache2_format "[nur=format]"
@@ -334,7 +335,7 @@ else
 fi
 echo ""
 
-# ── Wache 2: clang-format in CI-Formel-Paritaet (Definition oben, #83) ───────
+# -- Wache 2: clang-format in CI-Formel-Paritaet (Definition oben, #83) ------
 # Sie prueft die CI-VOLLMENGE, nicht die beruehrte Teilmenge -- die Dateiliste
 # oben dient den Wachen 1 und 3; fuer das Format zaehlt, was der CI-Job sieht.
 wache2_format "[2/3]"
