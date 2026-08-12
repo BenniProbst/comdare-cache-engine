@@ -18,6 +18,7 @@
 #include "../../../anatomy/measurable_workload.hpp" // IMeasurableWorkload (Loader-dynamic_cast)
 #include "../../../anatomy/observable_tier.hpp"     // IObservableTier (Loader-dynamic_cast, R6 Pfad B)
 #include "../../../anatomy/rollbackable_tier.hpp"   // IRollbackableTier (Loader-dynamic_cast, V5-I6 memento_all)
+#include "stempel_baustein_trait.hpp"               // S-1: leichter Baustein-Trait (Spezialisierungen unten)
 
 #include <cstdint>
 
@@ -242,6 +243,18 @@ struct AnatomyVersionLines {
     std::uint64_t              measurement_entry_count; ///< Anzahl measurement_entries
 };
 
+// -- S-1 (P2, hierher verlegt 12.08.2026): Baustein-Anbindung der beiden ABI-PODs DIREKT beim
+//    Eigentuemer -- NUR Trait (stempel_baustein_trait.hpp, leicht), KEIN Basisklassen-Einbau; die
+//    sizeof-/align-/Layout-Pins unten bleiben byte-unberuehrt. Vorher standen die Spezialisierungen
+//    im Parser-Header (anatomy_stamp_entries.hpp): eine TU, die decl + stempel_basis sah und den
+//    Trait VORHER instanzierte, las still false/Keine (Zweitlens-Befund 12.08.).
+template <>
+struct ist_stempel_baustein<AnatomyStampEntryV1> : StempelBausteinTag<StempelBausteinRolle::AbiPod> {};
+static_assert(StempelBaustein<AnatomyStampEntryV1>);
+template <>
+struct ist_stempel_baustein<AnatomyVersionLines> : StempelBausteinTag<StempelBausteinRolle::AbiPod> {};
+static_assert(StempelBaustein<AnatomyVersionLines>);
+
 /// Layout-Version des AnatomyVersionLines-POD -- unabhaengig vom ABI-Major. Ein POD-Layout-Wechsel bumpt
 /// DIESE Konstante, NICHT COMDARE_ANATOMY_ABI_MAJOR (das optionale Symbol ist nicht Loader-Pflicht).
 /// W12-A3 (2026-07-20): 1 -> 2 (measurement_line/measurement_len ans POD-Ende angehaengt).
@@ -293,13 +306,14 @@ static_assert(!stamp_pod_has_entries(detail::stamp_pod_layout_probe(5u)),
 static_assert(!stamp_pod_has_entries(detail::stamp_pod_layout_probe(7u)),
               "K-4: ein kuenftiges Layout 7 ist ebenfalls unbekannt -- Gleichheit, nicht Ordnung.");
 
-// -- S-1 (P2): die Baustein-Anbindung der beiden ABI-PODs (ist_stempel_baustein<AnatomyStampEntryV1/
-//    AnatomyVersionLines>, Rolle AbiPod) lebt in anatomy_stamp_entries.hpp -- der Parser-Seite
-//    DERSELBEN PODs. AUSDRUECKLICH NICHT HIER: dieses Decl-Header ist die bewusst LEICHTE Loader-Seite
-//    (Kopf, relative Includes, selbstgenuegsam fuer minimale TUs ohne include-Roots); ein
-//    stempel_basis-Include zoege measurement/algo_semver + Katalog in jeden dlopen-Host -- gemessen am
-//    Anlassfall test_best_binary_selector_parse_rank (fatal error: cache_engine/abi/stempel_basis.hpp:
-//    No such file or directory). Die Pins oben (:191-193/:254/:261-264) bleiben byte-unberuehrt.
+// -- S-1 (P2, NACHGEZOGEN 12.08.2026 -- Zweitpass-Fix): die Baustein-Anbindung der beiden ABI-PODs
+//    lebt seit dem Trait-Umzug DIREKT OBEN in dieser Datei (unter den POD-Definitionen), ueber den
+//    LEICHTEN stempel_baustein_trait.hpp -- NICHT mehr in anatomy_stamp_entries.hpp. Die Loader-
+//    Leichtheit dieser Decl-Seite bleibt gewahrt: der Trait-Header braucht nur <cstdint>/
+//    <type_traits>; das frueher gemessene Risiko (ein stempel_basis-Include zoege measurement/
+//    algo_semver + Katalog in jeden dlopen-Host, Anlassfall test_best_binary_selector_parse_rank)
+//    bleibt als Grund, warum es der Trait-SPLIT wurde und kein stempel_basis-Include. Die Pins
+//    (:191-193/:254/:261-264-Umgebung) bleiben byte-unberuehrt.
 
 } // namespace comdare::cache_engine::abi
 

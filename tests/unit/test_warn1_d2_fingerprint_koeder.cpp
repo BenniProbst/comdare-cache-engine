@@ -94,13 +94,20 @@ TEST(Warn1D2FingerprintKoeder, PermutationResultNulltSeineSkalareAuchAufSchmutzi
     if (r->succeeded == false) ++erfuellt;
     bool record_genullt = true;
     {
-        // record{} ist wertinitialisiert -> die gesamte Byte-Darstellung muss frei vom Muster sein.
-        unsigned char const* rec = reinterpret_cast<unsigned char const*>(&r->record);
-        for (std::size_t i = 0; i < sizeof(r->record); ++i)
-            if (rec[i] == kSchmutzMuster) {
-                record_genullt = false;
-                break;
-            }
+        // record{} wertinitialisiert die MITGLIEDER -- geprueft werden deshalb die 13 Felder, NICHT die
+        // rohe Byte-Darstellung: comdare_measurement_record_v1 traegt 4 Padding-Bytes nach version
+        // (uint32 vor uint64), und deren Nullung sichert kein Initialisierer zu. Der fruehere Byte-Scan
+        // war die V7-Klasse "Zusicherung, die das Design nicht gibt": gcc nullte das Padding zufaellig
+        // mit, clang/Debug liess das Muster legal stehen -- der Test war compiler-abhaengig rot
+        // (#84-Vorbestand 09.-12.08., von der KON55-2x2-Matrix reproduziert).
+        // Structured Binding mit EXAKT 13 Namen (Zweitpass-Fix): ein 14. Feld bricht hier
+        // compile-hart ("too few names") statt still ungeprueft zu bleiben -- der 13er-Nenner
+        // ist damit gepinnt, Padding bleibt aussen.
+        auto const& [f_version, f_op_count, f_total_cycles, f_l1, f_l2, f_l3, f_dtlb, f_coherence, f_energy,
+                     f_bytes_alloc, f_bytes_peak, f_ext_frag, f_int_frag] = r->record;
+        record_genullt = f_version == 0u && f_op_count == 0u && f_total_cycles == 0u && f_l1 == 0u && f_l2 == 0u &&
+                         f_l3 == 0u && f_dtlb == 0u && f_coherence == 0u && f_energy == 0u && f_bytes_alloc == 0u &&
+                         f_bytes_peak == 0u && f_ext_frag == 0.0 && f_int_frag == 0.0;
     }
     if (record_genullt) ++erfuellt;
 

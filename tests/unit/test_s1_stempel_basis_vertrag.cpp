@@ -225,13 +225,23 @@ static_assert(!abi::StempelVertrag<CebMitOrganZeile, abi::StempelTraeger::Ceb>,
               "KON7-07-Riegel: eine CEB mit organ_zeile() MUSS abgelehnt werden");
 
 // NEGATIV 4: unparsbare Mess-Zeile (geklebte Gruppe, F4-Fehlform) -- der EINE Scanner beisst.
+// EIGENES Kompositum PFLICHT: kCebNegKomp traegt die GUELTIGE probe_mess_zeile() -- damit fiele
+// dieser Typ schon an der Teilstring-Regel (gesamt_enthaelt), und der Assert bewiese NIE den
+// Grammatik-Scanner (##57-Klasse "Koeder beisst aus dem falschen Grund"; Zweitlens-Befund 12.08.).
+// Die Fehl-Zeile steht deshalb als EINE Konstante in mess_zeile() UND im Kompositum: der Typ
+// erfuellt jede andere Vertragsflaeche und faellt NUR am Scanner.
+inline constexpr string_view         kFehlgrammMessZeile = "a=b@1.0.0[c=d@1.0.0]";
+constexpr std::array<string_view, 4> ceb_fehlgramm_teile() noexcept {
+    return {"ceb-measurement=", kFehlgrammMessZeile, ";sha512=", kProbeSha128};
+}
+inline constexpr auto kCebFehlgrammKomp = abi::stempel_kompositum<&ceb_fehlgramm_teile>();
 struct CebMitFehlgrammatik : abi::StempelBasis<CebMitFehlgrammatik, abi::StempelTraeger::Ceb> {
-    static constexpr string_view mess_zeile() noexcept { return "a=b@1.0.0[c=d@1.0.0]"; }
+    static constexpr string_view mess_zeile() noexcept { return kFehlgrammMessZeile; }
     static constexpr string_view system_zeile() noexcept { return {}; }
     static constexpr bool        kSystemZeileBewusstLeer      = true;
     static constexpr string_view kSystemZeileBewusstLeerGrund = "Probe";
     static constexpr string_view fingerprint_sha() noexcept { return kProbeSha128; }
-    static constexpr string_view gesamt_stempel() noexcept { return kCebNegKomp.view(); }
+    static constexpr string_view gesamt_stempel() noexcept { return kCebFehlgrammKomp.view(); }
 };
 static_assert(!abi::StempelVertrag<CebMitFehlgrammatik, abi::StempelTraeger::Ceb>,
               "M/S/O-Zeilen laufen durch stamp_line_is_wellformed -- die geklebte Gruppe MUSS ablehnen");
@@ -333,15 +343,18 @@ static_assert(abi::ist_stempel_baustein<ceb::detail::CebToolingList>::rolle == a
 } // namespace
 
 // A-P2/P3-Koeder- (Dauer-Negativprobe): PlanRegistryTrioAnnotation FAELLT RAUS (Explore-Entscheid des
-// Schnitts -- Plan-Kopf-Annotation, kein Stempel-Baustein). Vorwaertsdeklaration genuegt dem Trait;
-// eine probeweise eingeworfene Spezialisierung macht den Assert unten ROT.
+// Schnitts -- Plan-Kopf-Annotation, kein Stempel-Baustein). DEKLARIERTE GRENZE (Zweitlens-Befund
+// 12.08., am Objekt begrenzt): der Eigentuemer-Header (experiment_plan_director.hpp, 2352 Z.) ist
+// aus dieser TU nicht ziehbar (planner-interne relative Includes ausserhalb der Test-Include-Roots)
+// -- die Vorwaertsdeklaration prueft deshalb NUR "keine Spezialisierung in DIESER TU sichtbar".
+// Eine Spezialisierung im Eigentuemer-Header selbst faenge erst die GESCHLOSSENE Baustein-Liste der
+// S-5-Registry (WARTE-Posten dort); bis dahin traegt der K4-Wegwerf-Koeder (probeweise
+// Spezialisierung HIER -> Assert ROT) die Gegenrichtung.
 namespace comdare::cache_engine::planner {
 struct PlanRegistryTrioAnnotation;
 } // namespace comdare::cache_engine::planner
 
 namespace {
-
-// (im anonymen Namensraum, damit der lokale abi-Alias die globale <cxxabi.h>-Alias-Kollision schattiert)
 static_assert(!abi::StempelBaustein<::comdare::cache_engine::planner::PlanRegistryTrioAnnotation>,
               "PlanRegistryTrioAnnotation ist KEIN Stempel-Baustein (Explore: FAELLT RAUS) -- wer sie "
               "anbindet, weitet die KON6-03-Menge ohne Schnitt-Entscheid");
@@ -360,6 +373,13 @@ TEST(S1StempelBasisVertrag, PlanerDelegiertByteIdentisch) {
     EXPECT_EQ(stamp, std::string{pl::PlanerStempel::gesamt_stempel()});
     ASSERT_GE(stamp.size(), kPlanerPraefixAnker.size());
     EXPECT_EQ(stamp.substr(0, kPlanerPraefixAnker.size()), std::string{kPlanerPraefixAnker});
+    // OS-ANTEIL-PIN (Zweitlens-Befund 12.08.): der Praefix-Anker endet mit "os=" -- ohne diesen Pin
+    // bliebe ein LEERER oder zeilenbrechender OS-Wert unbemerkt (der Rest des Stempels war ungepinnt).
+    // Der Wert selbst ist plattformabhaengig (uname) und wird deshalb als Klasse gepinnt, nicht als Byte.
+    std::string const os_wert = stamp.substr(kPlanerPraefixAnker.size());
+    EXPECT_FALSE(os_wert.empty()) << "os= traegt keinen Wert -- die Planer-Zeile endet am Label";
+    EXPECT_EQ(os_wert.find('\n'), std::string::npos) << "die Planer-Rolle ist EINE Zeile (g1-Block-Vertrag)";
+    EXPECT_EQ(os_wert.find(' '), std::string::npos) << "der os-Wert ist das LETZTE Feld -- kein weiteres Segment";
 }
 
 // ================================================================================================
@@ -380,6 +400,14 @@ TEST(S1StempelBasisVertrag, CebDelegiertByteIdentisch) {
     // ORDNUNGSNEUTRAL: die eigene Mess-Zeile und der sha reisen als Teilstring im Gesamt-Stempel.
     EXPECT_NE(stamp.find(std::string{ceb::CebStempel::mess_zeile()}), std::string::npos);
     EXPECT_NE(stamp.find(std::string{ceb::CebStempel::fingerprint_sha()}), std::string::npos);
+    // UNABHAENGIGES VOLL-ORAKEL (Zweitlens-Befund 12.08.): die Gleichheit oben ist nach der Delegation
+    // tautologisch -- erst die hier NACHGEBAUTE fruehere Konkatenation bindet REIHENFOLGE und
+    // VOLLSTAENDIGKEIT des Altstrings unabhaengig, gegen Wrapper UND Erbin (T-5: Orakel nicht aus dem
+    // Pruefling -- die Bauform stammt aus dem eingefrorenen Schnitt-Text, nicht aus gesamt_stempel()).
+    std::string const erwartet = std::string{"ceb-measurement="} + std::string{ceb::CebStempel::mess_zeile()} +
+                                 ";sha512=" + std::string{ceb::CebStempel::fingerprint_sha()};
+    EXPECT_EQ(stamp, erwartet) << "die CEB-Konkatenation hat Form/Reihenfolge des Altstrings verlassen";
+    EXPECT_EQ(std::string{ceb::CebStempel::gesamt_stempel()}, erwartet);
 }
 
 // ================================================================================================
@@ -429,6 +457,10 @@ TEST(S1StempelBasisVertrag, G1BlockVierZeilenNonEmptyUndPlanerRolle) {
         start       = pos + 1;
     }
     ASSERT_EQ(n, 4u) << "g1-Block traegt nicht genau vier '\\n'-terminierte Zeilen: " << block;
+    // EOF-PFLICHT (Zweitlens-Befund 12.08.): die Schleife endet bei n==4 -- ohne diesen Pin bliebe eine
+    // FUENFTE Zeile oder Nachlauf hinter der vierten unentdeckt ("genau vier" waere nur "mindestens vier").
+    EXPECT_EQ(start, block.size()) << "nach der vierten terminierten Zeile folgt weiterer Inhalt: "
+                                   << block.substr(start);
     for (std::string const& z : zeilen) EXPECT_FALSE(z.empty());
     // Zeile 1 == die PLANER-Rolle, transitiv aus dem Erbin-Kompositum (P7-Anker):
     EXPECT_EQ(zeilen[0], pl::planner_version_stamp());
@@ -452,5 +484,27 @@ TEST(S1StempelBasisVertrag, MatrixDeckt28ZellenGegenFremdquelle) {
     }
     EXPECT_EQ(geprueft, 28u);
 }
+
+// ================================================================================================
+// KON8-07-DREIWERTIGKEIT: der ERLAUBT-Zweig der Zellen-Pruefung (Zweitlens-Befund 12.08.)
+// ================================================================================================
+// Die Matrix traegt heute 0 Erlaubt-Zellen (KON7-04 belegt nur Pflicht/Verboten) -- der Erlaubt-Zweig
+// von interface_vertrag ("fehlt ODER erfuellt") war damit UNGETESTET. Geprueft wird hier exakt seine
+// Formel ueber die ECHTEN vertrag_detail-Primitiven, an drei synthetischen Proben je Zustand: der
+// Zweig ist damit VOR seiner ersten Matrix-Belegung bewiesen, ohne die Produktions-Matrix anzufassen.
+struct ErlaubtProbeFehlt {}; // Interface fehlt -> Erlaubt-ok
+struct ErlaubtProbeGueltig {
+    static constexpr string_view version_xyz() noexcept { return "1.0.0.c"; } // vorhanden + gueltig -> ok
+};
+struct ErlaubtProbeUngueltig {
+    static constexpr string_view version_xyz() noexcept { return "1.0.0"; } // vorhanden + OHNE CPU-Flag -> faellt
+};
+template <class E>
+inline constexpr bool erlaubt_formel = // die interface_vertrag-Erlaubt-Form, woertlich
+    !abi::vertrag_detail::vorhanden_version_xyz<E> || abi::vertrag_detail::version_xyz_pflicht_erfuellt<E>();
+static_assert(erlaubt_formel<ErlaubtProbeFehlt>, "ERLAUBT: ein fehlendes Interface ist zulaessig");
+static_assert(erlaubt_formel<ErlaubtProbeGueltig>, "ERLAUBT: vorhanden UND vertragsgemaess ist zulaessig");
+static_assert(!erlaubt_formel<ErlaubtProbeUngueltig>,
+              "ERLAUBT heisst NICHT beliebig: vorhanden UND vertragswidrig MUSS ablehnen");
 
 } // namespace

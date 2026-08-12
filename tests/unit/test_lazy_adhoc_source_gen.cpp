@@ -435,19 +435,94 @@ void check_catalog_stamp_roundtrip(std::vector<std::string> const& g320_ids) {
     check_eq("(g) Katalog-Quelle traegt die 3-arg _M-Vollform", m_form, sample);
 
     // (3) K13-Wuerfel: der Koeder wird erzeugt, nie abgeschrieben -- und er beisst in BEIDE Richtungen.
+    // Der Wurf bestimmt NUR die Pruef-REIHENFOLGE; wertbezogen geprueft werden DETERMINISTISCH BEIDE
+    // Toolings. Vorher entschied der Wurf, WELCHES geprueft wird -- ein in beiden Gens gleich
+    // hartkodierter Fehler blieb so in ~50% der Laeufe gruen (Zweitlens-Befund 12.08.).
     char const* const  toolings[2] = {"wallclock", "macro"};
     std::random_device rd;
-    std::size_t const  wurf     = static_cast<std::size_t>(rd()) % 2u;
-    char const* const  gewaehlt = toolings[wurf];
-    char const* const  andere   = toolings[1u - wurf];
-    std::cout << "  (g) K13-Wurf: gewaehlte Combo = " << gewaehlt << "  (nicht gewaehlt: " << andere << ")\n";
-    std::string const id     = g320_ids.front();
-    std::string const src    = tlz::generated_make_catalog_source_gen(abi::measurement_stamp_line(gewaehlt))(id);
-    std::string const muss   = std::string{"measurement_tooling="} + gewaehlt + "@1.0.0.c";
-    std::string const verbot = std::string{"measurement_tooling="} + andere + "@1.0.0.c";
-    check_true(("(g) gewaehlte Zeile MUSS in cat(stamp)(id): " + muss).c_str(), src.find(muss) != std::string::npos);
-    check_true(("(g) NICHT gewaehlte Zeile DARF NICHT in cat(stamp)(id): " + verbot).c_str(),
-               src.find(verbot) == std::string::npos);
+    std::size_t const  wurf = static_cast<std::size_t>(rd()) % 2u;
+    std::cout << "  (g) K13-Wurf: Pruef-Reihenfolge beginnt bei = " << toolings[wurf] << "\n";
+    std::string const id = g320_ids.front();
+    for (std::size_t r = 0; r < 2u; ++r) {
+        char const* const gewaehlt = toolings[(wurf + r) % 2u];
+        char const* const andere   = toolings[(wurf + r + 1u) % 2u];
+        std::string const src      = tlz::generated_make_catalog_source_gen(abi::measurement_stamp_line(gewaehlt))(id);
+        std::string const muss     = std::string{"measurement_tooling="} + gewaehlt + "@1.0.0.c";
+        std::string const verbot   = std::string{"measurement_tooling="} + andere + "@1.0.0.c";
+        check_true(("(g) gewaehlte Zeile MUSS in cat(stamp)(id): " + muss).c_str(),
+                   src.find(muss) != std::string::npos);
+        check_true(("(g) NICHT gewaehlte Zeile DARF NICHT in cat(stamp)(id): " + verbot).c_str(),
+                   src.find(verbot) == std::string::npos);
+    }
+}
+
+// -- (h) KON47-01: die Stempel-Durchreichung ALLER Katalog-Pfade (Zweitlens-Befund 12.08.) ------------------
+// Wache (g) deckte nur den generierten Basis-Katalog -- die 18 axis_sweep_source_map-Zweige, die 17er-Union
+// und kary_perk_source_map blieben ungewacht: EIN vergessener Durchreichungszweig (Default {} = 2-arg)
+// erzeugte live wieder deklaration_leer am fail-closed-Gate (exakt die KON44-01-Klasse). Fremder Nenner
+// (T-3): die 18 Namen sind die eingefrorene Owner-Achsenliste, NICHT aus source_catalog.hpp abgelesen.
+void check_sweep_stamp_coverage() {
+    std::cout << "\n---- (h) KON47-01: Stempel-Durchreichung aller Sweep-/Union-/per-K-Pfade ----\n";
+    namespace abi = ::comdare::cache_engine::abi;
+    static constexpr std::array<char const*, 18> kSweepAchsen{"persistence_target",
+                                                              "search_algo",
+                                                              "node_type",
+                                                              "memory_layout",
+                                                              "prefetch",
+                                                              "migration_policy",
+                                                              "filter",
+                                                              "value_handle",
+                                                              "path_compression",
+                                                              "cache_traversal",
+                                                              "mapping",
+                                                              "allocator",
+                                                              "concurrency",
+                                                              "serialization",
+                                                              "index_organization",
+                                                              "io_dispatch",
+                                                              "queuing_q1",
+                                                              "queuing_q2"};
+    static_assert(kSweepAchsen.size() == 18, "(h) Nenner-ASSERT vor der Schleife (Owner-Achsenliste)");
+    std::string const stamp = abi::measurement_stamp_line("wallclock");
+    check_true("(h) die Stempel-Probe ist nicht leer", !stamp.empty());
+
+    std::size_t achsen_ok_m = 0, achsen_ok_leer = 0, eintraege_gesamt = 0;
+    for (char const* ax : kSweepAchsen) {
+        auto const mit  = tlz::axis_sweep_source_map(ax, stamp);
+        auto const ohne = tlz::axis_sweep_source_map(ax);
+        bool       ok_m = !mit.empty(), ok_l = !ohne.empty();
+        for (auto const& [id, src] : mit) {
+            eintraege_gesamt += 1;
+            if (src.find("COMDARE_ANATOMY_VERSION_STAMP_M(") == std::string::npos) ok_m = false;
+            if (src.find(stamp) == std::string::npos) ok_m = false;
+        }
+        for (auto const& [id, src] : ohne) {
+            if (src.find("COMDARE_ANATOMY_VERSION_STAMP_M(") != std::string::npos) ok_l = false;
+            if (src.find("COMDARE_ANATOMY_VERSION_STAMP(") == std::string::npos) ok_l = false;
+        }
+        if (ok_m) ++achsen_ok_m;
+        if (ok_l) ++achsen_ok_leer;
+        if (!ok_m || !ok_l) std::cout << "  [ERR] (h) Achse " << ax << ": mit=" << ok_m << " leer=" << ok_l << "\n";
+    }
+    check_eq("(h) Achsen mit _M-Vollform + Stempel-Zeile in JEDEM Eintrag", achsen_ok_m, kSweepAchsen.size());
+    check_eq("(h) Achsen mit 2-arg-Form bei leerem Stempel (Default {})", achsen_ok_leer, kSweepAchsen.size());
+    std::cout << "  (h) Sweep-Eintraege gesamt (mit Stempel): " << eintraege_gesamt << "\n";
+
+    auto const  uni    = tlz::make_all_axis_sweeps_source_map(stamp);
+    std::size_t uni_ok = 0;
+    for (auto const& [id, src] : uni)
+        if (src.find("COMDARE_ANATOMY_VERSION_STAMP_M(") != std::string::npos && src.find(stamp) != std::string::npos)
+            ++uni_ok;
+    check_true("(h) 17er-Union nicht leer", !uni.empty());
+    check_eq("(h) 17er-Union: JEDER Eintrag traegt _M + Stempel-Zeile", uni_ok, uni.size());
+
+    auto const kary = tlz::kary_perk_source_map(stamp);
+    check_eq("(h) kary_perk_source_map: genau 4 Eintraege (Header-Zusage)", kary.size(), std::size_t{4});
+    std::size_t kary_ok = 0;
+    for (auto const& [id, src] : kary)
+        if (src.find("COMDARE_ANATOMY_VERSION_STAMP_M(") != std::string::npos && src.find(stamp) != std::string::npos)
+            ++kary_ok;
+    check_eq("(h) per-K: JEDER Eintrag traegt _M + Stempel-Zeile", kary_ok, kary.size());
 }
 
 // -- (a3) I2 Fingerprint-Drift-Beweis: der FingerprintFn == sha512 der EMITTIERTEN Stempel-Zeilen ---------------
@@ -539,6 +614,7 @@ int main() {
     check_measurement_stamp_wiring(g320_ids);
     check_measurement_combo_env_bridge(g320_ids);
     check_catalog_stamp_roundtrip(g320_ids); // (g) KON47-01: Katalog-Gen stempelt (KON44-Luecke geschlossen)
+    check_sweep_stamp_coverage();            // (h) KON47-01: ALLE Sweep-/Union-/per-K-Pfade stempeln (Zweitlens 12.08.)
     check_golden_n_nonempty(g320_ids, full_ids);
     check_fingerprint_drift_free(g320_ids); // I2: der .fingerprint-Sidecar-Provider deckt sich mit dem DLL-sha512_line
     check_crc64_and_lazy_cover(full_ids);
