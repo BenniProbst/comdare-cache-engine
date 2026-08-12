@@ -54,6 +54,16 @@ namespace detail {
 // Organ-PFLICHT schliesst, zieht sie VOR dem static_assert -- sonst bricht die Konstantauswertung LAUT
 // ("used before its definition"), nie still.
 [[nodiscard]] consteval bool stamp_line_is_wellformed(std::string_view line);
+
+/// Dependenz-Wrapper um den EINEN Scanner: die Zeilen-Proben unten nennen NUR diese (hier definierte)
+/// Vorlage in ihren Default-Template-Argumenten. Die vorwaertsdeklarierte Scanner-Funktion wird damit
+/// erst an einer INSTANZIIERUNG referenziert -- also nur in TUs, die einen Traeger mit Mess-/System-/
+/// Organ-PFLICHT schliessen (und dort ist entries.hpp inkludiert). Ohne den Wrapper meldete clang an
+/// jeder Planer-TU -Wundefined-inline auf die blosse Nennung im Default-Argument.
+template <class Zeile>
+[[nodiscard]] consteval bool zeile_durch_den_einen_scanner(Zeile const& zeile) {
+    return stamp_line_is_wellformed(std::string_view{zeile});
+}
 } // namespace detail
 
 // ================================================================================================
@@ -255,8 +265,8 @@ inline constexpr bool vorhanden_angeschlossene = requires(E const& e) { e.angesc
 //    Ausdruck, fehlendes Mitglied), ist das eine Substitutions-Ablehnung und die '...'-Ueberladung
 //    gewinnt -- der Vertrag wird FALSCH, die Uebersetzung der Basis bricht nie. ------------------------
 
-// M/S/O-Zeilen: durch den EINEN Scanner (keine zweite Grammatik-Wahrheit).
-template <class E, bool B = detail::stamp_line_is_wellformed(std::string_view{E::mess_zeile()})>
+// M/S/O-Zeilen: durch den EINEN Scanner (keine zweite Grammatik-Wahrheit; via Dependenz-Wrapper, s.o.).
+template <class E, bool B = detail::zeile_durch_den_einen_scanner(E::mess_zeile())>
 consteval bool mess_zeile_scanner_probe(int) {
     return B;
 }
@@ -264,7 +274,7 @@ template <class E>
 consteval bool mess_zeile_scanner_probe(...) {
     return false;
 }
-template <class E, bool B = detail::stamp_line_is_wellformed(std::string_view{E::system_zeile()})>
+template <class E, bool B = detail::zeile_durch_den_einen_scanner(E::system_zeile())>
 consteval bool system_zeile_scanner_probe(int) {
     return B;
 }
@@ -272,7 +282,7 @@ template <class E>
 consteval bool system_zeile_scanner_probe(...) {
     return false;
 }
-template <class E, bool B = detail::stamp_line_is_wellformed(std::string_view{E::organ_zeile()})>
+template <class E, bool B = detail::zeile_durch_den_einen_scanner(E::organ_zeile())>
 consteval bool organ_zeile_scanner_probe(int) {
     return B;
 }
