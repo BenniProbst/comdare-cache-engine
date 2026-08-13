@@ -785,6 +785,19 @@ contract:profile_coverage:
 # test:coverage-guard) laesst einen doppelten Top-Level-Schluessel nicht mehr unbemerkt durch.
 # Configure ohne -DCOMDARE_BUILD_TESTS=ON: add_subdirectory(tools) ist in CMakeLists.txt unbedingt, das
 # Tool-Target existiert also auch ohne die Test-Suite (lokal belegt) -- das spart den Test-Configure.
+#
+# S-14a (2026-08-13, Task #33/KON17-03) -- DIE HARTKODIERTE 6-PFAD-LISTE FAELLT AUS DIESER DATEI:
+# sie war Mitursache des Drei-Wochen-Ausfalls oben (eine Grundgesamtheit, die im Job-Script wohnt,
+# altert mit jedem neuen Traeger und haengt am YAML-Merge-Verhalten). Das Tool v2 erhebt seine
+# Grundgesamtheit SELBST und prueft BIDIREKTIONAL -- auch verwaiste Lock-Eintraege werden ROT (v1
+# sah sie nie: do_check iterierte nur ueber argv). Der Job bleibt EIN unbedingtes Dauergate ohne
+# rules.
+# PFLICHT-FIXUP 3 (2026-08-13, KERN-DEFEKT): die v2-Erhebung (organ-Homes + Substring-Filter
+# 'algo_version') bewachte nur 152 von 387 *.hpp der Homes -- 60 Prozent unbewacht bei GRUEN.
+# Seitdem ist die Grundgesamtheit der OVERLAY-SCHNITT (builder/overlay_source_set.hpp -- exakt die
+# Dateimenge, ueber die das Overlay-Glied [7] des Tier-Fingerprints hasht; 712 Quell-Dateien in den
+# Kategorien organ/system/mess/tier_substanz) plus heuristik-Home. Dateien ohne Literal stehen
+# digest-only im Register; die GRUEN-Zeile BELEGT die Deckung ('deckt N von N Overlay-Quellen').
 contract:axis-version-lock:
   extends: .bare_metal
   stage: contract
@@ -794,15 +807,23 @@ contract:axis-version-lock:
     # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
     - cmake -B build-axislock -G Ninja
     - cmake --build build-axislock --target comdare_axis_version_lock
+    # PFLICHT-FIXUP 2 (13.08.2026, Owner-Dauerregel; Fund-Gruppe 2, live belegt): --check allein
+    # liess den Bump-Zweig als DAUERLOCH stehen -- Bump ohne Lock-Regen war Exit 0, der
+    # Regen-HINWEIS stand auf stdout eines GRUENEN Jobs, und JEDER weitere Inhalts-Drift unter
+    # der einmal gebumpten Version blieb gruen. Seitdem doppelt geschlossen: (a) das Tool
+    # liefert Exit 3 'REGEN ERFORDERLICH', sobald ein akzeptierter Bump ohne Regen vorliegt
+    # (der erste Schritt wird damit rot); (b) der Job erzwingt zusaetzlich die BYTE-IDENTITAET
+    # des Registers -- --write regeneriert deterministisch, und git diff auf GENAU diese Datei
+    # muss leer sein. (b) faengt ALLE Drift-Formen des Registers, auch Klassen, die --check
+    # strukturell nicht sieht (Tiefenstaffelung; das Lock ist Cache-/Lager-Schluessel, ein
+    # veraltetes Register hiesse 'schneller UND falsch').
     - >
-      ./build-axislock/tools/axis_version_lock/comdare_axis_version_lock --check
-      tools/axis_version_lock/axis_version.lock
-      libs/cache_engine/heuristik/axis_optimization_catalog.hpp
-      libs/cache_engine/heuristik/axis_spline.hpp
-      libs/cache_engine/heuristik/break_even.hpp
-      libs/cache_engine/heuristik/measurement_curve_loader.hpp
-      libs/cache_engine/heuristik/workload_cluster_offline.hpp
-      libs/cache_engine/heuristik/workload_feature_vector.hpp
+      ./build-axislock/tools/axis_version_lock/comdare_axis_version_lock
+      --check tools/axis_version_lock/axis_version.lock
+    - >
+      ./build-axislock/tools/axis_version_lock/comdare_axis_version_lock
+      --write tools/axis_version_lock/axis_version.lock
+    - git diff --exit-code -- tools/axis_version_lock/axis_version.lock
   artifacts:
     paths: []     # Storage-500-Konvention
 

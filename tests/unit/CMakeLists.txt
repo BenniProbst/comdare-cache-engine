@@ -1917,6 +1917,43 @@ foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
 endforeach()
 
 # -----------------------------------------------------------------------------
+# S-14a BUMP-WACHE TEIL 1 -- DER RIEGEL (Task #33; Plan 13.3 #90; Owner KON17-03). Tripwire-ctest ueber
+# das EXCLUDE_FROM_ALL-Werkzeug comdare_axis_version_lock: der Test bekommt Binary-Pfad und Quellbaum als
+# argv, kopiert die Traeger-Baeume in ein Temp-Verzeichnis (comdare_test_tmp.hpp) und faehrt --write/--check
+# NUR auf den Kopien (Koeder A-E; golden/TABU unberuehrt). 2-Pass-Muster der Tool-Gates
+# (Vorbild f15_compare_cli_smoke): das Tool-Target haengt als add_dependencies-Kante am Test UND steht in
+# COMDARE_TEST_TARGETS, damit der comdare_tests-Sammel-Bau es baut (sonst 'Not Run' in der CI, Klasse #278).
+# SCHWERE TU mit Absicht (Blockvorbild test_reflect_versions_all17): sie loggt den CT-Zaehler
+# kAllRegisteredOrganVariantCount NEBEN den Datei-Zaehlern des Tools -- nur loggen, nie gleichsetzen
+# (Datei != Variante).
+add_executable(test_s14_axis_version_lock_tripwire "test_s14_axis_version_lock_tripwire.cpp")
+target_compile_features(test_s14_axis_version_lock_tripwire PRIVATE cxx_std_23)
+target_include_directories(test_s14_axis_version_lock_tripwire PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_s14_axis_version_lock_tripwire PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_s14_axis_version_lock_tripwire)
+target_compile_definitions(test_s14_axis_version_lock_tripwire PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_dependencies(test_s14_axis_version_lock_tripwire comdare_axis_version_lock)
+add_test(NAME test_s14_axis_version_lock_tripwire COMMAND test_s14_axis_version_lock_tripwire
+    "$<TARGET_FILE:comdare_axis_version_lock>" "${PROJECT_SOURCE_DIR}")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s14_axis_version_lock_tripwire)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS comdare_axis_version_lock)
+# Raw add_test bekommt KEINEN Auto-Timeout (cmake/gtest_setup.cmake setzt ihn nur fuer comdare_add_test);
+# 900s fuer Baum-Kopie (~8 MB seit Fixup 3: topics/ GANZ + anatomy/ + include/cache_engine/measurement/)
+# + ~90 Tool-Laeufe mit SHA-256 ueber 718 Dateien je Lauf (Pflicht-Fixup 3 13.08.2026: Overlay-
+# Grundgesamtheit 712 + heuristik 6, Koeder T1-T5 kamen hinzu; Debug-Builds rechnen die SHA deutlich
+# langsamer als Release).
+set_tests_properties(test_s14_axis_version_lock_tripwire PROPERTIES
+    TIMEOUT 900
+    LABELS "s14;axis_lock;tripwire")
+
+# -----------------------------------------------------------------------------
 # E-24 C6-V (2026-08-04, Entscheid E5 LEDGER:3828) -- die Statistics-Huellen der GATTUNGS-EIGENEN
 # Achsen-Themen. Die Huellen sind COMDARE_CE_ENABLE_STATISTICS-gegated (Praezedenz
 # axis_01_index_organization_observable.hpp:126-133), und diese TUs pruefen den EINGESCHALTETEN Zustand.
