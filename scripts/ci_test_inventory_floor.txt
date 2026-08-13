@@ -27,15 +27,38 @@
 # NACHZIEHEN HEISST ALLE DREI: die Sprossenabstaende (-4 und -2) sind Teil der
 # Aussage, nicht Beiwerk.
 #
-# -- WIE DIE ZAHLEN ENTSTANDEN SIND (NACHMESSUNG 2026-08-13, WELLEN-LANDUNG P1+P11) --
-# GEMESSEN am 2026-08-13 in diesem Repo, Stand b91b22fc (development im Haupt-Baum nach den
-# beiden Wellen-Merges: P1 4c37116a = S-3, P11 b91b22fc = S-14a-Riegel), Messhost prod1,
-# GCC 15.3.0, Ninja. Bau-Baum build-covguard KALT angelegt (existierte beim Start nicht) und
-# mit dem Rezept des HISTORIE-Abschnitts 'MESSUNG 2026-08-10' unten gebaut, UNVERAENDERT
+# -- WIE DIE ZAHLEN ENTSTANDEN SIND (NACHMESSUNG 2026-08-13, S-7-ABNAHME) ------------
+# GEMESSEN am 2026-08-13 in diesem Repo, Stand = S-7-Arbeitsbaum auf Basis 5f3f26a5 (Branch
+# bau/s7-algo-hardware-stempel, Worktree wt-ce-mess-ordnung), Messhost prod1, GCC 15.3.0,
+# Ninja. Bau-Baum build-covguard KALT angelegt (existierte beim Start nicht) und mit dem
+# Rezept des HISTORIE-Abschnitts 'MESSUNG 2026-08-10' unten gebaut, UNVERAENDERT
 # einschliesslich des Pruefling-Schalters
 # (configure.sh --with-generator=Ninja --enable-build-tests
 #  -DCOMDARE_CE_PRUEFLINGE="$PWD/tests/pruefling_fixture"; make inventar;
 #  ctest -N | sed 's/^ *Test *#[0-9][0-9]*: *//p' | LC_ALL=C sort -u | wc -l);
+# Registrierungs-Protokoll dieses Baums: 5 von 5 bedingten Bloecken AKTIV.
+#     avx512f (gemessen, prod1)                                          -> 491
+#     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                -> 487
+#     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0     -> 485
+# danach 'cmake -U' auf BEIDE Variablen; Wiederherstellung nachgewiesen: 491 Tests,
+# Namensmenge Byte-gleich zur Erstmessung. Namensdiffs mit LC_ALL=C comm in BEIDE
+# Richtungen: avx512f->avx2 verliert exakt die dokumentierten VIER, avx2->basis die ZWEI,
+# Gegenrichtungen leer -- die Sprossenabstaende -4 und -2 stehen.
+#
+# WOHER +2 JE SPROSSE KOMMT (Konto, je Name; Registrierungs-Diff 5f3f26a5..S-7 in
+# tests/unit/CMakeLists.txt, Gegenrichtung leer -- nichts entfallen): GENAU ZWEI neue
+# Registrierungen, test_stempel_vollbestand_registry + test_stempel_zulassung_bruecke
+# (S-7 Achsen-Algo-Hardware-Stempel, Paket P2, comdare_add_test am Dateiende). Der
+# Zugangs-Diff traegt 0 Treffer auf COMDARE_HOST_RUNS/COMDARE_CE_PRUEFLINGE (Diff-Probe
+# gemessen, Nenner 151 added-Zeilen); beide Tests stehen in ALLEN drei Klassen-Namensmengen
+# (je 1x gezaehlt). Eigener Commit, wie der Datei-Kopf es verlangt.
+#
+# -- HISTORIE: NACHMESSUNG 2026-08-13 (WELLEN-LANDUNG P1+P11) -- WIE 489/485/483 ENTSTANDEN
+# GEMESSEN am 2026-08-13 in diesem Repo, Stand b91b22fc (development im Haupt-Baum nach den
+# beiden Wellen-Merges: P1 4c37116a = S-3, P11 b91b22fc = S-14a-Riegel), Messhost prod1,
+# GCC 15.3.0, Ninja. Bau-Baum build-covguard KALT angelegt (existierte beim Start nicht) und
+# mit dem Rezept des HISTORIE-Abschnitts 'MESSUNG 2026-08-10' unten gebaut, UNVERAENDERT
+# einschliesslich des Pruefling-Schalters (dasselbe Rezept wie im obersten Abschnitt);
 # Registrierungs-Protokoll dieses Baums: 5 von 5 bedingten Bloecken AKTIV.
 #     avx512f (gemessen, prod1)                                          -> 489
 #     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                -> 485
@@ -217,8 +240,9 @@
 #     dieselben geblieben.
 # DIESER ABSATZ IST HISTORIE: er beschreibt 496/492/490 am Stand 83a6d443. Danach galten
 # seit der Sammellandung 479/475/473 (s. HISTORIE-Abschnitt darueber), ab der S-3-Abnahme
-# 2026-08-13 die Werte 488/484/482; gueltig sind seit der Wellen-Landung P1+P11 (gleicher
-# Tag, Stand b91b22fc) die Werte 489/485/483, s. den obersten Abschnitt.
+# 2026-08-13 die Werte 488/484/482, ab der Wellen-Landung P1+P11 (gleicher Tag, Stand
+# b91b22fc) die Werte 489/485/483; gueltig sind seit der S-7-Abnahme (gleicher Tag, Basis
+# 5f3f26a5 + 2 Stempel-Tests) die Werte 491/487/485, s. den obersten Abschnitt.
 #
 # NEBENBEI, damit niemand hineinlaeuft: das Erzwingen oben ist ein Verfahren fuer
 # 'ctest -N', NICHT fuer die Wache. Auf einem so erzwungenen Baum bricht
@@ -282,6 +306,6 @@
 # FORMAT: '#'-Kommentare und Leerzeilen sind erlaubt. Wertzeilen haben die Form
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
-avx512f 489
-avx2 485
-basis 483
+avx512f 491
+avx2 487
+basis 485
