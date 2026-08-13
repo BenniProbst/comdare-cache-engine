@@ -54,9 +54,9 @@ struct ToolRun {
     std::string output; // stdout+stderr gemeinsam
 };
 
-std::string g_tool;      // Pfad zur comdare_axis_version_lock-Binary (argv[1])
-fs::path    g_tmp_root;  // Wurzel der Kopien
-fs::path    g_lockfile;  // Lock der Kopien
+std::string g_tool;     // Pfad zur comdare_axis_version_lock-Binary (argv[1])
+fs::path    g_tmp_root; // Wurzel der Kopien
+fs::path    g_lockfile; // Lock der Kopien
 
 [[nodiscard]] std::string slurp(fs::path const& p) {
     std::ifstream      f(p, std::ios::binary);
@@ -77,7 +77,7 @@ void spew(fs::path const& p, std::string const& bytes) {
     fs::path const    out = g_tmp_root / "tool_out.txt";
     std::string const cmd = "\"" + g_tool + "\" " + mode + " \"" + g_lockfile.string() + "\" --root \"" +
                             g_tmp_root.string() + "\" > \"" + out.string() + "\" 2>&1";
-    int const rc = std::system(cmd.c_str());
+    int const         rc  = std::system(cmd.c_str());
 #if defined(_WIN32)
     r.exit_code = rc;
 #else
@@ -202,8 +202,8 @@ int main(int argc, char** argv) {
     // Schritt 6: Ziele aus dem LOCK waehlen (nie hartkodierte Dateinamen -- S-6-Umzuege duerfen den
     // Test nicht brechen): der synthetische Eintrag + der erste ECHTE organ-Traeger (version != '-').
     std::vector<LockZeile> const zeilen = parse_lock_v2(g_lockfile);
-    std::string            ziel_a;
-    bool                   synth_im_lock = false;
+    std::string                  ziel_a;
+    bool                         synth_im_lock = false;
     for (LockZeile const& z : zeilen) {
         if (z.rel == kSynthRel) synth_im_lock = true;
         if (ziel_a.empty() && z.category == "organ" && z.version != "-" && z.rel != kSynthRel) ziel_a = z.rel;

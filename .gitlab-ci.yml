@@ -785,6 +785,13 @@ contract:profile_coverage:
 # test:coverage-guard) laesst einen doppelten Top-Level-Schluessel nicht mehr unbemerkt durch.
 # Configure ohne -DCOMDARE_BUILD_TESTS=ON: add_subdirectory(tools) ist in CMakeLists.txt unbedingt, das
 # Tool-Target existiert also auch ohne die Test-Suite (lokal belegt) -- das spart den Test-Configure.
+#
+# S-14a (2026-08-13, Task #33/KON17-03) -- DIE HARTKODIERTE 6-PFAD-LISTE FAELLT AUS DIESER DATEI:
+# sie war Mitursache des Drei-Wochen-Ausfalls oben (eine Grundgesamtheit, die im Job-Script wohnt,
+# altert mit jedem neuen Traeger und haengt am YAML-Merge-Verhalten). Das Tool v2 erhebt seine
+# Grundgesamtheit SELBST (heuristik-Home + organ-Homes axes/ + topics/queuing/, BESTAND-Zeilen mit
+# Nenner im Log) und prueft BIDIREKTIONAL -- auch verwaiste Lock-Eintraege werden ROT (v1 sah sie
+# nie: do_check iterierte nur ueber argv). Der Job bleibt EIN unbedingtes Dauergate ohne rules.
 contract:axis-version-lock:
   extends: .bare_metal
   stage: contract
@@ -795,14 +802,8 @@ contract:axis-version-lock:
     - cmake -B build-axislock -G Ninja
     - cmake --build build-axislock --target comdare_axis_version_lock
     - >
-      ./build-axislock/tools/axis_version_lock/comdare_axis_version_lock --check
-      tools/axis_version_lock/axis_version.lock
-      libs/cache_engine/heuristik/axis_optimization_catalog.hpp
-      libs/cache_engine/heuristik/axis_spline.hpp
-      libs/cache_engine/heuristik/break_even.hpp
-      libs/cache_engine/heuristik/measurement_curve_loader.hpp
-      libs/cache_engine/heuristik/workload_cluster_offline.hpp
-      libs/cache_engine/heuristik/workload_feature_vector.hpp
+      ./build-axislock/tools/axis_version_lock/comdare_axis_version_lock
+      --check tools/axis_version_lock/axis_version.lock
   artifacts:
     paths: []     # Storage-500-Konvention
 

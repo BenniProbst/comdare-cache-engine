@@ -10,7 +10,11 @@
 add_executable(comdare_axis_version_lock EXCLUDE_FROM_ALL axis_version_lock.cpp)
 target_compile_features(comdare_axis_version_lock PRIVATE cxx_std_23)
 target_include_directories(comdare_axis_version_lock PRIVATE
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src")   # <sha256/ctsha.hpp>
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"       # <sha256/ctsha.hpp>
+    # S-14a: BESTANDS-Parser <cache_engine/measurement/algo_semver.hpp> fuer bump_ok des OrganDetail
+    # (X.Y.Z[.flags]-Grammatik; EIN Parser, keine Zweitgrammatik im Tool). Leichtgewichtig: zieht nur
+    # flag_grammar_catalog.hpp + simd_feature_flag.hpp + std -- KEINE Registry-/Varianten-Tabelle.
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 if(COMMAND comdare_set_platform_defines)
     comdare_set_platform_defines(comdare_axis_version_lock)
 endif()
