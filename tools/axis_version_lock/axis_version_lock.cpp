@@ -48,7 +48,8 @@
 // AUFRUF (CI ruft ohne Datei-Liste; die Grundgesamtheit erhebt das Tool):
 //   axis_version_lock --write <lockfile> [--root <repo-root>]
 //   axis_version_lock --check <lockfile> [--root <repo-root>]
-// Exit: 0 = gruen, 1 = ROT (Tripwire), 2 = Usage/Umgebungsfehler (z.B. Home fehlt unter --root).
+// Exit: 0 = gruen, 1 = ROT (Tripwire), 2 = Usage/Umgebungsfehler (z.B. Home fehlt unter --root,
+// Datei unlesbar -- auch in der Discovery: fail-closed, Pflicht-Fixup 13.08.2026).
 //
 // BETRIEBSFOLGE (deklariert): ab Landung erzwingt JEDE Aenderung an einem organ-Traeger einen
 // Version-Bump ODER einen bewussten Lock-Regen-Commit (--write); Forwarder-/Prosa-Dateien haben
@@ -170,21 +171,36 @@ struct OrganDetail {
     static constexpr std::string_view kName = "organ";
 
     /// discovered = *.hpp unter den zwei Homes, die den Substring 'algo_version' enthalten
-    /// (golden-kompatible Erhebung, s. Kopf). Sortiert, '/'-Separatoren.
-    [[nodiscard]] static std::vector<std::string> discover(fs::path const& root, bool& home_ok) {
+    /// (golden-kompatible Erhebung, s. Kopf). Sortiert, '/'-Separatoren. ok=false, wenn ein Home
+    /// fehlt ODER eine *.hpp unlesbar ist: eine unlesbare Datei ist nicht klassifizierbar (Traeger
+    /// oder nicht?), die Discovery-Aussage waere sonst ueber eine selbst geschrumpfte Menge.
+    [[nodiscard]] static std::vector<std::string> discover(fs::path const& root, bool& ok) {
         std::vector<std::string> rels;
-        home_ok = true;
+        ok = true;
         for (char const* home_rel : {"libs/cache_engine/axes", "libs/cache_engine/topics/queuing"}) {
             fs::path const home = root / home_rel;
             if (!fs::is_directory(home)) {
-                home_ok = false;
+                ok = false;
                 std::fprintf(stderr, "axis_version_lock: FEHLER organ-Home fehlt unter --root: %s\n", home_rel);
                 continue;
             }
             for (auto const& de : fs::recursive_directory_iterator(home)) {
                 if (!de.is_regular_file() || de.path().extension() != ".hpp") continue;
                 std::vector<std::uint8_t> bytes;
-                if (!read_file_bytes(de.path(), bytes)) continue; // unlesbar faellt beim Digest-Schritt laut auf
+                if (!read_file_bytes(de.path(), bytes)) {
+                    // FAIL-CLOSED (Pflicht-Fixup 13.08.2026, Koeder F). Eine hier unlesbare Datei
+                    // laege sonst nie in rels und erreichte den Digest-Schritt NIE: ein unlesbarer
+                    // NEUZUGANG verschwand still aus der Grundgesamtheit -- --check blieb GRUEN,
+                    // --write regenerierte das Register OHNE die Datei (beides literal belegt; ein
+                    // BEREITS gelockter Traeger fiel dagegen als verwaist auf). Jetzt: LAUTER
+                    // Fehler mit Datei-Name, ok=false laesst --check UND --write mit Exit 2
+                    // scheitern. Die Datei bleibt aus rels heraus -- der Digest-Schritt in
+                    // erhebe_bestand meldet sie also nicht doppelt.
+                    std::fprintf(stderr, "axis_version_lock: FEHLER Datei nicht lesbar (organ-Discovery): %s\n",
+                                 fs::relative(de.path(), root).generic_string().c_str());
+                    ok = false;
+                    continue;
+                }
                 std::string_view const text(reinterpret_cast<char const*>(bytes.data()), bytes.size());
                 if (text.find("algo_version") == std::string_view::npos) continue;
                 rels.push_back(fs::relative(de.path(), root).generic_string());
@@ -341,8 +357,9 @@ using BefundMap = std::map<std::string, Befund>; // key = relativer Pfad (sortie
     }
     heuristik_n = static_cast<int>(h_rels.size());
 
-    std::vector<std::string> const o_rels = OrganDetail::discover(root, home_ok);
-    if (!home_ok) ok = false;
+    bool                           organ_discovery_ok = true;
+    std::vector<std::string> const o_rels             = OrganDetail::discover(root, organ_discovery_ok);
+    if (!organ_discovery_ok) ok = false; // Home fehlt ODER Datei unlesbar -- beides fail-closed (Exit 2)
     organ_traeger_n = 0;
     for (std::string const& rel : o_rels) {
         std::vector<std::uint8_t> bytes;

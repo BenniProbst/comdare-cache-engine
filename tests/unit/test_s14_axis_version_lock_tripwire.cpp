@@ -13,6 +13,12 @@
 //      das v1-Tool iterierte nur ueber argv und sah verwaiste Lock-Eintraege NIE (am 13.08.2026 literal
 //      belegt: Phantom-Eintrag im Lock, v1 antwortet 'GRUEN alle 2 Strategie-Header konsistent', Exit 0).
 //   E  unparsbares algo_version-Literal (Sentinel) nach Inhalts-Aenderung -> Exit 1.
+//   F  unlesbarer NEUZUGANG (neue Traeger-*.hpp, NICHT im Lock, chmod 000) -> Exit 2 + Datei-Name.
+//      ROT-ZUERST 13.08.2026 (Pflicht-Fixup, Luecke 1): die organ-Discovery uebersprang unlesbare
+//      Dateien still ('continue' ohne Signal) -- literal belegt: --check Exit 0 'GRUEN bestand
+//      konsistent -- 158 Dateien' UND --write regenerierte das Register OHNE die Datei (0 Treffer).
+//      F2 pinnt den heuristik-Kontrast: dort war unlesbar schon IMMER Exit 2 (die heuristik-Discovery
+//      liest keine Bytes, die Datei faellt im Digest-Schritt laut um -- Objekt-Verifikation 13.08.).
 //
 // HERMETIK: der Test kopiert die drei Traeger-Baeume (heuristik/, axes/, topics/queuing/) in ein
 // Temp-Verzeichnis (comdare_test_tmp.hpp, worktree-getrennt) und faehrt das Tool per --root NUR auf den
@@ -42,6 +48,7 @@
 #include <vector>
 
 #if !defined(_WIN32)
+#include <sys/stat.h> // ::chmod fuer Koeder F (unlesbarer Neuzugang)
 #include <sys/wait.h>
 #endif
 
@@ -146,7 +153,9 @@ int fehler(int schritt, std::string const& text, ToolRun const& r) {
 
 // Der synthetische Traeger: ein echtes algo_version-String-Literal, sonst inert. Er lebt NUR in der
 // Temp-Kopie unter axes/ (Discovery-Home), nie im Quellbaum.
-constexpr char const* kSynthRel   = "libs/cache_engine/axes/s14_synth/axis_s14_synth_koeder.hpp";
+constexpr char const* kSynthRel = "libs/cache_engine/axes/s14_synth/axis_s14_synth_koeder.hpp";
+// Koeder F: der unlesbare Neuzugang -- gleicher Inhalt wie der synthetische Traeger, eigener Pfad.
+constexpr char const* kKoederFRel = "libs/cache_engine/axes/s14_synth/axis_s14_synth_unlesbar.hpp";
 constexpr char const* kSynthBasis = "// s14 synthetischer traeger -- nur fuer den tripwire-test\n"
                                     "#pragma once\n"
                                     "#include <string_view>\n"
@@ -292,7 +301,60 @@ int main(int argc, char** argv) {
                 "traeger=%ld -- BEWUSST NICHT GLEICHGESETZT (Datei != Variante)\n",
                 ::comdare::cache_engine::builder::experiment::kAllRegisteredOrganVariantCount, o_disc, o_trae);
 
+    // Schritt 13 -- KOEDER F (PFLICHT-FIXUP 13.08.2026, Luecke 1 'fail-open in der Discovery'): ein
+    // unlesbarer NEUZUGANG darf nicht still aus der Grundgesamtheit verschwinden. Ein BEREITS
+    // gelockter Traeger fiele als verwaist auf (Koeder D) -- nur der Neuzugang fiel durch. NACH dem
+    // Fix ist die organ-Discovery fail-closed: Exit 2 mit Datei-NAME, --write scheitert VOR dem
+    // Truncate des Locks (das Register regeneriert nie ueber eine selbst geschrumpfte Menge).
+    ToolRun leer;
+#if !defined(_WIN32)
+    fs::path const f_pfad = g_tmp_root / kKoederFRel;
+    spew(f_pfad, std::string(kSynthBasis));
+    if (::chmod(f_pfad.c_str(), 0) != 0) return fehler(13, "chmod 000 fehlgeschlagen", leer);
+    {
+        // K13: der Koeder muss beissen KOENNEN. Als root/CAP_DAC_OVERRIDE bleibt die Datei trotz
+        // chmod 000 lesbar -- dann LAUT scheitern statt still einen stumpfen Koeder zu fahren.
+        std::ifstream probe(f_pfad);
+        if (probe.is_open())
+            return fehler(13, "Umgebung unterlaeuft chmod 000 (root/CAP_DAC_OVERRIDE?) -- Koeder F beisst nicht", leer);
+    }
+    ToolRun f_rot = run_tool("--check");
+    protokoll("KOEDER F (unlesbarer Neuzugang unter axes/, organ-Discovery)", f_rot);
+    if (f_rot.exit_code != 2) return fehler(13, "Koeder F muss Exit 2 liefern (fail-closed)", f_rot);
+    if (!contains(f_rot.output, kKoederFRel)) return fehler(13, "Koeder F muss die Datei nennen", f_rot);
+    if (!contains(f_rot.output, "nicht lesbar")) return fehler(13, "Koeder F muss 'nicht lesbar' melden", f_rot);
+    ToolRun f_write = run_tool("--write");
+    protokoll("KOEDER F --write (muss VOR dem Lock-Truncate scheitern)", f_write);
+    if (f_write.exit_code != 2) return fehler(13, "Koeder F --write muss Exit 2 liefern", f_write);
+    if (!contains(slurp(g_lockfile), kSynthRel))
+        return fehler(13, "Koeder F --write darf die Lock-Datei nicht anfassen", f_write);
+    (void)::chmod(f_pfad.c_str(), 0644);
+    fs::remove(f_pfad);
+    ToolRun f_gruen = run_tool("--check");
+    if (f_gruen.exit_code != 0) return fehler(13, "Koeder-F-Ruecknahme muss Exit 0 liefern", f_gruen);
+
+    // Schritt 13b -- KOEDER F2, BESTANDS-PIN (bewusst KEIN Rot-zuerst): die heuristik-Discovery liest
+    // keine Bytes, ein unlesbarer heuristik-Neuzugang lag schon immer in rels und fiel im
+    // Digest-Schritt laut um (Exit 2; Objekt-Verifikation 13.08.2026). Der Pin friert das ein, damit
+    // niemand den Zweig spaeter auf die fail-open-Form 'harmonisiert'.
+    fs::path const f2_pfad = g_tmp_root / "libs/cache_engine/heuristik/s14_koeder_f2_unlesbar.hpp";
+    spew(f2_pfad, "// AXIS_ALGO_VERSION: 1\n#pragma once\n");
+    if (::chmod(f2_pfad.c_str(), 0) != 0) return fehler(13, "chmod 000 (F2) fehlgeschlagen", leer);
+    ToolRun f2_rot = run_tool("--check");
+    protokoll("KOEDER F2 (unlesbarer Neuzugang unter heuristik/ -- fail-closed-Pin)", f2_rot);
+    if (f2_rot.exit_code != 2) return fehler(13, "Koeder F2 muss Exit 2 liefern", f2_rot);
+    if (!contains(f2_rot.output, "nicht lesbar")) return fehler(13, "Koeder F2 muss 'nicht lesbar' melden", f2_rot);
+    (void)::chmod(f2_pfad.c_str(), 0644);
+    fs::remove(f2_pfad);
+    ToolRun f2_gruen = run_tool("--check");
+    if (f2_gruen.exit_code != 0) return fehler(13, "Koeder-F2-Ruecknahme muss Exit 0 liefern", f2_gruen);
+#else
+    // Koeder F/F2 brauchen den POSIX-chmod-000-Mechanismus; unter Windows LAUT benannt uebersprungen
+    // (dieser ctest laeuft auf den Linux-Runnern, s. Kopf).
+    std::printf("KOEDER F/F2 UEBERSPRUNGEN: kein chmod-000-Mechanismus unter _WIN32\n");
+#endif
+
     fs::remove_all(g_tmp_root, ec);
-    std::printf("test_s14_axis_version_lock_tripwire: GRUEN (Koeder A-E gefahren, Anker 6/%ld gehalten)\n", o_disc);
+    std::printf("test_s14_axis_version_lock_tripwire: GRUEN (Koeder A-F gefahren, Anker 6/%ld gehalten)\n", o_disc);
     return 0;
 }
