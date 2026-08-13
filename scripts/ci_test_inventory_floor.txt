@@ -27,7 +27,40 @@
 # NACHZIEHEN HEISST ALLE DREI: die Sprossenabstaende (-4 und -2) sind Teil der
 # Aussage, nicht Beiwerk.
 #
-# -- WIE DIE ZAHLEN ENTSTANDEN SIND (nachgemessen, nicht fortgeschrieben) ------
+# -- WIE DIE ZAHLEN ENTSTANDEN SIND (NACHMESSUNG 2026-08-13, S-3-Abnahme) ------
+# GEMESSEN am 2026-08-13 in diesem Repo, Stand 4a89aed5 (S-3 Ordnungs-Relation, Branch
+# bau/s3-ordnungsrelation, Worktree wt-ce-mess-ordnung), Messhost prod1, GCC 15.3.0, Ninja.
+# Bau-Baum build-covguard KALT angelegt (existierte beim Start nicht) und mit dem Rezept des
+# HISTORIE-Abschnitts unten gebaut, UNVERAENDERT einschliesslich des Pruefling-Schalters
+# (configure.sh --with-generator=Ninja --enable-build-tests
+#  -DCOMDARE_CE_PRUEFLINGE="$PWD/tests/pruefling_fixture"; make inventar;
+#  ctest -N | sed 's/^ *Test *#[0-9][0-9]*: *//p' | LC_ALL=C sort -u | wc -l):
+#     avx512f (gemessen, prod1)                                          -> 488
+#     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                -> 484
+#     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0     -> 482
+# danach 'cmake -U' auf BEIDE Variablen; Wiederherstellung nachgewiesen: 488 Tests,
+# Namensmenge Byte-gleich zur Erstmessung. Namensdiffs mit LC_ALL=C comm in BEIDE
+# Richtungen: avx512f->avx2 verliert GENAU die vier im HISTORIE-Abschnitt genannten,
+# avx2->basis GENAU die zwei dort genannten, beide Gegenrichtungen LEER -- die
+# Sprossenabstaende -4 und -2 sind unveraendert.
+#
+# WOHER +9 JE SPROSSE KOMMT (Konto, je Name; Registrierungs-Diff 6c010cdc..4a89aed5 in
+# tests/unit/CMakeLists.txt, Gegenrichtung leer -- nichts entfallen):
+#   +2  S-3 (dieser Stand): test_s3_ordnung_relation, test_s3_ordnung_freigabe
+#   +7  fruehere Pakete seit der Sammellandung, deren Sprossen-Nachzug HIER fehlte:
+#       test_anker_marke_statt_ledgerzeile, test_d37b_modus_riegel, test_pa1_tote_ausnahme,
+#       test_vor_push_gate, test_vs_taxonomie_klassen_grep (comdare_add_test) sowie
+#       test_bvset_teilmenge, test_s1_stempel_basis_vertrag (rohes add_test). Das ist
+#       DERSELBE Versaeumnis-Typ, den der ca6d8af1-Absatz unten beschreibt: wer eine
+#       Registrierung anlegt, muss diese Datei im selben Zug anfassen.
+# KEINER der neun Zugaenge ist ISA- oder Pruefling-gegatet (Diff-Probe: 0 Treffer auf
+# COMDARE_HOST_RUNS/COMDARE_CE_PRUEFLINGE; alle neun registrieren auf oberster Ebene;
+# die gemessenen Klassen-Differenzen oben bestaetigen es). Der Pruefling-Beitrag bleibt
+# +1 (test_pruefling_fixture_ladung); ein Baum OHNE den Schalter zaehlt entsprechend 487
+# (KON55-Kombibau der S-3-Abnahme: 4x gemessen, gcc-15/clang-22 x Debug/Release, alle 487
+# mit Byte-gleicher Namensmenge).
+#
+# -- HISTORIE: MESSUNG 2026-08-10 -- WIE 479/475/473 ENTSTANDEN (nachgemessen) -
 # GEMESSEN am 2026-08-10 in diesem Repo, Stand 6c010cdc (die Sammellandung, auf der
 # Pipeline 15536 fuhr), Worktree wt-ce-fk, Messhost prod1, GCC 15.3.0, Ninja. Der
 # Bau-Baum build-covguard wurde dafuer KALT angelegt -- er existierte beim Start
@@ -157,8 +190,9 @@
 #     wurden, mit den zwei Namensmengen und beiden Gegenrichtungen. Der Merge hat
 #     keine ISA-gattierte Registrierung hinzugefuegt; die Abstaende -4 und -2 sind
 #     dieselben geblieben.
-# DIESER ABSATZ IST HISTORIE: er beschreibt 496/492/490 am Stand 83a6d443. Gueltig
-# sind seit der Sammellandung 479/475/473, s. den Abschnitt darueber.
+# DIESER ABSATZ IST HISTORIE: er beschreibt 496/492/490 am Stand 83a6d443. Danach galten
+# seit der Sammellandung 479/475/473 (s. HISTORIE-Abschnitt darueber); gueltig sind seit
+# der S-3-Abnahme 2026-08-13 die Werte 488/484/482, s. den obersten Abschnitt.
 #
 # NEBENBEI, damit niemand hineinlaeuft: das Erzwingen oben ist ein Verfahren fuer
 # 'ctest -N', NICHT fuer die Wache. Auf einem so erzwungenen Baum bricht
@@ -222,6 +256,6 @@
 # FORMAT: '#'-Kommentare und Leerzeilen sind erlaubt. Wertzeilen haben die Form
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
-avx512f 479
-avx2 475
-basis 473
+avx512f 488
+avx2 484
+basis 482
