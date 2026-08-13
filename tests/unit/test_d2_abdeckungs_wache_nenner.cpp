@@ -393,7 +393,9 @@ TEST(D2AbdeckungsWacheNenner, GelaufenerBlockIstKeinNennerBefund) {
     PraeparierterBaum baum{marke};
 
     baum.inventur_schreiben({grundstock(marke), gibtes});
-    baum.floor_schreiben(1);
+    // #39: floor-EXAKT (2 Tests im Baum). Mit dem alten '1' laege der Baum UEBER dem Anker
+    // und der Fall maesse den Floor-Nachzug-Befund statt seines Gegenstands.
+    baum.floor_schreiben(2);
     baum.protokoll_schreiben({"BLOCK|" + block + "|AKTIV|" + gibtes + "|Werkzeug vorhanden (praepariert)", "ENDE|1"});
 
     Lauf const lauf = wache_fahren(baum.pfad());
@@ -564,6 +566,33 @@ TEST(D2AbdeckungsWacheNenner, UntergrenzeGenauErreichtIstKeinBefund) {
     EXPECT_FALSE(enthaelt(lauf.ausgabe, "UNTERSCHRITTEN")) << lauf.ausgabe;
 }
 
+// -- #39 (2026-08-13): der Anker beisst auch nach OBEN --------------------------------------
+// Der S-3-Abnahme-Fund als Fehlerklasse: 5 Alt-Pakete registrierten 7 Tests, ohne die
+// Floor-Sprossen nachzuziehen -- die alte Wache nannte genau das 'Kein Fehler' und liess es
+// durch (am Hand-Baum gefahren, 2 Tests gegen Floor 1: Exit 1 statt 4, "ueberschritten um
+// 1 Test(e). Kein Fehler"). Seit #39 ist der Floor ein EXAKTER Anker je gemessener Klasse:
+// eine Inventur UEBER ihm ohne Nachzug im SELBEN Change ist ein NENNER-BEFUND (Exit 4).
+// Die Literale unten sind T-11c-konform der ECHTEN Ausgabe des verschaerften Guards
+// entnommen (Hand-Baum /tmp/d2_handbaum_39, 2026-08-13), nicht erdacht.
+TEST(D2AbdeckungsWacheNenner, UeberschreitungOhneNachzugIstNennerBefundMitBeidenZahlen) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1); // der Baum hat 2 Tests -- die Inventur liegt UEBER dem Anker
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("Anker ueberschritten ohne Nachzug", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 4) << "Eine Inventur UEBER dem Anker ohne Floor-Nachzug ist ein NENNER-Befund.\n"
+                            << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "FLOOR-NACHZUG FEHLT")) << lauf.ausgabe;
+    // BEIDE Zahlen mit Gegenstand (V-1): Inventur 2 gegen Anker 1, in EINER Zeile -- eine
+    // nackte '2' oder '1' allein traefe schon die Pfade und Markennamen dieses Baums.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "2 registriert gegen Anker 1 fuer Klasse")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "ROT (NENNER)")) << lauf.ausgabe;
+}
+
 // -- D2 FAIL-CLOSED: keine Untergrenze ist kein "dann eben ohne" ----------------------------
 TEST(D2AbdeckungsWacheNenner, FehlendeUntergrenzeIstAbbruchStattGruen) {
     std::string const marke = koeder_marke();
@@ -624,7 +653,9 @@ TEST(D2AbdeckungsWacheNenner, PartitionsWiderspruchIstNennerBefundMitBeidenZahle
     PraeparierterBaum baum{marke};
     baum.inventur_mit_partitionsbruch_schreiben(zwilling, normal);
     baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + normal + "|praepariert", "ENDE|1"});
-    baum.floor_schreiben(1);
+    // #39: floor-EXAKT (die Inventur zaehlt den Doppelnamen einmal: 2). Mit dem alten '1'
+    // maesse der Fall den Floor-Nachzug-Befund statt des Partitions-Widerspruchs.
+    baum.floor_schreiben(2);
 
     Lauf const lauf = wache_fahren(baum.pfad());
     lauf_berichten("Partitions-Widerspruch", lauf, marke);
