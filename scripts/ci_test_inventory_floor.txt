@@ -50,7 +50,13 @@
 # Registrierungen, test_stempel_vollbestand_registry + test_stempel_zulassung_bruecke
 # (S-7 Achsen-Algo-Hardware-Stempel, Paket P2, comdare_add_test am Dateiende). Der
 # Zugangs-Diff traegt 0 Treffer auf COMDARE_HOST_RUNS/COMDARE_CE_PRUEFLINGE (Diff-Probe
-# gemessen, Nenner 151 added-Zeilen); beide Tests stehen in ALLEN drei Klassen-Namensmengen
+# nachgemessen 2026-08-13 am Bereich 5f3f26a5..ec3c71fa, git diff -U0, added-Zeilen:
+# 0 Treffer in 40 (tests/unit/CMakeLists.txt) wie in allen 449 (tests/unit/ gesamt);
+# die 3 Treffer des Gesamt-Diffs, Nenner 770 added-Zeilen, liegen saemtlich in
+# Kommentarzeilen DIESER Datei -- 2x Sprossen-Rezept, 1x der Probe-Satz selbst -- und
+# registrieren nichts. Der hier zuvor genannte Nenner '151 added-Zeilen' war am Objekt
+# in KEINEM Scope reproduzierbar; korrigiert in der S-7-Fix-Stufe, eigener Commit);
+# beide Tests stehen in ALLEN drei Klassen-Namensmengen
 # (je 1x gezaehlt). Eigener Commit, wie der Datei-Kopf es verlangt.
 #
 # -- HISTORIE: NACHMESSUNG 2026-08-13 (WELLEN-LANDUNG P1+P11) -- WIE 489/485/483 ENTSTANDEN
