@@ -326,34 +326,70 @@ constexpr std::string_view kReserviert[] = {"include", "workflow", "stages",   "
 }
 
 struct TopLevelSchluessel {
-    std::set<std::string>     jobs;
-    std::set<std::string>     templates;
-    std::set<std::string>     reserviert;
+    std::set<std::string> jobs;
+    std::set<std::string> templates;
+    std::set<std::string> reserviert;
+    // Spalte-0-Zeilen, deren Form der Scanner NICHT kennt (A2.5-FIX F4, fail-closed):
+    // sie zaehlen in keine der drei Mengen und machen den Inventar-Fall unten ROT --
+    // benannt statt still verschluckt.
+    std::vector<std::string>  unverstanden;
     [[nodiscard]] std::size_t gesamt() const { return jobs.size() + templates.size() + reserviert.size(); }
 };
 
-// Der Job-Scanner: eine Zeile ist ein Top-Level-Schluessel, wenn sie in Spalte 0 mit
-// Nicht-Leerraum/Nicht-'#'/Nicht-'-' beginnt und '^<schluessel>:$' matcht -- hinter dem
-// abschliessenden ':' steht NICHTS (am Objekt tragen alle 33 Schluessel nichts dahinter;
-// 'key: wert' ist hier kein Job-Kopf). Genau EIN abschliessender Doppelpunkt wird
-// gestrippt: 'lint:secrets:' ergibt 'lint:secrets'.
+// Der Job-Scanner (gehaertet, A2.5-FIX F4, 2026-08-13): eine Zeile traegt einen
+// Top-Level-Schluessel, wenn sie in Spalte 0 mit Nicht-Leerraum/Nicht-'#'/
+// Nicht-'-' beginnt und ein YAML-Mapping-Schluessel folgt. ERKANNT werden alle
+// drei am Objekt moeglichen Formen:
+//   1. 'schluessel:'              Block-Form (heute alle 33 von 33 Schluessel)
+//   2. 'schluessel: <wert>'       Wert-/Flow-Form, z.B. 'job: {script: x}'
+//   3. '"schluessel":' bzw. '...' quotierter Schluessel, mit oder ohne Wert
+// Der unquotierte Schluessel endet am ERSTEN ':', auf das Zeilenende oder
+// Leerraum folgt -- innere ':' ohne Folge-Leerraum ('lint:secrets') bleiben Teil
+// des Schluessels; wie bisher wird genau EIN abschliessender ':' gestrippt.
+// Quotierte Schluessel duerfen beliebige Zeichen tragen (die Quote IST die
+// YAML-Schreibform dafuer); unquotierte muessen Schluesselzeichen bleiben.
+// HISTORIE (bis A2.5-F4): verlangt war '^<schluessel>:$' -- ein Top-Level-Job in
+// Flow-Form oder mit quotiertem Schluessel fiel STILL aus der Klasse-B-Menge
+// (Richtung-1-Abgleich sah ihn nie; die V4-ASSERTs fingen nur Totalausfall).
+// FAIL-CLOSED-REST: jede Spalte-0-Zeile, die keiner der drei Formen entspricht,
+// landet benannt in 'unverstanden' -- der Test macht daraus einen Fehler.
 [[nodiscard]] TopLevelSchluessel job_schluessel(std::vector<std::string> const& zeilen) {
     TopLevelSchluessel s;
     for (auto const& z : zeilen) {
         if (z.empty()) { continue; }
         char const anfang = z.front();
         if (anfang == ' ' || anfang == '\t' || anfang == '#' || anfang == '-') { continue; }
-        if (z.back() != ':') { continue; }
-        std::string const kern = z.substr(0, z.size() - 1);
-        if (kern.empty()) { continue; }
-        bool nur_schluesselzeichen = true;
-        for (char const c : kern) {
-            if (!ist_schluesselzeichen(c)) {
-                nur_schluesselzeichen = false;
-                break;
+        std::string kern;
+        bool        verstanden = false;
+        if (anfang == '"' || anfang == '\'') {
+            std::size_t const ende = z.find(anfang, 1);
+            if (ende != std::string::npos && ende + 1 < z.size() && z[ende + 1] == ':' &&
+                (ende + 2 == z.size() || z[ende + 2] == ' ' || z[ende + 2] == '\t')) {
+                kern       = z.substr(1, ende - 1);
+                verstanden = !kern.empty();
+            }
+        } else {
+            for (std::size_t i = 0; i < z.size(); ++i) {
+                if (z[i] != ':') { continue; }
+                if (i + 1 == z.size() || z[i + 1] == ' ' || z[i + 1] == '\t') {
+                    kern       = z.substr(0, i);
+                    verstanden = !kern.empty();
+                    break;
+                }
+            }
+            if (verstanden) {
+                for (char const c : kern) {
+                    if (!ist_schluesselzeichen(c)) {
+                        verstanden = false;
+                        break;
+                    }
+                }
             }
         }
-        if (!nur_schluesselzeichen) { continue; }
+        if (!verstanden) {
+            s.unverstanden.push_back(z);
+            continue;
+        }
         bool ist_reserviert = false;
         for (std::string_view const r : kReserviert) {
             if (kern == r) {
@@ -503,6 +539,15 @@ TEST(T6WachenInventar, NennerUndWartelisteStehenInDerAusgabe) {
         << "'stages' ist ein reservierter Schluessel und darf nicht als Job zaehlen.";
     ASSERT_EQ(schluessel.jobs.count(".bare_metal"), 0U)
         << "'.bare_metal' ist ein Template und darf nicht als Job zaehlen.";
+    // FAIL-CLOSED-REST (A2.5-FIX F4): eine Spalte-0-Zeile, deren Form der Scanner
+    // nicht kennt, darf nicht still aus dem Nenner fallen -- sie steht hier mit
+    // Wortlaut. Am Objekt ist die Menge leer (0 von 33 Schluesseln).
+    ASSERT_TRUE(schluessel.unverstanden.empty()) << [&] {
+        std::string s = "UNVERSTANDENE TOP-LEVEL-ZEILE(N) -- der Scanner kennt die Form nicht (fail-closed):\n";
+        for (auto const& u : schluessel.unverstanden) { s += "  '" + u + "'\n"; }
+        s += "Scanner in job_schluessel() erweitern oder die Zeile begruendet ausnehmen -- nicht liegen lassen.";
+        return s;
+    }();
 
     // -- Abgleich Richtung 1: jeder Job und jedes Template steht in der Tabelle -----
     std::vector<std::string> jobs_ohne_eintrag;
@@ -558,6 +603,8 @@ TEST(T6WachenInventar, NennerUndWartelisteStehenInDerAusgabe) {
               << tmpl << "\n"
               << "  WacheJob UNGEDECKT  : " << wache_job_ungedeckt << " von " << wache_job
               << " (Deckung ist fuer WacheJob PFLICHT)\n"
+              << "  Scanner-Rest        : " << schluessel.unverstanden.size()
+              << " unverstandene Spalte-0-Zeile(n) (fail-closed, ASSERT oben)\n"
               << "-----------------------------------------------------------------------------\n";
 
     EXPECT_TRUE(jobs_ohne_eintrag.empty()) << [&] {
@@ -674,4 +721,56 @@ TEST(T6WachenInventar, KlasseCPassRegularExpressionRohGegenWirksam) {
     EXPECT_EQ(gesamt.wirksam, kKlasseCObergrenze)
         << "Die Zahl der Negativ-Compile-Fixturen hat sich geaendert. Jede davon ist eine Wache "
            "ohne Selbsttest; kommt eine dazu, gehoert sie auf die Warteliste -- nicht unbemerkt.";
+}
+
+// =============================================================================
+// (4) DAS MESSGERAET SELBST (A2.5-FIX F4, 2026-08-13): der Schluessel-Scanner
+//     erkennt alle drei am Objekt moeglichen Formen -- Block, Wert/Flow,
+//     quotiert -- und wirft nichts still weg. Bis zu diesem Fix verlangte er
+//     '^<schluessel>:$': ein Top-Level-Job in Flow-Form ('job: {script: x}')
+//     oder mit quotiertem Schluessel ('"job":') fiel STILL aus der Klasse-B-
+//     Menge -- Richtung 1 sah ihn nie, die V4-Gegenproben fingen nur den
+//     Totalausfall. Am Objekt war die Kante leer (0 von 33 Schluesseln in
+//     diesen Formen, alle 33 Block-Form); der Koeder hier ist deshalb
+//     synthetisch, und das Mutations-Protokoll des Commits fuehrt ihn
+//     zusaetzlich am lebenden Objekt vor (Flow-Koeder vor der Haertung: still
+//     gruen -- danach: ROT mit Namen).
+// =============================================================================
+TEST(T6WachenInventar, ScannerErkenntBlockFlowUndQuotierteSchluessel) {
+    std::vector<std::string> const probe = {
+        "# kommentar: kein schluessel",                 // Kommentar -> nichts
+        "stages: [lint, build]",                        // reserviert, Wert-Form
+        "variables:",                                   // reserviert, Block-Form
+        ".tpl_probe: {extends: .bare_metal}",           // Template, Flow-Form
+        "zz_block:",                                    // Job, Block-Form (Regressions-Anker)
+        "zz_flow: {stage: lint, script: [echo probe]}", // Job, Flow-Form
+        "\"zz_quoted\":",                               // Job, doppelt quotiert
+        "'zz_quoted2': {stage: lint}",                  // Job, einfach quotiert + Wert
+        "lint:secrets:",                                // Job mit innerem ':' -- EIN ':' gestrippt
+        "zz_wert: 7",                                   // Schluessel mit Skalar-Wert
+        "  eingerueckt:",                               // kein Top-Level
+        "- listenelement:",                             // Sequenz-Element
+        "kaputt ohne doppelpunkt",                      // keine Schluessel-Form -> unverstanden
+    };
+    TopLevelSchluessel const s = job_schluessel(probe);
+
+    EXPECT_EQ(s.jobs.count("zz_block"), 1U) << "Block-Form ist der Bestandsfall und muss stehen bleiben.";
+    EXPECT_EQ(s.jobs.count("zz_flow"), 1U) << "Flow-Form 'job: {...}' faellt still aus der Klasse-B-Menge (F4).";
+    EXPECT_EQ(s.jobs.count("zz_quoted"), 1U) << "Quotierter Schluessel '\"job\":' faellt still aus der Menge (F4).";
+    EXPECT_EQ(s.jobs.count("zz_quoted2"), 1U) << "Einfach quotierter Schluessel mit Wert faellt still aus (F4).";
+    EXPECT_EQ(s.jobs.count("lint:secrets"), 1U) << "Genau EIN abschliessender ':' wird gestrippt (Bestand).";
+    EXPECT_EQ(s.jobs.count("zz_wert"), 1U) << "'schluessel: wert' ist ein Top-Level-Schluessel (F4).";
+    EXPECT_EQ(s.reserviert.count("stages"), 1U) << "Reservierter Schluessel in Wert-Form bleibt reserviert.";
+    EXPECT_EQ(s.reserviert.count("variables"), 1U) << "Reservierter Schluessel in Block-Form (Bestand).";
+    EXPECT_EQ(s.templates.count(".tpl_probe"), 1U) << "'.'-Praefix in Flow-Form bleibt Template.";
+    EXPECT_EQ(s.jobs.count("eingerueckt") + s.jobs.count("listenelement"), 0U)
+        << "Eingerueckte und '-'-Zeilen sind keine Top-Level-Schluessel.";
+    EXPECT_EQ(s.gesamt(), 9U) << "6 Jobs + 2 reserviert + 1 Template -- jede Abweichung ist ein Scanner-Defekt.";
+
+    // FAIL-CLOSED-REST: die eine Zeile ohne Schluessel-Form landet BENANNT in
+    // 'unverstanden' -- nicht in einer der drei Mengen und nicht im Nichts.
+    ASSERT_EQ(s.unverstanden.size(), 1U)
+        << "Genau 1 von 13 Probe-Zeilen hat keine Schluessel-Form -- der Rest ist erkannt oder kein Top-Level.";
+    EXPECT_EQ(s.unverstanden.front(), "kaputt ohne doppelpunkt")
+        << "Die unverstandene Zeile muss mit WORTLAUT dastehen, sonst ist der Befund nicht adressierbar.";
 }
