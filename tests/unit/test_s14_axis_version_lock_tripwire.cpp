@@ -27,6 +27,41 @@
 //      wurde still 'last wins' aufgeloest (Exit 0). NACHHER: alle vier ROT (Exit 1) als
 //      Formatfehler mit der literalen Zeile bzw. dem Pfad.
 //
+// PFLICHT-FIXUP 2 (13.08.2026, Owner-Dauerregel 'Luecke = Behebung ist IMMER Pflicht') -- die
+// Koeder H..S pinnen die sieben Fund-Gruppen; jeder Kern-Fund wurde VOR dem Fix am gebauten Tool
+// literal gefahren (Rot-zuerst-Protokoll im Fixup-Commit):
+//   H  (G2, schwerster Fund) FOLGEZUSTAND des Bump-Zweigs: Bump ohne Regen war Exit 0, und JEDER
+//      weitere Drift unter der gebumpten Version blieb dauerhaft gruen. Jetzt: Bump => Exit 3
+//      'REGEN ERFORDERLICH'; erst der Regen-Commit (--write) segnet den KONKRETEN Inhalt; Drift
+//      nach dem Regen ohne neuen Bump => Exit 1.
+//   I  (G1a) RUHELAGE: verfaelschte Register-Version bei Digest-Gleichheit war GRUEN/Exit 0
+//      (literal belegt) -- jetzt Exit 1 mit beiden Werten.
+//   J  (G1b) Sentinel-Literal MIT passendem Register-Digest war GRUEN/Exit 0 (literal belegt;
+//      genau der Zustand, den das alte '--write trotz rc=1' committen liess) -- jetzt IMMER rot;
+//      --write verweigert bei rc != 0 BYTE-IDENTISCH (kein Truncate vor der Pruefung).
+//   K  (G3) LITERAL-LISTE: k_ary traegt zwei Variantenfamilien; Bump am falschen Literal war
+//      'OK MIT Version-Bump'/GRUEN, korrekter Bump am zweiten Literal falsches ROT (beides
+//      literal belegt). Jetzt: Liste im Register (gleiche Werte komprimiert, ungleiche
+//      komma-gefuegt), kein Element darf sinken, mindestens eines muss steigen.
+//   L  (G4 + Luecke 7a) HEURISTIK auf Organ-Niveau UND testseitig bewiesen: Drift ohne
+//      Marker-Bump => 1, mit Bump => 3, Regen => 0; Marker fehlt/mehrdeutig/Ueberlauf => ROT
+//      (vorher '0 + Warnung', --write akzeptierte); Prosa-Zitat mid-line stellt die Version
+//      nicht mehr (vorher Version 99 aus dem Zitat, literal belegt).
+//   M  (G5a) MINDEST-NENNER: leere Homes ergaben '--check Exit 0, GRUEN -- 0 Dateien' (literal
+//      belegt; V-1 woertlich gebrochen) -- jetzt Exit 2 mit beiden Zahlen, --write legt nichts an.
+//   N  (G5b) unlesbares UNTERverzeichnis: vorher std::terminate/SIGABRT 134 (literal belegt) --
+//      jetzt Exit 2 mit benannter Ursache.
+//   O  (G5c) Traeger mit fremder Endung (.h) war vollstaendig unsichtbar (literal belegt) --
+//      jetzt ROT mit Namen.
+//   P  (G5d) Verzeichnis-Symlink unter einem Home wurde still uebersprungen (Traeger dahinter
+//      unsichtbar, literal belegt) -- jetzt Exit 2 mit Namen des Links.
+//   Q  (G6a) C++14-Digit-Separator schaltete den char_lit-Modus: ein Literal hinter 1'000.0
+//      wurde still als '-' digest-only gelockt (literal belegt) -- jetzt korrekt erfasst.
+//   R  (G6b) Literal in einem '#if 0'-Block stellte die Version (literal belegt) -- jetzt ROT
+//      'nicht entscheidbar' (Bestand hat 0 solche Faelle, gemessen).
+//   S  v1-ABWEISUNG als dauerhafter Koeder: ein Lock mit '# format: v1'-Kopf wird mit klarer
+//      Meldung abgewiesen, nie still weitergelesen.
+//
 // HERMETIK: der Test kopiert die drei Traeger-Baeume (heuristik/, axes/, topics/queuing/) in ein
 // Temp-Verzeichnis (comdare_test_tmp.hpp, worktree-getrennt) und faehrt das Tool per --root NUR auf den
 // Kopien. Der Quellbaum wird ausschliesslich GELESEN; golden-/TABU-Fixtures werden nicht beruehrt.
@@ -46,10 +81,16 @@
 // Werkzeugs und Varianten-Zaehler der Registry nebeneinander sichtbar machen, OHNE sie gleichzusetzen.
 #include <builder/experiment_tree/axis_variant_version_table.hpp>
 
+// Koeder J braucht den Digest des Sentinel-Inhalts, um das 'committete Sentinel-Register' echt
+// nachzustellen -- DIESELBE SHA-256 wie das Werkzeug (keine Zweit-Implementation).
+#include <sha256/ctsha.hpp>
+
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <span>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -85,12 +126,12 @@ void spew(fs::path const& p, std::string const& bytes) {
     f << bytes;
 }
 
-/// Faehrt das Tool mit --root auf den Kopien. mode = "--write" | "--check".
-[[nodiscard]] ToolRun run_tool(std::string const& mode) {
+/// Faehrt das Tool mit explizitem Lock und Root (Koeder M braucht eine ZWEITE Wurzel).
+[[nodiscard]] ToolRun run_tool_mit(std::string const& mode, fs::path const& lock, fs::path const& root) {
     ToolRun           r;
     fs::path const    out = g_tmp_root / "tool_out.txt";
-    std::string const cmd = "\"" + g_tool + "\" " + mode + " \"" + g_lockfile.string() + "\" --root \"" +
-                            g_tmp_root.string() + "\" > \"" + out.string() + "\" 2>&1";
+    std::string const cmd = "\"" + g_tool + "\" " + mode + " \"" + lock.string() + "\" --root \"" + root.string() +
+                            "\" > \"" + out.string() + "\" 2>&1";
     int const         rc  = std::system(cmd.c_str());
 #if defined(_WIN32)
     r.exit_code = rc;
@@ -99,6 +140,18 @@ void spew(fs::path const& p, std::string const& bytes) {
 #endif
     r.output = slurp(out);
     return r;
+}
+
+/// Faehrt das Tool mit --root auf den Kopien. mode = "--write" | "--check".
+[[nodiscard]] ToolRun run_tool(std::string const& mode) { return run_tool_mit(mode, g_lockfile, g_tmp_root); }
+
+/// SHA-256-Hex eines Strings -- DIESELBE Implementation wie im Werkzeug (Koeder J stellt damit
+/// ein 'committetes Sentinel-Register' mit korrektem Digest nach).
+[[nodiscard]] std::string sha256_hex_von(std::string const& inhalt) {
+    std::vector<std::uint8_t> bytes(inhalt.begin(), inhalt.end());
+    auto const d = ::comdare::cache_engine::sha256::sha256(std::span<const std::uint8_t>{bytes.data(), bytes.size()});
+    auto const h = ::comdare::cache_engine::sha256::to_hex(d);
+    return std::string(h.begin(), h.end());
 }
 
 /// Protokolliert eine Tool-Ausgabe woertlich in das ctest-Log (Koeder-Beleg gehoert in die Ausgabe).
@@ -150,6 +203,14 @@ struct LockZeile {
         if (ls >> z.category >> z.version >> z.rel) out.push_back(z);
     }
     return out;
+}
+
+/// Versions-Token des Lock-Records fuer rel ("" = Record nicht gefunden). Koeder K/L/Q pruefen
+/// damit die KANONISCHE Register-Form (komprimiert/gefuegt) am geschriebenen Lock.
+[[nodiscard]] std::string lock_version_von(fs::path const& lock, std::string const& rel) {
+    for (LockZeile const& z : parse_lock_v2(lock))
+        if (z.rel == rel) return z.version;
+    return "";
 }
 
 int fehler(int schritt, std::string const& text, ToolRun const& r) {
@@ -259,11 +320,17 @@ int main(int argc, char** argv) {
     std::string gebumpt = geaendert;
     gebumpt.replace(gebumpt.find("\"1.0.0.c\""), 9, "\"1.1.0.c\"");
     spew(synth, gebumpt);
-    ToolRun b_gruen = run_tool("--check");
-    protokoll("KOEDER B mit Bump 1.0.0.c -> 1.1.0.c", b_gruen);
-    if (b_gruen.exit_code != 0) return fehler(8, "Koeder B mit Bump muss Exit 0 liefern", b_gruen);
-    if (!contains(b_gruen.output, "MIT Version-Bump"))
-        return fehler(8, "Koeder B muss die MIT-Bump-Diagnose tragen", b_gruen);
+    // PFLICHT-FIXUP 2 (G2): der akzeptierte Bump ist KEIN Exit 0 mehr -- das Register ist
+    // veraltet, und nur der Regen-Commit segnet den konkreten Inhalt. Vorher zementierte genau
+    // diese Stelle das Dauerloch (sie forderte Exit 0 und fuhr den Folgezustand nie); den
+    // Folgezustand faehrt jetzt Koeder H.
+    ToolRun b_regen = run_tool("--check");
+    protokoll("KOEDER B mit Bump 1.0.0.c -> 1.1.0.c", b_regen);
+    if (b_regen.exit_code != 3) return fehler(8, "Koeder B mit Bump muss Exit 3 liefern (Regen erforderlich)", b_regen);
+    if (!contains(b_regen.output, "MIT Version-Bump"))
+        return fehler(8, "Koeder B muss die MIT-Bump-Diagnose tragen", b_regen);
+    if (!contains(b_regen.output, "REGEN ERFORDERLICH"))
+        return fehler(8, "Koeder B muss REGEN ERFORDERLICH melden", b_regen);
     spew(synth, kSynthBasis);
 
     // Schritt 9 -- KOEDER C: Traeger-Datei, die NICHT im Lock steht -> 'unlocked' ROT.
@@ -330,11 +397,16 @@ int main(int argc, char** argv) {
     if (f_rot.exit_code != 2) return fehler(13, "Koeder F muss Exit 2 liefern (fail-closed)", f_rot);
     if (!contains(f_rot.output, kKoederFRel)) return fehler(13, "Koeder F muss die Datei nennen", f_rot);
     if (!contains(f_rot.output, "nicht lesbar")) return fehler(13, "Koeder F muss 'nicht lesbar' melden", f_rot);
-    ToolRun f_write = run_tool("--write");
+    // PFLICHT-FIXUP 2 (Luecke 7b): BYTEIDENTITAET statt contains() -- ein --write, das trotz
+    // Exit 2 regeneriert und nur die unlesbare Datei auslaesst, bestuende den contains-Check
+    // (der synth-Record stuende ja wieder drin). Das Lock muss VOR und NACH dem gescheiterten
+    // --write byte-gleich sein.
+    std::string const lock_vor_f = slurp(g_lockfile);
+    ToolRun           f_write    = run_tool("--write");
     protokoll("KOEDER F --write (muss VOR dem Lock-Truncate scheitern)", f_write);
     if (f_write.exit_code != 2) return fehler(13, "Koeder F --write muss Exit 2 liefern", f_write);
-    if (!contains(slurp(g_lockfile), kSynthRel))
-        return fehler(13, "Koeder F --write darf die Lock-Datei nicht anfassen", f_write);
+    if (slurp(g_lockfile) != lock_vor_f)
+        return fehler(13, "Koeder F --write muss die Lock-Datei BYTE-IDENTISCH lassen", f_write);
     (void)::chmod(f_pfad.c_str(), 0644);
     fs::remove(f_pfad);
     ToolRun f_gruen = run_tool("--check");
@@ -436,7 +508,348 @@ int main(int argc, char** argv) {
     ToolRun g_gruen = run_tool("--check");
     if (g_gruen.exit_code != 0) return fehler(14, "Koeder-G-Ruecknahme muss Exit 0 liefern", g_gruen);
 
+    // Schritt 15 -- KOEDER H (PFLICHT-FIXUP 2, G2 -- der schwerste Fund): FOLGEZUSTAND des
+    // Bump-Zweigs. ROT-ZUERST 13.08.2026 literal: Edit1+Bump -> Exit 0; Edit2 mit NEUEM Inhalt,
+    // Version unveraendert, Lock ungeregen -> WIEDER Exit 0 -- jeder weitere Drift unter der
+    // einmal gebumpten Version blieb dauerhaft gruen. NACHHER ist kein Zustand des Zyklus still:
+    // Bump => 3, Drift unterm Bump => 3, erst der Regen (--write) => 0, Drift danach => 1.
+    std::string h_edit = kSynthBasis;
+    h_edit.replace(h_edit.find("\"1.0.0.c\""), 9, "\"1.1.0.c\"");
+    std::string const h_edit1 = h_edit + "// s14 koeder H: edit1 mit bump\n";
+    std::string const h_edit2 = h_edit + "// s14 koeder H: edit2 ANDERER inhalt, version unveraendert\n";
+    std::string const h_edit3 = h_edit + "// s14 koeder H: edit3 drift NACH dem regen\n";
+    spew(synth, h_edit1);
+    ToolRun h1 = run_tool("--check");
+    protokoll("KOEDER H edit1+bump (Regen offen)", h1);
+    if (h1.exit_code != 3) return fehler(15, "Koeder H edit1+bump muss Exit 3 liefern", h1);
+    if (!contains(h1.output, "REGEN ERFORDERLICH")) return fehler(15, "Koeder H muss REGEN ERFORDERLICH melden", h1);
+    spew(synth, h_edit2);
+    ToolRun h2 = run_tool("--check");
+    protokoll("KOEDER H edit2 (vorher das Dauerloch: Exit 0)", h2);
+    if (h2.exit_code != 3) return fehler(15, "Koeder H edit2 muss Exit 3 liefern (vorher 0 = Dauerloch)", h2);
+    ToolRun h3 = run_tool("--write");
+    if (h3.exit_code != 0) return fehler(15, "Koeder H Regen (--write) muss Exit 0 liefern", h3);
+    ToolRun h4 = run_tool("--check");
+    if (h4.exit_code != 0) return fehler(15, "Koeder H nach Regen muss Exit 0 liefern", h4);
+    spew(synth, h_edit3);
+    ToolRun h5 = run_tool("--check");
+    protokoll("KOEDER H edit3 nach Regen ohne neuen Bump", h5);
+    if (h5.exit_code != 1) return fehler(15, "Koeder H edit3 muss Exit 1 liefern", h5);
+    if (!contains(h5.output, "OHNE gueltigen Version-Bump"))
+        return fehler(15, "Koeder H edit3 muss die OHNE-Bump-Diagnose tragen", h5);
+    spew(synth, kSynthBasis);
+    ToolRun h6 = run_tool("--write");
+    if (h6.exit_code != 0) return fehler(15, "Koeder H Aufraeum-Regen muss Exit 0 liefern", h6);
+    ToolRun h7 = run_tool("--check");
+    if (h7.exit_code != 0) return fehler(15, "Koeder-H-Ruecknahme muss Exit 0 liefern", h7);
+
+    // Schritt 16 -- KOEDER I (G1a): RUHELAGE. ROT-ZUERST 13.08.2026 literal: Register-Version von
+    // Hand verfaelscht (Digest-Zeile erhalten) => 'GRUEN bestand konsistent', Exit 0 -- und der
+    // naechste echte Vergleich haette gegen die falsche Basis geprueft. NACHHER Exit 1 mit beiden
+    // Werten.
+    std::string const lock_vor_i = slurp(g_lockfile);
+    std::string const i_kopf_alt = "organ 1.0.0.c " + std::string(kSynthRel);
+    std::string const i_kopf_neu = "organ 1.9.0.c " + std::string(kSynthRel);
+    std::string       lock_i     = lock_vor_i;
+    std::size_t const i_kopf_pos = lock_i.find(i_kopf_alt);
+    if (i_kopf_pos == std::string::npos) return fehler(16, "synth-Kopfzeile fuer Koeder I nicht gefunden", leer);
+    lock_i.replace(i_kopf_pos, i_kopf_alt.size(), i_kopf_neu);
+    spew(g_lockfile, lock_i);
+    ToolRun i1 = run_tool("--check");
+    protokoll("KOEDER I (Register-Version verfaelscht, Digest gleich)", i1);
+    if (i1.exit_code != 1) return fehler(16, "Koeder I muss Exit 1 liefern (vorher 0)", i1);
+    if (!contains(i1.output, "Version im Register weicht"))
+        return fehler(16, "Koeder I muss die Register-Abweichung benennen", i1);
+    if (!contains(i1.output, "1.9.0.c")) return fehler(16, "Koeder I muss beide Werte zeigen", i1);
+    spew(g_lockfile, lock_vor_i);
+    ToolRun i2 = run_tool("--check");
+    if (i2.exit_code != 0) return fehler(16, "Koeder-I-Ruecknahme muss Exit 0 liefern", i2);
+
+    // Schritt 17 -- KOEDER J (G1b): SENTINEL TROTZ DIGEST-GLEICHHEIT. ROT-ZUERST 13.08.2026
+    // literal: (a) --write ueber algo_version="kaputt" lieferte rc=1, SCHRIEB DAS LOCK ABER
+    // TROTZDEM; (b) genau dieses Lock committet => --check dauerhaft GRUEN/Exit 0 (der
+    // Digest-Kurzschluss uebersprang die Sentinel-Pruefung). NACHHER: (b) IMMER rot; (a) --write
+    // verweigert BYTE-IDENTISCH.
+    std::string j_kaputt = kSynthBasis;
+    j_kaputt.replace(j_kaputt.find("\"1.0.0.c\""), 9, "\"kaputt\"");
+    spew(synth, j_kaputt);
+    std::string const j_digest   = sha256_hex_von(j_kaputt);
+    std::string const j_alt_kopf = "organ 1.0.0.c " + std::string(kSynthRel);
+    std::string const lock_vor_j = slurp(g_lockfile);
+    std::string       lock_j     = lock_vor_j;
+    std::size_t const j_pos      = lock_j.find(j_alt_kopf);
+    if (j_pos == std::string::npos) return fehler(17, "synth-Kopfzeile fuer Koeder J nicht gefunden", leer);
+    // Record (Kopf + Digest-Folgezeile) durch den Sentinel-Stand ersetzen -- exakt das Register,
+    // das das alte --write bei rc=1 hinterliess.
+    std::size_t const j_ende = lock_j.find('\n', lock_j.find('\n', j_pos) + 1);
+    lock_j.replace(j_pos, j_ende - j_pos, "organ kaputt " + std::string(kSynthRel) + "\n    " + j_digest);
+    spew(g_lockfile, lock_j);
+    ToolRun j1 = run_tool("--check");
+    protokoll("KOEDER J (Sentinel-Register, Digest gleich -- vorher GRUEN)", j1);
+    if (j1.exit_code != 1) return fehler(17, "Koeder J muss Exit 1 liefern (vorher 0)", j1);
+    if (!contains(j1.output, "unparsbar")) return fehler(17, "Koeder J muss 'unparsbar' melden", j1);
+    std::string const lock_vor_j2 = slurp(g_lockfile);
+    ToolRun           j2          = run_tool("--write");
+    protokoll("KOEDER J --write ueber Sentinel-Bestand (muss byte-identisch verweigern)", j2);
+    if (j2.exit_code != 1) return fehler(17, "Koeder J --write muss Exit 1 liefern", j2);
+    if (slurp(g_lockfile) != lock_vor_j2)
+        return fehler(17, "Koeder J --write muss die Lock-Datei BYTE-IDENTISCH lassen", j2);
+    spew(g_lockfile, lock_vor_j);
+    spew(synth, kSynthBasis);
+    ToolRun j3 = run_tool("--check");
+    if (j3.exit_code != 0) return fehler(17, "Koeder-J-Ruecknahme muss Exit 0 liefern", j3);
+
+    // Schritt 18 -- KOEDER K (G3): LITERAL-LISTE. Der Bestandsfall ist k_ary (zwei Varianten-
+    // familien, je eigenes Literal): ROT-ZUERST 13.08.2026 literal am echten k_ary -- Bump am
+    // FALSCHEN Literal => 'OK MIT Version-Bump'/GRUEN (Exit 0), korrekter Bump am ZWEITEN
+    // Literal => falsches ROT (1.0.0.c -> 1.0.0.c). Der synthetische Zweifach-Traeger faehrt
+    // die Klasse; der multi-Anker unten haelt den Bestandsfall im Log fest.
+    auto const k_inhalt = [](char const* v1, char const* v2) {
+        std::string s = "// s14 zweifach-traeger (koeder K)\n#pragma once\n#include <string_view>\n";
+        s += "namespace comdare::s14_synth {\nstruct FamA {\n    static constexpr std::string_view algo_version = \"";
+        s += v1;
+        s += "\";\n};\nstruct FamB {\n    static constexpr std::string_view algo_version = \"";
+        s += v2;
+        s += "\";\n};\n} // namespace comdare::s14_synth\n";
+        return s;
+    };
+    fs::path const synth2 = g_tmp_root / "libs/cache_engine/axes/s14_synth/axis_s14_synth_zweifach.hpp";
+    spew(synth2, k_inhalt("2.0.0.c", "2.0.0.c"));
+    ToolRun k1 = run_tool("--write");
+    protokoll("KOEDER K --write mit Zweifach-Traeger (gleiche Literale)", k1);
+    if (k1.exit_code != 0) return fehler(18, "Koeder K --write muss Exit 0 liefern", k1);
+    std::string const k_rel = "libs/cache_engine/axes/s14_synth/axis_s14_synth_zweifach.hpp";
+    if (lock_version_von(g_lockfile, k_rel) != "2.0.0.c")
+        return fehler(18, "Koeder K: gleiche Literale muessen KOMPRIMIERT im Register stehen (2.0.0.c)", k1);
+    long const k_multi = parse_counter(k1.output, "BESTAND organ", "multi");
+    std::printf("KOEDER K multi-Anker: organ multi=%ld (soll >=2: k_ary im Bestand + Zweifach-Traeger)\n", k_multi);
+    if (k_multi < 2) return fehler(18, "Koeder K: multi-Zaehler muss k_ary UND den Zweifach-Traeger sehen", k1);
+    spew(synth2, k_inhalt("2.0.0.c", "2.1.0.c") + "// s14 koeder K: bump NUR an FamB\n");
+    ToolRun k2 = run_tool("--check");
+    protokoll("KOEDER K Bump nur am ZWEITEN Literal (vorher falsches ROT)", k2);
+    if (k2.exit_code != 3) return fehler(18, "Koeder K Zweit-Literal-Bump muss Exit 3 liefern (vorher 1)", k2);
+    if (!contains(k2.output, "MIT Version-Bump")) return fehler(18, "Koeder K muss die MIT-Bump-Diagnose tragen", k2);
+    ToolRun k3 = run_tool("--write");
+    if (k3.exit_code != 0) return fehler(18, "Koeder K Regen muss Exit 0 liefern", k3);
+    if (lock_version_von(g_lockfile, k_rel) != "2.0.0.c,2.1.0.c")
+        return fehler(18, "Koeder K: ungleiche Literale muessen KOMMA-GEFUEGT im Register stehen", k3);
+    ToolRun k4 = run_tool("--check");
+    if (k4.exit_code != 0) return fehler(18, "Koeder K nach Regen muss Exit 0 liefern", k4);
+    spew(synth2, k_inhalt("2.0.0.c", "2.1.0.c") + "// s14 koeder K: drift OHNE bump gegen Listen-Register\n");
+    ToolRun k5 = run_tool("--check");
+    protokoll("KOEDER K Drift ohne Bump gegen Listen-Register", k5);
+    if (k5.exit_code != 1) return fehler(18, "Koeder K Drift ohne Bump muss Exit 1 liefern", k5);
+    spew(synth2, k_inhalt("1.9.0.c", "2.1.0.c"));
+    ToolRun k6 = run_tool("--check");
+    protokoll("KOEDER K DOWNGRADE eines Elements (2.0.0.c -> 1.9.0.c)", k6);
+    if (k6.exit_code != 1) return fehler(18, "Koeder K Element-Downgrade muss Exit 1 liefern", k6);
+    fs::remove(synth2);
+    ToolRun k7 = run_tool("--write");
+    if (k7.exit_code != 0) return fehler(18, "Koeder K Aufraeum-Regen muss Exit 0 liefern", k7);
+    ToolRun k8 = run_tool("--check");
+    if (k8.exit_code != 0) return fehler(18, "Koeder-K-Ruecknahme muss Exit 0 liefern", k8);
+
+    // Schritt 19 -- KOEDER L (G4 + Luecke 7a): der heuristik-ROT-Pfad, testseitig bisher
+    // UNBEWIESEN -- ausgerechnet die Kategorie, deren stiller Drei-Wochen-Ausfall der Anlass
+    // fuer S-14 war. Dazu die drei Marker-Schaerfungen (ROT-ZUERST 13.08.2026 literal: Prosa-
+    // Zitat 'AXIS_ALGO_VERSION: 99' VOR dem Marker stellte Version 99; Marker 2^64 wurde
+    // modulo zu Version 0; fehlender Marker war '0 + Warnung' und --write akzeptierte).
+    fs::path const    heur     = g_tmp_root / "libs/cache_engine/heuristik/s14_synth_heuristik_koeder.hpp";
+    std::string const heur_rel = "libs/cache_engine/heuristik/s14_synth_heuristik_koeder.hpp";
+    spew(heur, "// AXIS_ALGO_VERSION: 3\n#pragma once\n// s14 koeder L basis\n");
+    ToolRun l1 = run_tool("--write");
+    if (l1.exit_code != 0) return fehler(19, "Koeder L --write muss Exit 0 liefern", l1);
+    if (lock_version_von(g_lockfile, heur_rel) != "3")
+        return fehler(19, "Koeder L: Marker-Version 3 muss im Register stehen", l1);
+    spew(heur, "// AXIS_ALGO_VERSION: 3\n#pragma once\n// s14 koeder L basis\n// drift ohne bump\n");
+    ToolRun l2 = run_tool("--check");
+    protokoll("KOEDER L heuristik-Drift OHNE Marker-Bump", l2);
+    if (l2.exit_code != 1) return fehler(19, "Koeder L Drift ohne Bump muss Exit 1 liefern", l2);
+    if (!contains(l2.output, heur_rel)) return fehler(19, "Koeder L muss die Datei nennen", l2);
+    if (!contains(l2.output, "OHNE")) return fehler(19, "Koeder L muss die OHNE-Bump-Diagnose tragen", l2);
+    spew(heur, "// AXIS_ALGO_VERSION: 4\n#pragma once\n// s14 koeder L basis\n// drift MIT bump\n");
+    ToolRun l3 = run_tool("--check");
+    protokoll("KOEDER L heuristik-Drift MIT Marker-Bump 3 -> 4", l3);
+    if (l3.exit_code != 3) return fehler(19, "Koeder L Drift mit Bump muss Exit 3 liefern", l3);
+    if (!contains(l3.output, "MIT Version-Bump")) return fehler(19, "Koeder L muss die MIT-Bump-Diagnose tragen", l3);
+    ToolRun l4 = run_tool("--write");
+    if (l4.exit_code != 0) return fehler(19, "Koeder L Regen muss Exit 0 liefern", l4);
+    ToolRun l5 = run_tool("--check");
+    if (l5.exit_code != 0) return fehler(19, "Koeder L nach Regen muss Exit 0 liefern", l5);
+    spew(heur, "#pragma once\n// s14 koeder L: marker ENTFERNT\n");
+    ToolRun l6 = run_tool("--check");
+    protokoll("KOEDER L Marker fehlt (vorher: '0' + Warnung, gruen-faehig)", l6);
+    if (l6.exit_code != 1) return fehler(19, "Koeder L fehlender Marker muss Exit 1 liefern", l6);
+    if (!contains(l6.output, "Marker")) return fehler(19, "Koeder L muss den fehlenden Marker benennen", l6);
+    std::string const lock_vor_l7 = slurp(g_lockfile);
+    ToolRun           l7          = run_tool("--write");
+    if (l7.exit_code != 1) return fehler(19, "Koeder L --write ohne Marker muss Exit 1 liefern", l7);
+    if (slurp(g_lockfile) != lock_vor_l7)
+        return fehler(19, "Koeder L --write muss die Lock-Datei BYTE-IDENTISCH lassen", l7);
+    spew(heur, "// Prosa zitiert mid-line: siehe AXIS_ALGO_VERSION: 99 im Kopf der Wache\n"
+               "// AXIS_ALGO_VERSION: 5\n#pragma once\n");
+    ToolRun l8 = run_tool("--write");
+    protokoll("KOEDER L Prosa-Zitat vor echtem Marker (vorher: Version 99)", l8);
+    if (l8.exit_code != 0) return fehler(19, "Koeder L Prosa-Zitat: --write muss Exit 0 liefern", l8);
+    if (lock_version_von(g_lockfile, heur_rel) != "5")
+        return fehler(19, "Koeder L: das mid-line-Zitat darf die Version nicht stellen (soll 5)", l8);
+    spew(heur, "// AXIS_ALGO_VERSION: 18446744073709551616\n#pragma once\n");
+    ToolRun l9 = run_tool("--check");
+    protokoll("KOEDER L Ueberlauf-Marker 2^64 (vorher: modulo => Version 0)", l9);
+    if (l9.exit_code != 1) return fehler(19, "Koeder L Ueberlauf muss Exit 1 liefern", l9);
+    if (!contains(l9.output, "unparsbar")) return fehler(19, "Koeder L Ueberlauf muss 'unparsbar' melden", l9);
+    spew(heur, "// AXIS_ALGO_VERSION: 6\n// AXIS_ALGO_VERSION: 7\n#pragma once\n");
+    ToolRun l10 = run_tool("--check");
+    protokoll("KOEDER L zwei Marker-Zeilen (mehrdeutig)", l10);
+    if (l10.exit_code != 1) return fehler(19, "Koeder L mehrdeutig muss Exit 1 liefern", l10);
+    if (!contains(l10.output, "mehrdeutig")) return fehler(19, "Koeder L muss 'mehrdeutig' melden", l10);
+    fs::remove(heur);
+    ToolRun l11 = run_tool("--write");
+    if (l11.exit_code != 0) return fehler(19, "Koeder L Aufraeum-Regen muss Exit 0 liefern", l11);
+    ToolRun l12 = run_tool("--check");
+    if (l12.exit_code != 0) return fehler(19, "Koeder-L-Ruecknahme muss Exit 0 liefern", l12);
+
+    // Schritt 20 -- KOEDER M (G5a): MINDEST-NENNER. ROT-ZUERST 13.08.2026 literal: leere Homes
+    // (Verzeichnisse da, null Traeger) => --write Exit 0 mit leerem Register und --check Exit 0
+    // 'GRUEN bestand konsistent -- 0 Dateien' -- V-1 woertlich gebrochen. NACHHER Exit 2 mit
+    // beiden Zahlen; --write legt kein Lock an.
+    fs::path const leer_root = g_tmp_root / "s14_leer_root";
+    fs::create_directories(leer_root / "libs/cache_engine/heuristik");
+    fs::create_directories(leer_root / "libs/cache_engine/axes");
+    fs::create_directories(leer_root / "libs/cache_engine/topics/queuing");
+    fs::path const leer_lock = leer_root / "leer.lock";
+    ToolRun        m1        = run_tool_mit("--write", leer_lock, leer_root);
+    protokoll("KOEDER M --write ueber leere Homes", m1);
+    if (m1.exit_code != 2) return fehler(20, "Koeder M --write muss Exit 2 liefern (vorher 0)", m1);
+    if (!contains(m1.output, "Mindest-Nenner")) return fehler(20, "Koeder M muss den Nenner benennen", m1);
+    if (fs::exists(leer_lock)) return fehler(20, "Koeder M --write darf kein Lock anlegen", m1);
+    ToolRun m2 = run_tool_mit("--check", g_lockfile, leer_root);
+    protokoll("KOEDER M --check ueber leere Homes", m2);
+    if (m2.exit_code != 2) return fehler(20, "Koeder M --check muss Exit 2 liefern (vorher 0/1)", m2);
+    fs::remove_all(leer_root, ec);
+
+#if !defined(_WIN32)
+    // Schritt 21 -- KOEDER N (G5b): unlesbares UNTERverzeichnis. ROT-ZUERST 13.08.2026 literal:
+    // recursive_directory_iterator warf filesystem_error => std::terminate/SIGABRT (Shell: 134),
+    // nicht der deklarierte Exit 2. NACHHER: gefangen, benannt, Exit 2.
+    fs::path const n_dir = g_tmp_root / "libs/cache_engine/axes/s14_koeder_dir_unlesbar";
+    fs::create_directories(n_dir);
+    if (::chmod(n_dir.c_str(), 0) != 0) return fehler(21, "chmod 000 (N) fehlgeschlagen", leer);
+    {
+        // K13: der Koeder muss beissen KOENNEN -- als root/CAP_DAC_OVERRIDE bleibt das
+        // Verzeichnis trotz chmod 000 iterierbar, dann LAUT scheitern.
+        bool wirft = false;
+        try {
+            for (auto const& probe_eintrag : fs::directory_iterator(n_dir)) (void)probe_eintrag;
+        } catch (fs::filesystem_error const&) { wirft = true; }
+        if (!wirft) {
+            (void)::chmod(n_dir.c_str(), 0755);
+            return fehler(21, "Umgebung unterlaeuft chmod 000 (root?) -- Koeder N beisst nicht", leer);
+        }
+    }
+    ToolRun n1 = run_tool("--check");
+    protokoll("KOEDER N (unlesbares Unterverzeichnis -- vorher SIGABRT 134)", n1);
+    if (n1.exit_code != 2) return fehler(21, "Koeder N muss Exit 2 liefern (vorher Abort)", n1);
+    if (!contains(n1.output, "abgebrochen")) return fehler(21, "Koeder N muss den Abbruch benennen", n1);
+    (void)::chmod(n_dir.c_str(), 0755);
+    fs::remove_all(n_dir, ec);
+    ToolRun n2 = run_tool("--check");
+    if (n2.exit_code != 0) return fehler(21, "Koeder-N-Ruecknahme muss Exit 0 liefern", n2);
+#else
+    std::printf("KOEDER N UEBERSPRUNGEN: kein chmod-000-Mechanismus unter _WIN32\n");
+#endif
+
+    // Schritt 22 -- KOEDER O (G5c): ENDUNGS-GRENZE. ROT-ZUERST 13.08.2026 literal: ein Traeger
+    // mit .h-Endung (echtes Literal) war vollstaendig unsichtbar -- GRUEN, Exit 0, nie im
+    // Bestand, nie 'unlocked'. NACHHER ROT mit Namen.
+    fs::path const o_pfad = g_tmp_root / "libs/cache_engine/axes/s14_synth/axis_s14_falsche_endung.h";
+    spew(o_pfad, std::string(kSynthBasis));
+    ToolRun o1 = run_tool("--check");
+    protokoll("KOEDER O (Traeger mit .h-Endung -- vorher unsichtbar)", o1);
+    if (o1.exit_code != 1) return fehler(22, "Koeder O muss Exit 1 liefern (vorher 0)", o1);
+    if (!contains(o1.output, "Endung")) return fehler(22, "Koeder O muss die Endungs-Grenze benennen", o1);
+    if (!contains(o1.output, "axis_s14_falsche_endung.h")) return fehler(22, "Koeder O muss die Datei nennen", o1);
+    fs::remove(o_pfad);
+    ToolRun o2 = run_tool("--check");
+    if (o2.exit_code != 0) return fehler(22, "Koeder-O-Ruecknahme muss Exit 0 liefern", o2);
+
+#if !defined(_WIN32)
+    // Schritt 23 -- KOEDER P (G5d): VERZEICHNIS-SYMLINK. ROT-ZUERST 13.08.2026 literal: der
+    // Iterator deszendiert Verzeichnis-Symlinks nicht -- ein Traeger dahinter blieb unsichtbar,
+    // GRUEN/Exit 0. NACHHER Exit 2 mit dem Ort des LINKS (relevant ab der #16-Umgliederung).
+    fs::path const p_extern = g_tmp_root / "s14_extern_home";
+    fs::create_directories(p_extern);
+    spew(p_extern / "axis_s14_link_traeger.hpp", std::string(kSynthBasis));
+    fs::path const p_link = g_tmp_root / "libs/cache_engine/axes/s14_link";
+    fs::create_directory_symlink(p_extern, p_link, ec);
+    if (ec) return fehler(23, "Symlink-Anlage (P) fehlgeschlagen", leer);
+    ToolRun p1 = run_tool("--check");
+    protokoll("KOEDER P (Verzeichnis-Symlink unter axes/ -- vorher still uebersprungen)", p1);
+    if (p1.exit_code != 2) return fehler(23, "Koeder P muss Exit 2 liefern (vorher 0)", p1);
+    if (!contains(p1.output, "Symlink")) return fehler(23, "Koeder P muss den Symlink benennen", p1);
+    if (!contains(p1.output, "s14_link")) return fehler(23, "Koeder P muss den Ort des Links nennen", p1);
+    fs::remove(p_link);
+    fs::remove_all(p_extern, ec);
+    ToolRun p2 = run_tool("--check");
+    if (p2.exit_code != 0) return fehler(23, "Koeder-P-Ruecknahme muss Exit 0 liefern", p2);
+#else
+    std::printf("KOEDER P UEBERSPRUNGEN: keine POSIX-Symlinks unter _WIN32\n");
+#endif
+
+    // Schritt 24 -- KOEDER Q (G6a): DIGIT-SEPARATOR. ROT-ZUERST 13.08.2026 literal: EIN
+    // Apostroph-Separator (1'000.0) vor dem Literal schaltete den char_lit-Modus -- der Traeger
+    // wurde still als '-' (digest-only) gelockt, sein Literal war weg. Der Bestand uebt den
+    // Stil bereits (axis_q2_queuing_adaptive_lsm.hpp:105, heute NACH dem Literal). NACHHER wird
+    // das Literal korrekt erfasst.
+    fs::path const    q_pfad = g_tmp_root / "libs/cache_engine/axes/s14_synth/axis_s14_separator.hpp";
+    std::string const q_rel  = "libs/cache_engine/axes/s14_synth/axis_s14_separator.hpp";
+    spew(q_pfad, "// s14 separator-koeder\n#pragma once\n#include <string_view>\nstruct Sep {\n"
+                 "    static constexpr double kBudget = 1'000.0;\n"
+                 "    static constexpr std::string_view algo_version = \"1.0.0.c\";\n"
+                 "    static constexpr double kSpaeter = 2'000.0;\n};\n");
+    ToolRun q1 = run_tool("--write");
+    protokoll("KOEDER Q --write mit Separator-Traeger (vorher: version '-')", q1);
+    if (q1.exit_code != 0) return fehler(24, "Koeder Q --write muss Exit 0 liefern", q1);
+    if (lock_version_von(g_lockfile, q_rel) != "1.0.0.c")
+        return fehler(24, "Koeder Q: das Literal hinter dem Separator muss als 1.0.0.c im Register stehen", q1);
+    fs::remove(q_pfad);
+    ToolRun q2 = run_tool("--write");
+    if (q2.exit_code != 0) return fehler(24, "Koeder Q Aufraeum-Regen muss Exit 0 liefern", q2);
+
+    // Schritt 25 -- KOEDER R (G6b): PRAEPROZESSOR. ROT-ZUERST 13.08.2026 literal: ein Literal in
+    // einem '#if 0'-Block stellte die Version (9.9.9.c gewann gegen das aktive 1.0.0.c). Der
+    // Bestand hat 0 Literale unter #if/#ifdef/#ifndef (gemessen 13.08.2026) -- deshalb ist die
+    // strengste Form bestandsneutral: nicht entscheidbar => ROT.
+    fs::path const r_pfad = g_tmp_root / "libs/cache_engine/axes/s14_synth/axis_s14_praep.hpp";
+    spew(r_pfad, "#pragma once\n#include <string_view>\n#if 0\n"
+                 "struct Alt { static constexpr std::string_view algo_version = \"9.9.9.c\"; };\n"
+                 "#endif\n"
+                 "struct Akt { static constexpr std::string_view algo_version = \"1.0.0.c\"; };\n");
+    ToolRun r1 = run_tool("--check");
+    protokoll("KOEDER R (Literal in '#if 0' -- vorher stellte es die Version)", r1);
+    if (r1.exit_code != 1) return fehler(25, "Koeder R muss Exit 1 liefern", r1);
+    if (!contains(r1.output, "nicht entscheidbar")) return fehler(25, "Koeder R muss 'nicht entscheidbar' melden", r1);
+    fs::remove(r_pfad);
+    ToolRun r2 = run_tool("--check");
+    if (r2.exit_code != 0) return fehler(25, "Koeder-R-Ruecknahme muss Exit 0 liefern", r2);
+
+    // Schritt 26 -- KOEDER S: v1-ABWEISUNG dauerhaft gepinnt (bisher nur Tool-Code, kein Koeder).
+    std::string const lock_vor_s = slurp(g_lockfile);
+    spew(g_lockfile, "# axis_version.lock v1\nlibs/cache_engine/heuristik/axis_spline.hpp 1 deadbeef\n");
+    ToolRun s1 = run_tool("--check");
+    protokoll("KOEDER S (v1-/kopfloses Lock)", s1);
+    if (s1.exit_code != 1) return fehler(26, "Koeder S muss Exit 1 liefern", s1);
+    if (!contains(s1.output, "format: v2")) return fehler(26, "Koeder S muss den v2-Kopf einfordern", s1);
+    spew(g_lockfile, "# format: v1\nlibs/cache_engine/heuristik/axis_spline.hpp 1 deadbeef\n");
+    ToolRun s2 = run_tool("--check");
+    protokoll("KOEDER S2 (explizite '# format: v1'-Zeile)", s2);
+    if (s2.exit_code != 1) return fehler(26, "Koeder S2 muss Exit 1 liefern", s2);
+    if (!contains(s2.output, "unbekannt/veraltet")) return fehler(26, "Koeder S2 muss die Abweisung benennen", s2);
+    spew(g_lockfile, lock_vor_s);
+    ToolRun s3 = run_tool("--check");
+    if (s3.exit_code != 0) return fehler(26, "Koeder-S-Ruecknahme muss Exit 0 liefern", s3);
+
     fs::remove_all(g_tmp_root, ec);
-    std::printf("test_s14_axis_version_lock_tripwire: GRUEN (Koeder A-G gefahren, Anker 6/%ld gehalten)\n", o_disc);
+    std::printf("test_s14_axis_version_lock_tripwire: GRUEN (Koeder A-S gefahren, Anker 6/%ld gehalten)\n", o_disc);
     return 0;
 }

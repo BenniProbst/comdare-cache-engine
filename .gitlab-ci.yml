@@ -801,9 +801,23 @@ contract:axis-version-lock:
     # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
     - cmake -B build-axislock -G Ninja
     - cmake --build build-axislock --target comdare_axis_version_lock
+    # PFLICHT-FIXUP 2 (13.08.2026, Owner-Dauerregel; Fund-Gruppe 2, live belegt): --check allein
+    # liess den Bump-Zweig als DAUERLOCH stehen -- Bump ohne Lock-Regen war Exit 0, der
+    # Regen-HINWEIS stand auf stdout eines GRUENEN Jobs, und JEDER weitere Inhalts-Drift unter
+    # der einmal gebumpten Version blieb gruen. Seitdem doppelt geschlossen: (a) das Tool
+    # liefert Exit 3 'REGEN ERFORDERLICH', sobald ein akzeptierter Bump ohne Regen vorliegt
+    # (der erste Schritt wird damit rot); (b) der Job erzwingt zusaetzlich die BYTE-IDENTITAET
+    # des Registers -- --write regeneriert deterministisch, und git diff auf GENAU diese Datei
+    # muss leer sein. (b) faengt ALLE Drift-Formen des Registers, auch Klassen, die --check
+    # strukturell nicht sieht (Tiefenstaffelung; das Lock ist Cache-/Lager-Schluessel, ein
+    # veraltetes Register hiesse 'schneller UND falsch').
     - >
       ./build-axislock/tools/axis_version_lock/comdare_axis_version_lock
       --check tools/axis_version_lock/axis_version.lock
+    - >
+      ./build-axislock/tools/axis_version_lock/comdare_axis_version_lock
+      --write tools/axis_version_lock/axis_version.lock
+    - git diff --exit-code -- tools/axis_version_lock/axis_version.lock
   artifacts:
     paths: []     # Storage-500-Konvention
 
