@@ -156,6 +156,10 @@ constexpr Eintrag kTabelle[] = {
 // DIE OBERGRENZE DER WARTELISTE. Sie ist die ZAHL, die den Posten am Leben haelt --
 // 'wir achten darauf' gilt als nicht abgenommen. Sie darf nur SINKEN; jede neue
 // ungedeckte Wache hebt den Ist-Wert darueber und macht diesen Test rot.
+// NE-16 (2026-08-13, #39-Klasse): geprueft wird EXAKT (EXPECT_EQ, nicht mehr LE).
+// Sinkt die Ist-Zahl, wird diese Zahl im SELBEN Change mitgesenkt -- Nachzug-Pflicht
+// statt Schlupf, sonst verschwaende die naechste neue ungedeckte Wache im frei
+// gewordenen Fenster zwischen Ist und Obergrenze.
 constexpr std::size_t kWartelisteObergrenze = 3;
 
 // Die drei ctest-Eintraege mit PASS_REGULAR_EXPRESSION sind allesamt ungedeckt --
@@ -232,6 +236,156 @@ struct Zaehlung {
         case Deckung::Keine: return "KEINE";
     }
     return "?";
+}
+
+// ---------------------------------------------------------------------------
+// KLASSE B (NE-16 / KON59-02, 2026-08-13): die TOP-LEVEL-JOBS der .gitlab-ci.yml.
+//
+// DER BEFUND: der S-14a-Job contract:axis-version-lock ruft KEIN scripts/*.sh --
+// er baut das Tool comdare_axis_version_lock und faehrt --check/--write/git diff
+// (.gitlab-ci.yml). Fuer den Klasse-A-Nenner (Skript-Aufrufe) war er STRUKTURELL
+// unsichtbar; der Kombibau blieb zu Recht gruen, weil der Nenner zu klein war
+// (15 Skript-Pfade sichtbar von 25 Top-Level-Jobs). Der richtige FREMDE Nenner
+// (T-3/V-7) ist die Job-Ebene der YAML SELBST: jeder kuenftige Wachen-Job -- ob
+// Skript-, Tool- oder ctest-Form -- traegt einen Top-Level-Schluessel und faellt
+// damit in diese Menge, bevor irgendwer an ein Inventar gedacht hat.
+// ---------------------------------------------------------------------------
+enum class JobArt {
+    WacheJob,      // faellt selbst ein Urteil ueber einen festen Gegenstand -- Deckung PFLICHT
+    WachenTraeger, // ruft eine Klasse-A-Wache; die Deckung steht dort (kTabelle)
+    WacheExtern,   // Urteil kommt aus dem fremden ci-templates-Projekt -- Deckung dort
+    SuiteTraeger,  // faehrt Manifest-ctest-Auswahlen bzw. Suiten/Smokes
+    Bau,           // baut nur, urteilt nicht ueber einen festen Pruefgegenstand
+    Manuell,       // rules 'when: manual' -- faehrt nicht von selbst
+    Template       // versteckter Top-Level-Schluessel (fuehrender '.'), kein Job
+};
+
+// Dieselbe Bauart wie Eintrag/kTabelle oben (LITERAL, bewusst nicht abgeleitet).
+struct JobEintrag {
+    std::string_view schluessel; // der Top-Level-Schluessel, wie er in der YAML steht
+    JobArt           art;
+    Deckung          deckung = Deckung::Keine; // nur fuer WacheJob PFLICHT (EXPECT unten)
+    std::string_view beleg;                    // bei Gtest die .cpp
+    std::string_view ziel;                     // bei Gtest der ctest-Zielname (T-7)
+    std::string_view bemerkung;
+};
+
+constexpr JobEintrag kJobTabelle[] = {
+    // -- versteckte Templates (fuehrender '.'): Top-Level-Schluessel, keine Jobs ---
+    {".ccache-pull", JobArt::Template, Deckung::Keine, "", "", "ccache-Warmstart der bauenden Jobs."},
+    {".bare_metal", JobArt::Template, Deckung::Keine, "", "", "Runner-Basis der baremetal-Lanes."},
+    {".pmc", JobArt::Template, Deckung::Keine, "", "", "Basis der Vendor-Lanes (Performance-Counter)."},
+
+    // -- Jobs, in YAML-Reihenfolge -------------------------------------------------
+    {"lint:secrets", JobArt::WacheExtern, Deckung::Keine, "", "",
+     "Urteil aus dem fremden ci-templates-Projekt (gitleaks); Deckung liegt dort."},
+    {"lint:format", JobArt::WacheExtern, Deckung::Keine, "", "", "ci-templates: Format-Gate."},
+    {"lint:static", JobArt::WacheExtern, Deckung::Keine, "", "", "ci-templates: Static-Analysis-Gate."},
+    {"lint:layer-includes", JobArt::WachenTraeger, Deckung::Keine, "", "",
+     "ruft scripts/lint_layer_includes.sh -- Wache und Deckung stehen in Klasse A."},
+    {"lint:xml-wellformed", JobArt::WachenTraeger, Deckung::Keine, "", "",
+     "ruft scripts/ci_xml_wellformed_guard.sh -- Klasse A."},
+    {"build:clang", JobArt::Bau, Deckung::Keine, "", "", "baut die clang-Matrix, urteilt nicht."},
+    {"pmc:amd", JobArt::SuiteTraeger, Deckung::Keine, "", "", "Vendor-Lane, Manifest-Auswahl 'pmc'."},
+    {"pmc:intel", JobArt::SuiteTraeger, Deckung::Keine, "", "", "Vendor-Lane, Manifest-Auswahl 'pmc'."},
+    {"build:arm64-smoke", JobArt::SuiteTraeger, Deckung::Keine, "", "", "Cross-Smoke (optin: COMDARE_ISA_MATRIX)."},
+    {"sanitize:asan-ubsan", JobArt::SuiteTraeger, Deckung::Keine, "", "", "Sanitizer-Suite (ASan+UBSan)."},
+    {"contract", JobArt::SuiteTraeger, Deckung::Keine, "", "", "Contract-Suite (Manifest-Auswahl)."},
+    {"test:coverage-guard", JobArt::WachenTraeger, Deckung::Keine, "", "",
+     "ruft scripts/ci_test_coverage_guard.sh -- Klasse A."},
+    {"contract:durability", JobArt::SuiteTraeger, Deckung::Keine, "", "", "Durability-Suite."},
+    {"contract:conformance", JobArt::SuiteTraeger, Deckung::Keine, "", "", "Konformanz-Suite."},
+    {"contract:pool_flip", JobArt::SuiteTraeger, Deckung::Keine, "", "", "Pool-Flip-Suite."},
+    {"contract:harness", JobArt::SuiteTraeger, Deckung::Keine, "", "", "Harness-Suite."},
+    {"contract:profile_coverage", JobArt::SuiteTraeger, Deckung::Keine, "", "", "Profil-Abdeckungs-Suite."},
+    {"contract:axis-version-lock", JobArt::WacheJob, Deckung::Gtest,
+     "tests/unit/test_s14_axis_version_lock_tripwire.cpp", "test_s14_axis_version_lock_tripwire",
+     "S-14a-Riegel: baut comdare_axis_version_lock und faehrt --check/--write/git diff -- KEIN "
+     "Skript-Aufruf; genau der Job, den der Klasse-A-Nenner strukturell nicht sah (NE-16/KON59-02)."},
+    {"contract:experiment_driver", JobArt::SuiteTraeger, Deckung::Keine, "", "",
+     "Treiber-Gate (#193-A): baut und faehrt test_experiment_driver_v13."},
+    {"contract:mess_report_smoke", JobArt::SuiteTraeger, Deckung::Keine, "", "",
+     "Smoke der Mess-Report-CLI (existenz-inert, nicht inhalts-gegatet)."},
+    {"contract:node_shape", JobArt::SuiteTraeger, Deckung::Keine, "", "", "Node-Shape-Gate (#234)."},
+    {"is_original:relock", JobArt::Manuell, Deckung::Keine, "", "",
+     "rules 'when: manual' -- faehrt nur von Hand, deckt deshalb nichts."},
+    {"chaos:drift", JobArt::SuiteTraeger, Deckung::Keine, "", "", "Drift-Suite (chaos)."},
+    {"test:unit", JobArt::SuiteTraeger, Deckung::Keine, "", "",
+     "Voll-Suite ohne die Hardware-Klasse 'pmc' (Manifest test_unit)."},
+    {"sanitize:tsan", JobArt::SuiteTraeger, Deckung::Keine, "", "", "TSan-Suite."},
+};
+
+// Reservierte GitLab-Schluessel: Pipeline-Struktur, keine Jobs. Kompilierte Menge,
+// damit ein Tippfehler hier ein Compile- oder Testfehler ist und kein stilles Loch.
+constexpr std::string_view kReserviert[] = {"include", "workflow", "stages",   "cache",         "variables",
+                                            "default", "image",    "services", "before_script", "after_script"};
+
+[[nodiscard]] bool ist_schluesselzeichen(char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '.' ||
+           c == ':' || c == '-';
+}
+
+struct TopLevelSchluessel {
+    std::set<std::string>     jobs;
+    std::set<std::string>     templates;
+    std::set<std::string>     reserviert;
+    [[nodiscard]] std::size_t gesamt() const { return jobs.size() + templates.size() + reserviert.size(); }
+};
+
+// Der Job-Scanner: eine Zeile ist ein Top-Level-Schluessel, wenn sie in Spalte 0 mit
+// Nicht-Leerraum/Nicht-'#'/Nicht-'-' beginnt und '^<schluessel>:$' matcht -- hinter dem
+// abschliessenden ':' steht NICHTS (am Objekt tragen alle 33 Schluessel nichts dahinter;
+// 'key: wert' ist hier kein Job-Kopf). Genau EIN abschliessender Doppelpunkt wird
+// gestrippt: 'lint:secrets:' ergibt 'lint:secrets'.
+[[nodiscard]] TopLevelSchluessel job_schluessel(std::vector<std::string> const& zeilen) {
+    TopLevelSchluessel s;
+    for (auto const& z : zeilen) {
+        if (z.empty()) { continue; }
+        char const anfang = z.front();
+        if (anfang == ' ' || anfang == '\t' || anfang == '#' || anfang == '-') { continue; }
+        if (z.back() != ':') { continue; }
+        std::string const kern = z.substr(0, z.size() - 1);
+        if (kern.empty()) { continue; }
+        bool nur_schluesselzeichen = true;
+        for (char const c : kern) {
+            if (!ist_schluesselzeichen(c)) {
+                nur_schluesselzeichen = false;
+                break;
+            }
+        }
+        if (!nur_schluesselzeichen) { continue; }
+        bool ist_reserviert = false;
+        for (std::string_view const r : kReserviert) {
+            if (kern == r) {
+                ist_reserviert = true;
+                break;
+            }
+        }
+        if (ist_reserviert) {
+            s.reserviert.insert(kern);
+        } else if (kern.front() == '.') {
+            s.templates.insert(kern);
+        } else {
+            s.jobs.insert(kern);
+        }
+    }
+    return s;
+}
+
+// T-7-Registrierungs-Marke fuer Gtest-Deckungen (Klasse A und Klasse B), NE-16:
+// HAUSFORM comdare_add_test(<ziel> ODER rohes add_test(NAME <ziel> -- der S-14a-
+// Riegel ist ein rohes add_test (tests/unit/CMakeLists.txt), und mit der alten
+// Nur-Hausform-Marke war seine Deckung ein Rot-Beleg (Zwischenstand protokolliert).
+// Beide Marken zaehlen nur im WIRKSAMEN Teil (Kommentar-Zeilen registrieren nichts).
+[[nodiscard]] bool ziel_ist_registriert(std::vector<std::string> const& cmake_zeilen, std::string_view ziel) {
+    std::string const marke_haus = "comdare_add_test(" + std::string{ziel};
+    std::string const marke_roh  = "add_test(NAME " + std::string{ziel};
+    for (auto const& z : cmake_zeilen) {
+        std::string const wirksam = wirksamer_teil(z);
+        if (wirksam.find(marke_haus) != std::string::npos) { return true; }
+        if (wirksam.find(marke_roh) != std::string::npos) { return true; }
+    }
+    return false;
 }
 
 } // namespace
@@ -319,9 +473,114 @@ TEST(T6WachenInventar, NennerUndWartelisteStehenInDerAusgabe) {
         for (auto const& p : tote_zeilen) { s += "  " + p + "\n"; }
         return s;
     }();
-    EXPECT_LE(warteliste.size(), kWartelisteObergrenze)
-        << "Die Warteliste ist gewachsen. Eine neue CI-gerufene Wache ohne Selbsttest ist genau die "
-           "Klasse, gegen die dieser Posten gebaut ist.";
+    // NE-16 (#39-Klasse): EXAKT statt Obergrenze -- sinkt die Ist-Zahl, wird die
+    // Obergrenze im SELBEN Change mitgesenkt; sonst traegt der Schlupf zwischen
+    // Ist und Schranke die naechste ungedeckte Wache unbemerkt.
+    EXPECT_EQ(warteliste.size(), kWartelisteObergrenze)
+        << "Die Warteliste weicht von der eingetragenen Zahl ab. GEWACHSEN: eine neue CI-gerufene "
+           "Wache ohne Selbsttest ist genau die Klasse, gegen die dieser Posten gebaut ist. "
+           "GESUNKEN: kWartelisteObergrenze im SELBEN Change mitsenken (Nachzug-Pflicht statt Schlupf).";
+
+    // ==========================================================================
+    // KLASSE B (NE-16 / KON59-02): die TOP-LEVEL-JOBS derselben YAML.
+    // Der Klasse-A-Nenner oben sieht nur scripts/*.sh-Aufrufe. Der S-14a-Job
+    // contract:axis-version-lock ruft keines (Tool-Bau + --check/--write/git
+    // diff) und war strukturell unsichtbar -- der Nenner hier ist deshalb die
+    // Job-Ebene der YAML SELBST: jede kuenftige Wache, egal in welcher Form,
+    // traegt einen Top-Level-Schluessel und faellt in diese Menge.
+    // ==========================================================================
+    TopLevelSchluessel const schluessel = job_schluessel(ci_zeilen);
+
+    // GEGENPROBE DES MESSGERAETS (V4, ASSERT, fail-closed): trifft der Scanner die
+    // bekannten Schluessel nicht, ist die MESSUNG defekt, nicht die Tabelle -- und
+    // dann darf dieser Fall kein Urteil faellen.
+    ASSERT_GT(schluessel.jobs.size(), 0U) << "0 Top-Level-Jobs gefunden -- der Scanner greift nicht.";
+    ASSERT_EQ(schluessel.jobs.count("contract:axis-version-lock"), 1U)
+        << "Der NE-16-Gegenstand selbst fehlt in der Job-Menge -- Scanner defekt, kein Urteil.";
+    ASSERT_EQ(schluessel.jobs.count("test:unit"), 1U)
+        << "'test:unit' fehlt in der Job-Menge -- Scanner defekt, kein Urteil.";
+    ASSERT_EQ(schluessel.jobs.count("stages"), 0U)
+        << "'stages' ist ein reservierter Schluessel und darf nicht als Job zaehlen.";
+    ASSERT_EQ(schluessel.jobs.count(".bare_metal"), 0U)
+        << "'.bare_metal' ist ein Template und darf nicht als Job zaehlen.";
+
+    // -- Abgleich Richtung 1: jeder Job und jedes Template steht in der Tabelle -----
+    std::vector<std::string> jobs_ohne_eintrag;
+    auto                     in_tabelle = [](std::string const& name) {
+        for (auto const& e : kJobTabelle) {
+            if (e.schluessel == name) { return true; }
+        }
+        return false;
+    };
+    for (auto const& j : schluessel.jobs) {
+        if (!in_tabelle(j)) { jobs_ohne_eintrag.push_back(j); }
+    }
+    for (auto const& t : schluessel.templates) {
+        if (!in_tabelle(t)) { jobs_ohne_eintrag.push_back(t); }
+    }
+
+    // -- Abgleich Richtung 2: jede Tabellenzeile existiert noch als Schluessel ------
+    std::vector<std::string> tote_job_zeilen;
+    for (auto const& e : kJobTabelle) {
+        std::string const name{e.schluessel};
+        if (schluessel.jobs.count(name) == 0U && schluessel.templates.count(name) == 0U) {
+            tote_job_zeilen.push_back(name);
+        }
+    }
+
+    // -- Zaehlung je ART (EXAKTE Ausgabe mit Nenner, V-1) ---------------------------
+    std::size_t wache_job = 0, wachen_traeger = 0, wache_extern = 0, suite_traeger = 0;
+    std::size_t nur_bau = 0, manuell = 0, tmpl = 0, wache_job_ungedeckt = 0;
+    for (auto const& e : kJobTabelle) {
+        switch (e.art) {
+            case JobArt::WacheJob:
+                ++wache_job;
+                if (e.deckung == Deckung::Keine) { ++wache_job_ungedeckt; }
+                break;
+            case JobArt::WachenTraeger: ++wachen_traeger; break;
+            case JobArt::WacheExtern: ++wache_extern; break;
+            case JobArt::SuiteTraeger: ++suite_traeger; break;
+            case JobArt::Bau: ++nur_bau; break;
+            case JobArt::Manuell: ++manuell; break;
+            case JobArt::Template: ++tmpl; break;
+        }
+    }
+    std::size_t const tabellen_zeilen = sizeof(kJobTabelle) / sizeof(kJobTabelle[0]);
+
+    std::cout << "-----------------------------------------------------------------------------\n"
+              << "T-6-INVENTAR, KLASSE B -- Top-Level-Jobs der .gitlab-ci.yml (NE-16/KON59-02)\n"
+              << "  Nenner (fremd, T-3) : " << schluessel.jobs.size() << " Jobs von " << schluessel.gesamt()
+              << " Top-Level-Schluesseln (" << schluessel.reserviert.size() << " reserviert, "
+              << schluessel.templates.size() << " Templates)\n"
+              << "  je ART, von " << tabellen_zeilen << " Tabellenzeilen: WacheJob " << wache_job << ", WachenTraeger "
+              << wachen_traeger << ", WacheExtern " << wache_extern << ",\n"
+              << "    SuiteTraeger " << suite_traeger << ", Bau " << nur_bau << ", Manuell " << manuell << ", Template "
+              << tmpl << "\n"
+              << "  WacheJob UNGEDECKT  : " << wache_job_ungedeckt << " von " << wache_job
+              << " (Deckung ist fuer WacheJob PFLICHT)\n"
+              << "-----------------------------------------------------------------------------\n";
+
+    EXPECT_TRUE(jobs_ohne_eintrag.empty()) << [&] {
+        std::string s;
+        for (auto const& p : jobs_ohne_eintrag) { s += "NEUER CI-JOB OHNE INVENTAR-EINTRAG: " + p + "\n"; }
+        s += "Die CI kennt diesen Top-Level-Schluessel, kJobTabelle kennt ihn nicht. Genau so\n"
+             "blieb der S-14a-Riegel unsichtbar: eine Wache in Tool- oder ctest-Form ruft kein\n"
+             "Skript und fiel am Klasse-A-Nenner vorbei. Eintragen UND klassifizieren -- eine\n"
+             "neue Wache (WacheJob) braucht ihre Deckung im SELBEN Change.";
+        return s;
+    }();
+    EXPECT_TRUE(tote_job_zeilen.empty()) << [&] {
+        std::string s;
+        for (auto const& p : tote_job_zeilen) { s += "TOTE TABELLEN-ZEILE: " + p + "\n"; }
+        s += "Eingetragen, aber kein Top-Level-Schluessel der .gitlab-ci.yml mehr (Job entfernt\n"
+             "oder umbenannt) -- die Zeile im SELBEN Change pflegen, nicht liegen lassen.";
+        return s;
+    }();
+    // Deckungs-PFLICHT der Klasse WacheJob (exakt null ungedeckt): eine Schranke
+    // waere derselbe Schlupf, den #39 beim Floor geschlossen hat.
+    EXPECT_EQ(wache_job_ungedeckt, 0U)
+        << "Ein WacheJob ohne Deckung: sein Urteil prueft niemand. Deckung (Gtest) im SELBEN Change "
+           "nachreichen oder die Zeile BEWUSST und begruendet umklassifizieren.";
 }
 
 // =============================================================================
@@ -347,24 +606,34 @@ TEST(T6WachenInventar, JederDeckungsBelegExistiertUndIstRegistriert) {
         if (e.deckung == Deckung::Gtest) {
             // T-7: die Quelldatei genuegt nicht. Sie muss registriert sein, sonst
             // erscheint der Test in keinem 'ctest -N' und existiert nicht.
-            std::string const marke    = "comdare_add_test(" + std::string{e.ziel};
-            bool              gefunden = false;
-            for (auto const& z : cmake_zeilen) {
-                if (wirksamer_teil(z).find(marke) != std::string::npos) {
-                    gefunden = true;
-                    break;
-                }
-            }
-            EXPECT_TRUE(gefunden) << "Ziel '" << e.ziel << "' ist in tests/unit/CMakeLists.txt nicht registriert -- "
-                                  << "eine Deckung, die in keinem 'ctest -N' erscheint, ist keine.";
+            EXPECT_TRUE(ziel_ist_registriert(cmake_zeilen, e.ziel))
+                << "Ziel '" << e.ziel << "' ist in tests/unit/CMakeLists.txt nicht registriert -- "
+                << "eine Deckung, die in keinem 'ctest -N' erscheint, ist keine.";
         } else {
             // Ein Selbsttest, den niemand ruft, deckt nichts.
             EXPECT_TRUE(gerufen.count(std::string{e.beleg}) == 1U)
                 << "Der Selbsttest '" << e.beleg << "' wird von der .gitlab-ci.yml nicht gerufen.";
         }
     }
+    // -- KLASSE B (NE-16): dieselbe Pruefung fuer die Gtest-gedeckten CI-JOBS -------
+    // Der S-14a-Riegel ist ein ROHES add_test (kein comdare_add_test) -- die Marke
+    // muss beide Registrierungs-Formen sehen, sonst ist die Deckung eine Behauptung.
+    for (auto const& e : kJobTabelle) {
+        if (e.deckung == Deckung::Keine) { continue; }
+        ++geprueft;
+        fs::path const beleg = wurzel() / std::string{e.beleg};
+        EXPECT_TRUE(fs::exists(beleg)) << "Deckungs-Beleg fuer CI-Job " << e.schluessel << " fehlt: " << beleg.string();
+        if (e.deckung == Deckung::Gtest) {
+            EXPECT_TRUE(ziel_ist_registriert(cmake_zeilen, e.ziel))
+                << "Ziel '" << e.ziel << "' (CI-Job " << e.schluessel << ") ist in tests/unit/CMakeLists.txt "
+                << "nicht registriert (weder comdare_add_test noch add_test(NAME ...)) -- T-7: eine Deckung, "
+                << "die in keinem 'ctest -N' erscheint, ist keine.";
+        }
+    }
+
     ASSERT_GT(geprueft, 0U) << "0 Deckungs-Belege geprueft -- dann sagt dieser Fall nichts aus (fail-closed).";
-    std::cout << "T-6-INVENTAR: " << geprueft << " Deckungs-Beleg(e) am Gegenstand nachgesehen.\n";
+    std::cout << "T-6-INVENTAR: " << geprueft << " Deckungs-Beleg(e) am Gegenstand nachgesehen"
+              << " (Klasse A und Klasse B).\n";
 }
 
 // =============================================================================
