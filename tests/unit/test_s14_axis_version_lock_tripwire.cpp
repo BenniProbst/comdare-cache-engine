@@ -19,6 +19,13 @@
 //      konsistent -- 158 Dateien' UND --write regenerierte das Register OHNE die Datei (0 Treffer).
 //      F2 pinnt den heuristik-Kontrast: dort war unlesbar schon IMMER Exit 2 (die heuristik-Discovery
 //      liest keine Bytes, die Datei faellt im Digest-Schritt laut um -- Objekt-Verifikation 13.08.).
+//   G  Register-Strenge des Lock-Parsers (ROT-ZUERST 13.08.2026, Pflicht-Fixup, Luecke 2): G1
+//      Kopfzeile mit viertem Token (dieselbe Grenze faengt Pfade MIT Leerzeichen) und G2 Rest-Muell
+//      hinter dem Digest wurden VORHER still verschluckt (--check Exit 0 GRUEN, literal belegt);
+//      G3 64 Nicht-Hex-Zeichen gingen als 'Digest' durch den Parser und der Fehler erschien als
+//      DATEI-Drift ('erwartet zzzz...'), nie als Register-Fehler; G4 dupliziertes Record-Paar
+//      wurde still 'last wins' aufgeloest (Exit 0). NACHHER: alle vier ROT (Exit 1) als
+//      Formatfehler mit der literalen Zeile bzw. dem Pfad.
 //
 // HERMETIK: der Test kopiert die drei Traeger-Baeume (heuristik/, axes/, topics/queuing/) in ein
 // Temp-Verzeichnis (comdare_test_tmp.hpp, worktree-getrennt) und faehrt das Tool per --root NUR auf den
@@ -354,7 +361,82 @@ int main(int argc, char** argv) {
     std::printf("KOEDER F/F2 UEBERSPRUNGEN: kein chmod-000-Mechanismus unter _WIN32\n");
 #endif
 
+    // Schritt 14 -- KOEDER G (PFLICHT-FIXUP 13.08.2026, Luecke 2 'laxer Lock-Parser'): die Wache
+    // muss ihr eigenes Register STRENG lesen -- die Lock-Datei ist das Identitaets-Register.
+    // Ziel der Manipulationen ist der Record des synthetischen Traegers (nie hartkodierte Pfade).
+    std::string const        lock_urbytes = slurp(g_lockfile);
+    std::vector<std::string> lock_zeilen;
+    {
+        std::istringstream lz(lock_urbytes);
+        std::string        l;
+        while (std::getline(lz, l)) lock_zeilen.push_back(l);
+    }
+    std::size_t kopf_idx = lock_zeilen.size();
+    for (std::size_t i = 0; i + 1 < lock_zeilen.size(); ++i) {
+        if (!lock_zeilen[i].empty() && lock_zeilen[i][0] != '#' && lock_zeilen[i][0] != ' ' &&
+            contains(lock_zeilen[i], kSynthRel)) {
+            kopf_idx = i;
+            break;
+        }
+    }
+    if (kopf_idx >= lock_zeilen.size()) return fehler(14, "synth-Record im Lock nicht gefunden", leer);
+    auto mit_lock = [&](std::vector<std::string> const& zeilen) {
+        std::string neu;
+        for (std::string const& l : zeilen) {
+            neu += l;
+            neu += '\n';
+        }
+        spew(g_lockfile, neu);
+    };
+    // G1: viertes Token auf der Kopfzeile. VORHER still verschluckt (Exit 0 GRUEN, literal belegt)
+    // -- ein Pfad MIT Leerzeichen wurde damit abgeschnitten und das Urteil traf eine andere Datei.
+    std::vector<std::string> man = lock_zeilen;
+    man[kopf_idx] += " muell";
+    mit_lock(man);
+    ToolRun g1 = run_tool("--check");
+    protokoll("KOEDER G1 (Kopfzeile mit viertem Token)", g1);
+    if (g1.exit_code != 1) return fehler(14, "Koeder G1 muss Exit 1 liefern", g1);
+    if (!contains(g1.output, "Zusatz-Token")) return fehler(14, "Koeder G1 muss das Zusatz-Token benennen", g1);
+    if (!contains(g1.output, man[kopf_idx])) return fehler(14, "Koeder G1 muss die literale Zeile zeigen", g1);
+    // G2: Rest-Muell hinter dem Digest. VORHER still verschluckt (Exit 0 GRUEN, literal belegt).
+    man = lock_zeilen;
+    man[kopf_idx + 1] += " muell";
+    mit_lock(man);
+    ToolRun g2 = run_tool("--check");
+    protokoll("KOEDER G2 (Digest-Zeile mit Rest-Muell)", g2);
+    if (g2.exit_code != 1) return fehler(14, "Koeder G2 muss Exit 1 liefern", g2);
+    if (!contains(g2.output, "unparsbare Digest-Zeile"))
+        return fehler(14, "Koeder G2 muss als Digest-Formatfehler melden", g2);
+    if (!contains(g2.output, man[kopf_idx + 1])) return fehler(14, "Koeder G2 muss die literale Zeile zeigen", g2);
+    // G3: 64 Nicht-Hex-Zeichen. VORHER akzeptierte der Parser den Muellstring als Digest
+    // (size()==64) und die Meldung beschuldigte die DATEI ('Digest geaendert OHNE ... erwartet
+    // zzzz...') statt des Registers. NACHHER: Register-Formatfehler, nie Datei-Drift.
+    man               = lock_zeilen;
+    man[kopf_idx + 1] = "    " + std::string(64, 'z');
+    mit_lock(man);
+    ToolRun g3 = run_tool("--check");
+    protokoll("KOEDER G3 (Digest = 64 Nicht-Hex-Zeichen)", g3);
+    if (g3.exit_code != 1) return fehler(14, "Koeder G3 muss Exit 1 liefern", g3);
+    if (!contains(g3.output, "unparsbare Digest-Zeile"))
+        return fehler(14, "Koeder G3 muss als Digest-Formatfehler melden (nicht als Datei-Drift)", g3);
+    if (contains(g3.output, "Digest geaendert"))
+        return fehler(14, "Koeder G3 darf NICHT als Drift der Datei gemeldet werden", g3);
+    // G4: dupliziertes Record-Paar (Kopf+Digest adjazent). VORHER still 'last wins' (Exit 0).
+    man = lock_zeilen;
+    man.insert(man.begin() + static_cast<std::ptrdiff_t>(kopf_idx) + 2, man[kopf_idx]);
+    man.insert(man.begin() + static_cast<std::ptrdiff_t>(kopf_idx) + 3, man[kopf_idx + 1]);
+    mit_lock(man);
+    ToolRun g4 = run_tool("--check");
+    protokoll("KOEDER G4 (dupliziertes Record-Paar)", g4);
+    if (g4.exit_code != 1) return fehler(14, "Koeder G4 muss Exit 1 liefern", g4);
+    if (!contains(g4.output, "doppelter Lock-Record")) return fehler(14, "Koeder G4 muss den Doppel-Record melden", g4);
+    if (!contains(g4.output, kSynthRel)) return fehler(14, "Koeder G4 muss den Pfad nennen", g4);
+    // Gegenprobe: Original-Lock byteidentisch zurueck -> gruen.
+    spew(g_lockfile, lock_urbytes);
+    ToolRun g_gruen = run_tool("--check");
+    if (g_gruen.exit_code != 0) return fehler(14, "Koeder-G-Ruecknahme muss Exit 0 liefern", g_gruen);
+
     fs::remove_all(g_tmp_root, ec);
-    std::printf("test_s14_axis_version_lock_tripwire: GRUEN (Koeder A-F gefahren, Anker 6/%ld gehalten)\n", o_disc);
+    std::printf("test_s14_axis_version_lock_tripwire: GRUEN (Koeder A-G gefahren, Anker 6/%ld gehalten)\n", o_disc);
     return 0;
 }

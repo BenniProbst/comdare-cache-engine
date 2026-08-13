@@ -44,6 +44,11 @@
 //   Zweizeilen-Format haelt JEDE Zeile der Datei wachen-gedeckt, statt eine Ausnahme-Klasse in
 //   der Wache zu eroeffnen. Records global nach Pfad sortiert; version bei organ = Literal-STRING
 //   bzw. '-'. Eine Kopfzeile ohne Digest-Folgezeile ist ein LAUTER Formatfehler (kein Ueberlesen).
+//   Der Parser liest STRENG (Pflicht-Fixup 13.08.2026): kein viertes Token auf der Kopfzeile
+//   (Pfade mit Leerzeichen sind nicht zugelassen -- deklarierte Grenze), Digest = genau 64
+//   lowercase-Hex-Zeichen ohne Zusatz, kein doppelter Record je Pfad. Jede Verletzung nennt die
+//   literale Zeile und macht ROT -- eine Wache, die ihr eigenes Register lax liest, kann ihre
+//   Aussage nicht tragen.
 //
 // AUFRUF (CI ruft ohne Datei-Liste; die Grundgesamtheit erhebt das Tool):
 //   axis_version_lock --write <lockfile> [--root <repo-root>]
@@ -107,6 +112,15 @@ namespace meas = ::comdare::cache_engine::measurement;
 
 [[nodiscard]] bool ist_ident_zeichen(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+}
+
+/// Exakt 64 lowercase-Hex-Zeichen -- das Alphabet, das sha256::to_hex emittiert (Pflicht-Fixup
+/// 13.08.2026, Koeder G3: size()==64 allein liess einen 64-Zeichen-Muellstring als Digest durch).
+[[nodiscard]] bool ist_sha256_hex(std::string const& s) {
+    if (s.size() != 64) return false;
+    for (char const c : s)
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
+    return true;
 }
 
 // ================================================================================================
@@ -462,12 +476,20 @@ int do_write(fs::path const& root, std::string const& lockfile) {
             return false;
         }
         if (line[0] == ' ' || line[0] == '\t') {
-            // Digest-Folgezeile des Zweizeilen-Records (vier Leerzeichen + 64 Hex).
+            // Digest-Folgezeile des Zweizeilen-Records (vier Leerzeichen + 64 Hex). STRENG gelesen
+            // (Pflicht-Fixup 13.08.2026, Koeder G2/G3): genau EIN Token, exakt 64 lowercase-Hex.
+            // Vorher schluckte 'ds >> digest' Rest-Tokens still, und size()==64 liess Muellstrings
+            // durch -- der Fehler erschien dann als irrefuehrende Drift-Meldung UEBER DIE DATEI
+            // ('erwartet zzzz...'), nie ueber das Register.
             std::istringstream ds(line);
             std::string        digest;
+            std::string        zusatz;
             ds >> digest;
-            if (!have_kopf || digest.size() != 64) {
-                std::fprintf(stderr, "axis_version_lock: ROT unparsbare Digest-Zeile im Lock (Record-Kopf %s): '%s'\n",
+            bool const hat_zusatz = static_cast<bool>(ds >> zusatz);
+            if (!have_kopf || !ist_sha256_hex(digest) || hat_zusatz) {
+                std::fprintf(stderr,
+                             "axis_version_lock: ROT unparsbare Digest-Zeile im Lock (Record-Kopf %s; erwartet "
+                             "genau 64 Hex-Zeichen [0-9a-f], ohne Zusatz): '%s'\n",
                              have_kopf ? kopf_rel.c_str() : "FEHLT", line.c_str());
                 return false;
             }
@@ -483,6 +505,24 @@ int do_write(fs::path const& root, std::string const& lockfile) {
         std::istringstream ls(line);
         if (!(ls >> kopf.category >> kopf.version >> kopf_rel)) {
             std::fprintf(stderr, "axis_version_lock: ROT unparsbare Lock-Zeile: '%s'\n", line.c_str());
+            return false;
+        }
+        // STRENG (Pflicht-Fixup 13.08.2026, Koeder G1): vorher wurde alles nach dem dritten Feld
+        // still verschluckt -- ein Pfad MIT Leerzeichen wurde abgeschnitten und das Urteil der
+        // Wache traf eine andere Datei. DEKLARIERTE GRENZE: Pfade mit Leerzeichen sind im Lock
+        // nicht zugelassen (im Bestand existieren keine); jedes vierte Token ist ein Formatfehler.
+        std::string zusatz;
+        if (ls >> zusatz) {
+            std::fprintf(stderr,
+                         "axis_version_lock: ROT Lock-Kopfzeile mit Zusatz-Token '%s' (Pfade mit Leerzeichen "
+                         "sind nicht zugelassen): '%s'\n",
+                         zusatz.c_str(), line.c_str());
+            return false;
+        }
+        // STRENG (Koeder G4): ein doppelter Record fuer denselben Pfad wuerde sonst still per
+        // 'last wins' aufgeloest -- im Identitaets-Register ist das ein Formatfehler.
+        if (out.find(kopf_rel) != out.end()) {
+            std::fprintf(stderr, "axis_version_lock: ROT doppelter Lock-Record fuer Pfad: %s\n", kopf_rel.c_str());
             return false;
         }
         have_kopf = true;
