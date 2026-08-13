@@ -32,6 +32,14 @@
 > (Schichten-Entscheid Loader/Drive), K5 (Snapshot-Aggregations-Semantik) -- und neu der
 > Zahlen-Widerspruch **Node-Obergrenze 32 (09.08.) gegen Dock-Array-MaxN 8 (Q6, 02.08.)**,
 > benannt im Kopf von `heuristik_adapter_synthese_matrix.hpp`.
+>
+> **STAND 13.08.2026:** der Zahlen-Widerspruch ist AUFGELOEST -- 32 loest die 8 als
+> Dock-Obergrenze ab (KON28-03, Owner 12.08.: "maximal 32"). Die 32 ist ein PROGRAMM-DECKEL
+> (statische Maximal-Variable, Wert willkuerlich, W7-anpassbar), KEIN Fach-Nenner -- Docks !=
+> Mess-Permutationen (KON41-03). Default-Doktrin: constexpr-Default im Planer, jede XML-Eingabe
+> ueberschreibt (KON42-01). Details im NACHZUG 13.08.2026 im Kopf von
+> `heuristik_adapter_synthese_matrix.hpp`; der XML-Override-Mechanismus (max_docks-Parser) bleibt
+> HY-A3. K1/K2/K5 bleiben unveraendert offen.
 
 ---
 

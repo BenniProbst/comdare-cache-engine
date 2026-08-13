@@ -234,6 +234,9 @@ Schema byte-neutral ist):
 
 ```xml
 <hybrid_tier enabled="true" genus="SearchAlgorithm">
+  <!-- UEBERHOLT 13.08.2026 (KON28-03): die 8 als Obergrenzen-Default ist abgeloest, es gilt 32
+       ("maximal 32", Owner 12.08.). Entwurfszeile unveraendert belassen (deprecated, nicht
+       geloescht); ein explizites max_docks in der XML bleibt als Override zulaessig (KON42-01). -->
   <dock_array storage="static|runtime" max_docks="8"/>
   <eviction strategy="lru|lfu|arc|cost_aware" ram_budget_mb="4096"/>
   <docks>
@@ -444,6 +447,12 @@ Pruefung -> CI gruen.
    Gemischte Gattungen in einer Huelle sind damit ausgeschlossen; je Gattung eine eigene Huelle.
 2. **CT-Kapazitaet der statischen Dock-Array-Policy -- ENTSCHIEDEN: Default-MaxN = 8** (per XML
    `max_docks` als Compile-Define beim delegierten Hybrid-Bau ueberschreibbar).
+   **UEBERHOLT 13.08.2026 (KON28-03):** die 8 ist als Default abgeloest -- es gilt 32 ("maximal
+   32", Owner 12.08.). Die 32 ist ein Programm-Deckel (statische Maximal-Variable, Wert
+   willkuerlich, W7-anpassbar), kein Fach-Nenner: Docks != Mess-Permutationen (KON41-03). Die
+   Override-Mechanik dieses Entscheids (XML `max_docks` ueberschreibt den Default) bleibt gueltig
+   und ist per KON42-01 bestaetigt (constexpr-Default im Planer, jede XML-Eingabe ueberschreibt);
+   der Parser dafuer ist HY-A3. Der Entscheids-Wortlaut oben bleibt als Historie stehen.
 3. **Stempel-Detail (OFFEN, Owner-Vorlage V4):** bekommt die Hybrid-Binary im System-Stempel-Array ein
    eigenes Kennzeichen (hybrid-Flag/Version) oder bleibt die Hybrid-Natur ausschliesslich im
    Sidecar-Manifest? -- NICHT Teil von Q6, weiterhin offen; im gebuendelten Owner-Vorlagen-Block (V4).

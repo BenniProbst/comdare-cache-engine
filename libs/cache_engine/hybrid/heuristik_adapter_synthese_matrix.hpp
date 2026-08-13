@@ -48,7 +48,19 @@
 // ihn zu glaetten. Die 8 wird hier NICHT ueberschrieben; sie gehoert dem Dock-Array, das in
 // diesem Paket nicht gebaut wird. Wer beides zusammenfuehrt, braucht einen Owner-Entscheid.
 // >>> OFFEN FUER DEN OWNER: ist 32 die Spalten-Obergrenze der Synthese-Matrix UND 8 die
-// >>> Dock-Array-Kapazitaet -- oder loest 32 die 8 ab?
+// >>> Dock-Array-Kapazitaet -- oder loest 32 die 8 ab? (BEANTWORTET 13.08. -- s. NACHZUG unten)
+//
+// NACHZUG 13.08.2026 -- ENTSCHIEDEN (KON28-03 / KON41-03 / KON42-01). Die OFFEN-Frage oben ist
+// beantwortet, die Zeilen bleiben als Historie stehen:
+//   1. 32 LOEST DIE 8 AB als Dock-Obergrenze ("maximal 32", Owner 12.08., KON28-03). Es gibt
+//      keine zwei Groessen mehr; die 8 ist als Obergrenze Historie.
+//   2. Die 32 ist ein PROGRAMM-DECKEL: eine statische Maximal-Variable, deren Wert willkuerlich
+//      gesetzt und per W7 anpassbar ist -- KEIN Fach-Nenner. Docks != Mess-Permutationen
+//      (KON41-03); diese 32 hat mit dem Mess-Nenner 32 nichts zu tun, die Gleichheit ist Zufall.
+//   3. Default-Doktrin (KON42-01): der constexpr-Default lebt im Planer, jede XML-Eingabe
+//      ueberschreibt ihn. kHybridNodeObergrenzeDefault unten ist genau dieser Default.
+//   ABGRENZUNG: der XML-Override-MECHANISMUS (max_docks-Parser) ist HY-A3, nicht dieser Nachzug.
+//   Der Code stand seit dem 09.08. bereits auf 32; dieser Block traegt nur den Entscheid nach.
 //
 // NACHZUG 09.08.2026 -- WAS DER ENTSCHEID JETZT VORFINDET: die Zahl ist nicht mehr bloss ein
 // Default, sie BINDET. Jede Matrix reicht ihre Spaltenzahl an ihre Zellen durch, die Schranke
