@@ -6874,3 +6874,42 @@ target_compile_definitions(test_s1_stempel_basis_vertrag PRIVATE
 add_test(NAME test_s1_stempel_basis_vertrag COMMAND test_s1_stempel_basis_vertrag)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s1_stempel_basis_vertrag)
 set_tests_properties(test_s1_stempel_basis_vertrag PROPERTIES LABELS "s1;stempel;vertrag;koeder" TIMEOUT 60)
+
+# =============================================================================
+# S-3 / Paket P1 (Task #4, 2026-08-13): ORDNUNGS-RELATION + VORAUSSETZUNGS-WACHE + FREIGABE-NAHT.
+# Strang-Marker 'S-3 / Paket P1' -- eigener Block am DATEIENDE (Kollisionsschutz gegen die Bloecke
+# anderer Straenge; Namenskonvention test_s3_ordnung_*, s. Kopf der beiden TUs).
+#
+# (1) test_s3_ordnung_relation: CT-Batterie + Laufzeit-Spiegel fuer flag_menge_ist_teilmenge /
+#     flag_menge_in_signatur (measurement/flag_menge_ordnung.hpp), voraussetzungen_erfuellt +
+#     Einhaengung in ce_owned_version_is_wellformed (KON11-01, ungated) und die
+#     Geschlossenheits-Wache signatur_ist_voraussetzungs_geschlossen. Header-only-Flaeche =>
+#     nur der include-Baum, kein Link-Bedarf ueber gtest hinaus.
+comdare_add_test(test_s3_ordnung_relation
+    SOURCES test_s3_ordnung_relation.cpp)
+target_include_directories(test_s3_ordnung_relation PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_compile_definitions(test_s3_ordnung_relation PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+set_tests_properties(test_s3_ordnung_relation PROPERTIES
+    LABELS "s3;ordnung;teilmenge;voraussetzung;wachen;koeder")
+
+# (2) test_s3_ordnung_freigabe: die FREIGEBENDE SEITE (S-3c) -- belege_aktive_maschinen_deklaration
+#     (profile_facade/maschinen_deklarations_naht.hpp) gegen die ECHTE golden-Maschinen-Menge
+#     (experiment_golden_kern.xml, NUR GELESEN), C-3a-rsp-Spiegel, T-6 (9 Organ-Klassen x 2 Dialekte
+#     x 2 Maschinen-Klassen + nicht deklarierter Hostname). Wiring-Muster = test_experiment_kern_seam
+#     (dieselbe Parser-Flaeche).
+comdare_add_test(test_s3_ordnung_freigabe
+    SOURCES test_s3_ordnung_freigabe.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+target_include_directories(test_s3_ordnung_freigabe PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade")
+target_compile_definitions(test_s3_ordnung_freigabe PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1
+    "COMDARE_EXPERIMENT_GOLDEN_KERN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_golden_kern.xml\"")
+set_tests_properties(test_s3_ordnung_freigabe PROPERTIES
+    LABELS "s3;ordnung;freigabe;maschinen;c3a;koeder")

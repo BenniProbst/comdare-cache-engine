@@ -477,6 +477,101 @@ inline constexpr std::size_t kNoFlagCatalogEntry = static_cast<std::size_t>(-1);
     return false;
 }
 
+// == DIE VORAUSSETZUNGS-KETTEN (S-3b, 13.08.2026) =================================================
+//
+// Owner-Wort (KON16-02): "Im Falle der Freigabe impliziert es das Vorhandensein und im Falle der
+// compile Seite Fordert das Flag das Vorhandensein von Hardware ein." Die COMPILE-Seite FORDERT --
+// deshalb ist die Kette hier DATEN (eine Tabelle neben dem Katalog), und die Wache
+// voraussetzungen_erfuellt() (algo_semver.hpp, ueber for_each_flag_node) verlangt das
+// Voraussetzungs-ELEMENT in der Flag-MENGE der Version. Sie fuellt NIE auf: ein stilles Ergaenzen
+// waere ein Identitaets-Ereignis (algo_semver.hpp:52-63, parse->render-Treue).
+//
+// QUELLE, nicht geraten -- dieselbe wie fuer den Katalog (Kopf dieser Datei): die SIMD-Recherche
+// vom 07.08.2026, Synthese-Knoten result.katalog der 6-Lens-JSON unter
+//   super docs/sessions/backups/20260807-explores-und-simd-katalog/
+//     SIMD-KATALOG-vollstaendig-32-und-64-bit-6-lenses.json
+// plus die Katalog-Prosa dieser Datei. JEDE Zeile traegt ihr Beleg-Zitat.
+//
+// WO AUSDRUECKLICH KEINE KETTE STEHT (benannt, nicht vergessen -- "keine Kette" ist eine Aussage):
+//   * m64-Familie (mmx/mmxext/3dnow/3dnowext): die Gegenstimme im Kopf dieser Datei sagt es selbst
+//     -- "KEIN AMD-Dokument spricht eine formale CPUID-Abhaengigkeit aus ('3DNow! requires MMX'
+//     steht nirgends; Anhang D sagt im Gegenteil, jedes Subset sei 'optional' und einzeln zu
+//     pruefen)". Die Fundament-Beziehung ist funktional/werkzeugketten-seitig, nicht CPUID -- eine
+//     Kette hier waere geraten.
+//   * gfni: hat eine Legacy-SSE-Form "sogar OHNE AVX" (Companion-Abschnitt oben) -- kein
+//     Voraussetzungs-Beleg, anders als vaes/vpclmulqdq.
+//   * die avx-Wurzel: die Synthese nennt eine VOKABULAR-Luecke ("fuehrt avx2/fma/f16c/avx_vnni,
+//     aber NICHT das Basisflag 'avx' selbst"), KEINE formale Kette avx->avx2 -- x256-Subsets
+//     tragen deshalb keine Kette.
+//   * die x128-SSE-Staffel: eigene CPUID-Bits je Stufe, keine formale Ketten-Aussage in der Quelle.
+//   * 'f' unter x512: das FUNDAMENT der Kette hat selbst keine Voraussetzung.
+
+/// EINE Voraussetzungs-Kette: das abhaengige ELEMENT (token unter eltern) fordert das
+/// Voraussetzungs-ELEMENT (vor_token unter vor_eltern) in derselben Flag-MENGE. Elemente sind
+/// (token, eltern)-Paare -- dieselbe Identitaet wie im Katalog (vnni@x256 ist nie vnni@x512).
+struct FlagVoraussetzungsKette {
+    std::string_view token;      // das abhaengige Token
+    std::string_view eltern;     // sein Elternteil ("" == Tiefe 0)
+    std::string_view vor_token;  // das vorausgesetzte Token
+    std::string_view vor_eltern; // dessen Elternteil ("" == Tiefe 0)
+};
+
+/// DIE KETTEN-TABELLE. 13 x512-Subsets -> x512{f} + die zwei EVEX-Companions -> ihre x128-Wurzel.
+inline constexpr std::array<FlagVoraussetzungsKette, 15> kFlagVoraussetzungsKetten{{
+    // -- x512: JEDES Subset ausser dem Fundament fordert 'f'. Beleg (Synthese, Basis x512, verbatim):
+    // "Registerbreite 512 bit ZMM, EVEX-Kodierung, alle gegated auf avx512f (CPUID Leaf 7)" --
+    // dieselbe Aussage traegt der x512-Abschnitt dieser Datei ("alle gegated auf avx512f").
+    {"cd", "x512", "f", "x512"},
+    {"vl", "x512", "f", "x512"},
+    {"dq", "x512", "f", "x512"},
+    {"bw", "x512", "f", "x512"},
+    {"ifma", "x512", "f", "x512"},
+    {"vbmi", "x512", "f", "x512"},
+    {"vbmi2", "x512", "f", "x512"},
+    {"vnni", "x512", "f", "x512"},
+    {"bitalg", "x512", "f", "x512"},
+    {"vpopcntdq", "x512", "f", "x512"},
+    {"vp2intersect", "x512", "f", "x512"},
+    {"bf16", "x512", "f", "x512"},
+    {"fp16", "x512", "f", "x512"},
+    // -- Die zwei EVEX-Companions mit belegter Wurzel. Beleg (Synthese, fehlt_im_bestand, verbatim):
+    // "Ohne aes und pclmulqdq ist die Voraussetzungskette aes->vaes und pclmulqdq->vpclmulqdq heute
+    // nicht abbildbar, obwohl beide Nachfolger im Katalog stehen." -- die Wurzeln stehen seit S2 als
+    // x128-Subsets im Katalog, damit ist die Kette hier abbildbar. Dieselben Ketten nennt
+    // algo_semver.hpp (m8) ("aes->vaes, pclmulqdq->vpclmulqdq, avx512f->alles").
+    {"vaes", "", "aes", "x128"},
+    {"vpclmulqdq", "", "pclmulqdq", "x128"},
+}};
+
+inline constexpr std::size_t kKeineVoraussetzungsKette = static_cast<std::size_t>(-1);
+
+/// Der Index der Kette, die das ELEMENT (token unter eltern) fordert -- oder kKeineVoraussetzungsKette.
+/// Ein Index statt eines Zeigers, aus demselben Grund wie kNoFlagCatalogEntry (constexpr-Rechnung).
+[[nodiscard]] constexpr std::size_t find_flag_voraussetzung(std::string_view token, std::string_view eltern) noexcept {
+    for (std::size_t i = 0; i < kFlagVoraussetzungsKetten.size(); ++i)
+        if (kFlagVoraussetzungsKetten[i].token == token && kFlagVoraussetzungsKetten[i].eltern == eltern) return i;
+    return kKeineVoraussetzungsKette;
+}
+
+/// Wohlgeformtheit der KETTEN-TABELLE selbst (der CT-Beweis steht in der Batterie unten):
+///   (a) beide Seiten jeder Zeile sind KATALOG-Elemente (eine Kette auf ein Phantom waere eine
+///       Zulassung, die nie greift -- dieselbe Fehlerklasse wie flag_catalog_parents_resolve),
+///   (b) keine Zeile fordert sich selbst,
+///   (c) das (token, eltern)-Paar ist eindeutig (genau EINE Voraussetzung je Element; wer eine
+///       zweite braucht, aendert die Tabellen-Form BEWUSST statt still die erste zu ueberschreiben).
+[[nodiscard]] constexpr bool flag_voraussetzungs_ketten_wohlgeformt() noexcept {
+    for (std::size_t i = 0; i < kFlagVoraussetzungsKetten.size(); ++i) {
+        FlagVoraussetzungsKette const& k = kFlagVoraussetzungsKetten[i];
+        if (find_flag_catalog_entry(k.token, k.eltern) == kNoFlagCatalogEntry) return false;
+        if (find_flag_catalog_entry(k.vor_token, k.vor_eltern) == kNoFlagCatalogEntry) return false;
+        if (k.token == k.vor_token && k.eltern == k.vor_eltern) return false;
+        for (std::size_t j = i + 1; j < kFlagVoraussetzungsKetten.size(); ++j)
+            if (kFlagVoraussetzungsKetten[j].token == k.token && kFlagVoraussetzungsKetten[j].eltern == k.eltern)
+                return false;
+    }
+    return true;
+}
+
 // == DIE WOHLGEFORMTHEIT DES KATALOGS SELBST (alles compile-time) =================================
 // Eine Wache ist nur so gut wie ihre Tabelle. Diese Praedikate pruefen die TABELLE, nicht die Eingabe.
 
@@ -751,5 +846,44 @@ static_assert(kFlagGrammarCatalog[find_flag_catalog_entry("f", "")].kind == Flag
 // ... und die letzten beiden Zeilen sind zusammen der schaerfste Einzelbeweis dieser Datei: 'f' ist
 // UNTER x512 das AVX-512-Foundation-Subset und auf Tiefe 0 die Ziel-Hardware FPGA. DASSELBE Token,
 // ZWEI Bedeutungen, entschieden allein durch das Elternteil.
+
+// -- DIE VORAUSSETZUNGS-KETTEN (S-3b) --------------------------------------------------------------
+static_assert(kFlagVoraussetzungsKetten.size() == 15,
+              "Die Zahl ist an der Quelle gerechnet: 13 abhaengige x512-Subsets (14 minus das "
+              "Fundament 'f') + vaes + vpclmulqdq. Wer eine Kette ergaenzt, braucht einen BELEG aus "
+              "der 6-Lens-Synthese oder der Katalog-Prosa -- und traegt ihn als Zitat an der Zeile.");
+static_assert(flag_voraussetzungs_ketten_wohlgeformt(),
+              "Beide Seiten jeder Kette muessen Katalog-Elemente sein, keine Zeile fordert sich "
+              "selbst, und je (token, eltern) steht hoechstens EINE Kette.");
+// Das Fundament selbst hat KEINE Voraussetzung -- und die 13 Subsets haben genau eine.
+static_assert(find_flag_voraussetzung("f", "x512") == kKeineVoraussetzungsKette);
+static_assert(find_flag_voraussetzung("vl", "x512") != kKeineVoraussetzungsKette);
+static_assert(find_flag_voraussetzung("fp16", "x512") != kKeineVoraussetzungsKette);
+static_assert(kFlagVoraussetzungsKetten[find_flag_voraussetzung("vl", "x512")].vor_token == std::string_view{"f"});
+static_assert(kFlagVoraussetzungsKetten[find_flag_voraussetzung("vaes", "")].vor_token == std::string_view{"aes"});
+static_assert(kFlagVoraussetzungsKetten[find_flag_voraussetzung("vaes", "")].vor_eltern == std::string_view{"x128"});
+static_assert(kFlagVoraussetzungsKetten[find_flag_voraussetzung("vpclmulqdq", "")].vor_token ==
+              std::string_view{"pclmulqdq"});
+// Die (token, eltern)-Identitaet gilt auch hier: die Kette bindet vl@x512, NICHT ein nacktes 'vl'.
+static_assert(find_flag_voraussetzung("vl", "") == kKeineVoraussetzungsKette);
+static_assert(find_flag_voraussetzung("vaes", "x512") == kKeineVoraussetzungsKette);
+// "Keine Kette" ist eine AUSSAGE (s. Abschnitts-Kopf): m64-Familie, gfni, avx-Wurzel, SSE-Staffel.
+static_assert(find_flag_voraussetzung("mmx", "m64") == kKeineVoraussetzungsKette);
+static_assert(find_flag_voraussetzung("mmxext", "m64") == kKeineVoraussetzungsKette);
+static_assert(find_flag_voraussetzung("3dnow", "m64") == kKeineVoraussetzungsKette);
+static_assert(find_flag_voraussetzung("3dnowext", "m64") == kKeineVoraussetzungsKette);
+static_assert(find_flag_voraussetzung("gfni", "") == kKeineVoraussetzungsKette);
+static_assert(find_flag_voraussetzung("avx2", "x256") == kKeineVoraussetzungsKette);
+static_assert(find_flag_voraussetzung("sse2", "x128") == kKeineVoraussetzungsKette);
+// HEUTIGER STAND, kein Gesetz: keine Kette kaskadiert (kein Voraussetzungs-Element hat selbst eine
+// Voraussetzung). voraussetzungen_erfuellt() trueg eine Kaskade, weil sie JEDEN Knoten der Menge
+// einzeln prueft -- wer eine belegte Kaskade eintraegt, zieht NUR diese Zustands-Zeile nach.
+static_assert(
+    [] {
+        for (FlagVoraussetzungsKette const& k : kFlagVoraussetzungsKetten)
+            if (find_flag_voraussetzung(k.vor_token, k.vor_eltern) != kKeineVoraussetzungsKette) return false;
+        return true;
+    }(),
+    "Stand 13.08.2026: die Ketten-Tabelle ist kaskadenfrei -- diese Zeile dokumentiert den Zustand.");
 
 } // namespace comdare::cache_engine::measurement

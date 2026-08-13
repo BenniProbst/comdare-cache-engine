@@ -22,12 +22,13 @@
 #include <cache_engine/measurement/target_isa_system_axis.hpp>      // INC-2d: target_isa-System-Achse (Cross-Compile)
 #include <cache_engine/measurement/simd_build_gate.hpp> // Section 40.a-E4: flag-genaues Bau-Gate (Pruef-Dock, default-permissiv)
 
-#include "system_version_suffix.hpp"    // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
-#include "overlay_source_hash_naht.hpp" // E-E: der LIVE-Wert des Preimage-Glieds [7] + sein Define-Argument
-#include "system_cell_values_naht.hpp"  // W10-C4: Zellwert-Aufloesung + Define-Argument (die EINE Wertform)
-#include "system_axes_entscheidung.hpp" // T-1: die EINE <system_axes>-Entscheidung + ihre Zwei-Parse-Wache
-#include "toolchain_stamp_naht.hpp"     // NB/CX-4: die LIVE-Werte der Preimage-Glieder [5]/[6] + ihre Define-Args
-#include "mess_achsen_naht.hpp"         // M-1/D-1: die Mess-Achse -> Tier-Defines (Stufe-2->Stufe-3-Naht)
+#include "system_version_suffix.hpp"       // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
+#include "maschinen_deklarations_naht.hpp" // S-3c: DER EINE Aufruf der aktiven Maschinen-Belegung (hint -> Tupel)
+#include "overlay_source_hash_naht.hpp"    // E-E: der LIVE-Wert des Preimage-Glieds [7] + sein Define-Argument
+#include "system_cell_values_naht.hpp"     // W10-C4: Zellwert-Aufloesung + Define-Argument (die EINE Wertform)
+#include "system_axes_entscheidung.hpp"    // T-1: die EINE <system_axes>-Entscheidung + ihre Zwei-Parse-Wache
+#include "toolchain_stamp_naht.hpp"        // NB/CX-4: die LIVE-Werte der Preimage-Glieder [5]/[6] + ihre Define-Args
+#include "mess_achsen_naht.hpp"            // M-1/D-1: die Mess-Achse -> Tier-Defines (Stufe-2->Stufe-3-Naht)
 #include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
 #include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
@@ -1242,6 +1243,25 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
             out.exit_code = 4;
             return out;
         }
+    }
+
+    // -- (3b) S-3c (13.08.2026): DER EINE AUFRUF der aktiven Maschinen-Belegung -- NACH Parse+validate
+    //    ((1)/(2) oben), VOR der Perm-Schleife (die lebt hinter der Delegation in (4)). live_hostname()
+    //    ist NUR der Lookup-Schluessel gegen <machine hostname_hint=..>; belegt wird das Eigenschafts-
+    //    Tupel (cpu_fabrication, ram_pair) -- O-4-Kette, KEIN zweiter Kanal, KEINE Heuristik, KEIN
+    //    CMake-Schalter. Kein Treffer / keine Menge / kein Hostname => NICHTS belegen (natuerlicher
+    //    Kill-Switch: das Gate bleibt inert, der ehrliche CPUID-Fallback in
+    //    system_axis_host_supports_simd traegt weiter). AbgelehntAbweichend wird in der Naht als D1
+    //    klassifiziert geloggt (konfig_xml_parse) -- KEIN Abbruch, die Erstbelegung bleibt. --
+    {
+        pf::MaschinenDeklarationsBefund const mb = pf::belege_aktive_maschinen_deklaration(
+            ::comdare::cache_engine::measurement::live_hostname(), ep->machines, std::cerr);
+        if (mb.belegt)
+            std::cout << "[experiment_facade] S-3c: aktive Maschinen-Deklaration belegt (Treffer=" << mb.treffer
+                      << ", verdict="
+                      << ::comdare::cache_engine::measurement::machine_identity_verdict_label(
+                             ::comdare::cache_engine::measurement::active_machine_verdict())
+                      << ").\n";
     }
 
     // ── (4) Der EINE Compile-Injektionspunkt (identisch run_profile_facade:153) → Delegation an den umbrella-
