@@ -312,10 +312,14 @@ struct RunProfileResult {
 // Tupel-Fehltreffer, nicht erhobener Kern-Kennung oder Abweichung bleibt sie leer.
 //
 // WARUM DIE HOST-PROBE BLEIBT: sie ist der ehrliche Fallback fuer den Zustand "es ist gar keine
-// Maschine deklariert" -- heute der Normalfall, weil die CEB set_active_machine_declaration noch
-// nicht ruft (0 Produktions-Aufrufer). Sie ersatzlos zu streichen wuerde avx2/avx512 sofort ueberall
-// verbieten und den Bau still veraendern. Sobald die CEB belegt, gewinnt die Deklaration; der
-// Fallback verschwindet damit von selbst, ohne zweiten Kanal und ohne stillen Zwischenzustand.
+// Maschine deklariert". [NACHGEFUEHRT S-7, 2026-08-13: der Satz "0 Produktions-Aufrufer" war seit
+// der S-3-Landung STALE -- die CEB ruft set_active_machine_declaration seit S-3c produktiv ueber
+// DIE EINE Naht (maschinen_deklarations_naht.hpp:69, erreicht aus run_experiment_profile_facade,
+// profile_run_facade.cpp:1257). Unbelegt bleibt der Zustand nur noch XML-konditional: kein
+// hostname_hint-Treffer / keine <machines>-Menge / kein ermittelbarer Hostname.] Die Probe
+// ersatzlos zu streichen wuerde avx2/avx512 in genau diesem Zustand sofort ueberall verbieten und
+// den Bau still veraendern. Sobald die Belegung steht, gewinnt die Deklaration; der Fallback
+// verschwindet damit von selbst, ohne zweiten Kanal und ohne stillen Zwischenzustand.
 [[nodiscard]] inline bool system_axis_host_supports_simd(std::string_view simd_id) {
     namespace cm = ::comdare::cache_engine::measurement;
     if (simd_id == cm::SimdNoExtOption::simd_id()) return true;
@@ -830,9 +834,38 @@ struct RunProfileResult {
     ex::BvsetFingerprintFn const lauf_bvset_fingerprint =
         lazy_fingerprint ? make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env() : ex::BvsetFingerprintFn{};
     ex::BvsetFingerprintFn perm_bvset_fingerprint = lauf_bvset_fingerprint;
-    auto                   make_cfg = [&](std::uint64_t ws_n, std::size_t cap_for_pass, std::string const& series,
-                                          std::string const& sweep_axis, std::string const& pruefling_type,
-                                          std::string const& fairness_mode, std::string const& h2_score) {
+    // S-7 (KON9-05): der Achsen-Algo-Versions-Provider der STEMPEL-Zulassung -- EINMAL je Lauf aus der
+    // Enabled-Tabelle gebaut (build_axis_variant_version_table feuert dabei zugleich
+    // guard_all_registered_organ_versions: der Tabellen-Bau IST die Grammatik-Wache ueber die volle
+    // registrierte Population). Die Versionen reisen NUR ueber diese Funktion in den achsen-blinden
+    // Orchestrator (kein Registry-Include dort, Include-Kegel bleibt klein).
+    //
+    // KONTRAKT: der Provider liefert GENAU die Tabellen-Antwort; jeder Tabellen-Miss ist ein LEERER
+    // String == "kein bekannter Versions-Stand fuer dieses Paar" => im Gate NEUTRAL uebersprungen.
+    // Das deckt BEIDE Miss-Klassen, beide am Objekt gemessen (S-7-Abnahme 13.08.2026):
+    //   * Achse ohne Tabellen-Zeile: Sub-Achsen-Ebenen "cacheline.*"/"node_width.*"/"alloc_hw.*"
+    //     (profile_to_tree.hpp:104-125) und "tier" -- KEINE Versions-Traeger.
+    //   * Slot-Achse mit profil-eigenem Wert ausserhalb der Enabled-Registry: planner_thesis_min
+    //     permutiert search_algo=bplus, die Tabelle fuehrt {k_ary, interpolation, eytzinger,
+    //     linear_scan} (4 Eintraege) -- der .algos-Pfad stempelt dafuer den Sentinel als reine
+    //     PROVENIENZ (compose_algo_signature :291) und baut trotzdem; eine Gate-Ablehnung hier
+    //     braeche diesen Bestand (test_t2a_f4_facade_plan_durchreichung, im S-7-Bau gemessen ROT
+    //     mit Sentinel-Kontrakt, GRUEN mit diesem). Eine Version, die niemand deklariert hat,
+    //     fordert nichts -- FORDERN tut nur ein echtes Literal.
+    // Die Drift-Wache "jede registrierte Variante traegt eine parsbare Version" ist NICHT hier,
+    // sondern COMPILE-HART am Tabellen-Bau (W::algo_version-Zugriff + assert_version_grammar) --
+    // ein Runtime-Riegel darauf waere ein zweiter, schwaecherer Richter.
+    // HEUTE NACHWEISLICH INERT: alle 123 Bestands-Literale sind nackte c-Formen und gegen JEDE
+    // Signatur gedeckt (CT-Batterie algo_stempel_zulassung.hpp) -- byte-/golden-neutral by
+    // construction.
+    ex::AlgoVersionFn const lauf_algo_version_fn =
+        [tabelle = std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table())](
+            std::string const& achse, std::string const& wert) -> std::string {
+        return std::string{ex::lookup_algo_version(*tabelle, achse, wert)}; // leer bei Miss => neutral
+    };
+    auto make_cfg = [&](std::uint64_t ws_n, std::size_t cap_for_pass, std::string const& series,
+                        std::string const& sweep_axis, std::string const& pruefling_type,
+                        std::string const& fairness_mode, std::string const& h2_score) {
         ex::LazyRunConfig cfg;
         cfg.max_binaries = cap_for_pass;
         // G5: <run_options n_ops> ist autoritativ (XML steuert ALLES, #229); der Fassaden-/argv-Wert
@@ -867,8 +900,12 @@ struct RunProfileResult {
         // Fingerprint-Provider (beide werden im `na`-Fall gemeinsam geleert): eine Bindungs-Pruefung, die
         // ueber eine ANDERE Zelle rechnet als der erwartete Hash, wuerde jeden Skip verweigern und den
         // Teilmengen-Pfad still wirkungslos machen.
-        cfg.bvset_glied               = lauf_bvset_glied;
-        cfg.bvset_fingerprint_fn      = perm_bvset_fingerprint;
+        cfg.bvset_glied          = lauf_bvset_glied;
+        cfg.bvset_fingerprint_fn = perm_bvset_fingerprint;
+        // S-7: DER EINE Aktivierungs-Aufruf der Stempel-Zulassungs-Bruecke (Muster S-3c: eine Naht,
+        // ein Aufruf). Lauf-konstant wie bvset_glied -- die Tabelle ist eine Compile-Zeit-Eigenschaft
+        // dieses Prozesses, nicht der Perm.
+        cfg.algo_version_fn           = lauf_algo_version_fn;
         cfg.build_variant_sig         = variant_gate_sig; // A7-B: opt-in Build-Varianten-Gate (leer = byte-neutral)
         cfg.bestand_zelle             = bestand_zelle;    // G4a(3)/§62-N4: [d,e,f] des Lager-Schluessel-Tupels
         cfg.marker_kontext            = marker_kontext;   // E-04-P1: Pflicht-Koordinaten der Marker-Familie v2

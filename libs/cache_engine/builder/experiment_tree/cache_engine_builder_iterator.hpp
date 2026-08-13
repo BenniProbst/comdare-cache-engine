@@ -362,6 +362,12 @@ struct LazyRunConfig {
     //   bvset_fingerprint_fn   die Bindungs-Pruefung (binary_id, aufgezeichnetes bvset) -> 128-hex.
     std::string        bvset_glied;
     BvsetFingerprintFn bvset_fingerprint_fn;
+    // S-7 (KON9-05): der Achsen-Algo-Versions-Provider der STEMPEL-Zulassung ((achse, wert) ->
+    // algo_version-Literal; Kontrakt an der AlgoVersionFn-Deklaration, build_orchestrator.hpp).
+    // Der Host (Facade) belegt ihn EINMAL je Lauf aus build_axis_variant_version_table; er reist
+    // unveraendert an orch.set_algo_version_provider weiter (gleiches opt-in-Muster wie
+    // bvset_fingerprint_fn). Leer (Default) = Bruecke AUS = byte-neutral.
+    AlgoVersionFn algo_version_fn;
     // E-04-P1 (Marker-Familie v2): die PFLICHT-Koordinaten des Live-Fortschritts-Kanals. Der Host
     // (Facade) belegt sie aus DERSELBEN Env, aus der die CI-Emission ihre Testat-Zelle bildet
     // (COMDARE_LANE / COMDARE_GN_OPT+COMDARE_GN_SIMD / COMDARE_MEASUREMENT_COMBO) und rendert die
@@ -2187,6 +2193,9 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     orch.set_fingerprint_provider(cfg.bestand_fingerprint_fn);
     // Task #59: der Recompute-Provider des Teilmengen-Pfads. Leer = Pfad AUS = Skip-Verhalten wie bisher.
     orch.set_bvset_fingerprint_provider(cfg.bvset_fingerprint_fn);
+    // S-7: der Achsen-Algo-Versions-Provider der Stempel-Zulassung. Leer = Bruecke AUS (byte-neutral) --
+    // unbedingt durchgereicht wie das bvset-Vorbild darueber.
+    orch.set_algo_version_provider(cfg.algo_version_fn);
 
     // W11 (Ledger §43.c): der BAU-MODUS async Push-Pump. NUR im provision_only-Bau (der Mess-Modus bleibt STRIKT
     // synchron -- er baut hier NICHT mit cache_push, sondern pusht per-Binary im 1-Thread-Mess-Loop unten). Gated auf
