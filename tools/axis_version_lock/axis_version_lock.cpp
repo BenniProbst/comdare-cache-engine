@@ -59,47 +59,110 @@
 //   (G7) TEST-LUECKEN geschlossen im ctest test_s14_axis_version_lock_tripwire (heuristik-ROT-
 //        Pfad beidseitig, Lock-Byteidentitaet bei fehlgeschlagenem --write, v1-Abweisung).
 //
+// PFLICHT-FIXUP 3 (13.08.2026, Owner-Dauerregel; der KERN-DEFEKT, am Objekt gemessen und rot-zuerst
+// gefahren, nie vermutet):
+//   (D1) DIE GRUNDGESAMTHEIT WAR DIE FALSCHE MENGE. Gemessen 13.08.2026: 387 *.hpp unter den
+//        organ-Homes, 152 im Lock, 235 (60 Prozent) UNBEWACHT bei 'GRUEN bestand konsistent'.
+//        Ursache war der Substring-Filter text.find("algo_version") in OrganDetail::discover --
+//        er machte die Grundgesamtheit zur Teilmenge derer, die zufaellig ein Literal ZITIEREN.
+//        Massgeblich ist aber, was der Overlay-Hash sieht: das Overlay-Glied [7] des Tier-
+//        Fingerprints (builder/overlay_source_set.hpp) hasht ALLE Quell-Dateien seines Schnitts;
+//        jede unbewachte Datei konnte den Fingerprint verschieben, ohne dass die Bump-Wache es
+//        merkt ('Aenderung ohne Bump => kein Neubau => schneller UND falsch'; der Stempel ist
+//        Cache- UND Lager-Schluessel). JETZT erhebt die Wache ihre Overlay-Grundgesamtheit AUS
+//        DEM SCHNITT-HEADER SELBST (EIN Schnitt, keine Zweitliste): kOverlaySourceSet +
+//        kQuellEndungen/kNichtQuellEndungen, Ist 13.08.2026: 712 Quell-Dateien (organ 640,
+//        system 16, mess 1, tier_substanz 55) + heuristik 6 = 718 Records. Dateien ohne Literal
+//        stehen digest-only ('-') im Lock; der Riegel faengt sie ueber Digest-Drift.
+//        DIFFERENZ BEIDER MENGEN, BENANNT: 26 *.hpp der alten Homes stehen NICHT im Schnitt
+//        (axes/telemetry_axis 10: telemetry ist CEB-System-Achse geworden; axes/simd 10: isa ->
+//        target_isa, simd_extension ist Build-only-Achse in Glied [6]; axes/cacheline 3 +
+//        axes/axis_centric_namespaces.hpp + topics/queuing-Topic-Huelle 2: keine Achsen-
+//        Implementierung im Sinne des Schnitts). 0 der 26 waren gelockt, 0 enthalten
+//        'algo_version' (gemessen) -- die Wache folgt dem Schnitt, nicht umgekehrt.
+//   (D2) TRAEGER-AUSTRITT IST ROT. Rot-zuerst literal: Literal entfernt und --write gefahren =>
+//        Exit 0, der Record verschwand ganz (keine 'algo_version'-Erwaehnung mehr => aus der
+//        alten Discovery gefallen) bzw. wurde still 'organ -' (Erwaehnung blieb). Die VERSION
+//        einer Datei verliess das Register auf einem vom Werkzeug ANGEWIESENEN Weg. JETZT:
+//        Rueckstufung traeger -> digest-only ist ROT (Exit 1, benannt mit Datei und
+//        Register-Version) in --check UND --write; --write verweigert byte-identisch. Ein
+//        bewusster Austritt geht nur ueber Loeschen/Umbenennen der Datei (verwaist -> Regen).
+//   (D3) AUFWERTUNG IST EXIT 3, NICHT EXIT 1. Rot-zuerst literal: digest-only-Datei bekam ein
+//        gueltiges Literal => 'ROT Digest geaendert OHNE gueltigen Version-Bump (- -> 1.0.0.c)'.
+//        Das ist eine legitime Aenderung: JETZT 'OK Aufwertung digest-only -> traeger' =>
+//        REGEN ERFORDERLICH (Exit 3), der Regen-Commit segnet den Inhalt.
+//   (D4) DECKUNGS-BELEG STATT SUGGESTION: die GRUEN-Zeile nennt die gedeckte Menge GEGEN die
+//        Overlay-Menge ('deckt N von N Overlay-Quellen'); eine Deckungsluecke ist ROT (doppeltes
+//        Netz neben dem unlocked-Pfad, nie Prosa). Die Kategorie-Spalte wird beim --check
+//        GEPRUEFT (Kategorie-Abweichung = ROT; am Objekt belegt, ctest-Koeder T5) und traegt
+//        jetzt die Overlay-Kategorien organ/system/mess/tier_substanz + heuristik.
+//   (D5) MINDEST-NENNER MITGEZOGEN (Fixup-2-D4-Form, s. Konstanten unten): die alte Schwelle
+//        organ>=120 haette unter dem neuen Nenner 712 eine Schrumpfung auf ein Sechstel als
+//        gruen durchgelassen.
+//   (D6) LOCK-FORMAT v3 -- PFAD-SPLIT WEGEN DER 120-SPALTEN-DIFF-HYGIENE. Am Objekt gemessen:
+//        die neue Grundgesamtheit traegt Record-Koepfe bis 146 Byte (laengster Pfad 138 Byte:
+//        topics/search_engine/axis_01_index_organization/concepts/axis_01_index_organization_
+//        cache_engine_permutation_concept.hpp) -- das v2-Zweizeilen-Format konnte sein eigenes
+//        Versprechen 'jede Zeile <= 120' strukturell nicht mehr halten, und eine Ausnahme-
+//        Klasse in der Diff-Hygiene-Wache ist per Fixup-2-Entscheid ausgeschlossen. v3 haelt
+//        die Records dreizeilig (s. LOCK-FORMAT unten); laengste Zeile heute 106 Byte.
+//
 // KATEGORIEN UND IHRE REGELN:
 //   heuristik  Home libs/cache_engine/heuristik/, jede *.hpp ist Traeger. Version = Integer aus
 //              der DEDIZIERTEN Marker-Zeile '// AXIS_ALGO_VERSION: <N>' (zeilen-verankert: vor
 //              dem '//' nur Weissraum, nach der Zahl nur Weissraum). 0 Marker, >1 Marker oder
 //              unparsbarer Marker (keine Ziffer, Ueberlauf, Restzeichen) => ROT. bump_ok =
 //              Integer echt groesser (streng geparst, kein strtoull-Clamp).
-//   organ      Homes libs/cache_engine/axes/ + libs/cache_engine/topics/queuing/, rekursiv *.hpp.
-//              DISCOVERED ist jede Datei, die den Substring 'algo_version' enthaelt -- exakt die
-//              golden-Erhebung (grep -l) der Baseline vom 13.08.2026, damit deren 158er-Schnitt
-//              digest-stabil weiterlebt. TRAEGER ist darunter jede Datei mit mindestens einer
-//              echten algo_version-String-Literal-Zuweisung IM CODE (kommentar-/string-bewusster
-//              Scan mit Wortgrenzen; Forwarder wie '= Strategy::algo_version' und Prosa fallen
-//              heraus und stehen als version='-' digest-only im Lock).
+//   organ, system, mess, tier_substanz (D1): die Quell-Dateien des Overlay-Schnitts, Kategorie je
+//              Schnitt-Eintrag (builder/overlay_source_set.hpp). DISCOVERED ist jede regulaere
+//              Datei mit Endung aus kQuellEndungen unter einem verzeichnis-Eintrag (rekursiv)
+//              bzw. mit Praefix-Treffer eines datei_praefix-Eintrags (flach). Endungen aus
+//              kNichtQuellEndungen (Doku/Registry-Spiegel) sind BEWUSST draussen -- der
+//              Fingerprint sieht sie nicht; eine Endung in KEINER der beiden Listen ist ROT
+//              (dieselbe Entscheidung, die der Codegen fail-loud erzwingt). Symlinks unter einem
+//              Schnitt-Pfad sind Exit 2: der Codegen ueberspringt sie (keine Zweitzaehlung),
+//              ihr Inhalt ist dem Fingerprint also UNSICHTBAR -- die Wache zertifiziert keinen
+//              Baum, dessen Teile am Hash vorbeilaufen (Bestand: 0 Symlinks, gemessen).
+//              TRAEGER ist jede discovered-Datei mit mindestens einer echten algo_version-
+//              String-Literal-Zuweisung IM CODE (kommentar-/string-bewusster Scan mit
+//              Wortgrenzen; Forwarder wie '= Strategy::algo_version' und Prosa fallen heraus
+//              und stehen als version='-' digest-only im Lock).
 //              VERSION = geordnete LISTE ALLER Literale (G3). KANONISCHE FORM im Register:
-//              N gleiche Literale => der Einzelwert (haelt die golden Baseline byte-stabil,
-//              k_ary: 2x '1.0.0.c' => '1.0.0.c'); ungleiche => komma-gefuegt in Text-Reihenfolge
-//              ('1.1.0.c,1.0.0.c'). bump_ok ueber die Liste: gegen ein EINZELWERT-Register darf
-//              kein Ist-Literal kleiner sein und mindestens eines muss echt groesser sein
-//              (aritaets-frei -- das Register sagt 'alle standen auf v'); gegen ein LISTEN-
-//              Register gilt gleiche Aritaet + elementweise nie kleiner, mindestens einmal echt
-//              groesser. Aritaetswechsel gegen ein Listen-Register hat KEINEN Bump-Pfad
-//              (bewusster Regen-Commit). Grammatik ueber den BESTANDS-Parser
-//              measurement/algo_semver.hpp (EIN Parser, keine Zweitgrammatik); unparsbares
-//              Literal ist Sentinel => ROT.
+//              N gleiche Literale => der Einzelwert (k_ary: 2x '1.0.0.c' => '1.0.0.c');
+//              ungleiche => komma-gefuegt in Text-Reihenfolge ('1.1.0.c,1.0.0.c'). bump_ok
+//              ueber die Liste: gegen ein EINZELWERT-Register darf kein Ist-Literal kleiner
+//              sein und mindestens eines muss echt groesser sein (aritaets-frei -- das Register
+//              sagt 'alle standen auf v'); gegen ein LISTEN-Register gilt gleiche Aritaet +
+//              elementweise nie kleiner, mindestens einmal echt groesser. Aritaetswechsel gegen
+//              ein Listen-Register hat KEINEN Bump-Pfad (bewusster Regen-Commit). Grammatik
+//              ueber den BESTANDS-Parser measurement/algo_semver.hpp (EIN Parser, keine
+//              Zweitgrammatik); unparsbares Literal ist Sentinel => ROT.
+//              KATEGORIE-REGELN (D2/D3/D4): Kategorie-Abweichung Lock vs. Discovery => ROT;
+//              traeger -> digest-only => ROT ohne --write-Weg; digest-only -> traeger =>
+//              Exit 3 (Regen).
 //
-// LOCK-FORMAT v2 (v1 wird mit klarer Meldung abgewiesen, kein stilles Weiterlesen):
-//   # format: v2
-//   ZWEIZEILEN-RECORD je Datei:  '<category> <version> <relative-path>' + Folgezeile
-//   '    <sha256-hex>' (vier Leerzeichen Einrueckung). WARUM ZWEI ZEILEN: 64 Hex-Zeichen + Pfad
-//   passen strukturell nicht in die 120-Spalten-Diff-Hygiene (ci_diff_ascii_width_guard); das
-//   Zweizeilen-Format haelt JEDE Zeile der Datei wachen-gedeckt, statt eine Ausnahme-Klasse in
-//   der Wache zu eroeffnen. Records global nach Pfad sortiert; version bei organ = kanonische
-//   Literal-Form (s.o.) bzw. '-'. Eine Kopfzeile ohne Digest-Folgezeile ist ein LAUTER
-//   Formatfehler (kein Ueberlesen). Der Parser liest STRENG (Pflicht-Fixup 13.08.2026): kein
-//   viertes Token auf der Kopfzeile (Pfade mit Leerzeichen sind nicht zugelassen -- deklarierte
-//   Grenze), Digest = genau 64 lowercase-Hex-Zeichen ohne Zusatz, kein doppelter Record je Pfad.
-//   Jede Verletzung nennt die literale Zeile und macht ROT.
-//   LOCK-KOPF BLEIBT BYTE-STABIL: die Kommentarzeilen im Lock beschreiben die v2-ERSTFORM
-//   ('erstes Literal'); seit G3 gilt die LISTEN-Regel oben. Der Kopf wird BEWUSST nicht
-//   angefasst, weil die golden Baseline byte-identisch regenerierbar bleiben MUSS (CI erzwingt
-//   --write + git diff --exit-code auf das Lock). Die geltende Semantik steht HIER.
+// LOCK-FORMAT v3 (v1 UND v2 werden mit klarer Meldung abgewiesen, kein stilles Weiterlesen):
+//   # format: v3
+//   DREIZEILEN-RECORD je Datei (D6):
+//     '<category> <version> <dirname/>'   Kopfzeile; dirname repo-relativ MIT Schluss-'/'
+//     '    <basename>'                    Datei-Name (vier Leerzeichen Einrueckung)
+//     '    <sha256-hex>'                  Digest (vier Leerzeichen Einrueckung)
+//   Der volle Pfad ist EXAKT dirname+basename -- derselbe repo-relative Pfad, den v2 einzeilig
+//   trug und den alle Meldungen weiterhin nennen. WARUM DREI ZEILEN: die 120-Spalten-Diff-
+//   Hygiene (ci_diff_ascii_width_guard) deckt JEDE Zeile dieser Datei; Pfade bis 138 Byte
+//   passen in keine Einzelzeile mit Praefix (D6). Records global nach vollem Pfad sortiert;
+//   version bei den Overlay-Kategorien = kanonische Literal-Form (s.o.) bzw. '-'. Eine
+//   Kopfzeile ohne BEIDE Folgezeilen ist ein LAUTER Formatfehler (kein Ueberlesen). Der Parser
+//   liest STRENG (Pflicht-Fixup 13.08.2026, seit v3 dreizeilig): kein viertes Token auf der
+//   Kopfzeile (Pfade mit Leerzeichen sind nicht zugelassen -- deklarierte Grenze), dirname
+//   endet auf '/', basename = genau EIN Token ohne '/', Digest = genau 64 lowercase-Hex-
+//   Zeichen ohne Zusatz, kein doppelter Record je Pfad. Jede Verletzung nennt die literale
+//   Zeile bzw. den Pfad und macht ROT.
+//   LOCK-KOPF: Fixup 2 hatte den Kopftext bewusst auf der v2-Erstform eingefroren, weil die
+//   158er-Baseline byte-identisch regenerierbar bleiben musste, und den Nachzug auf den
+//   naechsten LEGITIMEN Lock-Regen vertagt. DAS war dieser Regen (Fixup 3, D1/D6): der Kopf
+//   beschreibt seither die geltende Semantik (Listen-Regel, Overlay-Grundgesamtheit,
+//   Kategorie-Regeln, v3-Split); CI erzwingt weiterhin --write + git diff --exit-code.
 //
 // AUFRUF (CI ruft ohne Datei-Liste; die Grundgesamtheit erhebt das Tool):
 //   axis_version_lock --write <lockfile> [--root <repo-root>]
@@ -126,6 +189,13 @@
 
 #include <sha256/ctsha.hpp> // comdare::cache_engine::sha256::{sha256, to_hex, Digest}
 
+// D1: DIE EINE QUELLE der Overlay-Grundgesamtheit -- kOverlaySourceSet + kQuellEndungen +
+// kNichtQuellEndungen. Derselbe Schnitt-Header, aus dem der Fingerprint-Codegen
+// (tools/overlay_source_hash_gen) seine Dateimenge liest: Wache und Hash koennen nicht mehr
+// auseinanderlaufen, ohne dass es hier bricht. Zieht via axis_path_serialization.hpp Boost::mp11
+// (Header-only) -- weiterhin KEINE Registry-/Varianten-TU (die bleibt dem ctest vorbehalten).
+#include <builder/overlay_source_set.hpp>
+
 #include <cache_engine/measurement/algo_semver.hpp> // BESTANDS-Parser parse_algo_semver (X.Y.Z[.flags])
 
 #include <algorithm>
@@ -146,15 +216,23 @@ namespace {
 namespace fs   = std::filesystem;
 namespace sha  = ::comdare::cache_engine::sha256;
 namespace meas = ::comdare::cache_engine::measurement;
+namespace ovl  = ::comdare::cache_engine::builder::overlay;
 
 // MINDEST-NENNER (G5a, Hausvertrag V-1 'Nenner 0 = Exit != 0, nie GRUEN'): unterschreitet die
 // Grundgesamtheit diese Anker, ist der Lauf ein Umgebungsfehler (Exit 2) -- eine Wache ueber
 // einer leeren Menge behauptet sonst Konsistenz, die sie nie gemessen hat. Die Werte spiegeln
-// die ctest-Anker (heuristik==6, organ>=120) und sind BEWUSST so gewaehlt, dass die
-// angekuendigte #16-Umgliederung der Homes sie anfassen MUSS (wer Homes verschiebt/leert,
-// entscheidet die neuen Anker hier, nicht per stillem Gruen).
+// die ctest-Anker und sind BEWUSST so gewaehlt, dass die angekuendigte #16-Umgliederung der
+// Homes sie anfassen MUSS (wer Homes verschiebt/leert, entscheidet die neuen Anker hier, nicht
+// per stillem Gruen). MITGEZOGEN in Fixup 3 (D5) auf die Ist-Zahlen der Overlay-Grundgesamtheit
+// vom 13.08.2026 (Messkommando im Fixup-Commit): heuristik 6, organ 640, system 16, mess 1,
+// tier_substanz 55; die Schwellen stehen knapp darunter, damit eine bewusste Einzel-Loeschung
+// den Regen-Weg behaelt, ein Struktur-Verlust (Home leer/umgezogen) aber IMMER hier aufschlaegt.
+// Die exakten Ist-Zahlen pinnt der ctest (Anker organ-traeger==123 inkl. Synthetik usw.).
 inline constexpr int kMinHeuristikDiscovered = 6;
-inline constexpr int kMinOrganDiscovered     = 120;
+inline constexpr int kMinOrganDiscovered     = 600; // Ist 640 (13.08.2026)
+inline constexpr int kMinSystemDiscovered    = 12;  // Ist 16 (13.08.2026)
+inline constexpr int kMinMessDiscovered      = 1;   // Ist 1 (13.08.2026): measurement_tooling-Familie
+inline constexpr int kMinTierDiscovered      = 50;  // Ist 55 (13.08.2026): anatomy/
 
 /// Rohe Bytes einer Datei. false = nicht lesbar ODER nicht vollstaendig lesbar.
 /// FAIL-CLOSED (G6c): 'ss << f.rdbuf()' setzt bei einem I/O-Fehler NACH dem Oeffnen keine
@@ -223,11 +301,13 @@ struct DiscoveryLage {
     bool politik_rot = false;
 };
 
-/// Gemeinsame Eintrittspruefung beider discover()-Schleifen (G5d): Verzeichnis-Symlinks werden
-/// vom recursive_directory_iterator NICHT deszendiert und kaputte Symlinks fallen durch
+/// Eintrittspruefung der HEURISTIK-discover()-Schleife (G5d): Verzeichnis-Symlinks werden vom
+/// recursive_directory_iterator NICHT deszendiert und kaputte Symlinks fallen durch
 /// is_regular_file -- beides verschwand vorher STILL aus der Grundgesamtheit (literal belegt:
 /// Traeger hinter Dir-Symlink => GRUEN ohne ihn). Datei-Symlinks auf existierende Ziele bleiben
-/// wie bisher Traeger (Digest ueber die Ziel-Bytes).
+/// im heuristik-Home wie bisher Traeger (Digest ueber die Ziel-Bytes). Die Overlay-Discovery
+/// (D1) hat ihre EIGENE, strengere Symlink-Regel: dort ist JEDER Symlink Exit 2, weil der
+/// Fingerprint-Codegen Symlinks ueberspringt und ihr Inhalt dem Hash unsichtbar waere.
 [[nodiscard]] bool symlink_rot(fs::directory_entry const& de, fs::path const& root, DiscoveryLage& lage) {
     if (!de.is_symlink()) return false;
     // lexically_relative statt fs::relative: fs::relative kanonisiert und wuerde hier das ZIEL
@@ -386,8 +466,36 @@ private:
 };
 
 // ================================================================================================
-// KATEGORIE-DETAIL: organ -- Literal-Mechanik (axes/ + topics/queuing/), seit G3 als LISTE.
+// KATEGORIE-DETAIL: die Overlay-Kategorien (organ/system/mess/tier_substanz) -- Literal-Mechanik,
+// Grundgesamtheit = der Overlay-Schnitt (D1). Der Klassen-Name bleibt OrganDetail: organ ist die
+// tragende Kategorie (640 von 712 Dateien, alle heutigen Traeger), und die Literal-Mechanik ist
+// fuer alle vier Kategorien DIESELBE -- nur die Kategorie-Spalte im Record unterscheidet sie.
 // ================================================================================================
+
+/// Kategorie-Text eines Schnitt-Eintrags -- exakt das Vokabular des Codegen-Manifests
+/// (tools/overlay_source_hash_gen, kategorie_text): EIN Vokabular fuer Manifest und Lock.
+[[nodiscard]] std::string_view kategorie_text(ovl::Kategorie k) {
+    switch (k) {
+        case ovl::Kategorie::organ: return "organ";
+        case ovl::Kategorie::system: return "system";
+        case ovl::Kategorie::mess: return "mess";
+        case ovl::Kategorie::tier_substanz: return "tier_substanz";
+    }
+    return "?";
+}
+
+[[nodiscard]] bool ist_quell_endung(std::string const& endung) {
+    for (auto const& e : ovl::kQuellEndungen)
+        if (endung == e) return true;
+    return false;
+}
+
+[[nodiscard]] bool ist_nicht_quell_endung(std::string const& endung) {
+    for (auto const& e : ovl::kNichtQuellEndungen)
+        if (endung == e) return true;
+    return false;
+}
+
 struct OrganDetail {
     static constexpr std::string_view kName = "organ";
 
@@ -398,56 +506,111 @@ struct OrganDetail {
         bool                     unter_praeprozessor = false;
     };
 
-    /// discovered = *.hpp unter den zwei Homes, die den Substring 'algo_version' enthalten
-    /// (golden-kompatible Erhebung, s. Kopf). Sortiert, '/'-Separatoren. FAIL-CLOSED wie bei
-    /// HeuristikDetail::discover; zusaetzlich Politik-ROT fuer Nicht-hpp-Dateien, deren Bytes
-    /// ein echtes Literal tragen (G5c: ein .h-Traeger war vorher vollstaendig unsichtbar).
-    [[nodiscard]] static std::vector<std::string> discover(fs::path const& root, DiscoveryLage& lage) {
-        std::vector<std::string> rels;
-        for (char const* home_rel : {"libs/cache_engine/axes", "libs/cache_engine/topics/queuing"}) {
-            fs::path const home = root / home_rel;
-            if (!fs::is_directory(home)) {
+    /// Ein Fund der Overlay-Discovery: relativer Pfad (zu --root) + Kategorie-Text des
+    /// Schnitt-Eintrags, der ihn aufgenommen hat.
+    struct Fund {
+        std::string rel;
+        std::string kategorie;
+    };
+
+    /// D1: discovered = die Quell-Dateien des Overlay-Schnitts, Eintrag fuer Eintrag aus
+    /// kOverlaySourceSet erhoben (verzeichnis-Eintraege rekursiv, datei_praefix-Eintraege flach;
+    /// Endungs-Entscheid ueber kQuellEndungen/kNichtQuellEndungen). Der fruehere Substring-
+    /// Filter text.find("algo_version") ist ERSATZLOS GEFALLEN -- er war die Ursache der
+    /// 235-Dateien-Deckungsluecke (60 Prozent der Homes unbewacht bei gruener Wache).
+    /// FAIL-CLOSED, jede Klasse benannt:
+    ///   * Schnitt-Pfad fehlt / Discovery-Abbruch / Praefix ohne Treffer => Exit-2-Klasse
+    ///     (dieselben Klassen bricht der Codegen fail-loud -- eine Umbenennung darf den Schnitt
+    ///     nicht still verkleinern).
+    ///   * Symlink unter einem Schnitt-Pfad => Exit-2-Klasse: der Codegen ueberspringt Symlinks
+    ///     (keine Zweitzaehlung), ihr Inhalt laeuft also am Fingerprint VORBEI -- die Wache
+    ///     zertifiziert keinen Baum mit hash-unsichtbaren Teilen (Bestand: 0, gemessen).
+    ///   * Sonderdatei (FIFO/Socket/Device) => Exit-2-Klasse (der Codegen ueberspraenge sie still).
+    ///   * Endung in KEINER der beiden Listen => Politik-ROT: eine neue Endung muss die
+    ///     Entscheidung 'Identitaet oder nicht' erzwingen (Spiegel der Codegen-Regel).
+    ///   * Schnitt-Ueberlappung (dieselbe Datei aus zwei Eintraegen) => Exit-2-Klasse.
+    [[nodiscard]] static std::vector<Fund> discover(fs::path const& root, DiscoveryLage& lage) {
+        std::map<std::string, std::string> funde; // rel -> kategorie; sortiert => deterministisch
+        fs::path const                     ce = root / "libs/cache_engine";
+        for (auto const& e : ovl::kOverlaySourceSet) {
+            fs::path const basis = ce / fs::path{std::string{e.pfad}};
+            if (!fs::is_directory(basis)) {
+                std::fprintf(stderr,
+                             "axis_version_lock: FEHLER Schnitt-Pfad fehlt unter --root (Achse '%s'): "
+                             "libs/cache_engine/%s\n",
+                             std::string{e.achse}.c_str(), std::string{e.pfad}.c_str());
                 lage.env_ok = false;
-                std::fprintf(stderr, "axis_version_lock: FEHLER organ-Home fehlt unter --root: %s\n", home_rel);
                 continue;
             }
-            try {
-                for (auto const& de : fs::recursive_directory_iterator(home)) {
-                    if (symlink_rot(de, root, lage)) continue;
-                    if (!de.is_regular_file()) continue;
-                    std::string const         rel = fs::relative(de.path(), root).generic_string();
-                    std::vector<std::uint8_t> bytes;
-                    if (!read_file_bytes(de.path(), bytes)) {
-                        // FAIL-CLOSED (Pflicht-Fixup 13.08.2026, Koeder F): ein unlesbarer
-                        // NEUZUGANG verschwand sonst still aus der Grundgesamtheit -- --check
-                        // blieb GRUEN, --write regenerierte OHNE die Datei (literal belegt).
-                        std::fprintf(stderr, "axis_version_lock: FEHLER Datei nicht lesbar (organ-Discovery): %s\n",
+            // true = als Quell-Datei aufgenommen (Zaehler fuer die Praefix-Treffer-Wache).
+            auto const klassifiziere = [&](fs::directory_entry const& de) -> bool {
+                std::string const rel = de.path().lexically_relative(root).generic_string();
+                if (de.is_symlink()) {
+                    std::fprintf(stderr,
+                                 "axis_version_lock: FEHLER Symlink unter einem Schnitt-Pfad (dem "
+                                 "Overlay-Hash unsichtbar, nicht zugelassen): %s\n",
+                                 rel.c_str());
+                    lage.env_ok = false;
+                    return false;
+                }
+                if (de.is_directory()) return false;
+                if (!de.is_regular_file()) {
+                    std::fprintf(stderr,
+                                 "axis_version_lock: FEHLER keine regulaere Datei unter einem Schnitt-Pfad "
+                                 "(FIFO/Socket/Device, nicht zugelassen): %s\n",
+                                 rel.c_str());
+                    lage.env_ok = false;
+                    return false;
+                }
+                std::string const endung = de.path().extension().string();
+                if (ist_quell_endung(endung)) {
+                    auto const [it, neu] = funde.emplace(rel, std::string(kategorie_text(e.kategorie)));
+                    if (!neu) {
+                        std::fprintf(stderr,
+                                     "axis_version_lock: FEHLER Schnitt-Ueberlappung -- Datei aus zwei "
+                                     "Eintraegen des Overlay-Schnitts: %s\n",
                                      rel.c_str());
                         lage.env_ok = false;
-                        continue;
                     }
-                    std::string_view const text(reinterpret_cast<char const*>(bytes.data()), bytes.size());
-                    if (de.path().extension() == ".hpp") {
-                        if (text.find("algo_version") == std::string_view::npos) continue;
-                        rels.push_back(rel);
-                        continue;
+                    return true;
+                }
+                if (ist_nicht_quell_endung(endung)) return false; // Doku/Spiegel: bewusst ausserhalb
+                std::fprintf(stderr,
+                             "axis_version_lock: ROT Endung '%s' steht in KEINER Endungs-Liste des "
+                             "Overlay-Schnitts (Entscheidung erzwungen, s. overlay_source_set.hpp): %s\n",
+                             endung.c_str(), rel.c_str());
+                lage.politik_rot = true;
+                return false;
+            };
+            try {
+                if (e.form == ovl::Form::verzeichnis) {
+                    for (auto const& de : fs::recursive_directory_iterator(basis)) (void)klassifiziere(de);
+                } else {
+                    std::string const praefix{e.praefix};
+                    int               treffer = 0;
+                    for (auto const& de : fs::directory_iterator(basis)) {
+                        std::string const name = de.path().filename().string();
+                        if (name.rfind(praefix, 0) != 0) continue;
+                        if (klassifiziere(de)) ++treffer;
                     }
-                    if (text.find("algo_version") == std::string_view::npos) continue;
-                    if (!scan_literale(bytes).literale.empty()) {
+                    if (treffer == 0) {
                         std::fprintf(stderr,
-                                     "axis_version_lock: ROT algo_version-Literal in Datei mit nicht "
-                                     "zugelassener Endung (nur *.hpp ist Traeger): %s\n",
-                                     rel.c_str());
-                        lage.politik_rot = true;
+                                     "axis_version_lock: FEHLER Datei-Praefix '%s' (Achse '%s') trifft keine "
+                                     "Quelldatei unter libs/cache_engine/%s -- Schnitt nachziehen, nicht "
+                                     "ignorieren\n",
+                                     praefix.c_str(), std::string{e.achse}.c_str(), std::string{e.pfad}.c_str());
+                        lage.env_ok = false;
                     }
                 }
-            } catch (fs::filesystem_error const& e) {
-                std::fprintf(stderr, "axis_version_lock: FEHLER organ-Discovery abgebrochen (%s)\n", e.what());
+            } catch (fs::filesystem_error const& err) {
+                std::fprintf(stderr, "axis_version_lock: FEHLER Overlay-Discovery abgebrochen (%s)\n", err.what());
                 lage.env_ok = false;
             }
         }
-        std::sort(rels.begin(), rels.end());
-        return rels;
+        std::vector<Fund> aus;
+        aus.reserve(funde.size());
+        for (auto const& [rel, kat] : funde) aus.push_back(Fund{rel, kat});
+        return aus;
     }
 
     /// Kommentar-/string-bewusster Scan ueber ALLE algo_version-String-Literal-Zuweisungen im
@@ -678,12 +841,36 @@ struct Befund {
 
 using BefundMap = std::map<std::string, Befund>; // key = relativer Pfad (sortiert => deterministisch)
 
-struct BestandZaehler {
-    int heuristik_n     = 0;
-    int organ_n         = 0;
-    int organ_traeger_n = 0;
-    int organ_multi_n   = 0; // G3: Dateien mit >= 2 Literalen (heute: 1, k_ary)
+/// Zaehler EINER Overlay-Kategorie (D1): discovered mit traeger/multi-Aufriss.
+struct KatZaehler {
+    int discovered = 0;
+    int traeger    = 0;
+    int multi      = 0; // G3: Dateien mit >= 2 Literalen (heute: 1, k_ary in organ)
 };
+
+struct BestandZaehler {
+    int        heuristik_n = 0;
+    KatZaehler organ;
+    KatZaehler system;
+    KatZaehler mess;
+    KatZaehler tier;
+
+    [[nodiscard]] KatZaehler& fuer(std::string const& kategorie) {
+        if (kategorie == "system") return system;
+        if (kategorie == "mess") return mess;
+        if (kategorie == "tier_substanz") return tier;
+        return organ;
+    }
+    [[nodiscard]] int overlay_gesamt() const {
+        return organ.discovered + system.discovered + mess.discovered + tier.discovered;
+    }
+    [[nodiscard]] int overlay_traeger() const { return organ.traeger + system.traeger + mess.traeger + tier.traeger; }
+};
+
+/// true = b traegt eine der vier Overlay-Kategorien (Literal-Mechanik); false = heuristik.
+[[nodiscard]] bool ist_overlay_kategorie(std::string const& category) {
+    return category != std::string(HeuristikDetail::kName);
+}
 
 /// IMMER-ROT-Pruefung eines Befunds (G1(2)/G4/G6b), digest-unabhaengig -- gilt fuer --write UND
 /// --check. true = gedruckt und rot.
@@ -692,7 +879,7 @@ struct BestandZaehler {
         std::fprintf(stderr, "axis_version_lock: ROT %s: %s\n", HeuristikDetail::rot_grund(b.version), rel.c_str());
         return true;
     }
-    if (b.category == OrganDetail::kName) {
+    if (ist_overlay_kategorie(b.category)) {
         if (b.praep_rot) {
             std::fprintf(stderr,
                          "axis_version_lock: ROT algo_version-Literal unter #if/#ifdef/#ifndef -- nicht "
@@ -709,7 +896,7 @@ struct BestandZaehler {
     return false;
 }
 
-/// Erhebt die Grundgesamtheit beider Kategorien unter root. env_ok=false = Exit-2-Klasse.
+/// Erhebt die Grundgesamtheit aller Kategorien unter root. env_ok=false = Exit-2-Klasse.
 [[nodiscard]] DiscoveryLage erhebe_bestand(fs::path const& root, BefundMap& out, BestandZaehler& z) {
     DiscoveryLage lage;
 
@@ -726,49 +913,70 @@ struct BestandZaehler {
     }
     z.heuristik_n = static_cast<int>(h_rels.size());
 
-    std::vector<std::string> const o_rels = OrganDetail::discover(root, lage);
-    for (std::string const& rel : o_rels) {
+    for (OrganDetail::Fund const& fund : OrganDetail::discover(root, lage)) {
         std::vector<std::uint8_t> bytes;
-        if (!read_file_bytes(root / rel, bytes)) {
-            std::fprintf(stderr, "axis_version_lock: FEHLER Datei nicht lesbar: %s\n", rel.c_str());
+        if (!read_file_bytes(root / fund.rel, bytes)) {
+            std::fprintf(stderr, "axis_version_lock: FEHLER Datei nicht lesbar: %s\n", fund.rel.c_str());
             lage.env_ok = false;
             continue;
         }
         OrganDetail::Scan const scan = OrganDetail::scan_literale(bytes);
-        if (!scan.literale.empty()) ++z.organ_traeger_n;
-        if (scan.literale.size() >= 2) ++z.organ_multi_n;
-        Befund b{std::string(OrganDetail::kName), OrganDetail::render_versionen(scan.literale), digest_hex_of(bytes)};
-        b.praep_rot = scan.unter_praeprozessor;
-        out[rel]    = b;
+        KatZaehler&             kz   = z.fuer(fund.kategorie);
+        ++kz.discovered;
+        if (!scan.literale.empty()) ++kz.traeger;
+        if (scan.literale.size() >= 2) ++kz.multi;
+        Befund b{fund.kategorie, OrganDetail::render_versionen(scan.literale), digest_hex_of(bytes)};
+        b.praep_rot   = scan.unter_praeprozessor;
+        out[fund.rel] = b;
     }
-    z.organ_n = static_cast<int>(o_rels.size());
     return lage;
 }
 
 /// Die Riegel-Schaerfung (ii): discovered-Zaehler MIT NENNER, je Kategorie eine BESTAND-Zeile.
-/// multi (G3) = Dateien mit mehreren Literalen -- gefahren, nicht behauptet.
+/// multi (G3) = Dateien mit mehreren Literalen -- gefahren, nicht behauptet. Seit D1 je
+/// Overlay-Kategorie eine Zeile + die Gesamtzeile (der Nenner der Deckungs-Aussage).
 void drucke_bestand(BestandZaehler const& z) {
     std::fprintf(stdout,
                  "axis_version_lock: BESTAND heuristik discovered=%d traeger=%d "
                  "(nenner: alle *.hpp unter libs/cache_engine/heuristik)\n",
                  z.heuristik_n, z.heuristik_n);
+    struct Zeile {
+        char const*       name;
+        KatZaehler const& kz;
+    };
+    for (Zeile const& zl :
+         {Zeile{"organ", z.organ}, Zeile{"system", z.system}, Zeile{"mess", z.mess}, Zeile{"tier_substanz", z.tier}}) {
+        std::fprintf(stdout,
+                     "axis_version_lock: BESTAND %s discovered=%d traeger=%d forwarder_prosa=%d multi=%d "
+                     "(nenner: Quell-Dateien der %s-Eintraege des Overlay-Schnitts, "
+                     "builder/overlay_source_set.hpp)\n",
+                     zl.name, zl.kz.discovered, zl.kz.traeger, zl.kz.discovered - zl.kz.traeger, zl.kz.multi, zl.name);
+    }
     std::fprintf(stdout,
-                 "axis_version_lock: BESTAND organ discovered=%d traeger=%d forwarder_prosa=%d multi=%d "
-                 "(nenner: *.hpp mit 'algo_version' unter libs/cache_engine/axes + "
-                 "libs/cache_engine/topics/queuing)\n",
-                 z.organ_n, z.organ_traeger_n, z.organ_n - z.organ_traeger_n, z.organ_multi_n);
+                 "axis_version_lock: BESTAND overlay gesamt=%d traeger=%d (nenner: ALLE Quell-Dateien des "
+                 "Overlay-Schnitts -- die Menge, ueber die das Overlay-Glied [7] hasht)\n",
+                 z.overlay_gesamt(), z.overlay_traeger());
 }
 
-/// Mindest-Nenner-Wache (G5a). true = verletzt (Meldung gedruckt, Exit-2-Klasse).
+/// Mindest-Nenner-Wache (G5a, seit D5 je Kategorie). true = verletzt (Exit-2-Klasse).
 [[nodiscard]] bool nenner_verletzt(BestandZaehler const& z) {
-    if (z.heuristik_n >= kMinHeuristikDiscovered && z.organ_n >= kMinOrganDiscovered) return false;
+    if (z.heuristik_n >= kMinHeuristikDiscovered && z.organ.discovered >= kMinOrganDiscovered &&
+        z.system.discovered >= kMinSystemDiscovered && z.mess.discovered >= kMinMessDiscovered &&
+        z.tier.discovered >= kMinTierDiscovered)
+        return false;
     std::fprintf(stderr,
                  "axis_version_lock: ROT Mindest-Nenner unterschritten: heuristik=%d (min %d), organ=%d "
-                 "(min %d) -- leere/geschrumpfte Homes sind kein Gruen (V-1); nach einer bewussten "
-                 "Umgliederung die Anker im Tool nachziehen\n",
-                 z.heuristik_n, kMinHeuristikDiscovered, z.organ_n, kMinOrganDiscovered);
+                 "(min %d), system=%d (min %d), mess=%d (min %d), tier_substanz=%d (min %d) -- leere/"
+                 "geschrumpfte Homes sind kein Gruen (V-1); nach einer bewussten Umgliederung die Anker "
+                 "im Tool nachziehen\n",
+                 z.heuristik_n, kMinHeuristikDiscovered, z.organ.discovered, kMinOrganDiscovered, z.system.discovered,
+                 kMinSystemDiscovered, z.mess.discovered, kMinMessDiscovered, z.tier.discovered, kMinTierDiscovered);
     return true;
 }
+
+// Definition unten (Reihenfolge unveraendert); do_write braucht den Parser seit D2 fuer die
+// Rueckstufungs-Pruefung gegen das BESTEHENDE Register.
+[[nodiscard]] bool parse_lock_v3(std::string const& path, BefundMap& out);
 
 int do_write(fs::path const& root, std::string const& lockfile) {
     BefundMap           bestand;
@@ -786,6 +994,34 @@ int do_write(fs::path const& root, std::string const& lockfile) {
     int rc = lage.politik_rot ? 1 : 0;
     for (auto const& [rel, b] : bestand)
         if (befund_immer_rot(rel, b)) rc = 1;
+
+    // D2: TRAEGER-AUSTRITT HAT KEINEN --write-WEG. Rot-zuerst literal belegt: Literal entfernt,
+    // --write gefahren => Exit 0, und der Record verschwand ganz bzw. wurde still 'organ -' --
+    // die VERSION verliess das Register auf dem vom Werkzeug selbst angewiesenen Weg. Jetzt:
+    // steht dieselbe Datei im BESTEHENDEN Register als Traeger (version != '-') und im neuen
+    // Bestand als digest-only, verweigert --write byte-identisch. Der legitime Austritt ist
+    // Loeschen/Umbenennen der Datei (verwaist -> bewusster Regen); die Aufwertung '-' ->
+    // Literal bleibt frei (D3). Ein nicht (als v2) lesbares Alt-Register kann keine
+    // Rueckstufung bezeugen -- dann Neuaufbau mit HINWEIS statt stiller Annahme.
+    if (fs::exists(lockfile)) {
+        BefundMap alt;
+        if (parse_lock_v3(lockfile, alt)) {
+            for (auto const& [rel, b] : bestand) {
+                auto const it = alt.find(rel);
+                if (it == alt.end()) continue;
+                if (ist_overlay_kategorie(it->second.category) && it->second.version != "-" && b.version == "-") {
+                    std::fprintf(stderr,
+                                 "axis_version_lock: ROT Traeger-Austritt: algo_version-Literal entfernt, Datei "
+                                 "wuerde digest-only (Register-Version '%s'): %s\n",
+                                 it->second.version.c_str(), rel.c_str());
+                    rc = 1;
+                }
+            }
+        } else {
+            std::fprintf(stderr, "axis_version_lock: HINWEIS bestehendes Lock nicht als v3 lesbar (Meldungen "
+                                 "oben betreffen das ALTE Register) -- Neuaufbau ohne Rueckstufungs-Pruefung\n");
+        }
+    }
     if (rc != 0) {
         drucke_bestand(z);
         std::fprintf(stderr, "axis_version_lock: ROT --write verweigert -- Lock-Datei unveraendert; "
@@ -798,21 +1034,45 @@ int do_write(fs::path const& root, std::string const& lockfile) {
         std::fprintf(stderr, "axis_version_lock: FEHLER kann Lock-Datei nicht schreiben: %s\n", lockfile.c_str());
         return 2;
     }
-    out << "# axis_version.lock -- content-digest tripwire ueber die algo_version-Traeger\n";
-    out << "# (S-14a Riegel, Task #33/KON17-03; vormals PAKET W3-C GN-8/O-4)\n";
-    out << "# format: v2\n";
-    out << "# record (ZWEI Zeilen je Datei): '<category> <version> <relative-path>' + Folgezeile\n";
-    out << "#   '    <sha256-hex>' (vier Leerzeichen Einrueckung).\n";
-    out << "#   heuristik: version = Integer aus dem '// AXIS_ALGO_VERSION: <N>'-Marker (0 = kein Marker)\n";
-    out << "#   organ:     version = erstes algo_version-String-Literal 'X.Y.Z[.flags]' im Code;\n";
-    out << "#              '-' = kein Literal (Forwarder/Prosa; digest-only, Aenderung verlangt\n";
-    out << "#              bewussten Lock-Regen-Commit via --write)\n";
-    out << "# Formatwahl v2: Kategorie-Spalte + Versions-STRING statt v1-Integer-Spalte; v1-Locks\n";
-    out << "# werden beim --check mit klarer Meldung abgewiesen (kein stilles Weiterlesen).\n";
-    out << "# Zweizeilen-Record, damit jede Zeile <=120 Spalten bleibt (Diff-Hygiene-Wache voll\n";
-    out << "# gedeckt, keine Ausnahme-Klasse); Kopfzeile ohne Digest-Folgezeile = lauter Formatfehler.\n";
+    // LOCK-KOPF: seit Fixup 3 (D1) beschreibt er die GELTENDE Semantik -- der Fixup-2-Einfrier-
+    // Grund (byte-identische 158er-Baseline) endete mit diesem legitimen Regen (s. Datei-Kopf).
+    out << "# axis_version.lock -- content-digest tripwire ueber die algo_version-Traeger und die\n";
+    out << "# Overlay-Quellmenge des Tier-Fingerprints (S-14a Riegel, Task #33/KON17-03; vormals W3-C)\n";
+    out << "# format: v3\n";
+    out << "# record (DREI Zeilen je Datei):\n";
+    out << "#   '<category> <version> <dirname/>'   Kopfzeile; dirname repo-relativ MIT Schluss-'/'\n";
+    out << "#   '    <basename>'                    Datei-Name (vier Leerzeichen Einrueckung)\n";
+    out << "#   '    <sha256-hex>'                  Digest (vier Leerzeichen Einrueckung)\n";
+    out << "# Der volle Pfad ist EXAKT dirname+basename.\n";
+    out << "#   heuristik: alle *.hpp unter libs/cache_engine/heuristik; version = Integer der EINEN\n";
+    out << "#              dedizierten '// AXIS_ALGO_VERSION: <N>'-Marker-Zeile.\n";
+    out << "#   organ/system/mess/tier_substanz: die Quell-Dateien des Overlay-Schnitts\n";
+    out << "#              (builder/overlay_source_set.hpp -- die Menge, ueber die das Overlay-Glied [7]\n";
+    out << "#              des Tier-Fingerprints hasht; Endungen kQuellEndungen, kNichtQuellEndungen\n";
+    out << "#              bewusst draussen). version = geordnete LISTE aller algo_version-String-\n";
+    out << "#              Literale im Code ('X.Y.Z[.flags]'): N gleiche Literale => der Einzelwert,\n";
+    out << "#              ungleiche => komma-gefuegt in Text-Reihenfolge; '-' = kein Literal\n";
+    out << "#              (digest-only).\n";
+    out << "# KATEGORIE-REGELN: die Kategorie-Spalte wird beim --check gegen die Discovery gehalten\n";
+    out << "# (Abweichung = ROT). Rueckstufung traeger -> digest-only ist ROT und hat keinen\n";
+    out << "# --write-Weg; die Aufwertung digest-only -> traeger ist legitim (--check Exit 3, dann\n";
+    out << "# Regen). Jede Aenderung an einer verzeichneten Datei verlangt den bewussten\n";
+    out << "# Lock-Regen-Commit (--write); ein Versions-Bump macht ihn legitim, ersetzt ihn nicht.\n";
+    out << "# Formatwahl v3: der Pfad-SPLIT (dirname auf der Kopfzeile, basename als Folgezeile)\n";
+    out << "# haelt jede Zeile <=120 Spalten -- die neue Grundgesamtheit traegt Pfade bis 138 Byte,\n";
+    out << "# die in keine Einzelzeile passen (Diff-Hygiene-Wache voll gedeckt, keine Ausnahme-\n";
+    out << "# Klasse). v1-/v2-Locks werden beim --check mit klarer Meldung abgewiesen (kein stilles\n";
+    out << "# Weiterlesen); Kopfzeile ohne BEIDE Folgezeilen = lauter Formatfehler.\n";
     for (auto const& [rel, b] : bestand) {
-        out << b.category << ' ' << b.version << ' ' << rel << '\n';
+        // Pfad-Split (D6): dirname MIT Schluss-'/', basename = Rest. Jeder Pfad der
+        // Grundgesamtheit liegt unter libs/cache_engine/ -- rfind('/') trifft immer; der
+        // unmoegliche Fall ohne '/' ergaebe eine Kopfzeile ohne Verzeichnis-Schluss und
+        // fiele im strengen Parser LAUT um, nie still.
+        std::size_t const schnitt  = rel.rfind('/');
+        std::string const dirname  = (schnitt == std::string::npos) ? "" : rel.substr(0, schnitt + 1);
+        std::string const basename = (schnitt == std::string::npos) ? rel : rel.substr(schnitt + 1);
+        out << b.category << ' ' << b.version << ' ' << dirname << '\n';
+        out << "    " << basename << '\n';
         out << "    " << b.digest_hex << '\n';
         std::fprintf(stdout, "axis_version_lock: LOCK %s %s %s %s\n", b.category.c_str(), b.version.c_str(),
                      b.digest_hex.c_str(), rel.c_str());
@@ -827,65 +1087,95 @@ int do_write(fs::path const& root, std::string const& lockfile) {
     return 0;
 }
 
-/// Parst die Lock-Datei v2. Verlangt die Formatzeile '# format: v2' VOR dem ersten Eintrag.
-[[nodiscard]] bool parse_lock_v2(std::string const& path, BefundMap& out) {
+/// Parst die Lock-Datei v3 (D6: DREIZEILEN-Record). Verlangt die Formatzeile '# format: v3'
+/// VOR dem ersten Eintrag; v1/v2 werden ueber die Format-Zeile mit klarer Meldung abgewiesen.
+[[nodiscard]] bool parse_lock_v3(std::string const& path, BefundMap& out) {
     std::ifstream f(path);
     if (!f) {
         std::fprintf(stderr, "axis_version_lock: ROT Lock-Datei nicht lesbar: %s\n", path.c_str());
         return false;
     }
+    enum class Erwarte { kopf, basename, digest };
     bool        format_ok = false;
-    bool        have_kopf = false;
+    Erwarte     erwarte   = Erwarte::kopf;
     Befund      kopf;
-    std::string kopf_rel;
+    std::string kopf_dir;
+    std::string kopf_base;
     std::string line;
     while (std::getline(f, line)) {
         if (line.rfind("# format:", 0) == 0) {
-            if (line == "# format: v2") {
+            if (line == "# format: v3") {
                 format_ok = true;
                 continue;
             }
             std::fprintf(stderr,
-                         "axis_version_lock: ROT Lock-Format unbekannt/veraltet ('%s', erwartet '# format: v2') "
+                         "axis_version_lock: ROT Lock-Format unbekannt/veraltet ('%s', erwartet '# format: v3') "
                          "-- mit --write regenerieren: %s\n",
                          line.c_str(), path.c_str());
             return false;
         }
         if (line.empty() || line[0] == '#') continue;
         if (!format_ok) {
-            std::fprintf(stderr, "axis_version_lock: ROT Lock ohne '# format: v2'-Kopf vor dem ersten Eintrag: %s\n",
+            std::fprintf(stderr, "axis_version_lock: ROT Lock ohne '# format: v3'-Kopf vor dem ersten Eintrag: %s\n",
                          path.c_str());
             return false;
         }
         if (line[0] == ' ' || line[0] == '\t') {
-            // Digest-Folgezeile des Zweizeilen-Records (vier Leerzeichen + 64 Hex). STRENG gelesen
-            // (Pflicht-Fixup 13.08.2026, Koeder G2/G3): genau EIN Token, exakt 64 lowercase-Hex.
-            // Vorher schluckte 'ds >> digest' Rest-Tokens still, und size()==64 liess Muellstrings
-            // durch -- der Fehler erschien dann als irrefuehrende Drift-Meldung UEBER DIE DATEI
-            // ('erwartet zzzz...'), nie ueber das Register.
+            // Folgezeile (basename oder Digest), nach ERWARTUNGS-ZUSTAND gelesen -- nie nach
+            // Inhalt geraten. STRENG (Pflicht-Fixup 13.08.2026, Koeder G2/G3, seit v3 dreizeilig):
+            // genau EIN Token; Digest exakt 64 lowercase-Hex; basename ohne '/'. Vorher schluckte
+            // 'ds >> token' Rest-Tokens still, und size()==64 liess Muellstrings durch -- der
+            // Fehler erschien dann als irrefuehrende Drift-Meldung UEBER DIE DATEI, nie ueber
+            // das Register.
             std::istringstream ds(line);
-            std::string        digest;
+            std::string        token;
             std::string        zusatz;
-            ds >> digest;
+            ds >> token;
             bool const hat_zusatz = static_cast<bool>(ds >> zusatz);
-            if (!have_kopf || !ist_sha256_hex(digest) || hat_zusatz) {
+            if (erwarte == Erwarte::kopf) {
+                std::fprintf(stderr, "axis_version_lock: ROT Folgezeile ohne Record-Kopf im Lock: '%s'\n",
+                             line.c_str());
+                return false;
+            }
+            if (erwarte == Erwarte::basename) {
+                if (token.empty() || hat_zusatz || token.find('/') != std::string::npos) {
+                    std::fprintf(stderr,
+                                 "axis_version_lock: ROT unparsbare Basename-Zeile im Lock (Record-Kopf %s; "
+                                 "erwartet genau EIN Token ohne '/'): '%s'\n",
+                                 kopf_dir.c_str(), line.c_str());
+                    return false;
+                }
+                kopf_base = token;
+                erwarte   = Erwarte::digest;
+                continue;
+            }
+            // Erwarte::digest
+            if (!ist_sha256_hex(token) || hat_zusatz) {
                 std::fprintf(stderr,
                              "axis_version_lock: ROT unparsbare Digest-Zeile im Lock (Record-Kopf %s; erwartet "
                              "genau 64 Hex-Zeichen [0-9a-f], ohne Zusatz): '%s'\n",
-                             have_kopf ? kopf_rel.c_str() : "FEHLT", line.c_str());
+                             (kopf_dir + kopf_base).c_str(), line.c_str());
                 return false;
             }
-            kopf.digest_hex = digest;
-            out[kopf_rel]   = kopf;
-            have_kopf       = false;
+            kopf.digest_hex        = token;
+            std::string const voll = kopf_dir + kopf_base;
+            // STRENG (Koeder G4): ein doppelter Record fuer denselben Pfad wuerde sonst still per
+            // 'last wins' aufgeloest -- im Identitaets-Register ist das ein Formatfehler.
+            if (out.find(voll) != out.end()) {
+                std::fprintf(stderr, "axis_version_lock: ROT doppelter Lock-Record fuer Pfad: %s\n", voll.c_str());
+                return false;
+            }
+            out[voll] = kopf;
+            erwarte   = Erwarte::kopf;
             continue;
         }
-        if (have_kopf) {
-            std::fprintf(stderr, "axis_version_lock: ROT Lock-Record ohne Digest-Folgezeile: %s\n", kopf_rel.c_str());
+        if (erwarte != Erwarte::kopf) {
+            std::fprintf(stderr, "axis_version_lock: ROT Lock-Record ohne %s-Folgezeile: %s\n",
+                         erwarte == Erwarte::basename ? "Basename" : "Digest", (kopf_dir + kopf_base).c_str());
             return false;
         }
         std::istringstream ls(line);
-        if (!(ls >> kopf.category >> kopf.version >> kopf_rel)) {
+        if (!(ls >> kopf.category >> kopf.version >> kopf_dir)) {
             std::fprintf(stderr, "axis_version_lock: ROT unparsbare Lock-Zeile: '%s'\n", line.c_str());
             return false;
         }
@@ -901,26 +1191,28 @@ int do_write(fs::path const& root, std::string const& lockfile) {
                          zusatz.c_str(), line.c_str());
             return false;
         }
-        // STRENG (Koeder G4): ein doppelter Record fuer denselben Pfad wuerde sonst still per
-        // 'last wins' aufgeloest -- im Identitaets-Register ist das ein Formatfehler.
-        if (out.find(kopf_rel) != out.end()) {
-            std::fprintf(stderr, "axis_version_lock: ROT doppelter Lock-Record fuer Pfad: %s\n", kopf_rel.c_str());
+        if (kopf_dir.empty() || kopf_dir.back() != '/') {
+            std::fprintf(stderr,
+                         "axis_version_lock: ROT Lock-Kopfzeile ohne Verzeichnis-Schluss '/' (v3-Pfad-Split): "
+                         "'%s'\n",
+                         line.c_str());
             return false;
         }
-        have_kopf = true;
+        kopf_base.clear();
+        erwarte = Erwarte::basename;
     }
-    if (have_kopf) {
-        std::fprintf(stderr, "axis_version_lock: ROT Lock-Record ohne Digest-Folgezeile am Dateiende: %s\n",
-                     kopf_rel.c_str());
+    if (erwarte != Erwarte::kopf) {
+        std::fprintf(stderr, "axis_version_lock: ROT Lock-Record ohne %s-Folgezeile am Dateiende: %s\n",
+                     erwarte == Erwarte::basename ? "Basename" : "Digest", (kopf_dir + kopf_base).c_str());
         return false;
     }
-    if (!format_ok) std::fprintf(stderr, "axis_version_lock: ROT Lock ohne '# format: v2'-Kopf: %s\n", path.c_str());
+    if (!format_ok) std::fprintf(stderr, "axis_version_lock: ROT Lock ohne '# format: v3'-Kopf: %s\n", path.c_str());
     return format_ok;
 }
 
 int do_check(fs::path const& root, std::string const& lockfile) {
     BefundMap lock;
-    if (!parse_lock_v2(lockfile, lock)) return 1;
+    if (!parse_lock_v3(lockfile, lock)) return 1;
 
     BefundMap           bestand;
     BestandZaehler      z;
@@ -971,6 +1263,29 @@ int do_check(fs::path const& root, std::string const& lockfile) {
             }
             continue;
         }
+        if (ist_overlay_kategorie(ist.category) && soll.version != "-" && ist.version == "-") {
+            // D2: TRAEGER-AUSTRITT, benannt mit Datei und Register-Version. Vorher lief dieser
+            // Fall in die generische OHNE-Bump-Meldung; der --write-Weg stand offen und die
+            // Version verliess das Register still (rot-zuerst literal belegt).
+            std::fprintf(stderr,
+                         "axis_version_lock: ROT Traeger-Austritt: algo_version-Literal entfernt, Datei "
+                         "wuerde digest-only (Register-Version '%s'): %s\n",
+                         soll.version.c_str(), rel.c_str());
+            std::fprintf(stderr, "axis_version_lock:     HINWEIS kein --write-Weg; Literal wiederherstellen "
+                                 "oder Datei bewusst entfernen/umbenennen (verwaist -> Regen)\n");
+            red = 1;
+            continue;
+        }
+        if (ist_overlay_kategorie(ist.category) && soll.version == "-" && ist.version != "-") {
+            // D3: AUFWERTUNG digest-only -> traeger ist eine legitime Aenderung (vorher falsch
+            // als 'OHNE gueltigen Version-Bump' Exit 1, rot-zuerst literal belegt). Wie der
+            // Bump-Zweig: erst der Regen-Commit segnet den konkreten Inhalt (Exit 3).
+            std::fprintf(stdout, "axis_version_lock: OK Aufwertung digest-only -> traeger ('-' -> %s) %s\n",
+                         ist.version.c_str(), rel.c_str());
+            std::fprintf(stdout, "axis_version_lock: HINWEIS Lock erneuern (--write) fuer %s\n", rel.c_str());
+            regen_noetig = true;
+            continue;
+        }
         bool bump = false;
         if (ist.category == HeuristikDetail::kName)
             bump = HeuristikDetail::bump_ok(soll.version, ist.version);
@@ -999,8 +1314,22 @@ int do_check(fs::path const& root, std::string const& lockfile) {
     for (auto const& [rel, soll] : lock) {
         if (bestand.find(rel) != bestand.end()) continue;
         std::fprintf(stderr, "axis_version_lock: ROT Lock-Eintrag ohne Datei (verwaist): %s\n", rel.c_str());
-        std::fprintf(stderr, "axis_version_lock:     HINWEIS Datei geloescht/umgezogen/ohne 'algo_version'? "
-                             "Bewussten Lock-Regen-Commit (--write) fahren\n");
+        std::fprintf(stderr, "axis_version_lock:     HINWEIS Datei geloescht/umgezogen/aus dem Schnitt "
+                             "gefallen? Bewussten Lock-Regen-Commit (--write) fahren\n");
+        red = 1;
+    }
+    // D4: DECKUNGS-BELEG. gedeckt = Overlay-Quellen MIT Register-Record -- unabhaengig vom
+    // Kontrollfluss oben gezaehlt, damit die Zahl eine MESSUNG ist und kein Nebenprodukt.
+    // Eine Luecke ist ROT: das ist das doppelte Netz neben dem unlocked-Pfad (Mutationsprobe
+    // K13 im Fixup-Commit), nie Prosa.
+    int gedeckt = 0;
+    for (auto const& [rel, ist] : bestand)
+        if (ist_overlay_kategorie(ist.category) && lock.find(rel) != lock.end()) ++gedeckt;
+    if (gedeckt != z.overlay_gesamt()) {
+        std::fprintf(stderr,
+                     "axis_version_lock: ROT DECKUNGSLUECKE -- nur %d von %d Overlay-Quellen im Register "
+                     "(Schnitt: builder/overlay_source_set.hpp)\n",
+                     gedeckt, z.overlay_gesamt());
         red = 1;
     }
     drucke_bestand(z);
@@ -1010,8 +1339,12 @@ int do_check(fs::path const& root, std::string const& lockfile) {
                              "Register ist veraltet; Lock-Regen-Commit (--write) fahren (Exit 3)\n");
         return 3;
     }
-    std::fprintf(stdout, "axis_version_lock: GRUEN bestand konsistent -- %zu Dateien (heuristik=%d, organ=%d)\n",
-                 bestand.size(), z.heuristik_n, z.organ_n);
+    std::fprintf(stdout,
+                 "axis_version_lock: GRUEN bestand konsistent -- %zu Dateien (heuristik=%d, organ=%d, "
+                 "system=%d, mess=%d, tier_substanz=%d) -- deckt %d von %d Overlay-Quellen (Schnitt: "
+                 "builder/overlay_source_set.hpp)\n",
+                 bestand.size(), z.heuristik_n, z.organ.discovered, z.system.discovered, z.mess.discovered,
+                 z.tier.discovered, gedeckt, z.overlay_gesamt());
     return 0;
 }
 

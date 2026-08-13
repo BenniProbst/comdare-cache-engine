@@ -1945,10 +1945,12 @@ add_test(NAME test_s14_axis_version_lock_tripwire COMMAND test_s14_axis_version_
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s14_axis_version_lock_tripwire)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS comdare_axis_version_lock)
 # Raw add_test bekommt KEINEN Auto-Timeout (cmake/gtest_setup.cmake setzt ihn nur fuer comdare_add_test);
-# 360s fuer Baum-Kopie (~4 MB) + ~70 Tool-Laeufe mit SHA-256 ueber ~430 Dateien (Pflicht-Fixup 2
-# 13.08.2026: Koeder H-S kamen hinzu; Debug-Builds rechnen die SHA deutlich langsamer als Release).
+# 900s fuer Baum-Kopie (~8 MB seit Fixup 3: topics/ GANZ + anatomy/ + include/cache_engine/measurement/)
+# + ~90 Tool-Laeufe mit SHA-256 ueber 718 Dateien je Lauf (Pflicht-Fixup 3 13.08.2026: Overlay-
+# Grundgesamtheit 712 + heuristik 6, Koeder T1-T5 kamen hinzu; Debug-Builds rechnen die SHA deutlich
+# langsamer als Release).
 set_tests_properties(test_s14_axis_version_lock_tripwire PROPERTIES
-    TIMEOUT 360
+    TIMEOUT 900
     LABELS "s14;axis_lock;tripwire")
 
 # -----------------------------------------------------------------------------
