@@ -38,8 +38,12 @@
 //
 // LOCK-FORMAT v2 (v1 wird mit klarer Meldung abgewiesen, kein stilles Weiterlesen):
 //   # format: v2
-//   # fields per line: <category> <version> <sha256-hex> <relative-path>
-//   Eintraege global nach Pfad sortiert; version ist bei organ der Literal-STRING bzw. '-'.
+//   ZWEIZEILEN-RECORD je Datei:  '<category> <version> <relative-path>' + Folgezeile
+//   '    <sha256-hex>' (vier Leerzeichen Einrueckung). WARUM ZWEI ZEILEN: 64 Hex-Zeichen + Pfad
+//   passen strukturell nicht in die 120-Spalten-Diff-Hygiene (ci_diff_ascii_width_guard); das
+//   Zweizeilen-Format haelt JEDE Zeile der Datei wachen-gedeckt, statt eine Ausnahme-Klasse in
+//   der Wache zu eroeffnen. Records global nach Pfad sortiert; version bei organ = Literal-STRING
+//   bzw. '-'. Eine Kopfzeile ohne Digest-Folgezeile ist ein LAUTER Formatfehler (kein Ueberlesen).
 //
 // AUFRUF (CI ruft ohne Datei-Liste; die Grundgesamtheit erhebt das Tool):
 //   axis_version_lock --write <lockfile> [--root <repo-root>]
@@ -379,18 +383,22 @@ int do_write(fs::path const& root, std::string const& lockfile) {
         std::fprintf(stderr, "axis_version_lock: FEHLER kann Lock-Datei nicht schreiben: %s\n", lockfile.c_str());
         return 2;
     }
-    out << "# axis_version.lock -- content-digest tripwire ueber die algo_version-Traeger"
-           " (S-14a Riegel, Task #33/KON17-03; vormals PAKET W3-C GN-8/O-4)\n";
+    out << "# axis_version.lock -- content-digest tripwire ueber die algo_version-Traeger\n";
+    out << "# (S-14a Riegel, Task #33/KON17-03; vormals PAKET W3-C GN-8/O-4)\n";
     out << "# format: v2\n";
-    out << "# fields per line: <category> <version> <sha256-hex> <relative-path>\n";
+    out << "# record (ZWEI Zeilen je Datei): '<category> <version> <relative-path>' + Folgezeile\n";
+    out << "#   '    <sha256-hex>' (vier Leerzeichen Einrueckung).\n";
     out << "#   heuristik: version = Integer aus dem '// AXIS_ALGO_VERSION: <N>'-Marker (0 = kein Marker)\n";
     out << "#   organ:     version = erstes algo_version-String-Literal 'X.Y.Z[.flags]' im Code;\n";
     out << "#              '-' = kein Literal (Forwarder/Prosa; digest-only, Aenderung verlangt\n";
     out << "#              bewussten Lock-Regen-Commit via --write)\n";
     out << "# Formatwahl v2: Kategorie-Spalte + Versions-STRING statt v1-Integer-Spalte; v1-Locks\n";
     out << "# werden beim --check mit klarer Meldung abgewiesen (kein stilles Weiterlesen).\n";
+    out << "# Zweizeilen-Record, damit jede Zeile <=120 Spalten bleibt (Diff-Hygiene-Wache voll\n";
+    out << "# gedeckt, keine Ausnahme-Klasse); Kopfzeile ohne Digest-Folgezeile = lauter Formatfehler.\n";
     for (auto const& [rel, b] : bestand) {
-        out << b.category << ' ' << b.version << ' ' << b.digest_hex << ' ' << rel << '\n';
+        out << b.category << ' ' << b.version << ' ' << rel << '\n';
+        out << "    " << b.digest_hex << '\n';
         std::fprintf(stdout, "axis_version_lock: LOCK %s %s %s %s\n", b.category.c_str(), b.version.c_str(),
                      b.digest_hex.c_str(), rel.c_str());
         if (b.category == OrganDetail::kName && OrganDetail::literal_unparsbar(b.version)) {
@@ -414,6 +422,9 @@ int do_write(fs::path const& root, std::string const& lockfile) {
         return false;
     }
     bool        format_ok = false;
+    bool        have_kopf = false;
+    Befund      kopf;
+    std::string kopf_rel;
     std::string line;
     while (std::getline(f, line)) {
         if (line.rfind("# format:", 0) == 0) {
@@ -433,10 +444,36 @@ int do_write(fs::path const& root, std::string const& lockfile) {
                          path.c_str());
             return false;
         }
+        if (line[0] == ' ' || line[0] == '\t') {
+            // Digest-Folgezeile des Zweizeilen-Records (vier Leerzeichen + 64 Hex).
+            std::istringstream ds(line);
+            std::string        digest;
+            ds >> digest;
+            if (!have_kopf || digest.size() != 64) {
+                std::fprintf(stderr, "axis_version_lock: ROT unparsbare Digest-Zeile im Lock (Record-Kopf %s): '%s'\n",
+                             have_kopf ? kopf_rel.c_str() : "FEHLT", line.c_str());
+                return false;
+            }
+            kopf.digest_hex = digest;
+            out[kopf_rel]   = kopf;
+            have_kopf       = false;
+            continue;
+        }
+        if (have_kopf) {
+            std::fprintf(stderr, "axis_version_lock: ROT Lock-Record ohne Digest-Folgezeile: %s\n", kopf_rel.c_str());
+            return false;
+        }
         std::istringstream ls(line);
-        Befund             b;
-        std::string        rel;
-        if (ls >> b.category >> b.version >> b.digest_hex >> rel) out[rel] = b;
+        if (!(ls >> kopf.category >> kopf.version >> kopf_rel)) {
+            std::fprintf(stderr, "axis_version_lock: ROT unparsbare Lock-Zeile: '%s'\n", line.c_str());
+            return false;
+        }
+        have_kopf = true;
+    }
+    if (have_kopf) {
+        std::fprintf(stderr, "axis_version_lock: ROT Lock-Record ohne Digest-Folgezeile am Dateiende: %s\n",
+                     kopf_rel.c_str());
+        return false;
     }
     if (!format_ok) std::fprintf(stderr, "axis_version_lock: ROT Lock ohne '# format: v2'-Kopf: %s\n", path.c_str());
     return format_ok;

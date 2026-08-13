@@ -109,7 +109,7 @@ void protokoll(std::string const& titel, ToolRun const& r) {
     return -1;
 }
 
-/// Eintrag der Lock-Datei v2: <category> <version> <sha256> <relpath>.
+/// Record der Lock-Datei v2 (ZWEI Zeilen): '<category> <version> <relpath>' + '    <sha256>'.
 struct LockZeile {
     std::string category;
     std::string version;
@@ -123,9 +123,17 @@ struct LockZeile {
     std::string            line;
     while (std::getline(f, line)) {
         if (line.empty() || line[0] == '#') continue;
+        if (line[0] == ' ' || line[0] == '\t') {
+            // Digest-Folgezeile gehoert zum zuletzt gelesenen Record-Kopf.
+            if (!out.empty() && out.back().digest.empty()) {
+                std::istringstream ds(line);
+                ds >> out.back().digest;
+            }
+            continue;
+        }
         std::istringstream ls(line);
         LockZeile          z;
-        if (ls >> z.category >> z.version >> z.digest >> z.rel) out.push_back(z);
+        if (ls >> z.category >> z.version >> z.rel) out.push_back(z);
     }
     return out;
 }
