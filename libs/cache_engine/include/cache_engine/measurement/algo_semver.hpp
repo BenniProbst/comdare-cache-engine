@@ -950,6 +950,39 @@ constexpr void for_each_flag_node(AlgoSemVer const& v, Fn&& fn) {
     return flag_catalog_is_satisfied(parse_algo_semver(raw));
 }
 
+/// DIE VORAUSSETZUNGS-WACHE (S-3b, 13.08.2026). Owner-Wort (KON16-02): "Im Falle der Freigabe
+/// impliziert es das Vorhandensein und im Falle der compile Seite Fordert das Flag das Vorhandensein
+/// von Hardware ein." Die COMPILE-Seite FORDERT: je Knoten mit bekannter Kette
+/// (kFlagVoraussetzungsKetten, flag_grammar_catalog.hpp -- Daten mit Beleg, keine code-verstreuten
+/// ifs) MUSS das Voraussetzungs-ELEMENT (vor_token unter vor_eltern) in der Flag-MENGE der Version
+/// stehen. "In der Menge" heisst woertlich Mengen-Zugehoerigkeit des (token, eltern)-Paars -- die
+/// Voraussetzung darf in einer ANDEREN Klammer-Gruppe derselben Version stehen.
+///
+/// FORDERN, NICHT AUFFUELLEN: die Wache lehnt ab, sie ergaenzt NIE. Ein stilles Ergaenzen waere ein
+/// Identitaets-Ereignis (parse->render-Treue, Datei-Kopf "WARUM NICHT SORTIERT UND NICHT
+/// NORMALISIERT") -- "1.0.0.c.x512{vl}" bleibt als Zeichenfolge, was es ist, und faellt.
+///
+/// Traversal ueber die EINE Primitive for_each_flag_node (kein zweiter Parser, kein zweiter
+/// Schleifentyp); der Sentinel traegt nie Flags (K-5) und ist damit vakuum-wahr -- die Parsbarkeit
+/// bleibt die Aufgabe von version_is_parsable_or_documented_sentinel (dieselbe Arbeitsteilung wie
+/// bei flag_catalog_is_satisfied, s. den Kasten dort).
+[[nodiscard]] constexpr bool voraussetzungen_erfuellt(AlgoSemVer const& v) noexcept {
+    bool erfuellt = true;
+    for_each_flag_node(
+        v, [&erfuellt, &v](std::string_view token, std::uint8_t /*tiefe*/, std::string_view eltern) constexpr noexcept {
+            std::size_t const k = find_flag_voraussetzung(token, eltern);
+            if (k == kKeineVoraussetzungsKette) return;
+            FlagVoraussetzungsKette const& kette    = kFlagVoraussetzungsKetten[k];
+            bool                           gefunden = false;
+            for_each_flag_node(v, [&gefunden, &kette](std::string_view t2, std::uint8_t /*tiefe2*/,
+                                                      std::string_view e2) constexpr noexcept {
+                if (t2 == kette.vor_token && e2 == kette.vor_eltern) gefunden = true;
+            });
+            if (!gefunden) erfuellt = false;
+        });
+    return erfuellt;
+}
+
 // == DIE POLITIK-WACHEN (B12) =====================================================================
 
 /// PFLICHT-WACHE (Owner-Q3: "Wir produzieren nur CPU code"; in der v2 als F-10 praezisiert: "ce-eigene
@@ -985,15 +1018,21 @@ constexpr void for_each_flag_node(AlgoSemVer const& v, Fn&& fn) {
 /// (System-Achsen-Code, Mess-Tooling, Mess-Framework, Toolchain, Pruefdock):
 ///   (a) PARSBAR (oder exakt der dokumentierte Sentinel)      -- kein stiller @0.0.0-Fall,
 ///   (b) wenn ueberhaupt ein Flag da ist, dann ist 'c' darunter (Owner-F-10),
-///   (c) JEDES Flag-Token steht im KATALOG und unter SEINER Basis (S2, 07.08.2026).
+///   (c) JEDES Flag-Token steht im KATALOG und unter SEINER Basis (S2, 07.08.2026),
+///   (d) JEDER Knoten mit bekannter Voraussetzungs-Kette hat sein Voraussetzungs-Element in der
+///       MENGE (S-3b, 13.08.2026, KON16-02: die Compile-Seite FORDERT -- voraussetzungen_erfuellt).
 /// Die Owner-PFLICHT "ein Flag MUSS da sein" ist bewusst NICHT hier, sondern im gated Zwilling unten -- so
 /// bleibt dieser ungated Teil auch fuer Alt-/Fremd-Literale nutzbar.
 ///
-/// WARUM (c) UNGATED IST UND NICHT HINTER COMDARE_VERSION_HW_FLAG_ENFORCE: das Define schaltet eine
+/// WARUM (c) UND (d) UNGATED SIND UND NICHT HINTER COMDARE_VERSION_HW_FLAG_ENFORCE: das Define schaltet eine
 /// POLITIK ("ce-eigene Achsen MUESSEN 'c' tragen"), also eine Aussage darueber, WAS deklariert sein muss.
 /// Der Katalog ist keine Politik, sondern eine Aussage darueber, ob das Deklarierte ueberhaupt existiert.
 /// "1.0.0.c{quatsch}" ist unter JEDER Politik falsch. Eine Wache dafuer hinter ein Define zu haengen,
 /// hiesse einem Header zwei Bedeutungen zu geben -- genau das, wogegen die Zweiteilung hier gebaut ist.
+/// Fuer (d) gilt dasselbe: "1.0.0.c.x512{vl}" ohne 'f' behauptet eine Hardware-Forderung, deren
+/// Fundament fehlt -- das ist unter jeder Politik falsch, nicht erst unter der scharfen (KON11-01:
+/// die Einhaengung hier ist der EINE Ort, alle Bestands-Verbraucher hoeren mit, NULL neue
+/// Aufrufstellen).
 ///
 /// ENTFALLEN GEGENUEBER DER Q3-FASSUNG: der frueher dritte Term "NIE experimentell". Er hat mit der v2
 /// keinen Gegenstand mehr -- 'e' bedeutet EFFICIENCY CORE und ist ein legitimes Flag (R7). Die alte
@@ -1004,7 +1043,8 @@ constexpr void for_each_flag_node(AlgoSemVer const& v, Fn&& fn) {
     if (!version_is_parsable_or_documented_sentinel(raw)) return false;
     AlgoSemVer const v = parse_algo_semver(raw);
     if (v.has_flags() && !v.has_top_level_flag("c")) return false;
-    return flag_catalog_is_satisfied(v);
+    if (!flag_catalog_is_satisfied(v)) return false;
+    return voraussetzungen_erfuellt(v); // (d) S-3b: die Compile-Seite FORDERT (KON16-02)
 }
 
 /// B12 (c): der GATED Zwilling (COMDARE_VERSION_HW_FLAG_ENFORCE). Er verlangt das CPU-Flag, waehrend der
@@ -1537,10 +1577,57 @@ static_assert(!ce_owned_version_is_wellformed("quatsch"));
 //     auf avx512f gegated sind; ebenso "x256{vaes}" ohne aes. Die Recherche liefert diese Ketten
 //     (aes->vaes, pclmulqdq->vpclmulqdq, avx512f->alles), aber eine Voraussetzungs-Wache ist ein eigener
 //     Schritt mit eigener Semantik-Frage (fordert das Flag die Voraussetzung, oder impliziert es sie?).
+//     [NACHGEFUEHRT 13.08.2026, S-3b -- DER SCHRITT IST GEBAUT und die Semantik-Frage ist vom Owner
+//     entschieden (KON16-02): die COMPILE-Seite FORDERT. Die Wache heisst voraussetzungen_erfuellt()
+//     (oben, ueber for_each_flag_node), ihre Ketten stehen als DATEN in kFlagVoraussetzungsKetten
+//     (flag_grammar_catalog.hpp, je Zeile mit Beleg), und ce_owned_version_is_wellformed traegt sie
+//     als Term (d). Der Satz "geht durch" gilt weiterhin fuer DIESE Wache hier
+//     (flag_catalog_is_satisfied prueft das Vokabular, nicht die Ketten -- s. den Beweis unten),
+//     aber NICHT mehr fuer die B12-Voll-Wache. Beachte den Formfall "x256{vaes}": der faellt schon
+//     am KATALOG (vaes ist Companion auf Tiefe 0, s. (m3)) -- die Ketten-Wache traegt den Fall
+//     "1.0.0.c.vaes" ohne x128{aes}.]
 //   * OB DIE MASCHINE DAS FLAG HAT. Das ist die Aufgabe von machine_simd_signature.hpp und des
 //     Bau-Gates -- diese Wache prueft das VOKABULAR, nicht die Hardware vor Ort.
-static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.c")));        // Doppelung: NICHT geprueft
-static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.x512")));     // nackte Basis: NICHT geprueft
-static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.x512{vl}"))); // ohne 'f': NICHT geprueft
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.c")));    // Doppelung: NICHT geprueft
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.x512"))); // nackte Basis: NICHT geprueft
+// ohne 'f': vom KATALOG-Praedikat weiterhin NICHT geprueft -- seit S-3b prueft es der Term (d).
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.x512{vl}")));
+
+// -- (v) DIE VORAUSSETZUNGS-WACHE (S-3b, 13.08.2026) -----------------------------------------------
+// Der Beweis, dass sie FORDERT, dass sie NICHT auffuellt -- und dass der Bestand gruen bleibt.
+
+// (v1) Das Fundament-Muster: Subset ohne 'f' faellt, mit 'f' traegt es. Mengen-Semantik: die
+// Voraussetzung darf in einer ANDEREN Klammer-Gruppe stehen.
+static_assert(voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c.x512{f.vl}")));
+static_assert(!voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c.x512{vl}")));
+static_assert(voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c.x512{vl}.x512{f}")));
+static_assert(voraussetzungen_erfuellt(
+    parse_algo_semver("1.0.0.c.x512{f.cd.vl.dq.bw.ifma.vbmi.vbmi2.vnni.bitalg.vpopcntdq.vp2intersect.bf16.fp16}")));
+static_assert(!voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c.x512{cd}")));
+static_assert(!voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c.x512{bf16.fp16}")));
+static_assert(voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c.x512{f}"))); // das Fundament allein traegt
+// (v2) Die EVEX-Companions fordern ihre x128-Wurzel (aes->vaes, pclmulqdq->vpclmulqdq).
+static_assert(!voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c.vaes")));
+static_assert(voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c.vaes.x128{aes}")));
+static_assert(!voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c.vpclmulqdq")));
+static_assert(voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c.vpclmulqdq.x128{pclmulqdq}")));
+static_assert(voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c.gfni"))); // gfni: KEINE Kette (belegt)
+// (v3) Vakuum-Wahrheit: nackte Formen (der GESAMTE ce-Bestand) und der Sentinel tragen keine
+// Ketten-Knoten -- der Bestand bleibt unter dem neuen Term (d) beweisbar gruen.
+static_assert(voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c")));
+static_assert(voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c{p.e}")));
+static_assert(voraussetzungen_erfuellt(parse_algo_semver("1.0.0")));
+static_assert(voraussetzungen_erfuellt(AlgoSemVer{}));
+static_assert(voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c.m64{mmx.mmxext.3dnow.3dnowext}")));
+// (v4) Die Einhaengung als Term (d): die B12-Voll-Wache faellt jetzt auch am fehlenden Fundament --
+// und die tragenden Formen (Owner-Beispiel, Vollausbau) bestehen weiter (s. (m5) oben).
+static_assert(!ce_owned_version_is_wellformed("1.0.0.c.x512{vl}"));
+static_assert(ce_owned_version_is_wellformed("1.0.0.c.x512{f.vl}"));
+static_assert(!ce_owned_version_is_wellformed("1.0.0.c.vaes"));
+static_assert(ce_owned_version_is_wellformed("1.0.0.c.vaes.x128{aes}"));
+static_assert(!ce_owned_version_is_wellformed("1.0.0.c.vpclmulqdq"));
+// (v5) FORDERN, NICHT AUFFUELLEN: die abgelehnte Form rendert BYTE-TREU zurueck -- niemand ergaenzt
+// still ein 'f' (das waere ein Identitaets-Ereignis, s. Datei-Kopf).
+static_assert(render_algo_semver(parse_algo_semver("1.0.0.c.x512{vl}")).view() == "1.0.0.c.x512{vl}");
 
 } // namespace comdare::cache_engine::measurement
