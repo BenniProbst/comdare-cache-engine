@@ -72,4 +72,12 @@
     <key_types>std::uint64_t</key_types>
     <value_types>std::string</value_types>
   </key_value_signature>
+
+  <!-- KF #24 (2026-08-14): xlsx EXPLIZIT deklariert (Muster: m3v2_study.profile.xml <writeback_methods>).
+       Owner-B4 13.08. "Es gibt keine CSV ohne xlsx und xlsx ist Standard" (KON60-05: xlsx=STAMM,
+       csv=KIND, Erzeugungs-Doktrin). Verhaltensneutral: LEER/FEHLEND ergab bereits xlsx (Owner-KERN
+       26.07., profile_facade). ADDITIV gehalten; S-13/#18 darf ersetzen. -->
+  <writeback_methods>
+    <method value="xlsx"/>
+  </writeback_methods>
 </comdare_thesis_profile>
