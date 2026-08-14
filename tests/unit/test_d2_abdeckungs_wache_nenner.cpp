@@ -628,8 +628,13 @@ TEST(D2AbdeckungsWacheNenner, UntergrenzeOhneGanzzahlIstAbbruch) {
     PraeparierterBaum baum{marke};
     baum.inventur_schreiben({grundstock(marke)});
     baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
-    // Klasse richtig, WERT unbrauchbar: die Hex-Marke ist keine Zahl.
-    baum.floor_roh_schreiben("# praepariert\navx512f " + marke + "\n");
+    // Klasse richtig, WERT unbrauchbar. K13-NACHTRAG (CI 15810, Job 377638, Koeder 628959349117):
+    // "die Hex-Marke ist keine Zahl" war eine WAHRSCHEINLICHKEITS-Behauptung -- eine 12-Hex-Marke
+    // ist mit p=(10/16)^12 (~0,35 %) rein numerisch. Dann biss der Koeder nicht: der Ganzzahl-Zweig
+    // blieb unerreicht und stattdessen fiel die Alle-drei-Klassen-Pruefung (anderer Wortlaut, Test
+    // rot). Das 'x'-Praefix macht den Wert STRUKTURELL nicht-numerisch, auf jedem Wurf; die Marke
+    // bleibt namentlich in der Meldung (Substring von 'x<marke>').
+    baum.floor_roh_schreiben("# praepariert\navx512f x" + marke + "\n");
 
     Lauf const lauf = wache_fahren(baum.pfad());
     lauf_berichten("Untergrenze keine Ganzzahl", lauf, marke);
