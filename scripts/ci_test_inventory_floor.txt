@@ -40,7 +40,46 @@
 # nicht die Commit-Granularitaet -- er erzwingt Floor-Datei und Registrierung
 # im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
-# -- WIE DIE ZAHLEN ENTSTANDEN SIND (NACHMESSUNG 2026-08-13, S-7-ABNAHME) ------------
+# -- WIE DIE ZAHLEN ENTSTANDEN SIND (NACHMESSUNG 2026-08-14, LANDUNG S-7+WACHEN+P6) --
+# GEMESSEN am 2026-08-14 in diesem Repo, Stand a6804dfa (development im Lande-Baum
+# wt-super-landung nach den DREI seriellen --no-ff-Merges der Drei-Stufen-Landung
+# Stufe 1: d215b127 = S-7/P2, 0304ebf1 = Wachen-Floor-Inventar/#39, a6804dfa =
+# P6-Lizenz), Messhost prod1, GCC 15.3.0, Ninja. Bau-Baum build-covguard KALT
+# angelegt (existierte beim Start nicht), Configure UNVERAENDERT nach dem Rezept
+# des HISTORIE-Abschnitts 'MESSUNG 2026-08-10' unten einschliesslich des
+# Pruefling-Schalters (CC=gcc-15 CXX=g++-15 configure.sh --with-generator=Ninja
+# --enable-build-tests --build-dir=build-covguard
+# -DCOMDARE_CE_PRUEFLINGE="$PWD/tests/pruefling_fixture"). ABWEICHUNG, benannt:
+# statt 'make inventar' (Vollbau) wurden NUR die beiden Registrierungs-Werkzeuge
+# gebaut (cmake --build build-covguard --target comdare_anatomy_codegen_cli
+# comdare_adhoc_emitter_cli) und dann RE-KONFIGURIERT (J-1-Muster; das Protokoll
+# selbst verlangt 'bauen, dann reconfigure'). Beleg statt Schrittzahl:
+# Registrierungs-Protokoll dieses Baums 5 von 5 bedingten Bloecken AKTIV
+# (Erst-Configure ohne Werkzeuge: 4 UEBERSPRUNGEN, 488 Tests -- der falsche Baum,
+# genau wie der J-1-Absatz es beschreibt). Der Vollbau mit ctest-LAUF folgt im
+# KON55-Kombibau der Landungs-Stufe 2 und zaehlt mit ctest -N nach. Zaehlung je
+# Klasse: ctest --test-dir build-covguard -N mit sed/sort -u/wc -l wie unten.
+#     avx512f (gemessen, prod1)                                          -> 492
+#     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                -> 488
+#     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0     -> 486
+# danach 'cmake -U' auf BEIDE Variablen; Wiederherstellung nachgewiesen: 492 Tests,
+# Namensmenge Byte-gleich zur Erstmessung (cmp leer). Namensdiffs mit LC_ALL=C comm
+# in BEIDE Richtungen: avx512f->avx2 verliert exakt die dokumentierten VIER,
+# avx2->basis die ZWEI, Gegenrichtungen leer -- die Sprossenabstaende -4 und -2
+# stehen.
+#
+# WOHER +1 JE SPROSSE KOMMT (Konto, je Name; Registrierungs-Diffs der drei
+# Merge-Elternteile in tests/unit/CMakeLists.txt, Gegenrichtung leer -- nichts
+# entfallen): GENAU EINE neue Registrierung, test_lizenz_konsistenz (P6
+# Lizenz-Umsetzung, comdare_add_test, LABELS wachen;lizenz;compliance). Der
+# Wachen-Strang (#39) registriert NICHTS (4 Dateien, tests/unit/CMakeLists.txt
+# unberuehrt); die +2 des S-7-Strangs stecken bereits in der 491 des HISTORIE-
+# Abschnitts darunter. test_lizenz_konsistenz ist weder ISA- noch Pruefling-
+# gegatet (Registrierung auf oberster Ebene; der Test steht in ALLEN drei
+# Klassen-Namensmengen, je 1x gezaehlt, und in KEINER comm-Verlustliste).
+# Eigener Commit, wie der Datei-Kopf es verlangt (S-3-Praezedenz 965cd6da).
+#
+# -- HISTORIE: NACHMESSUNG 2026-08-13 (S-7-ABNAHME) -- WIE 491/487/485 ENTSTANDEN ----
 # GEMESSEN am 2026-08-13 in diesem Repo, Stand = S-7-Arbeitsbaum auf Basis 5f3f26a5 (Branch
 # bau/s7-algo-hardware-stempel, Worktree wt-ce-mess-ordnung), Messhost prod1, GCC 15.3.0,
 # Ninja. Bau-Baum build-covguard KALT angelegt (existierte beim Start nicht) und mit dem
@@ -325,6 +364,6 @@
 # FORMAT: '#'-Kommentare und Leerzeilen sind erlaubt. Wertzeilen haben die Form
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
-avx512f 491
-avx2 487
-basis 485
+avx512f 492
+avx2 488
+basis 486
