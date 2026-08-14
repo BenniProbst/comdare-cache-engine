@@ -63,19 +63,19 @@
 #   ausgewiesen. Details am Achsen-Block unten.
 #   COMDARE_WACHE_STRIKT=1  macht aus 'declared:VAR ungesetzt' einen Fehler statt
 #   einer Annahme (s.u.). Ungesetzt/leer = weich; jeder andere Wert = Abbruch.
-#   COMDARE_D2_FLOOR_PFAD=<datei>  lenkt die Untergrenze um (Selbsttest).
+#   COMDARE_D2_FLOOR_PFAD=<datei>  lenkt die Anker-Datei um (Selbsttest).
 # EXIT:    0 = Invariante haelt
 #          1 = Abdeckungsluecke: ein registrierter Test faehrt in keinem Job
 #          2 = Bedienung/Umgebung. Dazu zaehlt ein fehlendes, leeres oder
 #              abgerissenes Registrierungs-Protokoll: wer seinen Nenner nicht
 #              belegen kann, meldet nicht gruen (fail-closed). Ebenso eine
-#              fehlende/unlesbare Untergrenze, ein abgestuerztes ctest und --
+#              fehlende/unlesbare Anker-Datei, ein abgestuerztes ctest und --
 #              nur bei COMDARE_WACHE_STRIKT=1 -- ein Gate ohne gesetzte
 #              Deklarationsvariable (Verdrahtungsfehler: die Testmenge stimmt,
 #              die Auskunft ueber die Jobs fehlt). Seit D2-G5 ausserdem: eine
 #              nicht bestimmbare HOST-KLASSE (CMakeCache fehlt, ISA-Probe nicht
 #              uebersetzt, Variable von aussen gesetzt, Wert unverstanden,
-#              AVX-512F ohne AVX2) und eine Untergrenzen-Datei, die nicht fuer
+#              AVX-512F ohne AVX2) und eine Anker-Datei, die nicht fuer
 #              alle drei Klassen genau eine Ganzzahl nennt. Eine Wache, die
 #              nicht weiss, WELCHE Zahl fuer diesen Baum gilt, meldet nicht
 #              gruen -- und raet erst recht nicht die niedrigste. NACHGEBESSERT
@@ -88,7 +88,10 @@
 #          4 = NENNER-BEFUND: die Inventur ist nachweislich kleiner als das, was
 #              dieser Baum registrieren muesste (uebersprungener Block), oder sie
 #              widerspricht dem Protokoll (Block meldet AKTIV, Test fehlt), oder
-#              sie weicht von der Inventur eines anderen Jobs ab (Befund (e)).
+#              sie weicht von der Inventur eines anderen Jobs ab (Befund (e)),
+#              oder sie verfehlt den committeten Klassen-Anker -- seit #39
+#              (2026-08-13) in BEIDE Richtungen: UNTER dem Anker wie bisher,
+#              und UEBER dem Anker ohne Floor-Nachzug im selben Change.
 #          WARUM 4 EIN EIGENER CODE IST -- und nicht einfach 1: der Selbsttest
 #          muss "rot aus dem richtigen Grund" von "rot aus irgendeinem Grund"
 #          unterscheiden koennen. Ein Koeder, der nur 'nicht 0' prueft, beisst
@@ -302,17 +305,26 @@ echo "LIVE-INVENTUR (ctest -N): ${CE_GESAMT} registrierte Tests"
 # V-7 (FREMDER NENNER): diese Untergrenze steht in einer COMMITTETEN Datei. Sie
 # ist damit die einzige Zahl im ganzen Lauf, die niemand aus dem gemessenen Baum
 # herleiten kann -- sie stammt aus einem frueheren, bewusst abgenommenen Zustand
-# und aendert sich nur durch einen Menschen in einem eigenen Commit.
+# und aendert sich nur durch einen Menschen, seit #39 im SELBEN Change wie die
+# Registrierung, die sie ueberholt.
 #
 # FAIL-CLOSED: fehlt die Datei oder ist ihr Inhalt keine einzelne Ganzzahl, ist
 # das ABBRUCH (Exit 2), nicht 'dann eben ohne Untergrenze'. Eine Wache, die ihre
 # Vergleichsgroesse verliert und trotzdem gruen meldet, hat die Pruefung nur
 # aufgehuebscht.
 #
-# UEBERSCHREITEN IST KEIN FEHLER: waechst die Testzahl, ist das der Normalfall.
-# Die Wache sagt dann, dass die Datei nachgezogen gehoert -- in einem eigenen,
-# im Diff sichtbaren Commit. Sie schreibt sie NIEMALS selbst: eine Untergrenze,
-# die sich selbst nachfuehrt, ist keine.
+# UEBERSCHREITEN IST SEIT #39 (2026-08-13) EIN NENNER-BEFUND: die Zahl je Klasse
+# ist ein EXAKTER Anker, keine blosse Untergrenze mehr. Eine Inventur UEBER dem
+# Anker heisst: jemand hat registriert, ohne die Sprossen nachzuziehen -- genau
+# so sind 5 Alt-Pakete mit 7 Tests durchgerutscht (S-3-Abnahme 2026-08-13,
+# Wiederholungsmuster). Der Guard erzwingt damit BAUM-Konsistenz: Floor-Datei
+# und Registrierungen gehoeren in DENSELBEN Change (Commit-Granularitaet kann
+# er nicht sehen). Die Wache schreibt die Datei weiterhin NIEMALS selbst: ein
+# Anker, der sich selbst nachfuehrt, ist keiner.
+#
+# HISTORIE (Wortlaut bis #39, deprecated): "UEBERSCHREITEN IST KEIN FEHLER:
+# waechst die Testzahl, ist das der Normalfall. Die Wache sagt dann, dass die
+# Datei nachgezogen gehoert -- in einem eigenen, im Diff sichtbaren Commit."
 # =============================================================================
 # -----------------------------------------------------------------------------
 # ZUERST: DIE HOST-KLASSE. EINE ZAHL OHNE HOST IST EINE ZAHL OHNE GEGENSTAND.
@@ -383,7 +395,7 @@ echo "LIVE-INVENTUR (ctest -N): ${CE_GESAMT} registrierte Tests"
 _ce_cache="${CE_BUILD_DIR}/CMakeCache.txt"
 if [ ! -f "$_ce_cache" ]; then
     _ce_m="die Host-Klasse ist nicht bestimmbar: '${_ce_cache}' fehlt. Ohne sie"
-    _ce_m="${_ce_m} waere jede Untergrenze eine Zahl ohne Gegenstand. Fail-closed:"
+    _ce_m="${_ce_m} waere jeder Anker eine Zahl ohne Gegenstand. Fail-closed:"
     _ce_m="${_ce_m} das ist ABBRUCH, nicht die hoechste und nicht die niedrigste Annahme."
     ce_abbruch "$_ce_m" 2
 fi
@@ -566,7 +578,7 @@ echo "  COMDARE_HOST_RUNS_AVX2=${CE_HOST_AVX2}, COMDARE_HOST_RUNS_AVX512F=${CE_H
 
 _ce_floor_pfad=${COMDARE_D2_FLOOR_PFAD:-${_ce_dir}/ci_test_inventory_floor.txt}
 if [ ! -f "$_ce_floor_pfad" ]; then
-    _ce_m="die committete Untergrenze fehlt: '${_ce_floor_pfad}'."
+    _ce_m="die committete Anker-Datei fehlt: '${_ce_floor_pfad}'."
     _ce_m="${_ce_m} Ohne sie hat diese Wache keine einzige Zahl, die nicht aus dem"
     _ce_m="${_ce_m} geprueften Baum selbst stammt (V-7). Anlegen: eine Zeile JE"
     _ce_m="${_ce_m} HOST-KLASSE, Form '<klasse> <ganzzahl>' fuer avx512f, avx2 und"
@@ -619,15 +631,15 @@ while IFS= read -r _ce_fz; do
         *" ${_ce_fk} "*)
             _ce_m="'${_ce_floor_pfad}' nennt die Klasse '${_ce_fk}' mehrfach, erwartet ist"
             _ce_m="${_ce_m} GENAU EINE Wertzeile je Klasse. Zwei Zahlen fuer dieselbe"
-            _ce_m="${_ce_m} Klasse sind keine Untergrenze, sondern eine offene Frage."
+            _ce_m="${_ce_m} Klasse sind kein Anker, sondern eine offene Frage."
             ce_abbruch "$_ce_m" 2
             ;;
     esac
     case "$_ce_fw" in
         '' | *[!0-9]*)
-            _ce_m="die Untergrenze der Klasse '${_ce_fk}' in '${_ce_floor_pfad}' ist"
-            _ce_m="${_ce_m} keine reine Ganzzahl, sondern '${_ce_fw}'. Fail-closed: eine"
-            _ce_m="${_ce_m} unlesbare Untergrenze wird nicht als 'keine' behandelt."
+            _ce_m="der Anker der Klasse '${_ce_fk}' in '${_ce_floor_pfad}' ist"
+            _ce_m="${_ce_m} keine reine Ganzzahl, sondern '${_ce_fw}'. Fail-closed: ein"
+            _ce_m="${_ce_m} unlesbarer Anker wird nicht als 'keiner' behandelt."
             ce_abbruch "$_ce_m" 2
             ;;
     esac
@@ -666,22 +678,36 @@ for _ce_fk in avx512f avx2 basis; do
     esac
 done
 
-echo "UNTERGRENZE (committet, ${_ce_floor_pfad}) fuer Klasse ${CE_HOST_KLASSE}: ${CE_FLOOR}"
+# A2.5-FIX F3 (2026-08-13): Ausgabe-Wortlaut dem #39-Anker nachgezogen. Bis hier
+# druckte der Vergleich 'UNTERGRENZE (committet, ...)' und 'von mindestens' -- das
+# versprach falsch, eine Inventur UEBER der Zahl sei in Ordnung; sie ist seit #39
+# Exit 4 (Zweig unten). Exit-Verhalten hier UNVERAENDERT, reiner Text-Nachzug.
+echo "ANKER (exakt, committet, ${_ce_floor_pfad}) fuer Klasse ${CE_HOST_KLASSE}: ${CE_FLOOR}"
 if [ "$CE_GESAMT" -lt "$CE_FLOOR" ]; then
     echo "  -> UNTERSCHRITTEN um $(( CE_FLOOR - CE_GESAMT )) Test(e):"
-    echo "     ${CE_GESAMT} von mindestens ${CE_FLOOR} fuer Klasse ${CE_HOST_KLASSE} (Host: ${_ce_hostname})."
+    echo "     ${CE_GESAMT} gegen Anker ${CE_FLOOR} fuer Klasse ${CE_HOST_KLASSE} (Host: ${_ce_hostname})."
     CE_NENNER_ROT=1
-    CE_FLOOR_ROT=1
 elif [ "$CE_GESAMT" -gt "$CE_FLOOR" ]; then
-    echo "  -> ${CE_GESAMT} von mindestens ${CE_FLOOR} fuer Klasse ${CE_HOST_KLASSE} (Host: ${_ce_hostname}):"
-    echo "     ueberschritten um $(( CE_GESAMT - CE_FLOOR )) Test(e). Kein Fehler; die Zeile"
-    echo "     '${CE_HOST_KLASSE}' gehoert bei Gelegenheit in einem EIGENEN Commit auf ${CE_GESAMT}"
-    echo "     nachgezogen -- und die beiden anderen Klassen im selben Zug mit."
-    CE_FLOOR_ROT=0
+    echo ""
+    echo "-----------------------------------------------------------------------------"
+    echo "FEHLER: FLOOR-NACHZUG FEHLT -- die Inventur liegt UEBER dem committeten Anker:"
+    echo "  ${CE_GESAMT} registriert gegen Anker ${CE_FLOOR} fuer Klasse ${CE_HOST_KLASSE}, also"
+    echo "  $(( CE_GESAMT - CE_FLOOR )) Test(e) ohne Nachzug (Host: ${_ce_hostname})."
+    echo "Seit #39 (2026-08-13) ist die Zahl je Klasse ein EXAKTER Anker, keine blosse"
+    echo "Untergrenze: 5 Alt-Pakete registrierten 7 Tests, ohne die Sprossen anzufassen"
+    echo "(S-3-Abnahme 2026-08-13) -- dieser Schlupf ist damit zu."
+    echo "SO WIRD DAS BEHOBEN (nicht durch Aufweichen der Wache):"
+    echo "  * die drei Sprossen LIVE nachmessen -- Rezept im Kopf von"
+    echo "    scripts/ci_test_inventory_floor.txt: Klassen per cmake erzwingen, danach"
+    echo "    'cmake -U' auf beide Variablen, Namensdiffs mit LC_ALL=C comm in BEIDE"
+    echo "    Richtungen --"
+    echo "  * und ALLE DREI Klassenzeilen im SELBEN Change nachziehen wie die"
+    echo "    Registrierung, die sie ueberholt hat."
+    echo "-----------------------------------------------------------------------------"
+    CE_NENNER_ROT=1
 else
-    echo "  -> genau erreicht: ${CE_GESAMT} von mindestens ${CE_FLOOR} fuer Klasse"
+    echo "  -> genau erreicht: ${CE_GESAMT} == Anker ${CE_FLOOR} fuer Klasse"
     echo "     ${CE_HOST_KLASSE} (Host: ${_ce_hostname})."
-    CE_FLOOR_ROT=0
 fi
 
 # =============================================================================
@@ -1402,9 +1428,9 @@ if [ "$CE_FREMD_ROT" -ne 0 ]; then
     echo "    erklaert die Klassenleiter die erwartete Differenz -- nicht jede Differenz"
     echo "    ist ein Defekt, aber jede unerklaerte ist einer."
     echo "  * Bei ISA-ZUWACHS (neue klassengebundene Tests) die Klassenleiter"
-    echo "    scripts/ci_test_inventory_floor.txt in einem EIGENEN Commit nachziehen --"
+    echo "    scripts/ci_test_inventory_floor.txt im SELBEN Change nachziehen --"
     echo "    alle drei Klassen im selben Zug (dieselbe Doktrin wie beim"
-    echo "    Untergrenzen-Ausweis oben)."
+    echo "    Anker-Ausweis oben)."
     echo "  * Fehlt die Datei, ist das Artefakt verlorengegangen oder 'needs:' zieht"
     echo "    es nicht -- ein CI-Verdrahtungsfehler, kein Test-Befund."
     echo "-----------------------------------------------------------------------------"
@@ -1500,7 +1526,7 @@ if [ "$CE_RC" -eq 0 ]; then
     echo "  -> -L und -LE mit demselben Muster sind komplementaer; ein dritter Fall"
     echo "     existiert nicht. Die Deckung ist damit strukturell, nicht durch Audit."
     echo ""
-    echo "  Untergrenze (committet)             : ${CE_GESAMT} >= ${CE_FLOOR} fuer Klasse ${CE_HOST_KLASSE}"
+    echo "  Anker (exakt, committet)            : ${CE_GESAMT} == ${CE_FLOOR} fuer Klasse ${CE_HOST_KLASSE}"
     echo "                                        (Host: ${_ce_hostname}, Quelle: ${_ce_floor_pfad},"
     echo "                                         Klasse gemessen aus ${_ce_cache})"
     echo "  Nenner gegen FREMDE Quelle (e)      : ${CE_FREMD_STATUS}"

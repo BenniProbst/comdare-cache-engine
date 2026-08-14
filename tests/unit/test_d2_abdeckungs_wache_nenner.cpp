@@ -393,7 +393,9 @@ TEST(D2AbdeckungsWacheNenner, GelaufenerBlockIstKeinNennerBefund) {
     PraeparierterBaum baum{marke};
 
     baum.inventur_schreiben({grundstock(marke), gibtes});
-    baum.floor_schreiben(1);
+    // #39: floor-EXAKT (2 Tests im Baum). Mit dem alten '1' laege der Baum UEBER dem Anker
+    // und der Fall maesse den Floor-Nachzug-Befund statt seines Gegenstands.
+    baum.floor_schreiben(2);
     baum.protokoll_schreiben({"BLOCK|" + block + "|AKTIV|" + gibtes + "|Werkzeug vorhanden (praepariert)", "ENDE|1"});
 
     Lauf const lauf = wache_fahren(baum.pfad());
@@ -544,6 +546,11 @@ TEST(D2AbdeckungsWacheNenner, UntergrenzeUnterschrittenIstNennerBefundMitBeidenZ
     EXPECT_TRUE(enthaelt(lauf.ausgabe, std::to_string(untergrenze))) << "Die geforderte Zahl fehlt.\n" << lauf.ausgabe;
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "2")) << lauf.ausgabe;
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "ROT (NENNER)")) << lauf.ausgabe;
+    // A2.5-FIX F3 (2026-08-13): der Vergleich spricht ANKER-Sprache. 'von mindestens'
+    // versprach falsch, eine Inventur UEBER der Zahl sei in Ordnung -- seit #39 ist sie
+    // ein NENNER-BEFUND (Fall darunter). Positiv- UND Negativ-Literal, K13-beidseitig.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "gegen Anker")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "von mindestens")) << lauf.ausgabe;
 }
 
 // -- D2, T-4 GEGENEINGANG: genau erreicht ist KEIN Befund -----------------------------------
@@ -562,6 +569,39 @@ TEST(D2AbdeckungsWacheNenner, UntergrenzeGenauErreichtIstKeinBefund) {
     EXPECT_NE(lauf.code, 4) << "Gleichstand ist kein Nenner-Befund.\n" << lauf.ausgabe;
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "genau erreicht")) << lauf.ausgabe;
     EXPECT_FALSE(enthaelt(lauf.ausgabe, "UNTERSCHRITTEN")) << lauf.ausgabe;
+    // A2.5-FIX F3 (2026-08-13): seit #39 ist die Zahl ein EXAKTER Anker -- die Ausgabe
+    // sagt das jetzt auch. 'genau erreicht: X von mindestens Y' widersprach sich selbst
+    // ('mindestens' verspraeche, UEBER-Erfuellung sei in Ordnung; sie ist Exit 4).
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "ANKER (exakt, committet")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "== Anker")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "von mindestens")) << lauf.ausgabe;
+}
+
+// -- #39 (2026-08-13): der Anker beisst auch nach OBEN --------------------------------------
+// Der S-3-Abnahme-Fund als Fehlerklasse: 5 Alt-Pakete registrierten 7 Tests, ohne die
+// Floor-Sprossen nachzuziehen -- die alte Wache nannte genau das 'Kein Fehler' und liess es
+// durch (am Hand-Baum gefahren, 2 Tests gegen Floor 1: Exit 1 statt 4, "ueberschritten um
+// 1 Test(e). Kein Fehler"). Seit #39 ist der Floor ein EXAKTER Anker je gemessener Klasse:
+// eine Inventur UEBER ihm ohne Nachzug im SELBEN Change ist ein NENNER-BEFUND (Exit 4).
+// Die Literale unten sind T-11c-konform der ECHTEN Ausgabe des verschaerften Guards
+// entnommen (Hand-Baum /tmp/d2_handbaum_39, 2026-08-13), nicht erdacht.
+TEST(D2AbdeckungsWacheNenner, UeberschreitungOhneNachzugIstNennerBefundMitBeidenZahlen) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1); // der Baum hat 2 Tests -- die Inventur liegt UEBER dem Anker
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("Anker ueberschritten ohne Nachzug", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 4) << "Eine Inventur UEBER dem Anker ohne Floor-Nachzug ist ein NENNER-Befund.\n"
+                            << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "FLOOR-NACHZUG FEHLT")) << lauf.ausgabe;
+    // BEIDE Zahlen mit Gegenstand (V-1): Inventur 2 gegen Anker 1, in EINER Zeile -- eine
+    // nackte '2' oder '1' allein traefe schon die Pfade und Markennamen dieses Baums.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "2 registriert gegen Anker 1 fuer Klasse")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "ROT (NENNER)")) << lauf.ausgabe;
 }
 
 // -- D2 FAIL-CLOSED: keine Untergrenze ist kein "dann eben ohne" ----------------------------
@@ -573,10 +613,12 @@ TEST(D2AbdeckungsWacheNenner, FehlendeUntergrenzeIstAbbruchStattGruen) {
     // kein floor_schreiben() -- genau das ist der Pruefgegenstand.
 
     Lauf const lauf = wache_fahren(baum.pfad());
-    lauf_berichten("Untergrenze fehlt", lauf, marke);
+    lauf_berichten("Anker-Datei fehlt", lauf, marke);
 
     EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Untergrenze fehlt")) << lauf.ausgabe;
+    // A2.5-FIX F3: die Datei heisst seit #39 im eigenen Kopf ANKER -- die Meldung nennt
+    // sie jetzt genauso ('die committete Anker-Datei fehlt', vorher 'Untergrenze fehlt').
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Anker-Datei fehlt")) << lauf.ausgabe;
     EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
 }
 
@@ -624,7 +666,9 @@ TEST(D2AbdeckungsWacheNenner, PartitionsWiderspruchIstNennerBefundMitBeidenZahle
     PraeparierterBaum baum{marke};
     baum.inventur_mit_partitionsbruch_schreiben(zwilling, normal);
     baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + normal + "|praepariert", "ENDE|1"});
-    baum.floor_schreiben(1);
+    // #39: floor-EXAKT (die Inventur zaehlt den Doppelnamen einmal: 2). Mit dem alten '1'
+    // maesse der Fall den Floor-Nachzug-Befund statt des Partitions-Widerspruchs.
+    baum.floor_schreiben(2);
 
     Lauf const lauf = wache_fahren(baum.pfad());
     lauf_berichten("Partitions-Widerspruch", lauf, marke);
@@ -725,7 +769,9 @@ TEST(D2AbdeckungsWacheNenner, KaputteInventurIstWerkzeugFehlerKeinPhantomGate) {
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "Parse error")) << "ctest-stderr fehlt in der Ausgabe.\n" << lauf.ausgabe;
     EXPECT_FALSE(enthaelt(lauf.ausgabe, "PHANTOM-GATE")) << "Falsche Anschuldigung gegen den Selektor.\n"
                                                          << lauf.ausgabe;
-    EXPECT_FALSE(enthaelt(lauf.ausgabe, "Untergrenze fehlt")) << "Der Werkzeug-Fehler muss zuerst greifen.\n"
+    // A2.5-FIX F3: das Negativ-Literal folgt dem neuen Wortlaut der Meldung ('Anker-Datei
+    // fehlt', vorher 'Untergrenze fehlt') -- sonst prueft die Zeile einen toten Text.
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "Anker-Datei fehlt")) << "Der Werkzeug-Fehler muss zuerst greifen.\n"
                                                               << lauf.ausgabe;
 }
 

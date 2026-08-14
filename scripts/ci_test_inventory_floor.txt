@@ -1,9 +1,10 @@
-# UNTERGRENZE DER CTEST-INVENTUR -- EINE ZAHL JE HOST-KLASSE (D2-G5, 2026-08-10)
+# ANKER (exakt, je Host-Klasse) DER CTEST-INVENTUR -- EINE ZAHL JE HOST-KLASSE
+# (D2-G5, 2026-08-10; UNTERGRENZE -> ANKER seit #39, 2026-08-13)
 # =============================================================================
-# WAS DIESE ZAHLEN SIND: je Hardware-Klasse die kleinste Testzahl, die ein RICHTIG
-# gebauter Baum dieses Repos auf DIESER Klasse noch haben darf. Faellt 'ctest -N'
-# darunter, ist etwas verschwunden -- scripts/ci_test_coverage_guard.sh meldet
-# dann einen NENNER-BEFUND (Exit 4).
+# WAS DIESE ZAHLEN SIND: je Hardware-Klasse die EXAKTE Testzahl, die ein RICHTIG
+# gebauter Baum dieses Repos auf DIESER Klasse hat. Faellt 'ctest -N' darunter,
+# ist etwas verschwunden; liegt es darueber, fehlt der Floor-Nachzug --
+# scripts/ci_test_coverage_guard.sh meldet BEIDES als NENNER-BEFUND (Exit 4).
 #
 # WELCHE ZEILE GILT, ENTSCHEIDET NICHT DIE MEINUNG, SONDERN DER BAU-BAUM: die
 # Wache liest COMDARE_HOST_RUNS_AVX2 und COMDARE_HOST_RUNS_AVX512F aus der
@@ -16,16 +17,28 @@
 # schrumpfen Zaehler und Nenner gemeinsam und das Verhaeltnis bleibt 'vollstaendig'
 # (V-7 FREMDER NENNER). Diese Zahlen sind die einzigen im ganzen Lauf, die der
 # gemessene Baum nicht beeinflussen kann: sie stammen aus einem frueher bewusst
-# abgenommenen Zustand und aendern sich nur durch einen Menschen in einem eigenen,
-# im Diff sichtbaren Commit.
+# abgenommenen Zustand und aendern sich nur durch einen Menschen -- seit #39 im
+# SELBEN Change wie die Registrierung, als eigener sichtbarer Diff-Teil.
 #
-# DIE WACHE SCHREIBT DIESE DATEI NIEMALS SELBST. Eine Untergrenze, die sich beim
-# Unterschreiten automatisch nachfuehrt, ist keine Untergrenze, sondern ein
-# Protokoll des Verfalls. Waechst die Testzahl, sagt die Wache das ausdruecklich
-# an und die Zahlen hier gehoeren dann von Hand nachgezogen -- als eigener Commit,
-# damit die Aenderung im Diff auffaellt und jemand sie absichtlich verantwortet.
-# NACHZIEHEN HEISST ALLE DREI: die Sprossenabstaende (-4 und -2) sind Teil der
-# Aussage, nicht Beiwerk.
+# DIE WACHE SCHREIBT DIESE DATEI NIEMALS SELBST. Ein Anker, der sich beim
+# Reissen automatisch nachfuehrt, ist keiner, sondern ein Protokoll des
+# Verfalls. NACHZUG-PFLICHT (#39, 2026-08-13): wer eine ctest-Registrierung
+# anlegt, umbaut oder entfernt, misst die drei Sprossen LIVE nach (Rezept
+# unten: cmake-Erzwingen der Klassen, 'cmake -U', comm in BEIDE Richtungen)
+# und zieht ALLE DREI im SELBEN Change nach, als eigenen, sichtbaren
+# Diff-Teil. Eine Inventur UEBER der Zeile ist seit #39 ein NENNER-BEFUND
+# (Exit 4), genau wie eine darunter -- der alte Schlupf 'bei Gelegenheit,
+# eigener Commit' hat das Wiederholungsmuster der S-3-Abnahme getragen
+# (5 Alt-Pakete, 7 Tests ohne Nachzug). NACHZIEHEN HEISST ALLE DREI: die
+# Sprossenabstaende (-4 und -2) sind Teil der Aussage, nicht Beiwerk.
+#
+# -- HISTORIE (Wortlaut bis #39, 2026-08-13; deprecated, Doku bleibt) ---------
+# 'Waechst die Testzahl, sagt die Wache das ausdruecklich an und die Zahlen
+# hier gehoeren dann von Hand nachgezogen -- als eigener Commit, damit die
+# Aenderung im Diff auffaellt und jemand sie absichtlich verantwortet.'
+# Der 'eigene Commit' ist als Pflicht entfallen: der Guard prueft den BAUM,
+# nicht die Commit-Granularitaet -- er erzwingt Floor-Datei und Registrierung
+# im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
 # -- WIE DIE ZAHLEN ENTSTANDEN SIND (NACHMESSUNG 2026-08-13, S-7-ABNAHME) ------------
 # GEMESSEN am 2026-08-13 in diesem Repo, Stand = S-7-Arbeitsbaum auf Basis 5f3f26a5 (Branch
