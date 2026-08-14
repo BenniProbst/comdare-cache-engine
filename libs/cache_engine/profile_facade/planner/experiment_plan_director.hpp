@@ -371,6 +371,68 @@ public:
     return std::string{einzug} + "# " + befund.nenner_zeile() + "\n";
 }
 
+// ================================================================================================
+// CI-DUAL (Owner 14.08.2026) -- COMPILER-PINS + clang-ZWILLING DER TRAEGERSTUFEN.
+// ================================================================================================
+// OWNER-WORTLAUT (verbatim): "... dass in ALLEN pipelines aller C++ Projekte, die binaries nicht wie
+// geplant mit gcc und clang dual in compile Release und Debug gebaut werden, um ganz sicher mit 2
+// verschiedenen compilern die Kompatibilitaet zu beweisen ... unter anderem in jeder Traegerstufe
+// der Cache Engine."
+//
+// (E1/F3-Default, Design 14.08.) Die Emission pinnt die GEPLANTEN Versionen HART (KON55-01
+// "Versionen sind jeweils geplant": gcc 15.3 / clang 22.1.8). Vorher baute JEDER Grandchild-Job den
+// Host-Default -- ungepinnt und damit je Runner verschieden; der Pin macht die Belegung EHRLICH und
+// achsen-vorbereitend. Ein fehlender Compiler faellt LAUT (cmake bricht den Configure ab) statt
+// still auf einen anderen zu wechseln. KEINE Stempel-/Preimage-Beruehrung: der Compiler wird erst
+// mit S-9/S-11 Achsen-Wert (N1). Die Repo-CIs behalten ihren Neuester-Loop (F3: nur die EMISSION
+// pinnt hart, bis der Compiler Achsen-Wert wird).
+//
+// INVARIANTE (Testform CompilerPinInvariante.*, dieselbe Klasse wie I-PMC-1): zu JEDER emittierten
+// `cmake -B build`-Zeile, deren Folgezeile den comdare-messung-driver baut, gehoert dieser Pin.
+// STELLUNG IM KOMMANDO: ANGEFUEGT, hinter dem Combo-Define -- die gepinnte W2-Nachbarschaft
+// (V32/PMC/BUILD_TYPE/Combo) bleibt byte-unveraendert.
+// CACHE-STICKY-LAGE (am Objekt verifiziert, cmake 4.3.4, 14.08.2026): ein bestehendes, mit
+// Host-Default konfiguriertes build/-Verzeichnis akzeptiert den Pin-Wechsel (rc=0, Re-Detect +
+// einmaliger Neubau) -- Cold-Kosten der deklarierten Klasse, kein harter Configure-Fehler.
+[[nodiscard]] inline std::string ceb_gcc_pin_define() {
+    return " -DCMAKE_C_COMPILER=gcc-15 -DCMAKE_CXX_COMPILER=g++-15";
+}
+[[nodiscard]] inline std::string ceb_clang_pin_define() {
+    return " -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22";
+}
+
+// (E2, Design 14.08.) Der clang-22-ZWILLING der BAU-Stufen (Stufe 1 ceb:build, Stufe 2
+// tier-build-batch): ZWEITE Sequenz IM SELBEN Job -- sequentiell, also EIN Bau-Slot (T-11b), kein
+// paralleler Vollbau auf dem Runner. Er traegt DIESELBEN Defines (PMC/Combo/BUILD_TYPE) wie die
+// gcc-Haelfte -- ein Zwilling mit anderen Defines pruefte eine ANDERE CEB -- und baut in ein
+// EIGENES Verzeichnis build-clang (kein Reconfigure-Pendeln am geteilten Code/build; `find build`
+// der Bestands-Gates trifft build-clang nicht, verschiedene Wurzeln).
+// TEST-GATE DES STUFEN-BINARIES: die UNBEDINGT registrierten Treiber-Tests
+// (Code/02_messung_driver/CMakeLists.txt :204-:267 -- test_messreihen_workload,
+// test_messreihe_v32_parser, test_experiment_phase_strategy, test_lane_vendor_guard; das
+// Verzeichnis-Aggregat 02_messung_driver/all baut sie OHNE Handliste, R4-Klasse) via
+// `ctest --test-dir build-clang/02_messung_driver`. --no-tests=error macht den Leerlauf zum
+// Fehler (rc=8; dieselbe W0b-3-Haertung wie der PMC-Preflight) -- ein leeres ctest waere ein
+// Schein-Gate. Der Zwilling provisioniert nichts und misst NIE (N2; RELEASE-/Lager-Glieder nehmen
+// weiter NUR das gcc-Artefakt, Auflage 5b). Mess-Batches erhalten KEINEN Zwilling.
+inline void emit_ci_dual_clang_twin(std::string& s, PmcHostBefund const& pmc_befund, std::string const& combo_legend,
+                                    std::string const& build_type, std::string const& testat_felder) {
+    s += "    # CI-DUAL (Owner 14.08.): clang-22-Zwilling -- Bau+Test-Gate der Stufe, sequentiell im selben\n";
+    s += "    # Slot (T-11b); gleiche Defines, eigenes build-clang; misst NIE (N2).\n";
+    s += "    - cmake -B build-clang -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define(pmc_befund) +
+         " -DCMAKE_BUILD_TYPE=" + build_type + ceb_combo_compile_define(combo_legend) + ceb_clang_pin_define() + "\n";
+    s += "    - cmake --build build-clang --target comdare-messung-driver\n";
+    s += "    - |\n";
+    s += "      set -euo pipefail\n";
+    s += "      DRIVER_CLANG=$(find build-clang -type f -name \"comdare-messung-driver\" | head -1)\n";
+    s += "      test -n \"$DRIVER_CLANG\" -a -x \"$DRIVER_CLANG\" || { echo \"comdare-messung-driver "
+         "(clang-Zwilling) fehlt\"; exit 1; }\n";
+    s += "      cmake --build build-clang --target 02_messung_driver/all\n";
+    s += "      ctest --test-dir build-clang/02_messung_driver --no-tests=error --output-on-failure\n";
+    s += "      echo \"[DUAL-TESTAT] ts=$(date -u +%FT%TZ) compiler=clang-22 build_type=" + build_type +
+         " status=gebaut+getestet" + (testat_felder.empty() ? std::string{} : " " + testat_felder) + "\"\n";
+}
+
 // ── PlanTextBuilder — ConcreteBuilder + der --dump-plan-Traeger. Deterministische Zeilen-Textform. ──────────
 //    Format (stabil, byte-reproduzierbar; keine host-abhaengigen Felder AUSSER der einen deklarierten
 //    Owner-Ausnahme `pmc_befund=` -- Owner 10.08.2026: "erkennt jeder Planer auf jeder Maschine fuer sich".
@@ -585,6 +647,12 @@ public:
             out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"ceb:build " + c.legend +
                     " -- aeusserer Configure braucht -DCOMDARE_MEASUREMENT_COMBO=" + c.legend +
                     " (W2: CT-Einbau der Mess-Combo)\"\n";
+        // CI-DUAL (Owner 14.08., E4): dasselbe W2-Muster -- dieser Weg baut den Treiber nicht selbst,
+        // er SAGT dem Bediener die Pflicht des aeusseren Configure. CI und bare-metal fahren dieselben
+        // Zellen (V-5, beide literal); der Zwilling ist dort Bau+Test-Gate, nie Mess-Glied (N2).
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"ceb:build " + c.legend +
+                " -- CI-DUAL (Owner 14.08.): aeusserer Configure pinnt -DCMAKE_C_COMPILER=gcc-15"
+                " -DCMAKE_CXX_COMPILER=g++-15; clang-22-Zwilling (build-clang) = Bau+Test-Gate der Stufe\"\n";
         out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E touch \"" + bstamp + "\"\n";
         out_ += "        COMMENT \"ceb:build " + c.legend + "\"\n";
         out_ += "        VERBATIM)\n";
@@ -1013,8 +1081,9 @@ private:
         // I-PMC-2 (10.08.2026): der Befund kommt aus dem Plan-KOPF (eine Erhebung je Lauf) und steht als
         // Kommentar VOR dem Configure -- auch wenn er flaglos ausfaellt.
         s += pmc_befund_zeile(pmc_befund);
+        // CI-DUAL (Owner 14.08.): gcc-15-Pin ANGEFUEGT (E1; Invariante s. ceb_gcc_pin_define).
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define(pmc_befund) +
-             " -DCMAKE_BUILD_TYPE=Release" + ceb_combo_compile_define(c.legend) + "\n";
+             " -DCMAKE_BUILD_TYPE=Release" + ceb_combo_compile_define(c.legend) + ceb_gcc_pin_define() + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
@@ -1026,6 +1095,9 @@ private:
         // CacheEngineBuilder Orchestrator gebaut wird" -- die Prosa-Zeile darueber beantwortet das fuer den
         // Menschen, diese fuer den Aggregator (gleiche Testat-Grammatik: Marke, ts=, dann Felder).
         s += "      echo \"[CEB-TESTAT] ts=$(date -u +%FT%TZ) ceb=" + c.legend + " status=gebaut\"\n";
+        // CI-DUAL (E2): der clang-22-Zwilling der Stufe 1 -- NUR im BAU-Job (ceb:emit baut denselben
+        // Treiber als Emissions-Vehikel erneut und braucht keinen zweiten Zwilling derselben Stufe).
+        emit_ci_dual_clang_twin(s, pmc_befund, c.legend, "Release", "ceb=" + c.legend);
         return s;
     }
 
@@ -1054,8 +1126,10 @@ private:
         // also gilt hier dieselbe Invariante (ceb_pmc_compile_define()).
         // I-PMC-2: derselbe Befund aus demselben Plan-Kopf -- die vier Stellen koennen nicht auseinanderlaufen.
         s += pmc_befund_zeile(pmc_befund);
+        // CI-DUAL (Owner 14.08.): derselbe gcc-15-Pin wie im ceb:build-Spiegel (E1) -- die vier
+        // Emissionsstellen koennen nicht auseinanderlaufen; KEIN Zwilling (der gehoert der BAU-Stufe).
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define(pmc_befund) +
-             " -DCMAKE_BUILD_TYPE=Release" + ceb_combo_compile_define(c.legend) + "\n";
+             " -DCMAKE_BUILD_TYPE=Release" + ceb_combo_compile_define(c.legend) + ceb_gcc_pin_define() + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
@@ -1390,10 +1464,18 @@ private:
         // I-PMC-2: dasselbe gilt fuer die VENDOR-Wahl -- ein Vendor-Unterschied zwischen Bau- und Mess-Batch
         // rekonfigurierte dasselbe Code/build hin und her und erzwaenge denselben Dauer-Neubau.
         s += pmc_befund_zeile(header_.pmc_befund);
+        // CI-DUAL (Owner 14.08.): gcc-15-Pin ANGEFUEGT (E3; beide Batches teilen Code/build => derselbe
+        // Pin in Bau- UND Mess-Batch, sonst rekonfigurierte der Wechsel das Verzeichnis bei jedem Job).
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define(header_.pmc_befund) +
              " -DCMAKE_BUILD_TYPE=" + header_.build_semantic.cmake_build_type +
-             ceb_combo_compile_define(combo_legend_) + "\n";
+             ceb_combo_compile_define(combo_legend_) + ceb_gcc_pin_define() + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
+        // CI-DUAL (E2): der clang-22-Zwilling der Stufe 2 -- VOR dem Provision-Batch (fail-fast: eine
+        // clang-Inkompatibilitaet faellt, BEVOR ein 7d-Batch startet). BUILD_TYPE folgt der Stufe --
+        // im (j3)-Debug-Profil ist das die clang-x-Debug-Zelle der SOLL-Matrix. Der Mess-Batch
+        // (Schwesterstelle unten) erhaelt KEINEN Zwilling (N2: Mess-Glieder single-compiler).
+        emit_ci_dual_clang_twin(s, header_.pmc_befund, combo_legend_, header_.build_semantic.cmake_build_type,
+                                "ceb=" + combo_legend_ + " lane=" + host);
         s += "    - |\n";
         s += "      set -euo pipefail\n";
         emit_batch_cancel_trap(
@@ -1578,10 +1660,12 @@ private:
         // #37-Preflight zwei Bloecke weiter unten wertete genau diesen Ausfall als Erfolg (pmc=ok).
         // Spiegel des Bau-Batches: dasselbe geteilte Code/build, deshalb dasselbe Configure-Kommando.
         // I-PMC-2: und derselbe Befund -- Spiegel heisst hier auch Vendor-Spiegel.
+        // CI-DUAL (Owner 14.08.): Spiegel schliesst den gcc-15-Pin EIN (E3, geteiltes Code/build);
+        // KEIN clang-Zwilling -- in den Mess-Gliedern wird NIE mit zwei Compilern gemessen (N2).
         s += pmc_befund_zeile(header_.pmc_befund);
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define(header_.pmc_befund) +
              " -DCMAKE_BUILD_TYPE=" + header_.build_semantic.cmake_build_type +
-             ceb_combo_compile_define(combo_legend_) + "\n";
+             ceb_combo_compile_define(combo_legend_) + ceb_gcc_pin_define() + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
@@ -1817,6 +1901,10 @@ public:
         out_ += "# comdare_tier_batch_<host> (per-Perm Provision + S3-Pruef, SCHARF) + EIN Mess-Target\n";
         out_ += "# comdare_tier_measure_<host> (SCHARF, misst). Bare-Metal:\n";
         out_ += "#   cmake --build <dir> --target comdare_tier_batch_amd   # baut+prueft die amd-Lane-DLLs\n";
+        out_ += "# CI-DUAL (Owner 14.08.): Treiber vorgebaut (COMDARE_PLAN_DRIVER); der aeussere Configure "
+                "pinnt gcc-15/g++-15,\n";
+        out_ += "# der clang-22-Zwilling (build-clang) ist Bau+Test-Gate je Stufe; Mess-Targets bleiben "
+                "single-compiler (N2).\n";
         out_ += "# Konfigurierbare Eingaben (per -D ueberschreibbar):\n";
         out_ += "#   COMDARE_PLAN_DRIVER  = Pfad/Name des comdare-messung-driver (Default: PATH-Suche)\n";
         out_ += "#   COMDARE_PLAN_PROFILE = Thesis-/Experiment-Profil-XML (Default: leer => Treiber-Default-Profil)\n";
