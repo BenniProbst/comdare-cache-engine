@@ -1895,13 +1895,14 @@ enum class Bindung {
 
 // WER EINE NEUE SHELL-TESTAT-MARKE EMITTIERT, TRAEGT SIE HIER EIN. Der Test faellt sonst mit ihrem
 // Namen -- und zwar in BEIDE Richtungen (unklassifiziert emittiert / klassifiziert aber verschwunden).
-constexpr std::array<std::pair<std::string_view, Bindung>, 6> kTestatKlassifikation{{
+constexpr std::array<std::pair<std::string_view, Bindung>, 7> kTestatKlassifikation{{
     {"FEHLER-TESTAT", Bindung::FehlerAnker},
     {"CEB-TESTAT", Bindung::SetEAbbruch},    // STUFE 1: CEB gebaut (harter cmake --build davor)
     {"TESTAT", Bindung::SoftFailElse},       // Bau-Fenster je Perm
     {"PRUEF-TESTAT", Bindung::SoftFailElse}, // S3-Konformitaets-Gate je Perm
     {"PMC-TESTAT", Bindung::SetEAbbruch},    // PMC-Preflight (harter ctest davor)
     {"MESS-TESTAT", Bindung::SoftFailElse},  // Mess-Zelle
+    {"DUAL-TESTAT", Bindung::SetEAbbruch},   // CI-DUAL clang-Zwilling (harte cmake/ctest-Gates davor)
 }};
 
 } // namespace
@@ -2820,8 +2821,10 @@ TEST(MeasurementComboCtDefine, CebCompileSitesCarryDefineWhenFannedAndOmitForAll
     std::string const& s1 = cb.text();
     EXPECT_NE(s1.find("-DCMAKE_BUILD_TYPE=Release \"-DCOMDARE_MEASUREMENT_COMBO=[wallclock]\""), std::string::npos)
         << "ceb:build/ceb:emit tragen den CT-Define direkt hinter dem Build-Typ";
-    EXPECT_EQ(count_occurrences(s1, "\"-DCOMDARE_MEASUREMENT_COMBO=[wallclock]\""), 2u)
-        << "genau zwei CEB-Compile-Stellen je Combo in Stufe 1 (ceb:build + ceb:emit)";
+    // CI-DUAL (Owner 14.08.): DREI Stellen je Combo -- ceb:build + ceb:emit + der clang-22-Zwilling
+    // des ceb:build (E2: der Zwilling traegt DIESELBEN Defines, sonst pruefte er eine ANDERE CEB).
+    EXPECT_EQ(count_occurrences(s1, "\"-DCOMDARE_MEASUREMENT_COMBO=[wallclock]\""), 3u)
+        << "genau drei CEB-Compile-Stellen je Combo in Stufe 1 (ceb:build + ceb:emit + clang-Zwilling)";
     EXPECT_NE(s1.find("\"-DCOMDARE_MEASUREMENT_COMBO=[macro]\""), std::string::npos);
     EXPECT_NE(s1.find("\"-DCOMDARE_MEASUREMENT_COMBO=[micro]\""), std::string::npos);
 
@@ -2852,11 +2855,13 @@ TEST(MeasurementComboCtDefine, CebCompileSitesCarryDefineWhenFannedAndOmitForAll
     // behielte das CT-Define im [all]-Folgelauf. Damit ist die [all]-Emission BEWUSST NICHT MEHR byte-identisch
     // zur Vor-F-B1-Form -- die W1-Byte-Identitaets-Aussage galt dem Stand VOR diesem Fix. Kein Tier-Fingerprint
     // haengt daran (reine Job-Text-Flaeche).
-    EXPECT_NE(cb_all.text().find(" -UCOMDARE_MEASUREMENT_COMBO\n"), std::string::npos)
+    // CI-DUAL (Owner 14.08.): die Loeschung steht nicht mehr am Zeilenende -- der Compiler-Pin ist
+    // ANGEFUEGT (E1: " -UCOMDARE_MEASUREMENT_COMBO -DCMAKE_C_COMPILER=..."); Anker entsprechend.
+    EXPECT_NE(cb_all.text().find(" -UCOMDARE_MEASUREMENT_COMBO -DCMAKE_C_COMPILER="), std::string::npos)
         << "[all] => explizite Cache-Loeschung statt Schweigen (Stufe 1)";
-    EXPECT_EQ(count_occurrences(cb_all.text(), "-UCOMDARE_MEASUREMENT_COMBO"), 2u)
-        << "genau zwei CEB-Compile-Stellen in Stufe 1 (ceb:build + ceb:emit) tragen die Loeschung";
-    EXPECT_NE(tb_all.text().find(" -UCOMDARE_MEASUREMENT_COMBO\n"), std::string::npos)
+    EXPECT_EQ(count_occurrences(cb_all.text(), "-UCOMDARE_MEASUREMENT_COMBO"), 3u)
+        << "genau drei CEB-Compile-Stellen in Stufe 1 (ceb:build + ceb:emit + clang-Zwilling) tragen die Loeschung";
+    EXPECT_NE(tb_all.text().find(" -UCOMDARE_MEASUREMENT_COMBO -DCMAKE_C_COMPILER="), std::string::npos)
         << "[all] => explizite Cache-Loeschung statt Schweigen (Stufe 2)";
     EXPECT_GE(count_occurrences(tb_all.text(), "-UCOMDARE_MEASUREMENT_COMBO"), 2u)
         << "Stufe 2: Build-Batch UND Mess-Batch je Lane tragen die Loeschung";
@@ -3744,4 +3749,252 @@ TEST(CompileTypeStamp, BtVersionSuffixOnlyForDebugElseByteStable) {
     ::setenv("COMDARE_BUILD_TYPE", "Release", 1);
     EXPECT_EQ(tlz::build_type_version_suffix(), "") << "Release (Default) => kein Suffix (byte-identisch)";
     ::unsetenv("COMDARE_BUILD_TYPE");
+}
+
+// =============================================================================
+// CI-DUAL (Owner 14.08.2026 verbatim: "... dass in ALLEN pipelines aller C++ Projekte, die binaries
+// nicht wie geplant mit gcc und clang dual in compile Release und Debug gebaut werden, um ganz sicher
+// mit 2 verschiedenen compilern die Kompatibilitaet zu beweisen ... unter anderem in jeder
+// Traegerstufe der Cache Engine") -- E1-E4 der Design-Fassung 14.08. (A2.5-Fix, FUND-1):
+//   E1  gcc-15/g++-15-Pin HART an JEDER emittierten Treiber-Konfiguration (F3-Default: die GEPLANTEN
+//       Versionen, KON55-01; der bisherige Host-Default war ungepinnt und damit unehrlich).
+//   E2  clang-22-ZWILLING je BAU-Stufe (Stufe 1 ceb:build, Stufe 2 tier-build-batch): ZWEITE Sequenz
+//       IM SELBEN Job (sequentiell = EIN Bau-Slot, T-11b), gleiche Defines (PMC/Combo/BUILD_TYPE --
+//       sonst pruefte der Zwilling eine ANDERE CEB), eigenes build-clang, Bau + ctest-Gate der
+//       UNBEDINGT registrierten Treiber-Tests (--no-tests=error: Leerlauf ist Fehler, W0b-3-Klasse).
+//   E3  Mess-Batch: NUR der Pin (Spiegel-Configure des geteilten Code/build), KEIN Zwilling -- in den
+//       Mess-Gliedern wird NIE mit zwei Compilern gemessen (N2/Auflage 5b).
+//   E4  bare-metal-Spiegel SAGT die Pins (W2-Muster :577ff.: der aeussere Configure baut, die
+//       Emission weist an) -- CI und bare-metal fahren dieselben Zellen (V-5, beide literal).
+// KEINE Stempel-/Preimage-Beruehrung: der Compiler wird erst mit S-9/S-11 Achsen-Wert (N1).
+// =============================================================================
+namespace {
+
+struct CompilerPinReport {
+    std::size_t              gcc_builds       = 0; // NENNER: Treiber-Bau-Zeilen im gcc-Verzeichnis `build`
+    std::size_t              gcc_configured   = 0; // davon unmittelbar hinter `cmake -B build -G Ninja`
+    std::size_t              gcc_pinned       = 0; // davon: Configure traegt den gcc-15/g++-15-Pin
+    std::size_t              twin_configs     = 0; // `cmake -B build-clang -G Ninja`-Zeilen (Zwillings-Configure)
+    std::size_t              twin_builds      = 0; // Treiber-Bau-Zeilen im Zwillings-Verzeichnis build-clang
+    std::size_t              twin_configured  = 0; // davon unmittelbar hinter dem Zwillings-Configure
+    std::size_t              twin_pinned      = 0; // Zwillings-Configures mit clang-22-Pin
+    std::size_t              twin_ctest_gates = 0; // ctest-Gates des Stufen-Binaries (build-clang/02_messung_driver)
+    std::size_t              twin_bt_riss     = 0; // Zwillinge, deren BUILD_TYPE vom letzten gcc-Configure abweicht
+    std::vector<std::string> violations;
+};
+
+std::string build_type_von(std::string const& zeile) {
+    static constexpr char const* kBt = "-DCMAKE_BUILD_TYPE=";
+    std::size_t const            p   = zeile.find(kBt);
+    if (p == std::string::npos) return {};
+    std::size_t const start = p + std::string_view{kBt}.size();
+    std::size_t const end   = zeile.find(' ', start);
+    return zeile.substr(start, end == std::string::npos ? std::string::npos : end - start);
+}
+
+// Der EINE Pruefer (Muster pmc_invariant: vom TREIBER-BAU aus gezaehlt, damit keine Stelle durch
+// Configure-Umformulierung verschwindet; Gegenprobe unten zuerst).
+CompilerPinReport compiler_pin_report(std::string const& emitted) {
+    static constexpr char const* kDrvGcc   = "cmake --build build --target comdare-messung-driver";
+    static constexpr char const* kDrvTwin  = "cmake --build build-clang --target comdare-messung-driver";
+    static constexpr char const* kConfGcc  = "cmake -B build -G Ninja";
+    static constexpr char const* kConfTwin = "cmake -B build-clang -G Ninja";
+    static constexpr char const* kPinGcc   = "-DCMAKE_C_COMPILER=gcc-15 -DCMAKE_CXX_COMPILER=g++-15";
+    static constexpr char const* kPinClang = "-DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22";
+    static constexpr char const* kGate     = "ctest --test-dir build-clang/02_messung_driver --no-tests=error";
+
+    CompilerPinReport              rep;
+    std::vector<std::string> const lines = split_lines(emitted);
+    std::string                    letzter_gcc_bt; // BUILD_TYPE des letzten gcc-Configures (Stufen-Kontext)
+    for (std::size_t i = 0; i < lines.size(); ++i) {
+        std::string const& z = lines[i];
+        if (z.find(kConfTwin) != std::string::npos) {
+            ++rep.twin_configs;
+            if (z.find(kPinClang) != std::string::npos) ++rep.twin_pinned;
+            if (!letzter_gcc_bt.empty() && build_type_von(z) != letzter_gcc_bt) {
+                ++rep.twin_bt_riss;
+                rep.violations.push_back("Zwillings-BUILD_TYPE weicht von der Stufe ab: " + z);
+            }
+        } else if (z.find(kConfGcc) != std::string::npos) {
+            letzter_gcc_bt = build_type_von(z);
+        }
+        if (z.find(kGate) != std::string::npos) ++rep.twin_ctest_gates;
+        if (z.find(kDrvTwin) != std::string::npos) {
+            ++rep.twin_builds;
+            if (i > 0 && lines[i - 1].find(kConfTwin) != std::string::npos)
+                ++rep.twin_configured;
+            else
+                rep.violations.push_back("kein Zwillings-Configure unmittelbar VOR dem Zwillings-Bau: " + z);
+            continue; // kDrvTwin enthaelt kDrvGcc NICHT (verschiedene Verzeichnisse), aber explizit halten
+        }
+        if (z.find(kDrvGcc) != std::string::npos) {
+            ++rep.gcc_builds;
+            if (i > 0 && lines[i - 1].find(kConfGcc) != std::string::npos) {
+                ++rep.gcc_configured;
+                if (lines[i - 1].find(kPinGcc) != std::string::npos) ++rep.gcc_pinned;
+            } else {
+                rep.violations.push_back("kein `cmake -B build -G Ninja` unmittelbar VOR dem Treiber-Bau: " + z);
+            }
+        }
+    }
+    return rep;
+}
+
+void expect_compiler_pin_invariante(std::string const& emitted, char const* wo, std::size_t soll_zwillinge) {
+    CompilerPinReport const rep = compiler_pin_report(emitted);
+    std::string             verstoesse;
+    for (auto const& v : rep.violations) verstoesse += "\n    - " + v;
+    EXPECT_GT(rep.gcc_builds, 0u) << wo << ": Wache leer gelaufen -- kein gcc-Treiber-Bau in der Emission.";
+    EXPECT_EQ(rep.gcc_configured, rep.gcc_builds) << wo << ": Nachbarschaft Configure->Bau gebrochen." << verstoesse;
+    EXPECT_EQ(rep.gcc_pinned, rep.gcc_builds)
+        << wo << ": " << rep.gcc_builds << " gcc-Treiber-Konfigurationen, davon nur " << rep.gcc_pinned
+        << " mit dem HARTEN gcc-15/g++-15-Pin (E1/F3: die geplanten Versionen, KON55-01; Host-Default ist "
+           "ungepinnt und damit je Runner verschieden -- genau die Unehrlichkeit, die der Pin beseitigt)."
+        << verstoesse;
+    EXPECT_EQ(rep.twin_configs, soll_zwillinge)
+        << wo << ": clang-Zwillings-Configures (SOLL = eine je BAU-Stufen-Emission dieses Builders; "
+        << "Mess-Batches tragen KEINEN Zwilling, N2)." << verstoesse;
+    EXPECT_EQ(rep.twin_builds, soll_zwillinge) << wo << ": Zwillings-Treiber-Bau-Zeilen." << verstoesse;
+    EXPECT_EQ(rep.twin_configured, rep.twin_builds)
+        << wo << ": Zwillings-Nachbarschaft Configure->Bau gebrochen." << verstoesse;
+    EXPECT_EQ(rep.twin_pinned, rep.twin_configs)
+        << wo << ": jeder Zwillings-Configure traegt den clang-22-Pin (E2)." << verstoesse;
+    EXPECT_EQ(rep.twin_ctest_gates, soll_zwillinge)
+        << wo << ": je Zwilling GENAU EIN ctest-Gate des Stufen-Binaries "
+        << "(build-clang/02_messung_driver, --no-tests=error -- Leerlauf ist Fehler, kein Schein-Gate).";
+    EXPECT_EQ(rep.twin_bt_riss, 0u)
+        << wo << ": der Zwilling faehrt den BUILD_TYPE seiner Stufe (Release; im (j3)-Debug-Profil Debug)."
+        << verstoesse;
+}
+
+} // namespace
+
+TEST(CompilerPinInvariante, GegenprobeDerPruefer) {
+    // Handgebauter Text: (1) gepinnter gcc-Bau + voller Zwilling, (2) UNGEPINNTER gcc-Bau,
+    // (3) Zwilling OHNE clang-Pin und mit BUILD_TYPE-Riss. Findet der Pruefer das nicht, taugt er nicht.
+    std::string const kunstlich =
+        std::string{} + "    - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release"
+                        " -DCMAKE_C_COMPILER=gcc-15 -DCMAKE_CXX_COMPILER=g++-15\n"
+                        "    - cmake --build build --target comdare-messung-driver\n"
+                        "    - cmake -B build-clang -G Ninja -DCMAKE_BUILD_TYPE=Release"
+                        " -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22\n"
+                        "    - cmake --build build-clang --target comdare-messung-driver\n"
+                        "      ctest --test-dir build-clang/02_messung_driver --no-tests=error --output-on-failure\n"
+                        "    - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release\n"
+                        "    - cmake --build build --target comdare-messung-driver\n"
+                        "    - cmake -B build-clang -G Ninja -DCMAKE_BUILD_TYPE=Debug\n"
+                        "    - cmake --build build-clang --target comdare-messung-driver\n";
+    CompilerPinReport const probe = compiler_pin_report(kunstlich);
+    ASSERT_EQ(probe.gcc_builds, 2u);
+    ASSERT_EQ(probe.gcc_configured, 2u);
+    ASSERT_EQ(probe.gcc_pinned, 1u) << "Gegenprobe: GENAU einer der beiden gcc-Configures traegt den Pin";
+    ASSERT_EQ(probe.twin_configs, 2u);
+    ASSERT_EQ(probe.twin_builds, 2u);
+    ASSERT_EQ(probe.twin_configured, 2u);
+    ASSERT_EQ(probe.twin_pinned, 1u) << "Gegenprobe: der zweite Zwilling ist UNGEPINNT und muss auffallen";
+    ASSERT_EQ(probe.twin_ctest_gates, 1u) << "Gegenprobe: nur der erste Zwilling traegt das ctest-Gate";
+    ASSERT_EQ(probe.twin_bt_riss, 1u) << "Gegenprobe: der zweite Zwilling reisst den BUILD_TYPE (Debug vs Release)";
+}
+
+TEST(CompilerPinInvariante, JedeTreiberKonfigurationGepinntUndJedeBauStufeMitClangZwilling) {
+    planner::PmcHostBefund const    amd = befund_mit(planner::PmcLage::Amd, "AuthenticAMD");
+    planner::ExperimentPlanDirector director;
+    director.set_pmc_befund(amd);
+
+    // (1) Thesis-Kanal all_axes_golden: Stufe 1 = je Combo ceb:build (Zwilling) + ceb:emit (nur Pin);
+    //     Stufe 2 = je Host-Lane tier-build-batch (Zwilling) + measure-batch (nur Pin, N2).
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::CiYamlBuilder cb;
+    director.construct(*tp, cb);
+    std::size_t const combos_s1 = count_occurrences(cb.text(), "# JOB ceb-build combo");
+    ASSERT_GT(combos_s1, 0u);
+    expect_compiler_pin_invariante(cb.text(), "Thesis/Stufe1 CiYamlBuilder", combos_s1);
+    planner::TierCiYamlBuilder tb;
+    director.construct(*tp, tb);
+    std::size_t const batches_s2 = count_occurrences(tb.text(), "# JOB tier-build-batch host=");
+    ASSERT_GT(batches_s2, 0u);
+    expect_compiler_pin_invariante(tb.text(), "Thesis/Stufe2 TierCiYamlBuilder", batches_s2);
+
+    // (2) GEFANNT (3 Combos): die Invariante haengt nicht an der Stellenzahl.
+    auto tp_fan = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp_fan.has_value());
+    tp_fan->measurement_tooling = {{"wallclock"}, {"macro"}, {"micro"}};
+    planner::CiYamlBuilder cb_fan;
+    director.construct(*tp_fan, cb_fan);
+    expect_compiler_pin_invariante(cb_fan.text(), "Thesis/Stufe1 GEFANNT",
+                                   count_occurrences(cb_fan.text(), "# JOB ceb-build combo"));
+    planner::TierCiYamlBuilder tb_fan;
+    director.construct(*tp_fan, tb_fan);
+    expect_compiler_pin_invariante(tb_fan.text(), "Thesis/Stufe2 GEFANNT",
+                                   count_occurrences(tb_fan.text(), "# JOB tier-build-batch host="));
+
+    // (3) Experiment-Kanal (eigener Zwilling -- die "Fix fehlt im Experiment-Zwilling"-Klasse).
+    auto const ep = parse_experiment(COMDARE_EXPERIMENT_GOLDEN);
+    ASSERT_TRUE(ep.has_value());
+    planner::CiYamlBuilder cb_exp;
+    director.construct(*ep, cb_exp);
+    expect_compiler_pin_invariante(cb_exp.text(), "Experiment/Stufe1",
+                                   count_occurrences(cb_exp.text(), "# JOB ceb-build combo"));
+    planner::TierCiYamlBuilder tb_exp;
+    director.construct(*ep, tb_exp);
+    expect_compiler_pin_invariante(tb_exp.text(), "Experiment/Stufe2",
+                                   count_occurrences(tb_exp.text(), "# JOB tier-build-batch host="));
+
+    // (4) OHNE PMU: der Pin haengt NICHT am PMC-Befund (zwei orthogonale Invarianten).
+    planner::PmcHostBefund const    ohne = befund_mit(planner::PmcLage::Unbrauchbar, "SomeOtherVendor");
+    planner::ExperimentPlanDirector director_ohne;
+    director_ohne.set_pmc_befund(ohne);
+    planner::CiYamlBuilder cb_ohne;
+    director_ohne.construct(*tp, cb_ohne);
+    expect_compiler_pin_invariante(cb_ohne.text(), "Thesis/Stufe1 OHNE PMU",
+                                   count_occurrences(cb_ohne.text(), "# JOB ceb-build combo"));
+}
+
+// (j3)-Debug-Profil: der Stufe-2-Zwilling folgt dem BUILD_TYPE der Stufe (SOLL-Matrix: "clang x Debug
+// NUR im (j3)-Debug-Profil"); der Mess-Zweig ((j3)-Dual) bleibt UNVERAENDERT single-compiler.
+TEST(CompilerPinInvariante, ZwillingFolgtDemBuildTypDesProfils) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector director;
+    director.set_pmc_befund(befund_mit(planner::PmcLage::Amd, "AuthenticAMD"));
+    planner::TierCiYamlBuilder tb_dbg; // Methodik-Override debug => (j3)-Zweig + Debug-BUILD_TYPE
+    director.construct(*tp, tb_dbg, /*combo_selector=*/{}, /*methodik_run_methodology=*/{"debug"});
+    std::string const& ydbg = tb_dbg.text();
+    expect_compiler_pin_invariante(ydbg, "Thesis/Stufe2 (j3)-Debug",
+                                   count_occurrences(ydbg, "# JOB tier-build-batch host="));
+    EXPECT_NE(ydbg.find("cmake -B build-clang -G Ninja -DCOMDARE_V32_ENABLE=ON"), std::string::npos);
+    EXPECT_NE(ydbg.find("-DCMAKE_BUILD_TYPE=Debug"), std::string::npos)
+        << "(j3): der Zwilling baut Debug -- die clang-x-Debug-Zelle der SOLL-Matrix";
+    EXPECT_NE(ydbg.find("(j3) Aufruf 1/2"), std::string::npos) << "(j3)-Mess-Zweig bleibt UNVERAENDERT";
+}
+
+// E4: der bare-metal-Spiegel SAGT die Pins (W2-Muster -- der aeussere Configure baut den Treiber,
+// die Emission weist an; beide Wege fahren dieselben Zellen, V-5 "beide literal").
+TEST(CompilerPinInvariante, BareMetalSpiegelSagtDiePins) {
+    planner::PmcHostBefund const    amd = befund_mit(planner::PmcLage::Amd, "AuthenticAMD");
+    planner::ExperimentPlanDirector director;
+    director.set_pmc_befund(amd);
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::CMakeGraphBuilder s1;
+    director.construct(*tp, s1);
+    std::size_t const combos = count_occurrences(s1.text(), "# --- measurement_combo ");
+    ASSERT_GT(combos, 0u);
+    EXPECT_EQ(count_occurrences(s1.text(), "CI-DUAL (Owner 14.08.): aeusserer Configure pinnt "
+                                           "-DCMAKE_C_COMPILER=gcc-15 -DCMAKE_CXX_COMPILER=g++-15"),
+              combos)
+        << "Stufe-1-Spiegel: je ceb:build-Target EINE Pin-Ansage an den Bediener (W2-Muster)";
+    EXPECT_EQ(count_occurrences(s1.text(), "clang-22-Zwilling (build-clang) = Bau+Test-Gate der Stufe"), combos);
+
+    planner::TierCmakeGraphBuilder s2;
+    director.construct(*tp, s2);
+    EXPECT_NE(s2.text().find("# CI-DUAL (Owner 14.08.): Treiber vorgebaut (COMDARE_PLAN_DRIVER); der aeussere "
+                             "Configure pinnt gcc-15/g++-15,"),
+              std::string::npos)
+        << "Stufe-2-Spiegel: Kopf-Ansage der Pins";
+    EXPECT_NE(s2.text().find("clang-22-Zwilling (build-clang) ist Bau+Test-Gate je Stufe; Mess-Targets bleiben "
+                             "single-compiler (N2)"),
+              std::string::npos);
 }
