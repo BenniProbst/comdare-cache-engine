@@ -57,11 +57,11 @@ struct Fund {
 // (1) SPDX-ERNTE -- welche Lizenz behaupten die Dateien selbst?
 // -----------------------------------------------------------------------------
 struct SpdxErnte {
-    std::size_t      dateien_gesehen   = 0;  // Nenner: durchsuchte Kandidaten
-    std::size_t      dateien_mit_spdx  = 0;
-    std::size_t      eigen             = 0;  // traegt kBezeichner
-    std::vector<Fund> fremd;                 // traegt etwas anderes  -> Verstoss
-    std::vector<Fund> doku_ausnahme;         // dasselbe, aber unter docs/ -> benannt, kein Verstoss
+    std::size_t       dateien_gesehen  = 0; // Nenner: durchsuchte Kandidaten
+    std::size_t       dateien_mit_spdx = 0;
+    std::size_t       eigen            = 0; // traegt kBezeichner
+    std::vector<Fund> fremd;                // traegt etwas anderes  -> Verstoss
+    std::vector<Fund> doku_ausnahme;        // dasselbe, aber unter docs/ -> benannt, kein Verstoss
 };
 
 namespace detail {
@@ -84,17 +84,15 @@ namespace detail {
 // "`grep -v /build` frisst `/builder/`" steht, nur diesmal in C++.
 // Deshalb: EXAKTE Namen und ein Trenner, nie ein blosses Praefix.
 [[nodiscard]] inline bool ist_uebersprungenes_verzeichnis(std::string const& name) {
-    return name == "ext" || name == ".git" || name == ".idea" || name == "node_modules" ||
-           name == "build" || beginnt_mit(name, "build-") || beginnt_mit(name, "build_") ||
-           beginnt_mit(name, "cmake-build");
+    return name == "ext" || name == ".git" || name == ".idea" || name == "node_modules" || name == "build" ||
+           beginnt_mit(name, "build-") || beginnt_mit(name, "build_") || beginnt_mit(name, "cmake-build");
 }
 
 [[nodiscard]] inline bool ist_kandidat(fs::path const& p) {
     if (p.filename() == "CMakeLists.txt") { return true; }
-    std::string const e = p.extension().string();
-    static std::set<std::string> const kEndungen{".c",   ".cc", ".cxx", ".cpp", ".h",  ".hpp", ".hxx",
-                                                 ".in",  ".py", ".sh",  ".cmake", ".yml", ".yaml",
-                                                 ".md",  ".txt"};
+    std::string const                  e = p.extension().string();
+    static std::set<std::string> const kEndungen{".c",  ".cc", ".cxx",   ".cpp", ".h",    ".hpp", ".hxx", ".in",
+                                                 ".py", ".sh", ".cmake", ".yml", ".yaml", ".md",  ".txt"};
     return kEndungen.count(e) != 0;
 }
 
@@ -117,10 +115,10 @@ namespace detail {
 } // namespace detail
 
 [[nodiscard]] inline SpdxErnte ernte_spdx(fs::path const& wurzel) {
-    SpdxErnte            ernte;
+    SpdxErnte              ernte;
     std::string_view const marke = "SPDX-License-Identifier:";
 
-    std::error_code                 ec;
+    std::error_code                  ec;
     fs::recursive_directory_iterator it{wurzel, fs::directory_options::skip_permission_denied, ec};
     fs::recursive_directory_iterator ende;
     for (; it != ende; it.increment(ec)) {
@@ -143,8 +141,8 @@ namespace detail {
 
         std::istringstream zeilen{inhalt};
         std::string        zeile;
-        std::size_t        nr        = 0;
-        bool               gezaehlt  = false;
+        std::size_t        nr       = 0;
+        bool               gezaehlt = false;
         while (std::getline(zeilen, zeile)) {
             nr++;
             std::size_t const pos = zeile.find(marke);
@@ -186,11 +184,11 @@ namespace detail {
 // -----------------------------------------------------------------------------
 struct Schalter {
     std::string name;
-    std::string vorgabe;   // "ON"/"OFF" bei option(), der Wert bei set(... CACHE ...)
+    std::string vorgabe; // "ON"/"OFF" bei option(), der Wert bei set(... CACHE ...)
     std::string hilfe;
     std::string datei;
     std::size_t zeile    = 0;
-    bool        copyleft = false;  // Hilfetext nennt GPL oder LGPL
+    bool        copyleft = false; // Hilfetext nennt GPL oder LGPL
 };
 
 namespace detail {
@@ -276,8 +274,8 @@ namespace detail {
         std::string const rel    = fs::relative(it->path(), wurzel, ec).generic_string();
 
         for (std::size_t pos = 0; pos < inhalt.size();) {
-            std::size_t const o = inhalt.find("option(", pos);
-            std::size_t const s = inhalt.find("set(", pos);
+            std::size_t const o       = inhalt.find("option(", pos);
+            std::size_t const s       = inhalt.find("set(", pos);
             std::size_t const treffer = std::min(o, s);
             if (treffer == std::string::npos) { break; }
             bool const ist_option = (treffer == o);
@@ -288,9 +286,9 @@ namespace detail {
                               treffer - (zeilenanfang == std::string::npos ? 0 : zeilenanfang + 1));
             bool const sauber = davor.find_first_not_of(" \t") == std::string::npos;
 
-            std::size_t nach = 0;
+            std::size_t       nach   = 0;
             std::string const aufruf = detail::sammle_aufruf(inhalt, treffer, nach);
-            pos = (nach > treffer) ? nach : treffer + 1;
+            pos                      = (nach > treffer) ? nach : treffer + 1;
             if (!sauber) { continue; }
 
             std::vector<std::string> const teile = detail::zerlege(aufruf);
@@ -331,7 +329,7 @@ namespace detail {
 // es bis zum 10.08.2026 im NOTICE.
 // -----------------------------------------------------------------------------
 struct VendorEinzug {
-    std::string komponente;  // z.B. "liburing"
+    std::string komponente; // z.B. "liburing"
     std::string datei;
     std::size_t zeile = 0;
 };
@@ -366,7 +364,7 @@ struct VendorEinzug {
 
             std::size_t const e = aufruf.find("/ext/");
             if (e == std::string::npos) { continue; }
-            std::string rest = aufruf.substr(e + 5);
+            std::string       rest    = aufruf.substr(e + 5);
             std::size_t const schluss = rest.find_first_of("\"' \t)\n");
             if (schluss != std::string::npos) { rest.erase(schluss); }
             if (rest.empty()) { continue; }

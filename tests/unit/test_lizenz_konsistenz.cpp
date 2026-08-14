@@ -84,11 +84,17 @@ using comdare::test::wachen::WegwerfRepo;
 // Schritt bewiese ein roter Koeder-Lauf nur, dass die Wache ueberhaupt meckert.
 void baue_sauberen_baum(WegwerfRepo const& repo, std::string const& marke) {
     ASSERT_TRUE(repo.schreibe("LICENSE", "Comdare Research License, Version 1.0\n"
-                                         "SPDX-License-Identifier: " + std::string{kBezeichner} + "\n"
-                                         "Change Date: " + std::string{kChangeDate} + "\n"
-                                         "marke_" + marke + "\n"));
-    ASSERT_TRUE(repo.schreibe("NOTICE", "SPDX-License-Identifier: " + std::string{kBezeichner} + "\n"
-                                        "Project       : liburing\n"));
+                                         "SPDX-License-Identifier: " +
+                                             std::string{kBezeichner} +
+                                             "\n"
+                                             "Change Date: " +
+                                             std::string{kChangeDate} +
+                                             "\n"
+                                             "marke_" +
+                                             marke + "\n"));
+    ASSERT_TRUE(repo.schreibe("NOTICE", "SPDX-License-Identifier: " + std::string{kBezeichner} +
+                                            "\n"
+                                            "Project       : liburing\n"));
     ASSERT_TRUE(repo.schreibe("libs/echt.hpp", "// SPDX-License-Identifier: " + std::string{kBezeichner} + "\n"));
     ASSERT_TRUE(repo.schreibe("CMakeLists.txt",
                               "option(COMDARE_HAVE_KRAM \"Activate ext/x/kram (GPL-3)\" OFF)\n"
@@ -132,14 +138,14 @@ TEST(LizenzKonsistenz, KeinFremderSpdxBezeichnerAusserhalbExt) {
 // FALL 2 -- L2: LICENSE und NOTICE sagen dasselbe.
 // =============================================================================
 TEST(LizenzKonsistenz, LicenseUndNoticeNennenDenselbenBezeichner) {
-    std::string const lic = lies_datei(wurzel() / "LICENSE");
+    std::string const lic  = lies_datei(wurzel() / "LICENSE");
     std::string const not_ = lies_datei(wurzel() / "NOTICE");
 
-    int erfuellt = 0;
-    bool const a = enthaelt(lic, kBezeichner);
-    bool const b = enthaelt(not_, kBezeichner);
-    bool const c = !enthaelt(not_, "Licensed under the Apache License");
-    erfuellt = static_cast<int>(a) + static_cast<int>(b) + static_cast<int>(c);
+    int        erfuellt = 0;
+    bool const a        = enthaelt(lic, kBezeichner);
+    bool const b        = enthaelt(not_, kBezeichner);
+    bool const c        = !enthaelt(not_, "Licensed under the Apache License");
+    erfuellt            = static_cast<int>(a) + static_cast<int>(b) + static_cast<int>(c);
 
     std::cout << "NENNER L2  pruefungen " << erfuellt << "/3\n"
               << "  LICENSE nennt Bezeichner            : " << (a ? "ja" : "NEIN") << "\n"
@@ -156,16 +162,16 @@ TEST(LizenzKonsistenz, LicenseUndNoticeNennenDenselbenBezeichner) {
 // Owner 10.08.2026: "Ja, cache engine nach 5 Jahren frei verfuegbar ab heute."
 // =============================================================================
 TEST(LizenzKonsistenz, ChangeDateStehtUndIstDerEntschiedene) {
-    std::string const lic = lies_datei(wurzel() / "LICENSE");
-    bool const datum   = enthaelt(lic, kChangeDate);
-    bool const feld    = enthaelt(lic, "Change Date");
-    bool const ziel    = enthaelt(lic, "Apache License, Version 2.0");
-    bool const hist_a  = enthaelt(lic, "2026-08-02");
-    bool const hist_b  = enthaelt(lic, "2026-08-10");
+    std::string const lic    = lies_datei(wurzel() / "LICENSE");
+    bool const        datum  = enthaelt(lic, kChangeDate);
+    bool const        feld   = enthaelt(lic, "Change Date");
+    bool const        ziel   = enthaelt(lic, "Apache License, Version 2.0");
+    bool const        hist_a = enthaelt(lic, "2026-08-02");
+    bool const        hist_b = enthaelt(lic, "2026-08-10");
 
     std::cout << "NENNER L7  pruefungen "
-              << (static_cast<int>(datum) + static_cast<int>(feld) + static_cast<int>(ziel) +
-                  static_cast<int>(hist_a) + static_cast<int>(hist_b))
+              << (static_cast<int>(datum) + static_cast<int>(feld) + static_cast<int>(ziel) + static_cast<int>(hist_a) +
+                  static_cast<int>(hist_b))
               << "/5\n"
               << "  Change Date " << kChangeDate << " : " << (datum ? "ja" : "NEIN") << "\n"
               << "  Feld 'Change Date'      : " << (feld ? "ja" : "NEIN") << "\n"
@@ -296,9 +302,9 @@ TEST(LizenzKonsistenz, GplKopieDesFuenftenSchaltersIstKeineTargetQuelle) {
     }
 
     // Ein Target, das wh.c als Quelle fuehrt, waere ein kombiniertes Werk mit GPL-3.
-    std::size_t              gesehen = 0;
-    std::vector<std::string> treffer;
-    std::error_code          ec;
+    std::size_t                      gesehen = 0;
+    std::vector<std::string>         treffer;
+    std::error_code                  ec;
     fs::recursive_directory_iterator it{wurzel(), fs::directory_options::skip_permission_denied, ec};
     fs::recursive_directory_iterator ende;
     for (; it != ende; it.increment(ec)) {
@@ -308,8 +314,7 @@ TEST(LizenzKonsistenz, GplKopieDesFuenftenSchaltersIstKeineTargetQuelle) {
             // Genau dieser Fehler stand im ersten Lauf dieser Wache in lizenz_audit.hpp
             // und leerte den Nenner lautlos -- er wird hier nicht wiederholt.
             std::string const n = it->path().filename().string();
-            if (n == "ext" || n == ".git" || n == "build" || n.rfind("build-", 0) == 0 ||
-                n.rfind("build_", 0) == 0) {
+            if (n == "ext" || n == ".git" || n == "build" || n.rfind("build-", 0) == 0 || n.rfind("build_", 0) == 0) {
                 it.disable_recursion_pending();
             }
             continue;
@@ -322,16 +327,15 @@ TEST(LizenzKonsistenz, GplKopieDesFuenftenSchaltersIstKeineTargetQuelle) {
         while (true) {
             std::size_t const t = inhalt.find("wh.c", pos);
             if (t == std::string::npos) { break; }
-            pos = t + 4;
+            pos                  = t + 4;
             std::size_t const za = inhalt.find_last_of('\n', t);
             std::size_t const ze = inhalt.find('\n', t);
             std::string const zeile =
                 inhalt.substr(za == std::string::npos ? 0 : za + 1,
                               (ze == std::string::npos ? inhalt.size() : ze) - (za == std::string::npos ? 0 : za + 1));
-            std::string const roh = zeile.substr(zeile.find_first_not_of(" \t") == std::string::npos
-                                                     ? 0
-                                                     : zeile.find_first_not_of(" \t"));
-            if (roh.rfind('#', 0) == 0) { continue; }  // Kommentar ist keine Quelle
+            std::string const roh =
+                zeile.substr(zeile.find_first_not_of(" \t") == std::string::npos ? 0 : zeile.find_first_not_of(" \t"));
+            if (roh.rfind('#', 0) == 0) { continue; } // Kommentar ist keine Quelle
             if (zeile.find("add_library") != std::string::npos || zeile.find("add_executable") != std::string::npos ||
                 zeile.find("target_sources") != std::string::npos) {
                 treffer.push_back(fs::relative(it->path(), wurzel(), ec).generic_string() + "  " + roh);
@@ -357,9 +361,9 @@ TEST(LizenzKonsistenzKoeder, SauberterBaumIstGruen) {
     WegwerfRepo const repo{"lizenz_sauber_" + marke};
     baue_sauberen_baum(repo, marke);
 
-    SpdxErnte const e  = ernte_spdx(repo.pfad());
-    auto const      sc = ernte_schalter(repo.pfad());
-    auto const      vz = ernte_vendor_einzuege(repo.pfad());
+    SpdxErnte const   e     = ernte_spdx(repo.pfad());
+    auto const        sc    = ernte_schalter(repo.pfad());
+    auto const        vz    = ernte_vendor_einzuege(repo.pfad());
     std::string const notiz = lies_datei(repo.pfad() / "NOTICE");
 
     std::size_t an = 0;
@@ -411,8 +415,8 @@ TEST(LizenzKonsistenzKoeder, CopyleftSchalterAufOnWirdGefunden) {
     baue_sauberen_baum(repo, marke);
 
     std::string const name = "COMDARE_HAVE_KOEDER_" + marke;
-    ASSERT_TRUE(repo.schreibe("adapters/CMakeLists.txt",
-                              "option(" + name + " \"Activate ext/x/koeder (GPL-3)\" ON)\n"));
+    ASSERT_TRUE(
+        repo.schreibe("adapters/CMakeLists.txt", "option(" + name + " \"Activate ext/x/koeder (GPL-3)\" ON)\n"));
 
     auto const            sc = ernte_schalter(repo.pfad());
     std::vector<Schalter> an;

@@ -262,11 +262,11 @@ enum class JobArt {
 
 // Dieselbe Bauart wie Eintrag/kTabelle oben (LITERAL, bewusst nicht abgeleitet).
 struct JobEintrag {
-    std::string_view schluessel; // der Top-Level-Schluessel, wie er in der YAML steht
-    JobArt           art;
-    Deckung          deckung = Deckung::Keine; // nur fuer WacheJob PFLICHT (EXPECT unten)
-    std::string_view beleg;                    // bei Gtest die .cpp
-    std::string_view ziel;                     // bei Gtest der ctest-Zielname (T-7)
+    std::string_view schluessel;                 // der Top-Level-Schluessel, wie er in der YAML steht
+    JobArt           art     = JobArt::WacheJob; // Default = strengste Klasse (fail-closed wie Eintrag::art)
+    Deckung          deckung = Deckung::Keine;   // nur fuer WacheJob PFLICHT (EXPECT unten)
+    std::string_view beleg;                      // bei Gtest die .cpp
+    std::string_view ziel;                       // bei Gtest der ctest-Zielname (T-7)
     std::string_view bemerkung;
 };
 

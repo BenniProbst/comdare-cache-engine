@@ -48,7 +48,7 @@ namespace {
 // Die vier Signatur-Welten des Beweises: die drei deklarierten Maschinen-Klassen UND die leere
 // Signatur (keine Belegung / kein Verdict-Match) -- der Bestand muss in ALLEN vier zulassbar sein.
 struct SignaturWelt {
-    char const*                            name;
+    char const*                            name = nullptr;
     std::span<meas::SimdFeatureFlag const> signatur;
 };
 
