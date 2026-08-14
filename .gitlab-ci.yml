@@ -197,7 +197,14 @@ build:clang:
     # Stempel schweigt) -- gruen, aber unehrlich.
     # (unquoted: der Wert stammt aus einer GESCHLOSSENEN Menge {amd,intel,leer}, kein Wortbruch moeglich;
     #  leer ist der deklarierte Uebergangszustand und wird von der Wurzel-CMakeLists als solcher gemeldet)
-    - cmake -B build -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_ENABLE_PMC=ON -DCOMDARE_PMC_VENDOR=$COMDARE_PMC_VENDOR
+    # F4-Design-Default (14.08., A2.5): BuildType war LEER == keine -O-Flags (-O0-Klasse). EXPLIZIT
+    # Debug wie Tranche 2 (verhaltensnah zu leer); Release waere eine VERHALTENSAENDERUNG am
+    # PMC-Smoke-Pfad (test_ms1-Klasse). Owner-Frage F4 bleibt offen deklariert -- dieser Commit ist
+    # der Design-Default, kein Owner-Entscheid. Folded-Scalar wegen 120-Byte-Doktrin (Join per
+    # yaml.safe_load byte-genau verifiziert, Muster Tranche 2).
+    - >-
+      cmake -B build -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+      -DCOMDARE_ENABLE_PMC=ON -DCOMDARE_PMC_VENDOR=$COMDARE_PMC_VENDOR
     # Build-Parallelität via CMAKE_BUILD_PARALLEL_LEVEL=4 (Runner-Core-Budget, User 2026-06-25), NICHT -j nproc
     # M-CE-25 (Muster-F, 2026-07-13): m3v2_pmc_smoke (Label pmc) lief in KEINEM Job — test:unit schliesst es per
     # -LE pmc aus, kein dedizierter -R matchte es. Es beweist die geschlossene PMC-Naht im Lazy-WIDE-Pfad und
