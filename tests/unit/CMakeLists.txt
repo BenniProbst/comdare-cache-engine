@@ -6950,3 +6950,43 @@ target_compile_definitions(test_s3_ordnung_freigabe PRIVATE
     "COMDARE_EXPERIMENT_GOLDEN_KERN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_golden_kern.xml\"")
 set_tests_properties(test_s3_ordnung_freigabe PROPERTIES
     LABELS "s3;ordnung;freigabe;maschinen;c3a;koeder")
+
+# =============================================================================
+# S-7 / Paket P2 (13.08.2026): ACHSEN-ALGO-HARDWARE-STEMPEL -- ZULASSUNGS-BRUECKE (KON9-05).
+# Strang-Marker 'S-7' -- eigener Block am DATEIENDE (Hotspot-Regel KON58-10; Namenskonvention
+# test_stempel_* -- NIE test_s7_*, 10 Bestandsdateien test_s7_1..test_s7_10 kollidieren).
+#
+# (1) test_stempel_vollbestand_registry: VOLLBESTANDS-BEWEIS ueber AllRegisteredOrganVariantsFlat
+#     (Syntax + S-3a-Relation reflexiv + Signatur-Deckung in 4 Welten; Nenner gemessen via mp_size,
+#     T-3 fremder Nenner = Enabled-Tabelle). Include-/Link-Satz wie die Geschwister-TU
+#     test_reflect_versions_all_registered (zieht alle Kompositions-Registries).
+comdare_add_test(test_stempel_vollbestand_registry
+    SOURCES test_stempel_vollbestand_registry.cpp)
+target_include_directories(test_stempel_vollbestand_registry PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_stempel_vollbestand_registry PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_stempel_vollbestand_registry PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_stempel_vollbestand_registry PROPERTIES
+    LABELS "s7;stempel;zulassung;vollbestand;koeder" TIMEOUT 120)
+
+# (2) test_stempel_zulassung_bruecke: die Bruecke END-TO-END am echten Call-Site (BuildOrchestrator
+#     mit injiziertem AlgoVersionFn-Provider + Maschinen-Belegung) + Probe-Klassen mit voller
+#     System-Achsen-Syntax + vnni-Doppelgaenger + Echt-Bestands-Nullwirkung. Include-/Link-Satz =
+#     Vereinigung aus dem A2-Block (BuildOrchestrator/experiment_tree -> xml_config_parser) und dem
+#     Registry-Satz darueber (axis_variant_version_table zieht alle Kompositions-Registries).
+comdare_add_test(test_stempel_zulassung_bruecke
+    SOURCES test_stempel_zulassung_bruecke.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+target_include_directories(test_stempel_zulassung_bruecke PRIVATE ${COMDARE_MCE24_INCLUDES})
+target_link_libraries(test_stempel_zulassung_bruecke PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_stempel_zulassung_bruecke PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_stempel_zulassung_bruecke PROPERTIES
+    LABELS "s7;stempel;zulassung;bruecke;koeder" TIMEOUT 120)

@@ -20,6 +20,7 @@
 #include "../bvset_teilmenge.hpp"  // Task #59: bvset_ist_teilmenge (registry-frei, kennt nur die Grammatik)
 #include "fingerprint_sidecar.hpp" // G4b-1/AUF-A2: fingerprint_sidecar_path (hierher extrahiert, Single Source)
 #include <cache_engine/measurement/axis_error.hpp> // opt-d/d1-carrier: CompilerCompilerErrorClass (A2-Hybrid Teil 1)
+#include <cache_engine/measurement/algo_stempel_zulassung.hpp> // S-7: Achsen-Algo-Hardware-Stempel-Zulassung (KON9-05)
 #include <cache_engine/measurement/simd_build_gate.hpp>        // Section 40.a-E4: flag-genaues Bau-Gate (Pruef-Dock)
 #include <cache_engine/measurement/simd_organ_requirement.hpp> // Section 40.a-E4: per-Binary organ_required-Aggregation
 
@@ -224,6 +225,25 @@ using FingerprintFn = std::function<std::string(std::string const&)>;
 // lazy_adhoc_fingerprint_for-Komposition wie den Bestands-Provider, nur mit dem bvset als Parameter statt als
 // vorab aufgeloester Konstante. Leer/ungesetzt = Teilmengen-Pfad AUS (byte-neutral).
 using BvsetFingerprintFn = std::function<std::string(std::string const&, std::string const&)>;
+// S-7 (KON9-05, 2026-08-13): (achse, wert) -> algo_version-Literal. Der Provider traegt die Versions-Welt in den
+// achsen-blinden Orchestrator, OHNE dass der die Registries kennt (die Facade baut ihn EINMAL je Lauf aus
+// build_axis_variant_version_table; die Versionen reisen NUR ueber diese Funktion -- kein Registry-Include hier).
+// PROVIDER-KONTRAKT:
+//   * LEERER String == "kein bekannter Versions-Stand fuer dieses Paar" -- im Gate NEUTRAL uebersprungen. Das
+//     deckt Achsen ohne Versions-Traegerschaft (Sub-Achsen-Ebenen "cacheline.*"/"node_width.*"/"alloc_hw.*",
+//     profile_to_tree.hpp:104-125, "tier") UND profil-eigene Werte ausserhalb der Enabled-Registry (gemessener
+//     Bestandsfall: planner_thesis_min permutiert search_algo=bplus; der .algos-Pfad stempelt dort den Sentinel
+//     als reine PROVENIENZ und baut trotzdem, compose_algo_signature :269/:291). Exakt die Behandlung, die
+//     required_of unbekannten Klassen und compose_algo_signature Nicht-Slots gibt: eine Version, die niemand
+//     deklariert hat, FORDERT nichts.
+//   * Ein NICHT-LEERES Literal ist eine BEHAUPTUNG des Providers und wird geurteilt: unparsbare/Sentinel-Formen
+//     ("0.0.0") parsen auf den K-5-Sentinel und fallen im Gate FAIL-CLOSED (HardwareErweiterungFehlt, geerbt
+//     aus flag_menge_in_signatur:103). Die Drift-Wache "jede registrierte Variante traegt eine parsbare
+//     Version" lebt NICHT hier, sondern compile-hart am Tabellen-Bau (W::algo_version-Zugriff +
+//     assert_version_grammar + guard_all_registered_organ_versions).
+// Leer/ungesetzt = Bruecke AUS (byte-neutral, exakt das Verhalten von vorher) -- gleiches opt-in-Muster wie
+// set_bvset_fingerprint_provider.
+using AlgoVersionFn = std::function<std::string(std::string const&, std::string const&)>;
 // W11 (Ledger §43.c, 2026-07-19): Completion-Hook -- feuert je Binary SOFORT nach der Finalisierung von results[j]
 // (aus dem Build-Worker-Thread, in COMPLETION-Reihenfolge, NICHT index-geordnet). Zweck: der BAU-Modus (provision_only)
 // haengt hier einen asynchronen Push-Pump ein, der die fertige perm.dll ueberlappend mit dem weiterlaufenden Bau in den
@@ -629,6 +649,16 @@ public:
     /// set_fingerprint_provider.
     void set_bvset_fingerprint_provider(BvsetFingerprintFn fn) { bvset_fingerprint_ = std::move(fn); }
 
+    /// S-7 (KON9-05): den Achsen-Algo-Versions-Provider setzen -- die ZULASSUNGS-BRUECKE
+    /// "Achsen-Version fordert Flags <= Maschinen-Signatur gibt frei" (Urteil:
+    /// measurement/algo_stempel_zulassung.hpp ueber flag_menge_in_signatur, S-3a).
+    ///
+    /// NICHT GESETZT = Bruecke AUS (byte-neutral, exakt das Verhalten von vorher) -- dasselbe
+    /// opt-in-Muster wie set_bvset_fingerprint_provider. VOR provision_all aufrufen. Der
+    /// Provider-Kontrakt (leer = kein Versions-Traeger, Sentinel = Tabellen-Drift) steht an der
+    /// AlgoVersionFn-Deklaration.
+    void set_algo_version_provider(AlgoVersionFn fn) { algo_version_ = std::move(fn); }
+
     /// Stellt ALLE Tier-Binaries des statischen Teilbaums bereit (rückwärtskompatibel): je Binary Source (KF-8)
     /// + DLL kompilieren — INKREMENTELL, RAM-gewahr, MULTITHREADED. ⚠️ results-Vektor O(view.size()): nur für
     /// HANDHABBARE Views (Pilot/Test); für riesige Inventare provision_all(view, selection, stats) (D2/L-73).
@@ -766,6 +796,38 @@ private:
                         r.outcome = std::unexpected(::comdare::cache_engine::measurement::BuildError{*gate_err});
                         finalize(j, std::move(r));
                         continue; // Log + weiter (baut/misst die uebrigen Binaries)
+                    }
+                }
+
+                // S-7 (KON9-05): der EIGENE Konjunktions-Block der STEMPEL-Zulassung, NACH dem
+                // required-Check -- zwei getrennte Fragen: oben "welche Flags DEKLARIERT das Organ als
+                // required" (heute leer, C-3a-Tripwire), hier "welche Flags FORDERT die Achsen-VERSION
+                // X.Y.Z" (S-3b Compile-Seite, KON16-02). Urteil je (achse, wert) ueber den EINEN Richter
+                // flag_menge_in_signatur (algo_stempel_zulassung.hpp). Provider nicht gesetzt = Bruecke
+                // AUS (byte-neutral). Leeres Literal = "kein bekannter Versions-Stand" => NEUTRAL
+                // uebersprungen (Sub-Achsen-Ebenen, "tier", profil-eigene Nicht-Registry-Werte wie
+                // search_algo=bplus -- Kontrakt an der AlgoVersionFn-Deklaration); ein nicht-leeres
+                // Sentinel-/Fehl-Literal ist eine BEHAUPTUNG, parst auf den Sentinel und faellt
+                // fail-closed. Heute lehnt der Block nachweislich NIE ab (alle 123 Bestands-Literale
+                // sind nackte c-Formen, CT-Batterie in algo_stempel_zulassung.hpp) -- byte-/golden-
+                // neutral by construction.
+                if (algo_version_) {
+                    std::optional<::comdare::cache_engine::measurement::CompilerCompilerErrorClass> stempel_err;
+                    for (auto const& [achse, wert] : spec.axes) {
+                        std::string const literal = algo_version_(achse, wert);
+                        if (literal.empty()) continue; // kein Versions-Traeger: neutral (s. Kontrakt)
+                        stempel_err = ::comdare::cache_engine::measurement::stempel_zulassung_je_achse(
+                            ::comdare::cache_engine::measurement::parse_algo_semver(literal),
+                            ::comdare::cache_engine::measurement::active_machine_signature());
+                        if (stempel_err) break;
+                    }
+                    if (stempel_err) {
+                        r.status  = -4; // Stempel-Ablehnung: die Achsen-Version fordert nicht freigegebene Hardware
+                        r.message = std::string{"simd-gate(stempel): "} +
+                                    std::string{::comdare::cache_engine::measurement::error_class_label(*stempel_err)};
+                        r.outcome = std::unexpected(::comdare::cache_engine::measurement::BuildError{*stempel_err});
+                        finalize(j, std::move(r));
+                        continue; // gleiche D1-Behandlung wie oben: Log + weiter, kein Abbruch
                     }
                 }
 
@@ -928,6 +990,7 @@ private:
     BinaryDoneFn  on_binary_done_; // W11: per-Binary Completion-Hook (BAU-Modus async Push-Feed); leer = byte-neutral
     FingerprintFn fingerprint_;    // I2: binary_id -> 128-hex K7b-Fingerprint (.fingerprint-Sidecar); leer=byte-neutral
     BvsetFingerprintFn bvset_fingerprint_; // Task #59: (binary_id, bvset) -> 128-hex; leer = Teilmengen-Pfad AUS
+    AlgoVersionFn      algo_version_;      // S-7: (achse, wert) -> algo_version-Literal; leer = Bruecke AUS
 };
 
 namespace detail {
