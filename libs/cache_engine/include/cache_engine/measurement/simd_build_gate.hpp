@@ -193,7 +193,7 @@ admit_organ_on_machine(std::span<SimdFeatureFlag const> organ_required,
 //
 // BYTE-KLASSE: byte-neutral scharf. Der DOMINANTE Schalter ist die Organ-Seite, und die ist leer
 // (simd_organ_requirement.hpp:88 static_assert -- alle 9 Klassen tragen kRequiredNone). Damit bleibt
-// pruef_dock NotApplicable, die rsp-Zeilen sind zeichengleich, und build_orchestrator.hpp:458-459
+// pruef_dock NotApplicable, die rsp-Zeilen sind zeichengleich, und build_orchestrator.hpp:783ff
 // betritt seinen Gate-Block nie. Belegt per rsp-Diff je Route im unregistrierten C-3a-Test.
 //
 // NOT-AUS: ein Knopf, kein CMake-Schalter (§73.1 "keine Skripte ausser CMake, und CMake sparsam").
