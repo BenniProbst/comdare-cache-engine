@@ -254,6 +254,12 @@ build:arm64-smoke:
   stage: test
   tags: [arm64]
   needs: []
+  # DEKLARIERTE AUSNAHME (NE-20-Triage/KF #26c 14.08.2026) von der Owner-Doktrin 06.07. ("kein
+  # allow_failure"; ZELLE=Warnung, JOB=rot): der Job braucht einen arm64-Runner (tag arm64,
+  # node7-rpi5), den die Infra derzeit nicht stellt (node7-Freeze/Toolchain-Luecke -> Task #23,
+  # K87b-Montags-Audit); er ist seit #270b (22a975d2, 2026-07-07) opt-in (COMDARE_ISA_MATRIX) +
+  # advisory. Das Flag heisst hier "Infra-Luecke blockiert die Hauptpipeline nicht", nicht
+  # "Fehler egal". Bei der harten Scharfschaltung (#276) diese Ausnahme NEU triagieren.
   allow_failure: true
   rules:
     - if: '$COMDARE_ISA_MATRIX == "true"'
@@ -916,6 +922,13 @@ is_original:relock:
   needs: ["lint:secrets"]
   rules:
     - when: manual
+  # DEKLARIERTE AUSNAHME (NE-20-Triage/KF #26c 14.08.2026) von der Owner-Doktrin 06.07. ("kein
+  # allow_failure"; ZELLE=Warnung, JOB=rot): manueller Wartungsjob (rules when:manual, kein
+  # Auto-Trigger, kein Gate-Weg; seit f4611557, 2026-07-01, #188-4b-b-V) -- erzeugt die 13
+  # LF-Locks EINMALIG als Artefakt. Unter rules: gilt fuer when:manual der Default
+  # allow_failure:false; ohne das Flag stuende JEDE Pipeline BLOCKED, bis jemand den
+  # Wartungsjob spielt. Das Flag heisst hier "darf ungespielt bleiben", nicht "Fehler egal".
+  # Wird der Job je Auto-Trigger/Gate-Weg: Ausnahme NEU triagieren.
   allow_failure: true
   script:
     - cmake -B build-relock -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_CE_UPDATE_ORIGINAL_LOCKS=ON
