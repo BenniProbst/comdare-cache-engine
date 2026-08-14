@@ -312,6 +312,16 @@ constexpr JobEintrag kJobTabelle[] = {
     {"chaos:drift", JobArt::SuiteTraeger, Deckung::Keine, "", "", "Drift-Suite (chaos)."},
     {"test:unit", JobArt::SuiteTraeger, Deckung::Keine, "", "",
      "Voll-Suite ohne die Hardware-Klasse 'pmc' (Manifest test_unit)."},
+    // CI-DUAL 14.08. (Owner verbatim; KON22-01/8, KON55/KON55-01, T-11b): die drei
+    // Zusatz-Zellen der {gcc,clang} x {Release,Debug}-Matrix. Gleiche Suite, gleicher
+    // Manifest-Weg (make check) -- SuiteTraeger wie test:unit; sie rufen keine
+    // Klasse-A-Wache und publizieren keine zweite Inventur (D1c bleibt bei test:unit).
+    {"test:unit:debug", JobArt::SuiteTraeger, Deckung::Keine, "", "",
+     "Zelle gcc x Debug der CI-DUAL-Matrix (Kette GCC hinter test:unit)."},
+    {"test:unit:clang", JobArt::SuiteTraeger, Deckung::Keine, "", "",
+     "Zelle clang x Release der CI-DUAL-Matrix (Kette CLANG hinter build:clang)."},
+    {"test:unit:clang:debug", JobArt::SuiteTraeger, Deckung::Keine, "", "",
+     "Zelle clang x Debug der CI-DUAL-Matrix (Kette CLANG hinter test:unit:clang)."},
     {"sanitize:tsan", JobArt::SuiteTraeger, Deckung::Keine, "", "", "TSan-Suite."},
 };
 

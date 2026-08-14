@@ -161,9 +161,13 @@ build:clang:
   tags: [baremetal]
   rules:
     - when: on_success
-  cache:   # ccache-Hygiene 04.08.: eigene Objektklasse (clang) = eigener Key, DIESER Job ist ihr Writer
+  # CI-DUAL 14.08.: WRITER-WECHSEL. Der Writer des clang-Keys ist jetzt test:unit:clang (Voll-Suite
+  # = maximale Objekt-Abdeckung, dasselbe Muster wie der Haupt-Key :77-82); dieser fruehe Bau-Gate-Job
+  # ist Konsument (policy: pull) -- ein Key, GENAU EIN Writer (ccache-Hygiene 04.08.).
+  cache:
     key: "ccache-$CI_PROJECT_NAME-clang-a8"
     paths: [".ccache"]
+    policy: pull
   variables:
     COMDARE_CMAKE_SOURCE_DIR: "."
     COMDARE_AUDIT_BUILD_TYPE: "Release"
@@ -1101,6 +1105,105 @@ test:unit:
     #  Sollbruchstelle: er galt fuer die 5 Tests von damals und wurde nie wieder nachgerechnet.
     #  Von R4 (06.08.) abgeloest; die Auswahl kommt seither aus dem Manifest und wird von der
     #  Abdeckungs-Wache gegengerechnet -- daran aendert die GNU-Umstellung nichts.]
+
+# =============================================================================
+# CI-DUAL 14.08. (Owner verbatim: "in ALLEN pipelines aller C++ Projekte ... mit gcc und clang dual
+# in compile Release und Debug"): die Voll-Suite faehrt als VIER ZELLEN {gcc,clang} x {Release,Debug}
+# (KON22-01/8: beide Compiler Pflicht, skip VERBOTEN; KON55/KON55-01; Paragraf 61; T-11b: je Zelle
+# literale ctest-Bilanz; KON60-09: Voll-ctest je Pipeline).
+#   Kette GCC:   test:unit (Release, Bestand) -> test:unit:debug
+#   Kette CLANG: build:clang (fruehes Bau-Gate) -> test:unit:clang -> test:unit:clang:debug
+# Zellen INNERHALB einer Kette strikt seriell via needs (OOM-Doktrin: nie 4 parallele Vollbauten;
+# Spitze bleibt <= 3 gleichzeitige Vollbauten, Deckel prod1). ccache: je Compiler x BuildType ein
+# eigener Key mit GENAU EINEM Writer (Regression 04.08., :48-55). Kein allow_failure, kein
+# Abschalt-Gate. Die Inventur-/Host-Proben-Publikation (D1c/F1b) bleibt EXKLUSIV bei test:unit --
+# sonst zwei Schreiber am selben Artefakt-Pfad und die Abdeckungs-Wache verloere ihre eindeutige
+# Gegenquelle.
+# =============================================================================
+test:unit:debug:
+  extends: .test
+  stage: test
+  tags: [baremetal]
+  needs: ["test:unit"]
+  cache:
+    key: "ccache-$CI_PROJECT_NAME-gcc-dbg-a8"
+    paths: [".ccache"]
+  script:
+    - |
+      set -euo pipefail
+      _CC=cc; _CXX=c++
+      if command -v gcc-15 >/dev/null 2>&1; then _CC=gcc-15; fi
+      if command -v g++-15 >/dev/null 2>&1; then _CXX=g++-15; fi
+      echo "GNU-Bauweg (gcc, Debug): CC=$_CC CXX=$_CXX"
+      CC="$_CC" CXX="$_CXX" sh ./configure.sh --with-generator=Ninja --enable-build-tests \
+        --with-build-type=Debug --build-dir=build-dbg
+      _built=0
+      for _a in 1 2 3 4; do
+        if make BUILD_JOBS="${CMAKE_BUILD_PARALLEL_LEVEL:-4}"; then _built=1; break; fi
+        echo "Bau-Versuch $_a fehlgeschlagen -> ninja-Resume-Retry"
+      done
+      [ "$_built" = 1 ] || { echo "FEHLER: 'make' nach 4 Versuchen nicht erfolgreich"; exit 4; }
+      make check CTEST_EXTRA="--output-junit $(pwd)/ctest-junit.xml"
+  variables:
+    COMDARE_TEST_CMAKE_BUILD_DIR: "build-dbg"
+
+test:unit:clang:
+  extends: .test
+  stage: test
+  tags: [baremetal]
+  needs: ["build:clang"]
+  cache:   # WRITER des clang-Keys (Voll-Suite = maximale Objekt-Abdeckung; build:clang ist pull-only)
+    key: "ccache-$CI_PROJECT_NAME-clang-a8"
+    paths: [".ccache"]
+  script:
+    - |
+      set -euo pipefail
+      _CXX=""; _CC=""
+      for v in 22 21 20 19 18 17 16; do
+        if command -v "clang++-$v" >/dev/null 2>&1; then _CXX="clang++-$v"; _CC="clang-$v"; break; fi
+      done
+      [ -n "$_CXX" ] || { echo "FEHLER: kein clang auf Runner (Infra-HO, #273-Muster)"; exit 5; }
+      echo "GNU-Bauweg (clang, Release): CC=$_CC CXX=$_CXX ($($_CXX --version | head -n1))"
+      CC="$_CC" CXX="$_CXX" sh ./configure.sh --with-generator=Ninja --enable-build-tests \
+        --with-build-type=Release --build-dir=build-clang
+      _built=0
+      for _a in 1 2 3 4; do
+        if make BUILD_JOBS="${CMAKE_BUILD_PARALLEL_LEVEL:-4}"; then _built=1; break; fi
+        echo "Bau-Versuch $_a fehlgeschlagen -> ninja-Resume-Retry"
+      done
+      [ "$_built" = 1 ] || { echo "FEHLER: 'make' nach 4 Versuchen nicht erfolgreich"; exit 4; }
+      make check CTEST_EXTRA="--output-junit $(pwd)/ctest-junit.xml"
+  variables:
+    COMDARE_TEST_CMAKE_BUILD_DIR: "build-clang"
+
+test:unit:clang:debug:
+  extends: .test
+  stage: test
+  tags: [baremetal]
+  needs: ["test:unit:clang"]
+  cache:
+    key: "ccache-$CI_PROJECT_NAME-clang-dbg-a8"
+    paths: [".ccache"]
+  script:
+    - |
+      set -euo pipefail
+      _CXX=""; _CC=""
+      for v in 22 21 20 19 18 17 16; do
+        if command -v "clang++-$v" >/dev/null 2>&1; then _CXX="clang++-$v"; _CC="clang-$v"; break; fi
+      done
+      [ -n "$_CXX" ] || { echo "FEHLER: kein clang auf Runner (Infra-HO, #273-Muster)"; exit 5; }
+      echo "GNU-Bauweg (clang, Debug): CC=$_CC CXX=$_CXX ($($_CXX --version | head -n1))"
+      CC="$_CC" CXX="$_CXX" sh ./configure.sh --with-generator=Ninja --enable-build-tests \
+        --with-build-type=Debug --build-dir=build-clang-dbg
+      _built=0
+      for _a in 1 2 3 4; do
+        if make BUILD_JOBS="${CMAKE_BUILD_PARALLEL_LEVEL:-4}"; then _built=1; break; fi
+        echo "Bau-Versuch $_a fehlgeschlagen -> ninja-Resume-Retry"
+      done
+      [ "$_built" = 1 ] || { echo "FEHLER: 'make' nach 4 Versuchen nicht erfolgreich"; exit 4; }
+      make check CTEST_EXTRA="--output-junit $(pwd)/ctest-junit.xml"
+  variables:
+    COMDARE_TEST_CMAKE_BUILD_DIR: "build-clang-dbg"
 
 # ── #204/264-b: TSan-Job (Thread-Sanitizer, NICHT mit ASan kombinierbar -> eigener Build). Advisory bis 264-d.
 # Nur Threading-Targets; DLL-dlopen-Tests bewusst ausgeklammert (Sanitizer-Interceptor/RTLD-heikel).
