@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // Tests fuer ycsb_cli (Phase C, 2026-05-13)
 
 #include <gtest/gtest.h>

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // V41.F.6.1.R5.F — comdare-anatomy-codegen-tool CLI Wrapper
 //
 // Generiert ein CMake-Composition-Snippet aus einer Selektion der 11 known

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // Tests fuer Phase 7.2: CodegenEngine + Aggregator-CMakeLists.txt
 //
 // Diese Tests laufen ohne realen cmake-Subbuild — sie verifizieren nur, dass:

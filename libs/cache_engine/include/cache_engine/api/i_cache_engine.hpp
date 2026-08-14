@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // V41.E11 (Skelett 2026-05-25) → F5.R1 (#35, 2026-07-16) — ICacheEngine: Master-Framework-Gesamt-Fassade.
 //
 // ZWECK: cache-engine ist Master-Framework. Konsumenten (Diplomarbeit / ExperimentDriver) linken NUR gegen

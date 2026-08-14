@@ -3,9 +3,25 @@ comdare-cache-engine
 Active Cache-Aware Hardware Adaptation Cache Engine for Trie-Based Index Structures
 TU Dresden Diplomarbeit · BEP Venture UG / Marke Comdare
 
-Copyright 2026 BEP Venture UG (Marke Comdare)
-Licensed under the Apache License, Version 2.0 (the "License");
-see LICENSE file in the project root for license terms.
+Copyright (c) 2026 BEP Venture UG (haftungsbeschraenkt), owner of the
+registered trademark "Comdare".
+
+SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
+Licensed under the Comdare Research License, Version 1.0; see the file
+LICENSE in the project root for the binding terms.
+
+  Source-available and free for research at an institution. Business use and
+  individual use each require a separate written license. On the Change Date
+  2031-08-10 the Software becomes available to everyone under the Apache
+  License, Version 2.0 (LICENSE, Section 9).
+
+  History, because it stays valid: revisions published before 2026-08-02 were
+  licensed under the Apache License, Version 2.0; revisions from 2026-08-02 to
+  2026-08-09 under a dual Research-and-Teaching / Commercial license. Both
+  grants remain valid for the revisions they covered and cannot be withdrawn.
+
+  The third-party components listed below are NOT covered by that license.
+  Each keeps its own license, before and after the Change Date.
 
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -505,6 +521,27 @@ Comdare role  : sole external dependency of libxlsxwriter (deflate for the
                 matrix and newly added platforms.
 
 
+Project       : liburing
+Source URL    : https://github.com/axboe/liburing
+Path          : ext/io/liburing/
+Tag / Commit  : liburing-2.6
+License       : dual LGPL-2.1 AND MIT, at the recipient's choice
+                (COPYING = LGPL-2.1, LICENSE = MIT). One kernel header is
+                dual GPL-2-with-Linux-syscall-note AND MIT (COPYING.GPL).
+                Comdare exercises the MIT option throughout; under MIT this
+                attribution notice is the condition of use, which is why this
+                entry exists.
+Copyright     : Copyright 2020 Jens Axboe and the liburing contributors
+Comdare role  : io_uring backend of the SpoolWriter. NOT part of the default
+                build: COMDARE_WRITER_BACKEND defaults to "portable" and only
+                the value "io_uring" pulls this component in
+                (libs/cache_engine/builder/CMakeLists.txt:10,
+                apps/cache_engine_builder/CMakeLists.txt:43-48). The gate
+                test test_g3_writer_backend_io_uring links it unconditionally
+                (tests/unit/CMakeLists.txt:5756-5765), so it IS built in CI --
+                that is the reason this entry may not be omitted.
+
+
 ───────────────────────────────────────────────────────────────────────────────
 DOCUMENTATION REFERENCES
 ───────────────────────────────────────────────────────────────────────────────
@@ -547,8 +584,10 @@ Konsequenz fuer die ext/-Repos in dieser Distribution:
     Original-Compiler des urspruenglichen Repos gebaut, ueber das
     Adapter-Modul-System (siehe `libs/cache_engine/builder/`).
   • Das resultierende Werk (Permutations-Modul) ist ein NEUES WERK im
-    forschungs-akademischen Sinne, dessen Lizenz von der COMDARE-Apache-2.0-
-    Lizenz dieser Distribution abgeleitet ist.
+    forschungs-akademischen Sinne, dessen Lizenz von der Comdare Research
+    License 1.0 dieser Distribution abgeleitet ist (bis 2026-08-01 war das
+    die Apache-2.0-, bis 2026-08-09 die Dual-Lizenz; die Ableitung folgt
+    jeweils der zur Veroeffentlichung geltenden Fassung).
   • Die Pflicht zur Original-Werk-Zitation und zur Beibehaltung der
     Original-LICENSE-Dateien in `ext/` bleibt unveraendert bestehen.
 

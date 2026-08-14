@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // Tests fuer comdare::hbm (Aufgabe #106)
 
 #include <cache_engine/hbm/hbm_hierarchy.hpp>

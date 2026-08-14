@@ -1,29 +1,324 @@
-Comdare Cache Engine -- Dual License
+Comdare Research License, Version 1.0
+=====================================
+Source-Available. Free for Research. Proprietary for Everything Else.
+Becomes Apache-2.0 on the Change Date named in Section 9.
+
+SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 
 Copyright (c) 2026 BEP Venture UG (haftungsbeschraenkt),
-owner of the registered trademark "Comdare".
+owner of the registered trademark "Comdare". All rights reserved.
 
-This software core is dual-licensed (Owner decision of 2026-08-02):
+    Repository: comdare-cache-engine
+    Change Date: 2031-08-10
+    Change License: Apache License, Version 2.0
 
-1. RESEARCH AND TEACHING LICENSE (free of charge)
-   Use, reproduction, and modification of the program code for research and
-   teaching purposes -- including academic assessment, university research,
-   and non-commercial scientific work -- are permitted free of charge.
-   Copies distributed for such purposes must retain this notice.
 
-2. COMMERCIAL LICENSE (separate agreement required)
-   Any business or commercial use -- including, without limitation, use in
-   products or services, or in internal business operations -- requires a
-   separate license from BEP Venture UG (haftungsbeschraenkt). Please contact
-   the rights holder to obtain one.
+PREAMBLE (non-binding orientation)
+----------------------------------
+This software is PROPRIETARY. Its complete source code is nevertheless
+published, so that anyone may read it, audit it and verify what it does.
+Visibility is granted permanently. Permission to USE the software is granted
+narrowly, and only to research -- until the Change Date, after which the
+software becomes available to everyone under the Apache License 2.0.
 
-All rights not expressly granted herein remain with
-BEP Venture UG (haftungsbeschraenkt).
+This is NOT open source in the sense of the Open Source Definition of the
+Open Source Initiative, and it is not intended to be. It is also NOT a
+"noncommercial" license in the usual sense: the usual noncommercial licenses
+give private individuals a free hand, and this one deliberately does not.
 
-NOTE ON HISTORY: Revisions of this repository published before 2026-08-02
-were licensed under the Apache License 2.0; that grant remains valid for
-those earlier revisions. This dual license applies to revisions from
-2026-08-02 onward.
+  ANYONE                      may read, study, audit and review the source.
+  RESEARCH AT AN INSTITUTION  may additionally use, build, run and modify it,
+                              free of charge.
+  BUSINESS USE                requires a separate written license.
+  PRIVATE / INDIVIDUAL USE    requires a separate written license.
+  EVERYONE, FROM 2031-08-10   receives the Apache License 2.0 (Section 9).
 
-Vendored third-party components (e.g. under ext/) retain their own licenses;
-see the respective subdirectories.
+The binding terms follow.
+
+
+1. DEFINITIONS
+--------------
+1.1  "Licensor" means BEP Venture UG (haftungsbeschraenkt), a German limited
+     liability company and the holder of the rights in the Software. The
+     trademark "Comdare" is a trademark of the Licensor; it is a mark, not a
+     legal entity, and is never itself a party to this license.
+
+1.2  "Software" means the source code, build system, configuration files,
+     documentation, generated artifacts and measurement data contained in the
+     repository comdare-cache-engine, EXCLUDING the Third-Party Components
+     defined in Section 8.
+
+1.3  "You" means the natural or legal person exercising rights under this
+     license.
+
+1.4  "Research Institution" means
+     (a) a university, university of applied sciences, school or other
+         accredited educational institution;
+     (b) a public or non-profit research organization;
+     (c) a public research infrastructure, computing centre or library; or
+     (d) a charitable organization, a public safety or health organization,
+         an environmental protection organization, or a government
+         institution,
+     in each case regardless of the source of its funding and regardless of
+     obligations resulting from that funding.
+
+1.5  "Research Use" means use of the Software
+     (a) BY a Research Institution, or by a person acting in their capacity as
+         a member, student, employee, guest researcher, supervisor, examiner
+         or contractor of a Research Institution, AND
+     (b) FOR scientific research, teaching, academic instruction, academic
+         examination, scientific publication, reproduction or verification of
+         published results, or archival of any of the foregoing.
+
+     Both (a) and (b) must be satisfied. Use that serves a research purpose
+     but is not attached to a Research Institution is NOT Research Use.
+
+1.6  "Business Use" means any use that is primarily intended for or directed
+     toward commercial advantage or monetary compensation, including use in a
+     product or service offered to third parties, use in the internal
+     operations of a for-profit entity, use to provide paid consulting or
+     paid support, and use to develop, train, evaluate or validate anything
+     intended for sale.
+
+1.7  "Individual Use" means use by a natural person that is neither Research
+     Use nor Business Use -- including private study outside a Research
+     Institution, hobby projects, amateur pursuits, private experimentation,
+     private benchmarking and personal entertainment.
+
+     NOTE, so that no one is misled: Individual Use is NOT free of charge
+     under this license. This departs deliberately from the common
+     "noncommercial" licenses, which do permit such use without payment.
+
+1.8  "Change Date" means 2031-08-10. "Change License" means the Apache
+     License, Version 2.0.
+
+
+2. RIGHT TO READ (granted to everyone)
+--------------------------------------
+2.1  The Licensor publishes the complete source code of the Software.
+
+2.2  Everyone -- irrespective of Sections 3 to 5 -- is permitted, without
+     charge and without a separate agreement, to obtain, retain, read, study,
+     analyse, audit and review that source code, and to publish and discuss
+     their findings about it, including findings critical of it.
+
+2.3  This right exists so that the Software can be verified rather than merely
+     trusted. It confers no right to build, run, modify or distribute the
+     Software. It survives termination under Section 11.
+
+2.4  Quotation for the purposes of criticism, review, reporting and scientific
+     citation is permitted to the extent allowed by applicable law, and this
+     license does not narrow it.
+
+
+3. RESEARCH USE GRANT (free of charge)
+--------------------------------------
+3.1  Subject to this license, the Licensor grants You a non-exclusive,
+     worldwide, royalty-free, non-transferable and non-sublicensable license
+     to use, reproduce, build, execute, measure and modify the Software, and
+     to prepare works based on it, in each case exclusively for Research Use.
+
+3.2  You may distribute the Software, and works based on it, exclusively for
+     Research Use, exclusively to recipients who themselves qualify for
+     Research Use, and exclusively under this same license, unmodified in its
+     terms, with this license file and the file NOTICE included.
+
+3.3  If You distribute a modified version, You must mark it prominently as
+     modified, state the nature of the modification, and must not present it
+     as the Licensor's work or under the Licensor's trademarks.
+
+3.4  Publishing research results obtained with the Software -- including
+     measurements, figures, tables and derived data -- is permitted without
+     restriction and without a fee, and the Licensor claims no rights in such
+     results. Attribution of the Software is requested but not required.
+
+
+4. ACADEMIC EXAMINATION GRANT
+-----------------------------
+4.1  The Software accompanies a diploma thesis submitted by Benjamin-Elias
+     Probst to Technische Universitaet Dresden.
+
+4.2  Supervisors, examiners, reviewers, examination boards and archival
+     services of that institution are permitted to obtain, read, build,
+     execute, measure, modify, reproduce and archive the Software to the
+     extent required to assess, verify, reproduce or archive that thesis and
+     its results, including on institutional infrastructure and including
+     retention for the periods prescribed by that institution's examination
+     and good-scientific-practice rules.
+
+4.3  This grant is irrevocable with respect to the revision submitted for
+     assessment, and it prevails over Sections 3, 5 and 11. No fee is due
+     for it, and no separate agreement is required.
+
+
+5. BUSINESS USE AND INDIVIDUAL USE -- LICENSE REQUIRED
+------------------------------------------------------
+5.1  Business Use and Individual Use are NOT licensed under this license
+     before the Change Date. Each requires a separate written license from
+     the Licensor.
+
+5.2  Contact the Licensor to obtain one. The Licensor is under no obligation
+     to grant one and may grant one on any terms it chooses.
+
+5.3  The Licensor may publish standard terms for either case. Until it does,
+     the only route is an individual agreement.
+
+
+6. RESERVED RIGHTS AND PROHIBITED USES
+--------------------------------------
+6.1  All rights not expressly granted in this license are reserved by the
+     Licensor.
+
+6.2  Without limiting Section 6.1, You may NOT, before the Change Date and
+     absent a separate written agreement under Section 5:
+
+     (a) use the Software for Business Use or Individual Use;
+     (b) sell, rent, lease, lend, sublicense or otherwise commercially
+         distribute the Software or any work based on it;
+     (c) provide the Software, or any substantial part of its functionality,
+         to third parties as a hosted, managed or software-as-a-service
+         offering;
+     (d) incorporate the Software, or any substantial part of it, into a
+         product or service offered to third parties;
+     (e) remove, obscure, alter or falsify any copyright notice, license
+         notice, attribution or provenance record;
+     (f) use the trademark "Comdare" or the Licensor's other trademarks,
+         trade names or logos, except for factual and nominative reference to
+         the Software or the Licensor.
+
+6.3  No patent license is granted by implication, estoppel or otherwise
+     before the Change Date. From the Change Date the patent grant of the
+     Change License applies (Section 9.4).
+
+
+7. FEEDBACK
+-----------
+If You voluntarily send the Licensor suggestions, patches, bug reports or
+other feedback concerning the Software, You grant the Licensor a perpetual,
+irrevocable, worldwide, royalty-free license to use and exploit that feedback
+without restriction and without obligation to You. You are not required to
+send feedback, and sending it is not a condition of any grant above.
+
+
+8. THIRD-PARTY COMPONENTS
+-------------------------
+8.1  This repository may contain third-party software, in particular under the
+     directory `ext/`. Those components are NOT part of the Software as
+     defined in Section 1.2 and are NOT licensed to You under this license.
+
+8.2  Each third-party component remains subject to its own license, which is
+     reproduced unchanged in the corresponding subdirectory. The file NOTICE
+     lists those components, their origin and their licenses.
+
+8.3  Some of those components are licensed under the GNU General Public
+     License, Version 3, or the GNU Lesser General Public License, Version
+     2.1 or later. Those licenses apply to those components in full. Nothing
+     in this license modifies, narrows, supersedes or purports to relicense
+     them, and nothing in this license grants You any right in them beyond
+     what their own licenses grant.
+
+8.4  If You combine any such component with the Software in a way that creates
+     a combined work within the meaning of that component's license, that
+     component's license governs the combined work, and it is Your
+     responsibility to comply with it. The Licensor's own default build does
+     not create such a combined work; the corresponding build switches are
+     off by default.
+
+8.5  Section 9 does not apply to the Third-Party Components. The Change Date
+     changes the license of the Software only. Each third-party component
+     keeps its own license before and after that date.
+
+
+9. LICENSE HISTORY AND THE CHANGE DATE
+--------------------------------------
+9.1  Revisions of this repository published before 2026-08-02 were licensed
+     under the Apache License, Version 2.0. Revisions published from
+     2026-08-02 up to and including 2026-08-09 were licensed under a dual
+     Research-and-Teaching / Commercial license. This license applies to
+     revisions published from 2026-08-10 onward.
+
+9.2  Both earlier grants are perpetual and irrevocable as to the revisions
+     they covered. Anyone who obtained such a revision retains, for that
+     revision, every right the license under which it was published confers,
+     including -- for the Apache-2.0 period -- the right to use it
+     commercially and privately. This license does not, and cannot, withdraw
+     either grant.
+
+9.3  On the Change Date, 2031-08-10, the Licensor grants to everyone, for
+     every revision of the Software published under this license, the Change
+     License: the Apache License, Version 2.0. This grant is irrevocable and
+     takes effect automatically, without any further act of the Licensor.
+
+9.4  From the Change Date, the Change License governs, and Sections 3, 5, 6
+     and 11 of this license cease to restrict You. Section 8 continues to
+     apply to the Third-Party Components.
+
+9.5  The Licensor may bring the Change Date forward, but not move it back.
+
+
+10. NO WARRANTY, LIMITATION OF LIABILITY
+----------------------------------------
+10.1 THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF
+     ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE AND
+     NONINFRINGEMENT. THE LICENSOR DOES NOT WARRANT THAT THE SOFTWARE IS FREE
+     OF DEFECTS OR THAT ITS MEASUREMENTS ARE ACCURATE.
+
+10.2 TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSOR SHALL NOT
+     BE LIABLE FOR ANY CLAIM, DAMAGE, LOSS OR OTHER LIABILITY, WHETHER IN
+     CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
+     THE SOFTWARE OR ITS USE.
+
+10.3 Mandatory liability under applicable law, in particular liability for
+     intent and gross negligence, for injury to life, body or health, and
+     liability under the German Product Liability Act, remains unaffected.
+
+
+11. TERMINATION
+---------------
+11.1 Your rights under Section 3 terminate automatically if You breach this
+     license and fail to cure the breach within 30 days after becoming aware
+     of it.
+
+11.2 Sections 2, 4, 6, 8, 9, 10 and 12 survive termination.
+
+11.3 Termination does not affect any right You hold under Section 9, neither
+     under the historic grants of Section 9.1 nor under the Change License
+     once the Change Date has passed.
+
+
+12. GOVERNING LAW AND MISCELLANEOUS
+-----------------------------------
+12.1 This license is governed by the laws of the Federal Republic of Germany,
+     excluding its conflict-of-laws rules and the UN Convention on Contracts
+     for the International Sale of Goods.
+
+12.2 Exclusive place of jurisdiction, to the extent legally permissible, is
+     the registered seat of the Licensor as entered in the German commercial
+     register.
+
+12.3 If any provision of this license is or becomes invalid or unenforceable,
+     the remaining provisions remain in force. The invalid provision shall be
+     replaced by a valid one that comes closest to its economic purpose.
+
+12.4 The Licensor may publish later versions of this license for future
+     revisions. Any revision You already obtained remains governed by the
+     license under which it was published.
+
+
+===============================================================================
+NOTE ON ENTITIES (informative, keep it in the file)
+===============================================================================
+Benjamin-Elias Probst and BEP Venture UG (haftungsbeschraenkt) are two
+DIFFERENT legal persons and must never be abbreviated to the same short form.
+
+  Benjamin-Elias Probst                 a natural person; author of the diploma
+                                        thesis; holds the copyright in the
+                                        THESIS TEXT.
+  BEP Venture UG (haftungsbeschraenkt)  a company; holds the rights in this
+                                        SOFTWARE; licensor under this license.
+  Comdare                               a registered trademark of the company;
+                                        a mark, never a legal entity, never a
+                                        licensor.
+
+"BEP" on its own denotes neither of them. Write both names out in full.

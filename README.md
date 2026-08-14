@@ -4,7 +4,8 @@
 
 Diplomarbeit · TU Dresden · Datenbankentwicklung mit Spezialisierung in Suchalgorithmen
 Pruefungsordnung 2010 · Hauptbetreuer: Prof. Dr. Dirk Habich, Dr. Alexander Krause
-Lizenz: Apache 2.0 · BEP Venture UG / Marke Comdare
+Lizenz: Comdare Research License 1.0 (`LicenseRef-Comdare-Research-1.0`)
+Rechtsinhaber: BEP Venture UG (haftungsbeschraenkt), Marke Comdare
 
 ---
 
@@ -195,5 +196,23 @@ Siehe `ext/STATUS_UEBERSICHT.md` und parallel:
 
 ## Lizenz
 
-Apache License 2.0 — siehe [LICENSE](LICENSE).
-Externe Originalcode-Bausteine unter `ext/<paper>/` behalten ihre Originallizenz.
+**Comdare Research License 1.0** — siehe [LICENSE](LICENSE).
+SPDX: `LicenseRef-Comdare-Research-1.0`. Keine OSI-Lizenz, und keine
+Noncommercial-Lizenz im ueblichen Sinne: die uebliche Noncommercial-Lizenz gibt
+Privatpersonen freie Hand, diese ausdruecklich nicht.
+
+| Wer | Was |
+|---|---|
+| jede und jeder | Quelltext lesen, pruefen, zitieren, kritisieren — dauerhaft, kostenlos |
+| Forschung an einer Einrichtung | zusaetzlich bauen, ausfuehren, messen, aendern — kostenlos |
+| Pruefende der TU Dresden | eigener, unwiderruflicher Abschnitt fuer die Begutachtung |
+| Business-Nutzung | eigener schriftlicher Vertrag |
+| **Einzelnutzung (privat)** | **ebenfalls eigener schriftlicher Vertrag — nicht kostenlos** |
+| ab **2031-08-10** | alle, unter Apache License 2.0 (Change Date, LICENSE Abschnitt 9) |
+
+Frueher vergebene Rechte bleiben: Revisionen vor dem 2026-08-02 stehen unter
+Apache-2.0, Revisionen bis 2026-08-09 unter der Dual-Lizenz. Beide Zusagen sind
+unwiderruflich und werden hier nicht zurueckgenommen.
+
+Externe Originalcode-Bausteine unter `ext/` sind **nicht** Teil der Software im
+Sinne dieser Lizenz und behalten ihre Originallizenz; siehe [NOTICE](NOTICE).

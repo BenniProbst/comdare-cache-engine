@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 BEP Venture UG (Marke Comdare)
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
+// Copyright (c) 2026 BEP Venture UG (haftungsbeschraenkt), Marke Comdare
 //
 // latex_anhang — Konvertiert measurements.csv (oder .json) zur
 // Diplomarbeits-LaTeX-Tabelle (Phase 8, REV 7 §8).

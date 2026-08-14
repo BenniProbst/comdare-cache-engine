@@ -1,5 +1,5 @@
 #pragma once
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // ycsb_cli -- die Schnittstelle des Werkzeugs, an EINER Stelle.
 //
 // WARUM ES DIESEN HEADER GIBT (09.08.2026, Merge-Befund der ce-Sammellandung):

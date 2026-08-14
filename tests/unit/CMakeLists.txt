@@ -6742,6 +6742,19 @@ target_compile_definitions(test_t6_biss_sichtbarkeits_wache PRIVATE
 set_tests_properties(test_t6_biss_sichtbarkeits_wache PROPERTIES
     LABELS "wachen;t6;selbsttest;sichtbarkeit" TIMEOUT 300)
 
+# (5) LIZENZ-WACHE (2026-08-10). Gegenstand ist der ZUSTAND dieses Baums, nicht ein Skript:
+# am 10.08. sagten LICENSE und NOTICE Verschiedenes und 36 Quelldatei-Koepfe behaupteten eine
+# Lizenz, die seit dem 02.08. nicht mehr galt. Ein Lizenzwechsel laeuft auseinander, sobald
+# niemand misst -- diese Wache misst bei jedem ctest, Debug wie Release.
+# Die Wurzel kommt als compile definition; COMDARE_LIZENZ_WURZEL schiebt zur Laufzeit einen
+# anderen Baum unter (Mutations-Nachweis + die Wegwerf-Baeume der Koeder).
+comdare_add_test(test_lizenz_konsistenz
+    SOURCES test_lizenz_konsistenz.cpp)
+target_compile_definitions(test_lizenz_konsistenz PRIVATE
+    "COMDARE_LIZENZ_REPO_WURZEL=\"${PROJECT_SOURCE_DIR}\"")
+set_tests_properties(test_lizenz_konsistenz PROPERTIES
+    LABELS "wachen;lizenz;compliance" TIMEOUT 300)
+
 # (4) P2 der Priorisierung -- die unterste Stufe: Quelldatei gegen Bauweg.
 comdare_add_test(test_t6_biss_registrierungs_wache
     SOURCES test_t6_biss_registrierungs_wache.cpp)

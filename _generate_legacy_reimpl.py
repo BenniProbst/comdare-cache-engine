@@ -144,8 +144,8 @@ CMAKELISTS_TEMPLATE = """# {dirname} — Re-Implementation-Skelett (Phase 4.B)
 # target_include_directories(comdare_legacy_{lib_suffix} INTERFACE include)
 """
 
-HPP_TEMPLATE = """// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 BEP Venture UG (Marke Comdare)
+HPP_TEMPLATE = """// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
+// Copyright (c) 2026 BEP Venture UG (haftungsbeschraenkt), Marke Comdare
 //
 // {dirname} — Re-Implementation in PRT-ART
 // Paper: {paper} ({author})

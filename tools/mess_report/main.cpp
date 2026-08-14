@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // tools/mess_report/main.cpp -- comdare-mess-report: der KONSUMENT des A9-S3-xlsx-Writers (A9-S4).
 //
 // A9-Doc Abschnitt 4.3: "Haupt-Konsument = neues CLI tools/mess_report/ (comdare_mess_report):

@@ -1,5 +1,5 @@
 #pragma once
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // latex_anhang -- die Schnittstelle des Werkzeugs, an EINER Stelle.
 //
 // SCHWESTERSTELLE zu tools/ycsb_cli/ycsb_cli.hpp, wortgleiche Begruendung (09.08.2026):

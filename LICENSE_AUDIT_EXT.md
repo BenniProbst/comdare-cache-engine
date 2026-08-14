@@ -1,4 +1,18 @@
-# Lizenz-Audit ext/-Repos (V31-PRE, 2026-05-14)
+# Lizenz-Audit ext/-Repos (Stand 2026-08-10; Vorfassung V31-PRE, 2026-05-14)
+
+**Hauptlizenz des Eigencodes:** Comdare Research License 1.0
+(`LicenseRef-Comdare-Research-1.0`), Change Date 2031-08-10 nach Apache-2.0.
+Vendorierter Fremdcode unter `ext/` ist ausdruecklich NICHT Teil der Software
+im Sinne dieser Lizenz (LICENSE Abschnitt 8) und behaelt seine Originallizenz.
+
+**Was am 2026-08-10 nachgezogen wurde, weil es fehlte oder falsch war:**
+- `liburing` fehlte in diesem Audit UND im NOTICE vollstaendig, obwohl es das
+  einzige `ext/`-Bauteil ist, das in eine ausgelieferte Binary gelinkt werden
+  kann (`cache_engine_builder` bei `COMDARE_WRITER_BACKEND=io_uring`) und in
+  CI unbedingt gebaut wird. Es ist dual LGPL-2.1 / MIT; Comdare waehlt MIT,
+  und MIT verlangt genau die Attribution, die fehlte.
+- Die Quellen-Pfade trugen den Stand vor der Achsen-Umsortierung.
+- Die Zusammenfassung zaehlte A03 doppelt (siehe Anmerkung dort).
 
 ## SOTA-Repos
 
@@ -48,8 +62,13 @@ Prune-Protokoll je Snapshot in `COMDARE-VENDOR-PROVENANCE.md` im jeweiligen Verz
 | io/libxlsxwriter · `third_party/tmpfileplus` | — | **MPL-2.0** | ⚠️ **NICHT gebaut**: `.c` geprunt, `USE_STANDARD_TMPFILE` schaltet auf POSIX `tmpfile()`. Nur der Header bleibt (wird von `src/utility.c:22` unbedingt inkludiert, Entfernen hiesse Fremdquelltext aendern). MPL-2.0 ist file-level-Copyleft: die Datei behaelt ihre Lizenz, faerbt nichts ein, es wird kein MPL-Code uebersetzt oder gelinkt (Beleg: `nm` findet 0 tmpfileplus-Symbole im Archiv) |
 | io/zlib | v1.3.2 | **zlib-Lizenz**, (C) 1995-2026 Jean-loup Gailly und Mark Adler | ✅ safe |
 
+| io/liburing | liburing-2.6 | **dual LGPL-2.1 AND MIT** (COPYING = LGPL, LICENSE = MIT); ein Kernel-Header dual GPL-2-with-Linux-syscall-note AND MIT (COPYING.GPL) | ✅ safe unter der **MIT**-Option, die Comdare waehlt — Attribution im NOTICE ist dann die Bedingung, siehe Kopf |
+
 Alle im Bau befindlichen Anteile (BSD-2 / BSD / zlib / MIT / Public Domain) sind mit der
-ce-Dual-Lizenz (Rechte BEP Venture UG, Forschung/Lehre frei; Historie Apache-2.0) vertraeglich.
+**Comdare Research License 1.0** vertraeglich (Rechte BEP Venture UG (haftungsbeschraenkt),
+Forschung frei, Business und Einzelnutzung vertraglich; Historie: Apache-2.0 bis 2026-08-01,
+Dual-Lizenz 2026-08-02 bis 2026-08-09). Permissive Lizenzen faerben nicht ab; ihre einzige
+fortbestehende Pflicht ist die Attribution, und die traegt das NOTICE.
 
 ## Zusammenfassung
 
@@ -83,24 +102,32 @@ Abschnitt "Architekt-Direktive II 2026-05-14".
 
 ## Quellen-Pfade
 
+Nachgezogen 2026-08-10: die Pfade unten trugen bis heute den Stand VOR der
+Achsen-Umsortierung (`ext/P01-ART/...`). Am Objekt gemessen existiert
+`ext/P01-ART` nicht, `ext/traversal/P01-ART` schon. Alle Traversal- und
+Allokator-Pfade tragen jetzt ihr Achsen-Zwischenverzeichnis.
+
 ```
-ext/P01-ART/unodb/LICENSE        # Apache-2.0
-ext/P02-HOT/hot/LICENSE          # ISC
-ext/P03-Masstree/masstree-beta/LICENSE  # MIT
-ext/P04-CoCo-trie/CoCo-trie/LICENSE     # GPL-3
-ext/P05-START/START/LICENSE      # MIT
-ext/P07-Wormhole/wormhole/LICENSE       # GPL-3
-ext/P10-SuRF/SuRF/LICENSE        # Apache-2.0
-ext/P20-BTreesAreBack/leanstore/LICENSE # MIT
-ext/P29-RCU/userspace-rcu/LICENSE.md    # REUSE (LGPL-2.1+ + GPL-2)
-ext/A01-hoard/LICENSE            # Apache-2.0
-ext/A04-mimalloc/LICENSE         # MIT
-ext/A05-jemalloc/LICENSE         # BSD-2
-ext/A06-tcmalloc/LICENSE         # Apache-2.0
-ext/A07-snmalloc/LICENSE         # MIT
-ext/A08-scalloc/LICENSE          # BSD-3
-ext/A10-rpmalloc/LICENSE         # Public-Domain (ISC-style)
-ext/A11-lrmalloc/LICENSE         # MIT
+ext/traversal/P01-ART/unodb/LICENSE        # Apache-2.0
+ext/traversal/P02-HOT/hot/LICENSE          # ISC
+ext/traversal/P03-Masstree/masstree-beta/LICENSE  # MIT
+ext/traversal/P04-CoCo-trie/CoCo-trie/LICENSE     # GPL-3
+ext/traversal/P05-START/START/LICENSE      # MIT
+ext/traversal/P07-Wormhole/wormhole/LICENSE       # GPL-3
+ext/traversal/P10-SuRF/SuRF/LICENSE        # Apache-2.0
+ext/traversal/P20-BTreesAreBack/leanstore/LICENSE # MIT
+ext/traversal/P29-RCU/userspace-rcu/LICENSE.md    # REUSE (LGPL-2.1+ + GPL-2)
+ext/allocator/A01-hoard/LICENSE            # Apache-2.0
+ext/allocator/A04-mimalloc/LICENSE         # MIT
+ext/allocator/A05-jemalloc/COPYING         # BSD-2
+ext/allocator/A06-tcmalloc/LICENSE         # Apache-2.0
+ext/allocator/A07-snmalloc/LICENSE         # MIT
+ext/allocator/A08-scalloc/LICENSE          # BSD-3
+ext/allocator/A10-rpmalloc/LICENSE         # Public-Domain (ISC-style)
+ext/allocator/A11-lrmalloc/COPYING         # MIT
 ext/io/libxlsxwriter/License.txt # BSD-2-Clause + Lizenztexte aller gebuendelten third_party-Anteile
 ext/io/zlib/LICENSE              # zlib-Lizenz
+ext/io/liburing/LICENSE          # MIT (die von Comdare gewaehlte Option)
+ext/io/liburing/COPYING          # LGPL-2.1 (die zweite Option desselben Dual)
+ext/io/liburing/COPYING.GPL      # GPL-2 + Linux-syscall-note, nur EIN Kernel-Header
 ```

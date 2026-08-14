@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // F5.R1 (#35) — Smoke-Test der ICacheEngine-Master-Framework-Gesamt-Fassade (get_cache_engine()).
 //
 // Verifiziert über die EINE Tür (<cache_engine/cache_engine.hpp> = Aggregation-Header) echte Aufrufe über

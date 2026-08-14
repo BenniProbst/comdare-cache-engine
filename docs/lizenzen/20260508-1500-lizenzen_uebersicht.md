@@ -1,5 +1,23 @@
 # LIZENZEN-UEBERSICHT — Geklonte Repos in `ext/`
 
+> **DEPRECATED / UEBERHOLT seit 2026-08-10 — Text bleibt als Historie stehen.**
+>
+> Dieses Dokument beschreibt den Stand vom 08.05.2026, als das Projekt unter
+> Apache-2.0 stand. Die Hauptlizenz ist seither zweimal gewechselt:
+> Apache-2.0 (bis 2026-08-01) -> Dual Forschung/Kommerziell (2026-08-02 bis
+> 2026-08-09) -> **Comdare Research License 1.0** (ab 2026-08-10, Change Date
+> 2031-08-10 nach Apache-2.0).
+>
+> Massgeblich sind heute `LICENSE`, `NOTICE` und `LICENSE_AUDIT_EXT.md`.
+> Insbesondere ueberholt: die Zeile "Hauptlizenz Projekt: Apache License 2.0"
+> unten, der Selbstwiderspruch zwischen `:7-17` und `:127`, und das
+> Kopf-Beispiel im Abschnitt "Adapter-Header" (es zeigt noch
+> `SPDX-License-Identifier: Apache-2.0`; der geltende Bezeichner ist
+> `LicenseRef-Comdare-Research-1.0`). Dieses Beispiel ist der einzige
+> verbliebene Apache-SPDX-Treffer ausserhalb `ext/` und ist in der Wache
+> `test_lizenz_konsistenz` als benannte, gezaehlte Ausnahme gefuehrt --
+> nicht stillschweigend uebergangen.
+
 **Stand:** 2026-05-08 (REV 1 mit Architekt-Direktive)
 **Hauptlizenz Projekt:** Apache License 2.0 (`comdare-cache-engine/LICENSE`)
 **Quelle der Analyse:** `_analyze_licenses.py` (automatische Heuristik) + manuelle Pruefung der READMEs

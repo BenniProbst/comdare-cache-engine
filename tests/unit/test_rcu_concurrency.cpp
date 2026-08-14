@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // Concurrency-/Eigentumsmodell-Tests fuer comdare::rcu (Feature #25, honest-100 %)
 //
 // Deckt die beiden zuvor UNGETESTETEN Enden des Reader-Lifetimes ab, die der Ownership-Inversion-

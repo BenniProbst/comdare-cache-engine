@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 BEP Venture UG (Marke Comdare)
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
+// Copyright (c) 2026 BEP Venture UG (haftungsbeschraenkt), Marke Comdare
 //
 // comdare::rcu — eigene Read-Copy-Update-Implementation (Aufgabe #104)
 // REV 7 §6 (PRT-ART konsumiert CacheEngine) + REV 6 §5.17 (Concurrency-Pool)

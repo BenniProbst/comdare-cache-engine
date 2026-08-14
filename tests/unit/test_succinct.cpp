@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // Tests fuer comdare::succinct (Aufgabe #105)
 
 #include <comdare/succinct/bit_vector.hpp>

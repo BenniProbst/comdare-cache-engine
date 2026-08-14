@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // Mock-Permutations-Modul fuer ModuleLoader-Tests (Phase 7.2.D)
 //
 // Wird als SHARED-Lib `comdare_perm_mock_test` gebaut und exportiert das ABI

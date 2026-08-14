@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // V41.A5 (2026-05-24) - 4-bit Radix-Tree (ART-vereinfacht)
 //
 // Echter Trie statt STL: 4-bit nibbles aus uint32-Keys, 16-Eintrag-Nodes,
