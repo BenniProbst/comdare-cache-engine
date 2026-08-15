@@ -60,7 +60,7 @@
 #include <builder/bestandslog/bestandslog_document.hpp> // ZellKoordinaten
 #include <builder/bestandslog/bestandslog_index.hpp>    // LagerKey / lager_key_from_hex (DER Vergleich)
 #include <builder/experiment_tree/experiment_tree.hpp>  // ExperimentTree / StaticBinaryView
-#include <system_axes/simd_sub_axis.hpp>   // SimdNoExtOption (die no_extension-Regel)
+#include <system_axes/simd_sub_axis.hpp>                // SimdNoExtOption (die no_extension-Regel)
 
 #include <cstddef>
 #include <iostream>

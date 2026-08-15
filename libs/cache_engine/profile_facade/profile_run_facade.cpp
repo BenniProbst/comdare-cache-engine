@@ -14,8 +14,8 @@
 #include "planner/planner_mengen_types.hpp"     // check-size: MengenEingang (die flache POD-Naht)
 #include <harness/drift_gated_cell.hpp>         // check-size: DriftGateConfig -- die PRODUKTIVEN Drift-Defaults
 
-#include <system_axes/compiler_system_axis.hpp> // INC-1h: Compiler-System-Achse (gcc|clang)
-#include <system_axes/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=external_utils
+#include <system_axes/compiler_system_axis.hpp>        // INC-1h: Compiler-System-Achse (gcc|clang)
+#include <system_axes/simd_sub_axis.hpp>               // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=external_utils
 #include <system_axes/external_utils_family_axis.hpp>  // GN-1: aktiver external_utils-Familien-Knoten
 #include <system_axes/optimization_level_sub_axis.hpp> // INC-2c.opt-c: opt_level-Unter-Achse (Flag-Quelle)
 #include <system_axes/compiler_atomic_sub_axis.hpp>    // INC-0: atomic128-Unter-Achse (Cx16Option, -mcx16)

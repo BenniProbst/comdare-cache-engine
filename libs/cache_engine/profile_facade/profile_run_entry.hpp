@@ -46,13 +46,13 @@
 #include <builder/build_orchestrator/system_ram.hpp>  // make_system_free_ram_fn
 #include <builder/driver_build_variant_signature.hpp> // A7-B: driver_build_variant_signature (Mengen-Sig des Treibers)
 
-#include <system_axes/optimization_level_sub_axis.hpp> // GN-3: OptO*SubAxis (opt_level-id -> -O<n>)
+#include <system_axes/optimization_level_sub_axis.hpp>  // GN-3: OptO*SubAxis (opt_level-id -> -O<n>)
 #include <cache_engine/measurement/simd_build_gate.hpp> // C-3c: active_machine_signature (deklarierte Klasse)
 
-#include "system_version_suffix.hpp"                  // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
-#include "system_cell_values_naht.hpp"                // W10-C4: compose_system_cell_values (die EINE Zellwert-Wertform)
-#include <system_axes/simd_sub_axis.hpp> // GN-3/F-SIMD: simd-Unter-Achse (simd_id -> -march)
-#include <cache_engine/measurement/axis_error.hpp>    // GN-3: CompilerCompilerErrorClass (D1-Log der opt×simd-Naht)
+#include "system_version_suffix.hpp"               // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
+#include "system_cell_values_naht.hpp"             // W10-C4: compose_system_cell_values (die EINE Zellwert-Wertform)
+#include <system_axes/simd_sub_axis.hpp>           // GN-3/F-SIMD: simd-Unter-Achse (simd_id -> -march)
+#include <cache_engine/measurement/axis_error.hpp> // GN-3: CompilerCompilerErrorClass (D1-Log der opt×simd-Naht)
 
 #include <cstddef>
 #include <cstdint>

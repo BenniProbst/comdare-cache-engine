@@ -35,7 +35,7 @@
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // E-24 C8: Contract-Minor + Historien-Freezes DIREKT
 #include <cache_engine/abi/anatomy_version_stamp.hpp>      // system_stamp_line(): das Ist der System-Zeile
 #include <cache_engine/abi/system_cell_values.hpp>         // C1: Vervollstaendiger + na-Praedikat
-#include <system_axes/simd_sub_axis.hpp>      // die simd-Ids der drei Routen (nie als Literal)
+#include <system_axes/simd_sub_axis.hpp>                   // die simd-Ids der drei Routen (nie als Literal)
 #include <profile_facade/system_cell_values_naht.hpp>      // C4: die Wertform-/Define-Naht selbst
 #include <profile_facade/system_version_suffix.hpp>        // Segment-Ordnung + ceb_contract_version_text
 #include <sha512/ctsha512.hpp>                             // der Digest-Beweis (dieselbe Primitive wie die Naht)

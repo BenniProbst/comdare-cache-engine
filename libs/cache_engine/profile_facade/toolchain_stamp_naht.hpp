@@ -50,10 +50,10 @@
 // einheit etwas anderes behauptet -- die Drift-Klasse, gegen die diese Naht gebaut ist.
 #include <axes/alloc/axis_06_allocator_flags.hpp> // COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
-#include <cache_engine/abi/stempel_basis.hpp>                    // S-1: ist_stempel_baustein (Baustein-Anbindung)
-#include <cache_engine/abi/toolchain_stamp_glied.hpp>            // Renderer + die CT-Compiler-Realversions-Erhebung
-#include <system_axes/compiler_atomic_sub_axis.hpp> // T2-B: Cx16Option/-mcx16 (Single-Source)
-#include <system_axes/compiler_system_axis.hpp>     // Dialekt-Ids + driver_default (Single-Source)
+#include <cache_engine/abi/stempel_basis.hpp>         // S-1: ist_stempel_baustein (Baustein-Anbindung)
+#include <cache_engine/abi/toolchain_stamp_glied.hpp> // Renderer + die CT-Compiler-Realversions-Erhebung
+#include <system_axes/compiler_atomic_sub_axis.hpp>   // T2-B: Cx16Option/-mcx16 (Single-Source)
+#include <system_axes/compiler_system_axis.hpp>       // Dialekt-Ids + driver_default (Single-Source)
 
 #include <array>
 #include <cstdio> // T2-C: popen/pclose -- die RT-Realversions-Sonde startet den Treiber selbst

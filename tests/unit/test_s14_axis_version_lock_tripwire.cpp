@@ -301,9 +301,9 @@ int main(int argc, char** argv) {
     // (tier_substanz). S-18/#16 (15.08.2026): die system-/mess-Praefix-Familien wohnen seither in
     // den Kategorie-Homes system_axes/ und mess_axes/ (KON27-01) -- include/cache_engine/
     // measurement/ ist aus dem Schnitt und damit aus dieser Kopierliste ausgetreten.
-    for (char const* sub : {"libs/cache_engine/heuristik", "libs/cache_engine/axes", "libs/cache_engine/topics",
-                            "libs/cache_engine/anatomy", "libs/cache_engine/system_axes",
-                            "libs/cache_engine/mess_axes"}) {
+    for (char const* sub :
+         {"libs/cache_engine/heuristik", "libs/cache_engine/axes", "libs/cache_engine/topics",
+          "libs/cache_engine/anatomy", "libs/cache_engine/system_axes", "libs/cache_engine/mess_axes"}) {
         fs::path const from = source_root / sub;
         if (!fs::exists(from)) {
             std::printf("FEHLER Schritt 2: Quellbaum fehlt: %s\n", from.string().c_str());
@@ -1110,15 +1110,14 @@ int main(int argc, char** argv) {
                                  "struct S18KoederU {\n"
                                  "    static constexpr std::string_view algo_version = \"1.0.0.c.m\";\n"
                                  "};\n";
-    fs::path const u1_pfad = g_tmp_root / "libs/cache_engine/system_axes/target_isa_s18_koeder_u.hpp";
+    fs::path const    u1_pfad  = g_tmp_root / "libs/cache_engine/system_axes/target_isa_s18_koeder_u.hpp";
     spew(u1_pfad, u_inhalt);
     ToolRun u1 = run_tool("--write");
     protokoll("KOEDER U1 (system-Literal mit m-Vokabular -- ZWEIPHASIG muss ROT sein)", u1);
     if (u1.exit_code != 1) return fehler(32, "Koeder U1 muss Exit 1 liefern (zweiphasig verletzt)", u1);
     if (!contains(u1.output, "Phasigkeits-Syntax verletzt"))
         return fehler(32, "Koeder U1 muss die Phasigkeits-Diagnose tragen", u1);
-    if (!contains(u1.output, "target_isa_s18_koeder_u.hpp"))
-        return fehler(32, "Koeder U1 muss die Datei nennen", u1);
+    if (!contains(u1.output, "target_isa_s18_koeder_u.hpp")) return fehler(32, "Koeder U1 muss die Datei nennen", u1);
     fs::remove(u1_pfad);
     ToolRun u1g = run_tool("--check");
     if (u1g.exit_code != 0) return fehler(32, "Koeder-U1-Ruecknahme muss Exit 0 liefern", u1g);

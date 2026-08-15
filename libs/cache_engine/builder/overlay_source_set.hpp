@@ -177,17 +177,13 @@ inline constexpr auto kOverlaySourceSet = std::to_array<Eintrag>({
     //     bleibt im Schnitt, obwohl deprecated: solange die Datei uebersetzt werden KANN, waere ihr
     //     Weglassen genau die stille Luecke, gegen die dieses Glied gebaut ist.
     {Kategorie::system, "target_isa", Form::datei_praefix, "system_axes", "target_isa"},
-    {Kategorie::system, "target_isa", Form::datei_praefix, "system_axes",
-     "scheduling_system_axis"},
-    {Kategorie::system, "operating_system", Form::datei_praefix, "system_axes",
-     "operating_system"},
+    {Kategorie::system, "target_isa", Form::datei_praefix, "system_axes", "scheduling_system_axis"},
+    {Kategorie::system, "operating_system", Form::datei_praefix, "system_axes", "operating_system"},
     {Kategorie::system, "external_utils", Form::datei_praefix, "system_axes", "external_utils"},
-    {Kategorie::system, "external_utils", Form::datei_praefix, "system_axes",
-     "extension_hardware"},
+    {Kategorie::system, "external_utils", Form::datei_praefix, "system_axes", "extension_hardware"},
     {Kategorie::system, "external_utils", Form::datei_praefix, "system_axes", "compiler_"},
     {Kategorie::system, "external_utils", Form::datei_praefix, "system_axes", "simd_sub_axis"},
-    {Kategorie::system, "external_utils", Form::datei_praefix, "system_axes",
-     "optimization_level_sub_axis"},
+    {Kategorie::system, "external_utils", Form::datei_praefix, "system_axes", "optimization_level_sub_axis"},
 
     // -- MESS (1 Achse) -------------------------------------------------------------------------------
     // measurement_tooling ist strukturell die EINE Mess-Haupt-Achse; pro Binary wird genau eine
@@ -375,8 +371,7 @@ static_assert(kOverlaySourceSet.back().kategorie == Kategorie::tier_substanz &&
 namespace detail {
 [[nodiscard]] consteval bool pfad_liegt_unter(std::string_view pfad, std::string_view wurzel) {
     if (pfad == wurzel) return true;
-    return pfad.size() > wurzel.size() && pfad.substr(0, wurzel.size()) == wurzel &&
-           pfad[wurzel.size()] == '/';
+    return pfad.size() > wurzel.size() && pfad.substr(0, wurzel.size()) == wurzel && pfad[wurzel.size()] == '/';
 }
 [[nodiscard]] consteval bool kategorie_haelt_ihr_home() {
     for (auto const& e : kOverlaySourceSet) {

@@ -50,7 +50,7 @@
 
 #include <cache_engine/measurement/ceb_system_axis.hpp>
 #include <cache_engine/measurement/hardware_meta_meta_axis.hpp> // C-1': System-Meta-Meta-Typ-Familie + Hub-Mechanik
-#include <system_axes/simd_sub_axis.hpp>           // SimdSubAxis-Familie (die drangehaengte Unter-Achse)
+#include <system_axes/simd_sub_axis.hpp>                        // SimdSubAxis-Familie (die drangehaengte Unter-Achse)
 
 #include <array>
 #include <concepts>

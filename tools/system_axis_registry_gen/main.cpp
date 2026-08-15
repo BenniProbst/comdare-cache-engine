@@ -46,7 +46,7 @@
 #include <cache_engine/measurement/simd_feature_flag.hpp> // Section 40.a: feingranularer Flag-Katalog (code=Wahrheit)
 #include <system_axes/simd_sub_axis.hpp>
 #include <system_axes/target_isa_complex_axis.hpp> // O-8 Schritt 6: innerer Komplex-Wrapper
-#include <system_axes/target_isa_sub_axes.hpp> // O-8/6 + OD-11-RT: numa_node+page+core_class
+#include <system_axes/target_isa_sub_axes.hpp>     // O-8/6 + OD-11-RT: numa_node+page+core_class
 #include <system_axes/target_isa_system_axis.hpp>
 
 #include <array>

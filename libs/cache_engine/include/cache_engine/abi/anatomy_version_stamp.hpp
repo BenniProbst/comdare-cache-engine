@@ -12,12 +12,12 @@
 
 #pragma once
 
-#include <cache_engine/abi/meta_meta_stamp_suffix.hpp>             // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
-#include <cache_engine/abi/system_axis_code_versions.hpp>          // A2 (G2-4): kSystemAxisCodeVersions (Single-Source)
-#include <cache_engine/measurement/axis_version_stamp.hpp>         // AxisVersionEntry + build_axis_version_stamp_line
-#include <system_axes/external_utils_family_axis.hpp> // A13-M2: ExternalUtilsHub (System-Meta-Meta-Glieder)
+#include <cache_engine/abi/meta_meta_stamp_suffix.hpp>     // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
+#include <cache_engine/abi/system_axis_code_versions.hpp>  // A2 (G2-4): kSystemAxisCodeVersions (Single-Source)
+#include <cache_engine/measurement/axis_version_stamp.hpp> // AxisVersionEntry + build_axis_version_stamp_line
+#include <system_axes/external_utils_family_axis.hpp>      // A13-M2: ExternalUtilsHub (System-Meta-Meta-Glieder)
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // O-8 Schritt 9: load_framework-Segment
-#include <mess_axes/measurement_tooling_registry.hpp>   // K7b-2: kMeasurementToolingRegistry (Vollmenge)
+#include <mess_axes/measurement_tooling_registry.hpp>                  // K7b-2: kMeasurementToolingRegistry (Vollmenge)
 
 #include <array>
 #include <cstddef>
