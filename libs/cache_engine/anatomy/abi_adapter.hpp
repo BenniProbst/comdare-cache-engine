@@ -51,6 +51,17 @@
 //   • IMigratableTier (MESSUNG-AN)    — tier_migrate_step (echter 2-Ebenen-Move, P4 #123)           (~:1557)
 //   • private Member (~:1631)         — container_algorithm_ (LayoutAwareChunkedStore<N,L,A>, ~:1680) + Mess-Organe + state_
 
+// B2 (15.08.2026), GATE-TRENNUNG G2/G3: die EINE Ableitung des G3-Gates
+// (COMDARE_CE_ENABLE_SEGMENT_TIMING -- Vererbung: unentschieden folgt G3 dem Alt-Gate G2). Quoted-
+// relativ inkludiert, damit JEDE TU sie unabhaengig vom Include-Pfad bekommt; dieselbe Datei liest
+// auch das neunte Preimage-Glied (abi/mess_gates_glied.hpp) -- eine zweite Lesung waere die
+// Drift-Klasse D-1 (Stempel behauptet einen Gate-Zustand, den der Bau nicht faehrt).
+// Geschaltet sind unten GENAU die drei Segment-Lauf-Flaechen: fill_segment_timing_v3 (die 18
+// per-Achsen-Segment-Timer), fill_observer_pathb_driven_v3 (der spaete T17-Read, dessen Zaehler
+// AUSSCHLIESSLICH der Segment-Lauf treibt) und reset_pathb_driven_organs_ (SCHRITT 4). Alle
+// uebrigen Observer-Flaechen bleiben unter COMDARE_CE_ENABLE_STATISTICS (G2).
+#include "../include/cache_engine/abi/mess_gate_segment_timing.hpp"
+
 #include "anatomy_base.hpp"
 #include "measurable_workload.hpp"        // F15/Stufe B: optionales Mess-Sub-Interface (ABI-sicher)
 #include "observable_tier.hpp"            // R6/Pfad B: ABI-stabiler Observer-Zugriff (Doku 24 §8.6)
@@ -1748,7 +1759,10 @@ public:
     // *out muss von SCHRITT 1 kommen (filled_axis_count ist dort gesetzt und wird hier fortgeschrieben).
     void fill_observer_pathb_driven_v3(ComdareTierObserverSnapshot* out) const noexcept {
         if (out == nullptr) return;
-#ifdef COMDARE_CE_ENABLE_STATISTICS
+// B2: G3-Gate statt G2 -- die T17-Zaehler ENTSTEHEN ausschliesslich im Segment-Lauf (SCHRITT 2).
+// In einer G2-an/G3-aus-Binary ([wallclock,macro]) laeuft der Segment-Lauf nicht; die Zeile hier zu
+// lesen und als befuellt zu zaehlen waere exakt der strukturell-0-Defekt, den A8-S3 geheilt hat.
+#if COMDARE_CE_ENABLE_SEGMENT_TIMING
         auto& s = *out;
         // -- T17 persistence_target (STRUKT-R ORG-18, Pfad-B-Rueckschreib-Strom ueber die REAL gespeicherten
         //    Keys). pt_organ_ (ObservablePersistenceTarget-Huelle) treibt persistence_writeback_scan.
@@ -1772,7 +1786,7 @@ public:
         }
 #else
         (void)out;
-#endif // COMDARE_CE_ENABLE_STATISTICS
+#endif // COMDARE_CE_ENABLE_SEGMENT_TIMING (B2: war bis dahin das geteilte G2-Gate)
     }
 
     // A8-S3 (2026-08-04): SCHRITT 4 -- Reset der NUR-Pfad-B-getriebenen Organe. Frueher lag er am Ende von
@@ -1780,7 +1794,7 @@ public:
     // strukturell-0-Defekt). Er steht jetzt HINTER dem spaeten Observer-READ, damit das Mess-Fenster der
     // T17-Zeile exakt EIN Segment-Lauf ist -- dieselbe Fenster-Semantik wie seg_ns[T17].
     void reset_pathb_driven_organs_() const noexcept {
-#ifdef COMDARE_CE_ENABLE_STATISTICS
+#if COMDARE_CE_ENABLE_SEGMENT_TIMING // B2: G3 -- der Reset gehoert zum Segment-Lauf-Fenster (SCHRITT 4)
         if constexpr (requires { pt_organ_.reset(); }) pt_organ_.reset(); // T17 (STRUKT-R ORG-18)
 #endif
     }
@@ -1796,7 +1810,12 @@ public:
     void fill_segment_timing_v3(ComdareSegmentLatencyV2* out) const noexcept {
         if (out == nullptr) return;
         *out = ComdareSegmentLatencyV2{};
-#ifdef COMDARE_CE_ENABLE_STATISTICS
+// B2 (15.08.2026): DIE G3-FLAECHE. Bis B2 wohnten die 18 Segment-Timer im G2-Gate; seither traegt
+// sie ihr eigenes -- eine [wallclock,macro]-Binary liefert hier den genullten POD (ehrlich: kein
+// Segment-Lauf einkompiliert; die CSV-Seite rendert die seg_*-Spalten dann als "n/a" ueber
+// live_mess_feinkorn_ausstattung). Im [all]-/Bestandsbau ist G3 per Vererbung an -- byte-gleicher
+// Gate-Zustand, identisches Verhalten.
+#if COMDARE_CE_ENABLE_SEGMENT_TIMING
         try {
             using clock = std::chrono::steady_clock;
             auto dns    = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
@@ -2069,7 +2088,7 @@ public:
             // der Observer sie lesen konnte (strukturell-0). Die uebrigen Organe oben bleiben unveraendert:
             // sie werden in tier_insert/lookup auto-gekoppelt getrieben und in SCHRITT 1 bereits gelesen.
         } catch (...) { *out = ComdareSegmentLatencyV2{}; }
-#endif // COMDARE_CE_ENABLE_STATISTICS
+#endif // COMDARE_CE_ENABLE_SEGMENT_TIMING (B2: war bis dahin das geteilte G2-Gate)
     }
 
     // KONSOLIDIERUNG (I1, 2026-06-05): die EINZIGE Observer-Methode über den konsolidierten POD. Vereint Observer-

@@ -361,9 +361,21 @@
 # Untergrenze ist die GROBE Achse gegen Schwund im Grossen und ersetzt die
 # beiden feinen nicht.
 #
+# -- NACHZUG B2 GATE-TRENNUNG (2026-08-15, Scheibe B2 auf Basis 0817c7bf) -----
+# KONTO, je Name (Registrierungs-Diff tests/unit/CMakeLists.txt dieser Scheibe,
+# Gegenrichtung leer -- nichts entfallen): GENAU EINE neue Registrierung,
+# test_b2_mess_gate_trennung (Koeder der G2/G3-Gate-Trennung, add_executable +
+# add_test + COMDARE_TEST_TARGETS, LABELS b2;messachse;stempel;gates). Weder
+# ISA- noch Pruefling-gegatet (Registrierung auf oberster Ebene, keine
+# COMDARE_HOST_RUNS_*-Bedingung) -> +1 in ALLEN DREI Klassen; die
+# Sprossenabstaende -4 und -2 bleiben. LIVE nachgemessen nach dem Rezept des
+# Datei-Kopfs (cmake-Erzwingen beider Klassen, ctest -N je Klasse, 'cmake -U'
+# auf beide Variablen, LC_ALL=C comm in BEIDE Richtungen); Zahlen und
+# comm-Verlustlisten woertlich im Bericht der B2-Scheibe.
+#
 # FORMAT: '#'-Kommentare und Leerzeilen sind erlaubt. Wertzeilen haben die Form
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
-avx512f 492
-avx2 488
-basis 486
+avx512f 493
+avx2 489
+basis 487

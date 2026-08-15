@@ -185,6 +185,14 @@ struct LazyRunConfig {
     // DEFAULT true == IDENTITAET fuer den gesamten Bestand: jeder [all]-Lauf traegt den Observer, und jeder
     // Bestands-Lauf ist ein [all]-Lauf (Sidecar-Bestand 0). Der Wert kann nur ABWERTEN, nie aufwerten.
     bool mess_observer_ausstattung = true;
+    // B2 (15.08.2026): dieselbe Ehrlichkeit eine Schicht hoeher -- traegt die Tier-Binary dieses Laufs das
+    // FEINKORN (G3, fill_segment_timing_v3)? Seit der Gate-Trennung G2/G3 ist eine [wallclock,macro]-Binary
+    // baubar: Observer AN, Segment-Timer NICHT einkompiliert. Ihre seg_ns waeren durchgehend 0 bei
+    // batches_measured == 0 -- von einer echten Messung mit Ergebnis 0 nicht unterscheidbar.
+    // QUELLE: profile_facade::live_mess_feinkorn_ausstattung() -- DIESELBE Aufloesung und Abbildung wie die
+    // Observer-Zeile darueber, eine Schicht hoeher. DEFAULT true == IDENTITAET fuer den gesamten Bestand
+    // (jeder [all]-Lauf traegt G3, per expliziter Naht-Entscheidung oder Vererbung); nur ABWERTEND wirksam.
+    bool mess_feinkorn_ausstattung = true;
     // M3v2-SELEKTION (2026-06-18, Task #156): Lauf-weite Tags je Mess-Zeile, damit die Auswertung die drei
     // Mess-Klassen (Basis-320 / Per-Achsen-Sweep / SOTA-Reihen A/B/C) UND die Working-Set-N-Dimension UND die
     // Plattform/Build-Version trennen kann. NUR Metadaten (kein Mess-Einfluss) — sie reisen rein über die
@@ -433,6 +441,11 @@ struct LazyMeasuredRow {
     // Komposition). Ersetzt den früheren V3-Snapshot + den Pfad-A-Segment-Timer.
     anatomy::ComdareTierObserverSnapshot unified{};
     bool                                 unified_real = false;
+    // B2 (15.08.2026): sind die seg_*-Zellen dieser Zeile ECHT (G3/Feinkorn einkompiliert)? Wirksam NUR in
+    // Konjunktion mit unified_real (seg ist Teilmenge des Observer-Blocks; die Naht haelt G3 ohne G2 schon
+    // compile-hart fuer unbaubar). DEFAULT true == Identitaet: jede Bestands-Zeile rendert byte-gleich wie
+    // vor B2; die Run-Eintritte werten aus cfg.mess_feinkorn_ausstattung ab (nie auf).
+    bool seg_real = true;
     // Achse 2 (INC-3): Lastprofil + Mess-GÜLTIGKEIT (Zwei-Phasen-Cache-Warmup exakt). profile_name leer/"-" =
     // alter fixer Workload (kein Achse-2-Profil). two_phase_valid=false ⇒ Messung UNGÜLTIG (nicht als valide werten).
     std::string profile_name;
@@ -824,18 +837,23 @@ struct LazyMeasuredRow {
     // SampleStatus::SourceUnavailable -> sample_status_token() == "n/a", per static_assert dort zementiert)
     // statt eines rohen Literals. CSV-Bytes UNVERAENDERT (golden-neutral); der volle bool-valid->SampleStatus-
     // Split je Zelle bleibt der separate Klein-Increment (Roadmap K-10).
-    auto seg_field = [&](int i) {
-        if (row.unified_real)
+    // B2 (15.08.2026): die seg_*-Zellen haengen zusaetzlich am FEINKORN (G3). Eine [wallclock,macro]-Zeile
+    // (Observer real, Segment-Timer nicht einkompiliert) rendert sie ehrlich "n/a" -- dieselbe zellgenaue
+    // Ehrlichkeit wie M-1/H-B, eine Schicht hoeher. Fuer den gesamten [all]-Bestand ist seg_echt ==
+    // unified_real (seg_real default true) -- die CSV bleibt byte-identisch.
+    bool const seg_echt  = row.unified_real && row.seg_real;
+    auto       seg_field = [&](int i) {
+        if (seg_echt)
             zelle_sep(std::to_string(row.unified.seg_ns[i])); // Pfad-B-Timing aus dem EINEN POD
         else
             zelle_sep(cem::sample_status_token(
-                cem::SampleStatus::SourceUnavailable)); // "n/a": Quelle fehlt (alte/Nicht-Mess-DLL)
+                cem::SampleStatus::SourceUnavailable)); // "n/a": Quelle fehlt (alte/Nicht-Mess-DLL/kein G3)
     };
     for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) seg_field(static_cast<int>(i));
     // P-MD3 (2026-06-18): die Coverage-Versöhnung. seg_framework_ns/seg_run_total_ns ehrlich n/a, wenn keine Mess-DLL;
     // seg_coverage = Σseg_ns / seg_run_total_ns (gegen die KOMMENSURABLE eigene Wall-Clock des Segment-Laufs → ~1.0,
     // NICHT gegen die unkommensurable Real-Workload-total_ns). seg_run_total_ns==0 → coverage n/a (kein Div-by-0).
-    if (row.unified_real) {
+    if (seg_echt) { // B2: wie seg_field am FEINKORN-Gate, nicht nur am Observer (s. seg_echt oben)
         std::int64_t seg_sum = 0;
         for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) seg_sum += row.unified.seg_ns[i];
         zelle_sep(std::to_string(row.unified.seg_framework_ns));
@@ -2985,7 +3003,10 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 // Binary ist ueberhaupt mit Observer gebaut" (cfg). Der zweite Faktor ist neu; ohne ihn
                 // schrieb eine [wallclock]-Zeile literal 0 in Zellen, die es nicht wissen konnte. Nur
                 // abwertend -- true && false == false, true && true == der bisherige Wert.
-                row.unified_real    = pr.unified_real && cfg.mess_observer_ausstattung;
+                row.unified_real = pr.unified_real && cfg.mess_observer_ausstattung;
+                // B2 (15.08.2026): seg-Ehrlichkeit eine Schicht hoeher -- G3/Feinkorn dieser Binary. Nur
+                // abwertend (default true); wirksam als Konjunktion mit unified_real im Renderer.
+                row.seg_real        = cfg.mess_feinkorn_ausstattung;
                 row.profile_name    = pr.profile_name;
                 row.two_phase_valid = pr.two_phase_valid;
                 row.sample_status   = pr.sample_status;

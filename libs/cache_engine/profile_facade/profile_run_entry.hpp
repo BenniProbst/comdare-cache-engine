@@ -533,6 +533,8 @@ struct RunProfileResult {
     std::string const sota_measurement_stamp = live_mess_zeile;
     // M-1/H-B (06.08.2026): traegt die Tier-Binary dieses Laufs den Observer? Aus DERSELBEN Aufloesung.
     bool const live_observer_ausstattung = ::comdare::cache_engine::profile_facade::live_mess_observer_ausstattung();
+    // B2 (15.08.2026): das FEINKORN (G3, Segment-Timer) derselben Aufloesung -- eine Schicht hoeher.
+    bool const live_feinkorn_ausstattung = ::comdare::cache_engine::profile_facade::live_mess_feinkorn_ausstattung();
     std::map<std::string, std::string> fused = make_all_axis_sweeps_source_map(
         live_mess_zeile); // alle 17 Achsen-Sweeps (#26/GO-5, INC-2d; Eintragszahl USE-Enable-abhaengig),
                           // seit KON47-01/Option a mit der Mess-Zeile DIESES Laufs gestempelt
@@ -884,9 +886,12 @@ struct RunProfileResult {
         // Source-Gen stempelt -- der Vertrag vergleicht damit die Binary gegen das, was DIESER Lauf in sie
         // hineingestempelt hat, nicht gegen eine zweite Ableitung.
         cfg.erwartete_mess_zeile = live_mess_zeile;
-        // M-1/H-B: die Observer-Ausstattung derselben Aufloesung. false => die stat_*-, seg_*-,
+        // M-1/H-B: die Observer-Ausstattung derselben Aufloesung. false => die stat_*-,
         // observable_axes-, fill_level- und filled_axes-Zellen sind ehrlich "n/a" statt 0.
         cfg.mess_observer_ausstattung = live_observer_ausstattung;
+        // B2 (15.08.2026): FEINKORN (G3) derselben Aufloesung. false => die seg_*-Zellen sind ehrlich
+        // "n/a" statt 0 -- auch wenn der Observer (G2) da ist ([wallclock,macro]-Binary).
+        cfg.mess_feinkorn_ausstattung = live_feinkorn_ausstattung;
         cfg.row_platform              = tag_platform;
         cfg.row_build_version         = perm_tag_build_version; // GN-3: per-Perm-CSV-Tag, sonst = tag_build_version
         cfg.source_dir                = a.src_dir;

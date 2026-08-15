@@ -5346,6 +5346,24 @@ set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_r3_mess_gates_spie
 set_tests_properties(test_r3_mess_gates_spiegel PROPERTIES
     LABELS "r3;messachse;stempel;dll_roundtrip")
 
+# B2 GATE-TRENNUNG G2(macro)/G3(micro) (15.08.2026): der Koeder, der die Trennung VERLANGT. K1-K6
+# sind am Vor-B2-Stand rot (Rot-Nachweis am Basis-Stand 0817c7bf im Bericht der Scheibe woertlich
+# protokolliert), die Gegenproben G1-G5 in BEIDEN Staenden gruen (Paar-Doktrin). Wie der m1-Nachbar
+# BEWUSST OHNE COMDARE_MEASUREMENT_COMBO_CT und ohne Gate-Defines: der Test beisst an der REINEN
+# Abbildung mess_achsen_defines_for_legend / mess_gates_glied_for_legend, nicht am Makro-Zustand
+# dieser TU.
+add_executable(test_b2_mess_gate_trennung "test_b2_mess_gate_trennung.cpp")
+target_compile_features(test_b2_mess_gate_trennung PRIVATE cxx_std_23)
+target_include_directories(test_b2_mess_gate_trennung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+comdare_set_platform_defines(test_b2_mess_gate_trennung)
+add_test(NAME test_b2_mess_gate_trennung COMMAND test_b2_mess_gate_trennung)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_b2_mess_gate_trennung)
+set_tests_properties(test_b2_mess_gate_trennung PROPERTIES LABELS "b2;messachse;stempel;gates")
+
 # M-1/H-A + M-1/H-2 (06.08.2026): die STUFEN-Wache im CT-losen Zweig und die PMC-Ausstattungs-Invariante.
 # BEWUSST OHNE COMDARE_MEASUREMENT_COMBO_CT -- und hier ist das nicht bloss Unabhaengigkeit vom Makro-
 # Zustand wie beim Nachbarn oben, sondern die SACHE selbst: die H-A-Luecke SASS im #else-Zweig. Eine TU,
