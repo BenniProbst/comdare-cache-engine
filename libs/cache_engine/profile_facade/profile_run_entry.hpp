@@ -52,13 +52,13 @@
 #include "system_version_suffix.hpp"               // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
 #include "system_cell_values_naht.hpp"             // W10-C4: compose_system_cell_values (die EINE Zellwert-Wertform)
 #include <system_axes/simd_sub_axis.hpp>           // GN-3/F-SIMD: simd-Unter-Achse (simd_id -> -march)
-#include <cache_engine/measurement/axis_error.hpp> // GN-3: CompilerCompilerErrorClass (D1-Log der opt×simd-Naht)
+#include <cache_engine/measurement/axis_error.hpp> // GN-3: CompilerCompilerErrorClass (D1-Log der optxsimd-Naht)
 
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
-#include <functional> // GN-3: std::function (per-Perm-CompileFn-Fabrik der opt×simd-Naht)
+#include <functional> // GN-3: std::function (per-Perm-CompileFn-Fabrik der optxsimd-Naht)
 #include <iostream>
 #include <map>
 #include <algorithm> // Resthygiene-2: std::sort/std::min im Chunk-Organ-Fingerprint
@@ -87,9 +87,9 @@ struct RunProfileArgs {
     std::filesystem::path src_dir;      // perm_<id>.cpp-Ausgabe (per-Binary-Subdir-Basis)
     std::filesystem::path dll_dir;      // perm_<id>.dll-Ausgabe (per-Binary-Subdir-Basis)
     ex::CompileFn         compile;      // injizierter Compiler-Aufruf (cl @rsp) — wie BuildOrchestrator
-    // GN-3 (§33, 2026-07-19): per-Permutation-CompileFn-Fabrik (System-Achsen opt_level × simd), SPIEGEL der
+    // GN-3 (§33, 2026-07-19): per-Permutation-CompileFn-Fabrik (System-Achsen opt_level x simd), SPIEGEL der
     // RunExperimentArgs::compile_for_perm-Naht. Der Facade-Planer liefert sie (kennt include_dirs/defines/cxx/
-    // link_libs/fno_gnu_unique); run_profile permutiert opt×simd aus dem GEPARSTEN Profil (tp.compiler.opt_levels /
+    // link_libs/fno_gnu_unique); run_profile permutiert optxsimd aus dem GEPARSTEN Profil (tp.compiler.opt_levels /
     // tp.external_utils.simd_options) SELBST und ruft die Fabrik je Perm mit den aufgeloesten Flags. Leer =>
     // Fallback auf `compile` (Einzel-Pfad, byte-identisch zum Vor-Wiring-Verhalten).
     ///
@@ -124,7 +124,7 @@ struct RunProfileArgs {
     // fuer jeden Host, der die Naht nicht verdrahtet).
     std::string system_cell_target_isa;       // Ziel-ISA-Zelle: "x86_64"/"aarch64"/"na"
     std::string system_cell_operating_system; // OS-FAMILIEN-Zelle: "linux"/"windows"/"macos"/"na"
-    // W5-C+ (§36.1 Zellen-Locking, 2026-07-19): optionale GN-Zellen-Filter der opt×simd-Delegations-Naht. Die
+    // W5-C+ (§36.1 Zellen-Locking, 2026-07-19): optionale GN-Zellen-Filter der optxsimd-Delegations-Naht. Die
     // CI-Matrix weist jeder Cluster-Zelle GENAU EINE System-Perm zu (COMDARE_GN_OPT/COMDARE_GN_SIMD). Sind diese
     // gesetzt, baut der Walk NUR die matchende (opt,simd)-Zelle; alle anderen Perms werden mit Log-Zeile
     // uebersprungen. Leer (Default) = kein Filter = heutiges Verhalten (alle Profil-Perms) => byte-neutral. Werte
@@ -209,7 +209,7 @@ struct RunProfileArgs {
     std::uint64_t            n_ops               = 10000;  // Mess-Workload je dyn-Setting
     std::size_t              max_binaries        = 0;      // 0 ⇒ run_options.cap; beide 0 ⇒ KEIN Cap
     std::string              build_version       = "m3v2"; // Resume-Marke (.version-Sidecar)
-    std::uint32_t            n_repeats           = 3;      // Wiederholungen je (Binary×Setting)
+    std::uint32_t            n_repeats           = 3;      // Wiederholungen je (BinaryxSetting)
     std::size_t              cores_per_build     = 4;      // KF-16b Default
     double                   min_free_gb         = 0.0;    // RAM-Admission (0 = aus)
     bool                     resume_override_set = false;  // true ⇒ resume kommt aus `resume`, nicht aus <run_options>
@@ -277,7 +277,7 @@ struct RunProfileResult {
     return n;
 }
 
-// ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): die GETEILTE opt×simd-Flag-Aufloesung. Vorher lebten diese drei
+// ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): die GETEILTE optxsimd-Flag-Aufloesung. Vorher lebten diese drei
 //    Helfer im comdare_experiment-Kanal (experiment_run_entry.hpp), der DIESEN Header inkludiert; relokiert nach
 //    UNTEN, damit BEIDE Lauf-Pfade (run_profile hier + run_experiment_profile oben) die SELBE Naht nutzen (kein
 //    Duplikat). Single-Source der Flags = die Achsen-Structs (OptO*SubAxis::gcc_opt_flag / SimdSubAxis::gcc_march_flag).
@@ -806,8 +806,8 @@ struct RunProfileResult {
     else
         std::cout << "  [H2-AKTE] keine sota_h2_scores.xml — h2_code_quality_score der SOTA-Reihen = n/a (honest)\n";
 
-    // ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): per-Perm-Kontext der opt×simd-System-Achsen-Naht (Spiegel
-    //    experiment_run_entry.hpp:257-289). make_cfg + die Pass-Treiber lesen diese drei Variablen; die opt×simd-
+    // ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): per-Perm-Kontext der optxsimd-System-Achsen-Naht (Spiegel
+    //    experiment_run_entry.hpp:257-289). make_cfg + die Pass-Treiber lesen diese drei Variablen; die optxsimd-
     //    Schleife (unten) setzt sie je Kombination. IDENTITAETS-DEFAULT (kein <system_axes> im Profil) = exakt das
     //    Vor-Wiring-Verhalten: perm_compile=a.compile, build_version/CSV-Tag UNVERAENDERT (die Facade traegt den
     //    system_axes_version_suffix bereits) → golden-320/golden_fullpilot byte-identisch. ──
@@ -1022,7 +1022,7 @@ struct RunProfileResult {
     auto run_selection_pass = [&](std::string const& pass_axis) {
         if (is_deepened_axis(pass_axis)) {
             std::vector<ex::AxisLevel> sweep_levels = axis_sweep_levels(pass_axis);
-            // Dieselben DynamicDims wie der Basis-Baum anhaengen (gleiche thread_count×prefetch×repetition-Variation).
+            // Dieselben DynamicDims wie der Basis-Baum anhaengen (gleiche thread_countxprefetchxrepetition-Variation).
             for (auto const& dd : basis_tree.dynamic_filter())
                 sweep_levels.push_back(
                     ex::AxisLevel{dd.axis, dd.values, /*is_static=*/false, dd.variable, dd.block_id});
@@ -1112,12 +1112,12 @@ struct RunProfileResult {
                   << " deklarierte <axis_sweep>-Paesse (Dokument-Reihenfolge, #26/GO-5)\n";
 
     // ── run_all_passes: EIN kompletter Selektions-Durchlauf (Basis/Sweep-Paesse + SOTA-Reihen) fuer die AKTUELLE
-    //    opt×simd-Perm. pass_seen_ids wird per-Perm frisch gesetzt (jede opt×simd-Stufe ist ein eigenes Bau-Rennen:
+    //    optxsimd-Perm. pass_seen_ids wird per-Perm frisch gesetzt (jede optxsimd-Stufe ist ein eigenes Bau-Rennen:
     //    gleiche binary_ids, anderes build_version → eigenes .version-Sidecar/eigene Messung). ──
     auto run_all_passes = [&]() {
         pass_seen_ids.clear(); // per-Perm-Reset (Identitaets-Fall: startet ohnehin leer)
         for (auto const& pass_axis : selection_passes) run_selection_pass(pass_axis);
-        // Distinkte Basis-/Sweep-binary_ids DIESES Passes (Baseline je Pass genau 1x). Ueber die opt×simd-Perms
+        // Distinkte Basis-/Sweep-binary_ids DIESES Passes (Baseline je Pass genau 1x). Ueber die optxsimd-Perms
         // akkumuliert (jede Perm = eigenes Bau-Rennen); im Einzel-Pass/Identitaets-Fall == frueherer sel.size()-Wert.
         res.basis_binary_ids += pass_seen_ids.size();
 
@@ -1140,7 +1140,7 @@ struct RunProfileResult {
             std::set<std::string> sota_seen_bids;
             for (auto const& p : passes) {
                 // Einwertiger Static-Baum: AxisLevel "sota_tier"=<sota_bid> + dieselben DynamicDims wie der Basis-Baum
-                // (damit die SOTA-Zeilen die gleiche thread_count×prefetch×repetition-Variation tragen).
+                // (damit die SOTA-Zeilen die gleiche thread_countxprefetchxrepetition-Variation tragen).
                 std::vector<ex::AxisLevel> sota_levels;
                 sota_levels.push_back(
                     ex::AxisLevel{std::string{kSotaTierAxis}, {p.sota_bid}, /*is_static=*/true, "", ""});
@@ -1180,15 +1180,15 @@ struct RunProfileResult {
         }
     };
 
-    // ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): opt×simd-System-Achsen-Permutation UM die Passes (Spiegel
+    // ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): optxsimd-System-Achsen-Permutation UM die Passes (Spiegel
     //    experiment_run_entry.hpp:257-289, KEINE Parallel-Schleife). Quelle = das GEPARSTE Profil
     //    (tp.compiler.opt_levels / tp.external_utils.simd_options, geteilte parse_system_axes-Naht). KEIN
     //    <system_axes> ⇒ EINE Identitaets-Perm: run_all_passes() genau einmal, perm_compile/perm_build_version/
     //    perm_tag_build_version bleiben auf a.compile/a.build_version/tag_build_version → byte-identisch zum
     //    Vor-Wiring-Verhalten (golden-320/golden_fullpilot unberuehrt; die Facade traegt dort den
-    //    system_axes_version_suffix). MIT <system_axes> ⇒ je opt×simd eigene CompileFn (compile_for_perm) + eigenes
+    //    system_axes_version_suffix). MIT <system_axes> ⇒ je optxsimd eigene CompileFn (compile_for_perm) + eigenes
     //    build_version-/CSV-Suffix (+cxx=+opt=+ext=) + eigener pass/sota-Dedup-Reset; binary_id BLEIBT Organ-only
-    //    (opt/simd=system_config, NIE binary_id, NIE N) — es waechst NUR die MESS-Matrix (CSV × |opt×simd|).
+    //    (opt/simd=system_config, NIE binary_id, NIE N) — es waechst NUR die MESS-Matrix (CSV x |optxsimd|).
     //    ISA-gegated (avx2 nur x86_64, wie system_axis_host_supports_simd). ──
     namespace cm = ::comdare::cache_engine::measurement;
     // T-1 (2026-08-09): DIESELBE Funktion, die auch die Facade fragt (profile_run_facade.cpp). Hier stand
@@ -1499,7 +1499,7 @@ struct RunProfileResult {
     // CSV spiegeln). SYNCHRON (alle Paesse fertig) — kein async/detached.
     if (csv_ok && a.measurement_sink) a.measurement_sink(a.out_csv, "measurements.csv");
 
-    // Exit 0 = mind. 1 (Binary × Setting) real gemessen ODER resumiert (Voll-Resume = gueltiger Lauf)
+    // Exit 0 = mind. 1 (Binary x Setting) real gemessen ODER resumiert (Voll-Resume = gueltiger Lauf)
     // UND die CSV fehlerfrei geschrieben+geflusht (M11). Ein Stream-Schreib-/Flush-Fehler erzwingt exit!=0.
     // INC-G6: im provision_only-Lauf misst NICHTS -> Erfolg = mind. 1 DLL bereitgestellt (gebaut/resumiert).
     // Ohne provision_only unveraendert (any_provisioned floss zwar mit, wird aber nur in diesem Modus gewertet).
