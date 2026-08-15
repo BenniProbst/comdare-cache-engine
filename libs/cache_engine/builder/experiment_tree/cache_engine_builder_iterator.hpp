@@ -915,19 +915,45 @@ struct LazyMeasuredRow {
     zelle_sep(std::to_string(row.applied_axis_count)); // applied_axes
     // Phase A: die per-Achsen-Observer-Werte stat_<achse>_<feld> (WIDE, generisch aus kV3AxisSchema). Echt wenn
     // unified_real (Modul trägt das Mess-Interface), sonst ehrlich „n/a" (NICHT 0). Reihenfolge IDENTISCH zum Header.
+    // B2-A2.5/F1 (15.08.2026): die EINE NUR-Pfad-B-getriebene Achse (T17 persistence_target) haengt
+    // ZUSAETZLICH am FEINKORN -- ihre Zaehler ENTSTEHEN ausschliesslich im Segment-Lauf (abi_adapter:
+    // fill_observer_pathb_driven_v3, seit B2 unter COMDARE_CE_ENABLE_SEGMENT_TIMING). Eine G2-an/G3-aus-
+    // Binary ([wallclock,macro]) rendert ihre 5 Zellen deshalb wie die seg_*-Zellen ueber seg_echt:
+    // ehrlich "n/a" (SourceUnavailable), NIE die strukturelle 0 -- exakt die Luegen-Klasse, die B2 fuer
+    // die seg_*-Zellen selbst schliesst. Fuer den gesamten [all]-Bestand ist seg_echt == unified_real
+    // (seg_real default true) -- die CSV bleibt byte-identisch. Slot-Bindung an die Single-Source wie in
+    // A8-S3: wandert die Schema-Zeile, bricht der Bau LAUT, statt still die falsche Achse zu gaten.
+    constexpr std::size_t kPathBDrivenAxis = 17; // T17 persistence_target (STRUKT-R ORG-18)
+    static_assert(std::string_view{anatomy::kV3AxisSchema[kPathBDrivenAxis].names[0]} == std::string_view{"rounds"} &&
+                      std::string_view{anatomy::kV3AxisSchema[kPathBDrivenAxis].names[1]} ==
+                          std::string_view{"bytes_staged"},
+                  "B2-A2.5/F1: der T17-Slot der Single-Source kV3AxisSchema traegt nicht mehr die "
+                  "persistence_target-Spalten -- das Feinkorn-Gate der stat_*-Zellen zeigt auf die falsche Achse.");
     for (std::size_t t = 0; t < anatomy::kV3AxisCount; ++t) {
+        // T17 verlangt den Segment-Lauf (G3), alle anderen Achsen nur den Observer (G2).
+        bool const achse_echt = (t == kPathBDrivenAxis) ? seg_echt : row.unified_real;
         for (std::size_t f = 0; f < anatomy::kV3FieldCount; ++f) {
             if (anatomy::kV3AxisSchema[t].names[f] == nullptr) continue; // ungenutzt / Phase B → keine Spalte
-            if (row.unified_real)
+            if (achse_echt)
                 zelle_sep(std::to_string(row.unified.axis_stats[t][f])); // konsolidierter POD
             else
-                zelle_sep("n/a"); // alte/Nicht-Mess-DLL -> ehrlich n/a
+                zelle_sep(cem::sample_status_token(
+                    cem::SampleStatus::SourceUnavailable)); // "n/a": alte/Nicht-Mess-DLL bzw. T17 ohne G3 -- NIE 0
         }
     }
-    if (row.unified_real)
-        zelle(std::to_string(row.unified.filled_axis_count)); // filled_axes
-    else
+    if (row.unified_real) {
+        // B2-A2.5/F1: der T17-Beitrag zur v3_filled_axes-Zahl haengt am SELBEN Feinkorn wie die T17-Zellen
+        // (der ++filled_axis_count der DLL sitzt in fill_observer_pathb_driven_v3 unter G3). Ohne seg_echt
+        // darf die Zeile T17 nicht als befuellt ausweisen -- deklarationsgetrieben gedeckelt (M-1/H-B (g):
+        // die Wache haengt an der Deklaration, nicht an den Zahlen). Fuer jede ABI-legale Zeile ist der
+        // Deckel ein No-Op: eine G3-aus-DLL zaehlt T17 nie mit -- die CSV bleibt byte-identisch.
+        std::uint64_t       gezeigt = row.unified.filled_axis_count;
+        std::uint64_t const deckel  = static_cast<std::uint64_t>(anatomy::kV3AxisCount) - 1u;
+        if (!seg_echt && gezeigt > deckel) gezeigt = deckel;
+        zelle(std::to_string(gezeigt)); // filled_axes
+    } else {
         zelle("n/a");
+    }
     out += ';';
     zelle(row.profile_name.empty() ? std::string_view{"-"} : std::string_view{row.profile_name}); // workload (Achse 2)
     out += ';';
