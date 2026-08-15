@@ -58,6 +58,14 @@ Teilweise anders gedeckt (NICHT aufgegeben): der ValueHandle-Roundtrip hat mit
 `test_value_handle_real` (value_handle-Achse) und `slots/axis_14_value_handle_slot.hpp` heutige
 Nachfolger auf der neuen Achsen-Welt.
 
+## Zaehlung (A2.5-Fix Runde 1, FUND-1)
+
+Es sind GENAU VIER Waisen-Dateien (Tabelle oben; 24 TEST-Faelle = 5+9+7+3). Die "7" des
+Archiv-Commits b39d62a2 ist dessen shortstat-Zeile "7 files changed" = 4 R100-Renames
++ dieses VERMERK.md (neu) + 2 Anpassungen (`scripts/ci_test_registrierungs_allowlist.txt`,
+`tests/unit/test_pa1_tote_ausnahme.cpp`). Fuer Landungs-/Ledger-Texte gilt:
+"4 Waisen-Dateien (7 geaenderte Dateien im Commit)" -- nie "7 Waisen".
+
 ## Frist und Reaktivierungs-Weg
 
 Die `frist:2026-09-15`-Zeilen der vier Dateien bleiben in
