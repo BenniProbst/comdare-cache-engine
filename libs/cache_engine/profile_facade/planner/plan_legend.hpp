@@ -25,7 +25,8 @@
 
 #include <builder/experiment_tree/axis_path_serialization.hpp> // ex::kCompositionAxisNames (Organ-Haupt-Achsen-Namen, Single-Source)
 #include <cache_engine/measurement/measurement_axis_registry.hpp> // kMeasurementAxisRegistry (16 Mess-Kategorien = UNTER, Single-Source)
-#include <mess_axes/measurement_tooling_registry.hpp> // kMeasurementToolingRegistry (Mess-Tooling-HAUPT {wallclock/macro/micro}, Single-Source)
+// kMeasurementToolingRegistry (Mess-Tooling-HAUPT {wallclock/macro/micro}, Single-Source)
+#include <mess_axes/measurement_tooling_registry.hpp>
 
 #include <algorithm>
 #include <cstddef>

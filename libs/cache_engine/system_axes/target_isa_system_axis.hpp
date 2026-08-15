@@ -57,8 +57,8 @@ concept TargetIsaSystemAxisConcept =
         { A::target_march() } -> std::same_as<std::string_view>;
     };
 
-// ── Die Ziel-ISA-Auspraegungs-Familie. Jede eine leere CRTP-Struct (Design-Space-Vokabular); der Planer/die XML
-//    waehlt+permutiert, nichts gepinnt. Weitere ISAs (riscv64/power) folgen mit der Runner-/Toolchain-Matrix. ──
+// -- Die Ziel-ISA-Auspraegungs-Familie. Jede eine leere CRTP-Struct (Design-Space-Vokabular); der Planer/die XML
+//    waehlt+permutiert, nichts gepinnt. Weitere ISAs (riscv64/power) folgen mit der Runner-/Toolchain-Matrix. --
 
 /// x86-64 = Host==Target (prod1/prod2): KEINE Cross-Flags, Binary generisch fuer den Bau-Host. Default.
 struct X86_64TargetIsa final : TargetIsaSystemAxis<X86_64TargetIsa> {

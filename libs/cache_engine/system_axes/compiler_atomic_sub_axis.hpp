@@ -65,8 +65,8 @@ concept CompilerAtomicSubAxisConcept =
         { A::msvc_flag() } -> std::same_as<std::string_view>;
     };
 
-// ── Die atomic128-Auspraegungs-Familie {no_cx16, cx16}. Jede eine leere CRTP-Struct (Design-Space-Vokabular);
-//    der Planer/die XML waehlt+permutiert (ISA-gegated x86_64), nichts gepinnt. ──
+// -- Die atomic128-Auspraegungs-Familie {no_cx16, cx16}. Jede eine leere CRTP-Struct (Design-Space-Vokabular);
+//    der Planer/die XML waehlt+permutiert (ISA-gegated x86_64), nichts gepinnt. --
 
 /// Kein 128-bit-CAS-Flag (Default = Ist-Verhalten): der Compiler emittiert CMPXCHG16B nicht garantiert.
 struct NoCx16Option final : CompilerAtomicSubAxis<NoCx16Option> {

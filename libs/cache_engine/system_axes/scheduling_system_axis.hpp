@@ -4,7 +4,7 @@
 // die CEB gebaut wird (kein Runtime-Switch, keine vtable). Die 5 Scheduling-Dimensionen kommen
 // als static-constexpr-Properties via Derived (static-dispatch). Die historischen Enums werden
 // aus concepts/scheduling_strategy.hpp WIEDERVERWENDET (Single-Source); die dortige DEPRECATED
-// Runtime-vtable (ISchedulingStrategy, 0 Konsumenten) bleibt unberuehrt daneben stehen — ihr
+// Runtime-vtable (ISchedulingStrategy, 0 Konsumenten) bleibt unberuehrt daneben stehen -- ihr
 // Ersatz ist der koordinierte Bau-INC-2.
 
 // O-8 Schritt 6 (Bauplan IV.2.2 / Owner OD-2): scheduling ist KEINE System-HAUPT-Achse mehr, sondern

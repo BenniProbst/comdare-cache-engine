@@ -29,7 +29,7 @@
 //
 // -- LANE C, PAKET C-3 (Bauplan-v3 IV.2.3, 26.07.2026): DIESER KNOTEN WIRD ZUM HUB ----------------
 // Auftrag Abschnitt 1.4: "external_utils (Rename von extension_hardware, Schreibweise FINAL) = KOPF/HUB
-// fuer ALLE Meta-Meta-Achsen". Nach Ledger §69.1 (R-G) ist der Hub der Kopf der SYSTEM-Meta-Metas
+// fuer ALLE Meta-Meta-Achsen". Nach Ledger Par.69.1 (R-G) ist der Hub der Kopf der SYSTEM-Meta-Metas
 // (SIMD/AVX, externe HW, spaeter GPU/FPGA/NPU) -- load_framework gehoert NICHT dazu, es ist eine
 // Meta-Meta-Haupt-Achse der MESS-Achsen und verlaesst die System-Welt ersatzlos (IV.2.1).
 // C-3 ergaenzt diesen Header daher um ZWEI additive Dinge:
@@ -147,7 +147,7 @@ static_assert(SimdAvx512Option::gcc_march_flag() == SimdAvx512Option::clang_marc
 // C-3: DER HUB (Command-Pattern-Manager der SYSTEM-Meta-Meta-Achsen)
 // =================================================================================================
 
-/// Der HUB: der KOPF, unter dem ALLE SYSTEM-Meta-Meta-Achsen haengen (Auftrag 1.4, Ledger §69.1).
+/// Der HUB: der KOPF, unter dem ALLE SYSTEM-Meta-Meta-Achsen haengen (Auftrag 1.4, Ledger Par.69.1).
 ///
 /// COMMAND-PATTERN (GoF), zero-cost: dieser Typ ist der INVOKER/Manager -- er verwaltet die Glieder und
 /// gibt sie frei. Jedes Glied ist ein eigenstaendiger, voll ausgestatteter Achsen-TYP (der Command), der
@@ -162,7 +162,7 @@ static_assert(SimdAvx512Option::gcc_march_flag() == SimdAvx512Option::clang_marc
 /// (Owner Q-A: die Komplex-Achse hat nur eine INDIREKTE Identitaet ueber die gewrappten Glieder).
 struct ExternalUtilsHub {
     /// Die Glied-Reihenfolge -- heute genau EIN Glied. load_framework ist hier AUSDRUECKLICH NICHT
-    /// enthalten (Ledger §69.1 / R-G: Mess-Realm, nicht System-Hub); gpu/fpga/npu-Familien treten
+    /// enthalten (Ledger Par.69.1 / R-G: Mess-Realm, nicht System-Hub); gpu/fpga/npu-Familien treten
     /// additiv hier ein, sobald sie als Typ existieren.
     using meta_metas = MetaMetaMembers<SimdExternalUtilsFamily>;
 
@@ -191,7 +191,7 @@ struct ExternalUtilsHub {
     /// -mavx512bitalg -mavx512vpopcntdq) NEBEN dem einen -mavx512f des Codegen-Kanals -- leere
     /// Schnittmenge, also nicht bloss eine Dopplung, sondern eine ANDERE Flag-Menge und damit anderer
     /// Code. Der Kanal-Merge-Beleg (Paket C-3b) ist deshalb VORBEDINGUNG jeder Scharfschaltung (C-3a,
-    /// gegatet auf C-3b + O-4; Owner-Vorab-GO Ledger §69.9) und gehoert NICHT in C-3.
+    /// gegatet auf C-3b + O-4; Owner-Vorab-GO Ledger Par.69.9) und gehoert NICHT in C-3.
     ///
     /// BYTE-NEUTRALITAET VON C-3 haengt deshalb ausdruecklich NICHT an der Inertheit des Gates, sondern
     /// an einer staerkeren, unabhaengig belegten Aussage: dieser Hub haengt sich an KEINEN der beiden
@@ -224,7 +224,7 @@ static_assert(!ExternalUtilsHub::manages<SimdAvx2Option>, "eine Unter-Achsen-OPT
 // Freigabe = verwaltet UND wohlgeformt.
 static_assert(ExternalUtilsHub::releases<SimdExternalUtilsFamily>);
 static_assert(!ExternalUtilsHub::releases<SimdNoExtOption>);
-// R-G-TRIPWIRE (Ledger §69.1): der Hub traegt AUSSCHLIESSLICH System-Meta-Metas. Wer load_framework
+// R-G-TRIPWIRE (Ledger Par.69.1): der Hub traegt AUSSCHLIESSLICH System-Meta-Metas. Wer load_framework
 // oder eine andere Mess-Realm-Achse hier einhaengt, bricht diese Zeile. Die Pruefung laeuft ueber die
 // Glied-ANZAHL, damit sie ohne einen #include der Mess-Realm-Achse auskommt (Layer-Trennung).
 static_assert(std::is_same_v<ExternalUtilsHub::identity_as<MetaMetaMembers>, MetaMetaMembers<SimdExternalUtilsFamily>>,

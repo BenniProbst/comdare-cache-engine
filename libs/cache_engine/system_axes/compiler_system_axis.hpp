@@ -1,12 +1,12 @@
 // system_axes/compiler_system_axis.hpp -- Compiler als 5. CEB-Konfig-System-Achse
 // (Bau-INC-1h, Q3-Ruling 2026-07-17).
 //
-// User-Entscheid: der Compiler ist eine VOLLE System-Achse — der Experiment-Planer baut sowohl
+// User-Entscheid: der Compiler ist eine VOLLE System-Achse -- der Experiment-Planer baut sowohl
 // die CEB als auch (durch die CEB) die Tier-Binaries mit BEIDEN Compilern und vergleicht die
 // Ergebnisse (Compiler-Fenster bis ~5% Performance-Unterschied). Erste Ausbaustufe strikt
 // gcc|clang; die Verfuegbarkeits-Erkennung zur Laufzeit ist die dynamische Unter-Achse (S-6).
 // Serialisierung: eigener flacher Ordner-Level Host -> OS -> Compiler -> ISA; Provenienz im
-// H-10-Sidecar/build_version — NIE in der binary_id.
+// H-10-Sidecar/build_version -- NIE in der binary_id.
 
 #pragma once
 
@@ -26,7 +26,7 @@ struct CompilerSystemAxis : CebSystemAxis<Derived> {
     [[nodiscard]] static constexpr std::string_view compiler_id() noexcept { return Derived::do_compiler_id(); }
     /// Default-Treiber-Binary dieser Auspraegung (env COMDARE_CXX bleibt Laufzeit-Override).
     [[nodiscard]] static constexpr std::string_view driver_default() noexcept { return Derived::do_driver_default(); }
-    /// Kennt der Dialekt das GNU-only-Flag -fno-gnu-unique? (clang: nein — hartes Bau-Gate.)
+    /// Kennt der Dialekt das GNU-only-Flag -fno-gnu-unique? (clang: nein -- hartes Bau-Gate.)
     [[nodiscard]] static constexpr bool supports_fno_gnu_unique() noexcept {
         return Derived::do_supports_fno_gnu_unique();
     }

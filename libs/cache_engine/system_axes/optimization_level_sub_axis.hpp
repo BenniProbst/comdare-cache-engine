@@ -71,8 +71,8 @@ concept OptimizationLevelSubAxisConcept =
         { A::is_ieee754_deterministic() } -> std::same_as<bool>;
     };
 
-// ── Die volle {O0,O1,O2,O3,Ofast}-Auspraegungs-Familie (OF-2). Jede ist eine leere CRTP-Struct
-//    (Design-Space-Vokabular); der Planer/die XML waehlt+permutiert, nichts ist gepinnt. ──
+// -- Die volle {O0,O1,O2,O3,Ofast}-Auspraegungs-Familie (OF-2). Jede ist eine leere CRTP-Struct
+//    (Design-Space-Vokabular); der Planer/die XML waehlt+permutiert, nichts ist gepinnt. --
 
 struct OptO0Option final : OptimizationLevelSubAxis<OptO0Option> {
     [[nodiscard]] static constexpr std::string_view do_opt_level_id() noexcept { return "O0"; }
@@ -118,7 +118,7 @@ struct OptOfastOption final : OptimizationLevelSubAxis<OptOfastOption> {
     [[nodiscard]] static constexpr bool             do_is_ieee754_deterministic() noexcept { return false; }
 };
 
-/// CEB-Default-Auspraegung — BEWEGLICHER Startwert, KEIN globaler Pin (User-Ruling 2026-07-18, Option B).
+/// CEB-Default-Auspraegung -- BEWEGLICHER Startwert, KEIN globaler Pin (User-Ruling 2026-07-18, Option B).
 /// Korrektur der frueheren OF-2-Buchstaben-Lesart ("Default = Ofast"): der CEB-Default ist **O3**, weil O3
 /// IEEE-754-DETERMINISTISCH ist (do_is_ieee754_deterministic()==true) und den 1-Thread-Mess-Determinismus der
 /// golden-Reihe wahrt; -Ofast bricht ihn (-fallow-store-data-races/-funsafe-math). Ofast/O0/O1/O2 leben ADDITIV

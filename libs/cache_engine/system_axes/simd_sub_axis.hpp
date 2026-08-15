@@ -62,8 +62,8 @@ concept SimdSubAxisConcept = CebSystemAxisConcept<A> && std::derived_from<A, Sim
                                  { A::msvc_march_flag() } -> std::same_as<std::string_view>;
                              };
 
-// ── Die simd-Auspraegungs-Familie {no_extension, avx2, avx512}. Jede eine leere CRTP-Struct (Design-Space-
-//    Vokabular); der Planer/die XML waehlt+permutiert (ISA-gegated), nichts gepinnt. ──
+// -- Die simd-Auspraegungs-Familie {no_extension, avx2, avx512}. Jede eine leere CRTP-Struct (Design-Space-
+//    Vokabular); der Planer/die XML waehlt+permutiert (ISA-gegated), nichts gepinnt. --
 
 /// Generisch (Default = Ist-Verhalten): KEINE Erweiterungs-Flags, Binary bleibt generisch.
 struct SimdNoExtOption final : SimdSubAxis<SimdNoExtOption> {

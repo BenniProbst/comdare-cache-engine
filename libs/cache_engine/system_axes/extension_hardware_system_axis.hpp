@@ -17,7 +17,7 @@
 // die simd_extension-Auspraegungen aber SELBST zu ihrer Laufzeit durch und stattet Tier-Binaries
 // zur compile time mit diesen Eigenschaften aus (Erweiterungshardware = SIMD, spaeter GPU).
 // Der -march/-mavx-WERT kommt aus dieser Achse, der ORT ist die injizierte CompileFn-Naht
-// (make_gpp_compile_fn-Flag-Kanal), die PROVENIENZ gehoert ins H-10-Sidecar — NIE in die
+// (make_gpp_compile_fn-Flag-Kanal), die PROVENIENZ gehoert ins H-10-Sidecar -- NIE in die
 // binary_id (golden==320 bleibt; 09b/simd_extension bleibt die deklarative Build-Achse).
 // Die Flags werden JE COMPILER getrennt gefuehrt (gcc|clang, Q3): -march=native-Defaults
 // differieren je Compiler und sind eine Quelle des Compiler-Vergleichs.
