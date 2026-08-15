@@ -1099,8 +1099,46 @@ int main(int argc, char** argv) {
     ToolRun t5g = run_tool("--check");
     if (t5g.exit_code != 0) return fehler(31, "Koeder-T5-Ruecknahme muss Exit 0 liefern", t5g);
 
+    // Schritt 32 -- KOEDER U (S-18/#16, KON27-01 Detail-Split): die Phasigkeits-Pruefsyntax wird
+    // DIFFERENTIAL gefahren, nie behauptet -- DASSELBE Literal '1.0.0.c.m' (m = Mess-Vokabular,
+    // parst FORM-sauber, steht NICHT im Hardware-Katalog) faellt unter system (ZWEIPHASIG
+    // hardware-only => ROT) und traegt unter mess (DREIPHASIG, G-1-Formwache = benannte
+    // Leerstelle => Regen-Weg, Literal landet im Register). Genau diese Asymmetrie IST der
+    // Detail-Klassen-Split; verschwindet sie, ist der Split zur Behauptung verkommen.
+    std::string const u_inhalt = "// s18 koeder U -- nur fuer den tripwire-test\n#pragma once\n"
+                                 "#include <string_view>\n"
+                                 "struct S18KoederU {\n"
+                                 "    static constexpr std::string_view algo_version = \"1.0.0.c.m\";\n"
+                                 "};\n";
+    fs::path const u1_pfad = g_tmp_root / "libs/cache_engine/system_axes/target_isa_s18_koeder_u.hpp";
+    spew(u1_pfad, u_inhalt);
+    ToolRun u1 = run_tool("--write");
+    protokoll("KOEDER U1 (system-Literal mit m-Vokabular -- ZWEIPHASIG muss ROT sein)", u1);
+    if (u1.exit_code != 1) return fehler(32, "Koeder U1 muss Exit 1 liefern (zweiphasig verletzt)", u1);
+    if (!contains(u1.output, "Phasigkeits-Syntax verletzt"))
+        return fehler(32, "Koeder U1 muss die Phasigkeits-Diagnose tragen", u1);
+    if (!contains(u1.output, "target_isa_s18_koeder_u.hpp"))
+        return fehler(32, "Koeder U1 muss die Datei nennen", u1);
+    fs::remove(u1_pfad);
+    ToolRun u1g = run_tool("--check");
+    if (u1g.exit_code != 0) return fehler(32, "Koeder-U1-Ruecknahme muss Exit 0 liefern", u1g);
+
+    fs::path const    u2_pfad = g_tmp_root / "libs/cache_engine/mess_axes/measurement_tooling_s18_koeder_u.hpp";
+    std::string const u2_rel  = "libs/cache_engine/mess_axes/measurement_tooling_s18_koeder_u.hpp";
+    spew(u2_pfad, u_inhalt);
+    ToolRun u2 = run_tool("--write");
+    protokoll("KOEDER U2 (mess-Literal mit m-Vokabular -- DREIPHASIG-Leerstelle, Regen-Weg traegt)", u2);
+    if (u2.exit_code != 0) return fehler(32, "Koeder U2 muss Exit 0 liefern (mess ist nicht hardware-gegated)", u2);
+    if (lock_version_von(g_lockfile, u2_rel) != "1.0.0.c.m")
+        return fehler(32, "Koeder U2: das m-Literal muss im mess-Register stehen (1.0.0.c.m)", u2);
+    fs::remove(u2_pfad);
+    ToolRun u2w = run_tool("--write");
+    if (u2w.exit_code != 0) return fehler(32, "Koeder U2 Aufraeum-Regen muss Exit 0 liefern", u2w);
+    ToolRun u2g = run_tool("--check");
+    if (u2g.exit_code != 0) return fehler(32, "Koeder-U2-Ruecknahme muss Exit 0 liefern", u2g);
+
     fs::remove_all(g_tmp_root, ec);
-    std::printf("test_s14_axis_version_lock_tripwire: GRUEN (Koeder A-T gefahren, Anker 6/%ld/%ld gehalten)\n", o_disc,
+    std::printf("test_s14_axis_version_lock_tripwire: GRUEN (Koeder A-U gefahren, Anker 6/%ld/%ld gehalten)\n", o_disc,
                 o_trae);
     return 0;
 }

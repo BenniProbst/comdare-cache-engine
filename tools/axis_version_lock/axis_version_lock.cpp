@@ -140,6 +140,11 @@
 //              KATEGORIE-REGELN (D2/D3/D4): Kategorie-Abweichung Lock vs. Discovery => ROT;
 //              traeger -> digest-only => ROT ohne --write-Weg; digest-only -> traeger =>
 //              Exit 3 (Regen).
+//              S-18/#16 DETAIL-SPLIT (KON27-01, 15.08.2026): SystemDetail/MessDetail tragen
+//              Home + Phasigkeits-Pruefsyntax (system+organ ZWEIPHASIG hardware-only via
+//              ce_owned_version_is_wellformed; mess DREIPHASIG = benannte Leerstelle bis zum
+//              G-1-Stufe-C-Bau, bis dahin Parser-Pruefung). Homes: system_axes/ + mess_axes/
+//              (organ: axes/+topics/, compile-hart gepinnt im Schnitt-Header).
 //
 // LOCK-FORMAT v3 (v1 UND v2 werden mit klarer Meldung abgewiesen, kein stilles Weiterlesen):
 //   # format: v3
@@ -833,6 +838,79 @@ struct OrganDetail {
 };
 
 // ================================================================================================
+// DETAIL-KLASSEN-SPLIT S-18/#16 (KON27-01 'je Achsen-Kategorie EIN Home + EIN Waechter' als
+// Detail-Klassen IN DER EINEN Wache; KON17-03 'EINE Wache, EIN Lock' -- kein zweites Werkzeug,
+// kein zweites Lockfile). SystemDetail/MessDetail tragen Home und PRUEF-SYNTAX ihrer Kategorie;
+// die Literal-MECHANIK (Scan/Render/Bump) bleibt die EINE in OrganDetail -- der Split traegt
+// POLITIK, keine Zweitmechanik, und die Grammatik bleibt der EINE Bestands-Parser
+// measurement/algo_semver.hpp (NIE Zweitgrammatik).
+//   ZWEIPHASIG (system UND organ, KON27-01): jedes algo_version-Literal muss die volle
+//     Hardware-Wache ce_owned_version_is_wellformed tragen (Katalog + c-Pflichtform +
+//     Voraussetzungs-Ketten). Sie lehnt insbesondere Mess-Vokabular ('m'-Baum) auf System-/
+//     Organ-Zeilen ab -- exakt die G-1-Abgrenzung ('das generische Praedikat bleibt
+//     hardware-only').
+//   DREIPHASIG (mess): BENANNTE LEERSTELLE, kein stiller Default (Praezedenz KON58-01): die
+//     G-1-Form-Wachen (mess_form_ist_dreiphasig / mess_version_is_wellformed / Katalog
+//     kMessGrammarCatalog im Mess-Home) sind per G-1-Design Par. 6 Stufe B/C ein EIGENER,
+//     owner-gestufter Bau NACH diesem Fenster (#17/G-2 folgt). Bis dahin prueft mess ueber den
+//     EINEN Parser auf Parsebarkeit (Sentinel = ROT, bestehender Weg); der Hardware-Katalog
+//     wird auf mess BEWUSST NICHT erzwungen -- die Mess-Grammatik ist ein v2-PROFIL MIT
+//     m-Vokabular, das der Hardware-Katalog nicht kennt.
+//   tier_substanz: KEIN Achsen-Eigentum (anatomy/ = gemeinsamer Traeger) -- keine
+//     Phasigkeits-Syntax; heuristik behaelt den Integer-Marker-Weg.
+// Die HOME-ZUGEHOERIGKEIT der Discovery pinnt der Schnitt-Header compile-hart
+// (builder/overlay_source_set.hpp, kategorie_haelt_ihr_home); die bidirektionale
+// Lock-Deckung (unlocked/verwaist) besteht seit v2. Hier steht die LAUFZEIT-Politik je Literal.
+struct SystemDetail {
+    static constexpr std::string_view kName = "system";
+    static constexpr std::string_view kHome = "libs/cache_engine/system_axes";
+    /// ZWEIPHASIG: volle Hardware-Wache je Literal (EIN Katalog, EIN Parser).
+    [[nodiscard]] static bool literal_zulaessig(std::string const& literal) {
+        return meas::ce_owned_version_is_wellformed(literal);
+    }
+};
+
+struct MessDetail {
+    static constexpr std::string_view kName = "mess";
+    static constexpr std::string_view kHome = "libs/cache_engine/mess_axes";
+    /// DREIPHASIG: heute NUR Parsebarkeit ueber den EINEN Parser (Leerstelle s. Block-Kopf);
+    /// der G-1-Bau ersetzt diesen Rumpf durch mess_version_is_wellformed (Stufe C).
+    [[nodiscard]] static bool literal_zulaessig(std::string const& literal) {
+        return !meas::parse_algo_semver(literal).is_sentinel();
+    }
+};
+
+/// Phasigkeits-Politik je Kategorie-Literal (S-18). true = gedruckt und rot. Laeuft NACH der
+/// Sentinel-Wache (befund_immer_rot-Reihenfolge): ein unparsbares Literal ist dort schon rot,
+/// hier faellt die KATALOG-/PROFIL-Frage der wohlgeformten Literale.
+[[nodiscard]] bool phasigkeit_rot(std::string const& rel, std::string const& kategorie, std::string const& version) {
+    if (version == "-") return false;
+    bool        rot  = false;
+    char const* form = nullptr;
+    for (std::string const& teil : OrganDetail::split_versionen(version)) {
+        if (kategorie == std::string(SystemDetail::kName) || kategorie == "organ") {
+            if (!SystemDetail::literal_zulaessig(teil)) {
+                form = "ZWEIPHASIG hardware-only, ce_owned_version_is_wellformed";
+                rot  = true;
+            }
+        } else if (kategorie == std::string(MessDetail::kName)) {
+            if (!MessDetail::literal_zulaessig(teil)) {
+                form = "DREIPHASIG (heute: Parsebarkeit, G-1-Formwache folgt)";
+                rot  = true;
+            }
+        }
+        if (rot) {
+            std::fprintf(stderr,
+                         "axis_version_lock: ROT Phasigkeits-Syntax verletzt (Kategorie '%s', %s): "
+                         "Literal '%s' %s\n",
+                         kategorie.c_str(), form, teil.c_str(), rel.c_str());
+            return true;
+        }
+    }
+    return false;
+}
+
+// ================================================================================================
 // Lock-Datei v2: Lesen/Schreiben + der bidirektionale Check.
 // ================================================================================================
 struct Befund {
@@ -895,6 +973,7 @@ struct BestandZaehler {
                          b.version.c_str(), rel.c_str());
             return true;
         }
+        if (phasigkeit_rot(rel, b.category, b.version)) return true; // S-18 Detail-Split (s.o.)
     }
     return false;
 }

@@ -356,6 +356,16 @@
 ///       Klasse ist der gemeinsame DURCHSETZUNGS-Punkt, keine neue Quelle -- ein drittes Literal
 ///       entstuende hier nie (die Basis ist leer, KON7-08).
 ///       Erhebung: der generische Wachen-grep oben faengt sie (stempel_basis.hpp).
+///   (m) S-18/#16 (15.08.2026, im Bau-Commit selbst nachgetragen): der PHASIGKEITS-DELEGAT DES
+///       LOCK-WAECHTERS. tools/axis_version_lock/axis_version_lock.cpp fuehrt KEIN eigenes
+///       Versions-Literal; seine Aufruf-Stelle ist die ZWEIPHASIG-Pruefsyntax der Kategorie-Homes
+///       (KON27-01): jedes algo_version-Literal der Kategorien system und organ muss
+///       ce_owned_version_is_wellformed tragen (SystemDetail/MessDetail-Split in der EINEN Wache;
+///       mess ist DREIPHASIG und wird bis zum G-1-Stufe-C-Bau bewusst NICHT hardware-gegated --
+///       benannte Leerstelle im Tool-Kopf).
+///       ABGRENZUNG: wie (l) ein DURCHSETZUNGS-Punkt, keine neue Quelle -- die Literale bleiben in
+///       den Traeger-Dateien der Homes und tragen dort ihre eigenen Wachen.
+///       Erhebung: der generische Wachen-grep oben faengt sie (axis_version_lock.cpp).
 #ifndef COMDARE_VERSION_HW_FLAG_ENFORCE
 #define COMDARE_VERSION_HW_FLAG_ENFORCE 1
 #endif
