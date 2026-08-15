@@ -512,6 +512,32 @@ struct LazyMeasuredRow {
     bool          drift_stabil     = false; // bestimmbar UND unter der Schwelle
 };
 
+/// lazy_row_mess_ausstattung_uebernehmen(row, cfg, gemessen_unified_real) -- DIE EINE UEBERNAHME der
+/// Mess-Ausstattung cfg -> row (B2-ABSCHLUSS, 15.08.2026; Dual-Review-Fund "Capability-Weitergabe
+/// Legende->cfg->row hat keinen beissenden Test").
+///
+/// Bis zum Abschluss-Fix standen die beiden Zuweisungen als nackte Zeilen im Mess-Rumpf des
+/// Builder-Iterators -- produktiv GENAU EINMAL, aber fuer keinen Host-Test erreichbar: fiele eine weg
+/// oder invertierte, blieben alle Gate-Tests gruen, und die fail-open-Defaults der beiden row-Felder
+/// (unified_real/seg_real, beide true als deklarierter Byte-Identitaets-Entscheid) renderten auf einer
+/// G3-aus-Binary wieder strukturelle Nullen als Zahlen. Als benannte Naht ist die Uebernahme testbar
+/// (test_b2_gate_zustand_g2an_g3aus, Abschnitt K5 -- beide Polaritaeten) und hat EINE Semantik:
+///   unified_real = gemessen_unified_real UND cfg.mess_observer_ausstattung   (M-1/H-B, nur abwertend)
+///   seg_real     = cfg.mess_feinkorn_ausstattung                             (B2,      nur abwertend)
+/// "Nur abwertend": true && false == false, true && true == der bisherige Wert; seg wirkt im Renderer
+/// als Konjunktion mit unified_real (seg ist Teilmenge des Observer-Blocks). AUSDRUECKLICH NICHT
+/// GEDECKT (ehrlich benannt): dass der Mess-Rumpf diese Naht RUFT, prueft kein Host-Test -- das deckt
+/// nur ein echter Perm-Lauf; der Aufrufort ist quelltext-gewacht (a8s4-Klasse) und einzig.
+inline void lazy_row_mess_ausstattung_uebernehmen(LazyMeasuredRow& row, LazyRunConfig const& cfg,
+                                                  bool gemessen_unified_real) noexcept {
+    // M-1/H-B: unified_real ist die Konjunktion aus "die Messung lief" (perm_runner) UND "diese
+    // Binary ist ueberhaupt mit Observer gebaut" (cfg). Ohne den zweiten Faktor schrieb eine
+    // [wallclock]-Zeile literal 0 in Zellen, die es nicht wissen konnte.
+    row.unified_real = gemessen_unified_real && cfg.mess_observer_ausstattung;
+    // B2 (15.08.2026): seg-Ehrlichkeit eine Schicht hoeher -- G3/Feinkorn dieser Binary.
+    row.seg_real = cfg.mess_feinkorn_ausstattung;
+}
+
 // ── (B/C/D/X) EINHEITLICHES CSV-Schema (global + per-Binary identisch) ──────────────────────────────────
 //   binary_id;setting;repetition;n_ops;total_ns;ns_per_op;
 //   seg_<T0>_ns;…;seg_<T17>_ns;   (18 per-Achsen-Timer-Spalten, kCompositionAxisNames-Reihenfolge)
@@ -3025,14 +3051,11 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 row.timed_ops          = pr.timed_ops;
                 row.op_lat             = pr.op_lat;
                 row.unified            = pr.unified;
-                // M-1/H-B: unified_real ist die Konjunktion aus "die Messung lief" (perm_runner) UND "diese
-                // Binary ist ueberhaupt mit Observer gebaut" (cfg). Der zweite Faktor ist neu; ohne ihn
-                // schrieb eine [wallclock]-Zeile literal 0 in Zellen, die es nicht wissen konnte. Nur
-                // abwertend -- true && false == false, true && true == der bisherige Wert.
-                row.unified_real = pr.unified_real && cfg.mess_observer_ausstattung;
-                // B2 (15.08.2026): seg-Ehrlichkeit eine Schicht hoeher -- G3/Feinkorn dieser Binary. Nur
-                // abwertend (default true); wirksam als Konjunktion mit unified_real im Renderer.
-                row.seg_real        = cfg.mess_feinkorn_ausstattung;
+                // M-1/H-B + B2: Observer- und Feinkorn-Ehrlichkeit dieser Zeile -- seit dem
+                // B2-ABSCHLUSS ueber die EINE benannte, host-testbare Naht (Funktionskopf direkt
+                // hinter LazyMeasuredRow traegt Semantik und Byte-Bilanz; Test: Abschnitt K5 in
+                // test_b2_gate_zustand_g2an_g3aus). Beide Felder nur abwertend.
+                lazy_row_mess_ausstattung_uebernehmen(row, cfg, pr.unified_real);
                 row.profile_name    = pr.profile_name;
                 row.two_phase_valid = pr.two_phase_valid;
                 row.sample_status   = pr.sample_status;

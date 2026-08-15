@@ -5364,6 +5364,66 @@ add_test(NAME test_b2_mess_gate_trennung COMMAND test_b2_mess_gate_trennung)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_b2_mess_gate_trennung)
 set_tests_properties(test_b2_mess_gate_trennung PROPERTIES LABELS "b2;messachse;stempel;gates")
 
+# B2-ABSCHLUSS (15.08.2026, Dual-Review-Fund "Gate-Zustand G2-an/G3-aus wird NIRGENDS kompiliert"):
+# die GEGEN-TU zum Abbildungs-Test darueber. Sie kompiliert EXAKT den Define-Satz, den
+# mess_achsen_defines("[wallclock,macro]") emittiert (G1+G2, G3 EXPLIZIT =0, zwei Deklarationen),
+# plus Perm-Marker und CT-Einbau der CEB-Stufe -- und instanziiert den ECHTEN Adapter (MCE24-/a8s4-
+# Bauform; ein uninstanziierter Template-Rumpf waere kein Bau-Beweis). K4 macht einen Revert der
+# drei G3-Flaechen (anatomy/abi_adapter.hpp) zurueck auf das G2-Gate ROT; K5 prueft die
+# Produktions-Naht lazy_row_mess_ausstattung_uebernehmen in beiden Polaritaeten (Fund
+# "Capability-Weitergabe ohne beissenden Test").
+add_executable(test_b2_gate_zustand_g2an_g3aus "test_b2_gate_zustand_g2an_g3aus.cpp")
+target_compile_features(test_b2_gate_zustand_g2an_g3aus PRIVATE cxx_std_23)
+target_include_directories(test_b2_gate_zustand_g2an_g3aus PRIVATE ${COMDARE_MCE24_INCLUDES})
+target_link_libraries(test_b2_gate_zustand_g2an_g3aus PRIVATE Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_b2_gate_zustand_g2an_g3aus)
+target_compile_definitions(test_b2_gate_zustand_g2an_g3aus PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_CE_ENABLE_SEGMENT_TIMING=0
+    COMDARE_EXPERIMENT_MODE_ON=1 COMDARE_MEASUREMENT_TOOLING_WALLCLOCK=1 COMDARE_MEASUREMENT_TOOLING_MACRO=1
+    "COMDARE_MEASUREMENT_COMBO_CT=\"[wallclock,macro]\"")
+add_test(NAME test_b2_gate_zustand_g2an_g3aus COMMAND test_b2_gate_zustand_g2an_g3aus)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_b2_gate_zustand_g2an_g3aus)
+set_tests_properties(test_b2_gate_zustand_g2an_g3aus PROPERTIES
+    LABELS "b2;messachse;gates;standalone" TIMEOUT 120)
+
+# B2-ABSCHLUSS NEGATIVPROBE (15.08.2026, Configure-Zeit): G3=1 OHNE G2 ist kein baubarer Zustand --
+# der #error der EINEN Ableitung (cache_engine/abi/mess_gate_segment_timing.hpp:54-56) MUSS feuern.
+# Der Dual-Review-Fund war woertlich "die #error-Wache nie als feuernd bewiesen"; ein add_test kann
+# das nicht tragen (ein Compile-FEHLSCHLAG ist kein lauffaehiger Test), also wohnt die Probe im
+# Configure-Schritt und macht JEDEN Baum rot, in dem die Wache nicht mehr beisst.
+try_compile(_b2_g3_ohne_g2_baut
+    SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/b2_probe_g3_schichtung_tu.cpp"
+    CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    COMPILE_DEFINITIONS "-DCOMDARE_CE_ENABLE_SEGMENT_TIMING=1"
+    CXX_STANDARD 23
+    OUTPUT_VARIABLE _b2_g3_ohne_g2_ausgabe)
+if(_b2_g3_ohne_g2_baut)
+    message(FATAL_ERROR "B2-ABSCHLUSS NEGATIVPROBE: eine TU mit COMDARE_CE_ENABLE_SEGMENT_TIMING=1 "
+        "OHNE COMDARE_CE_ENABLE_STATISTICS hat gebaut -- die #error-Schichtungs-Wache in "
+        "cache_engine/abi/mess_gate_segment_timing.hpp ist geschlachtet (micro ist G1+G2+G3, "
+        "mess_achsen_naht.hpp). Wache wiederherstellen, nicht diese Probe entfernen.")
+endif()
+string(FIND "${_b2_g3_ohne_g2_ausgabe}" "verlangt COMDARE_CE_ENABLE_STATISTICS" _b2_g3_fundstelle)
+if(_b2_g3_fundstelle EQUAL -1)
+    message(FATAL_ERROR "B2-ABSCHLUSS NEGATIVPROBE: die G3-ohne-G2-Probe scheitert aus dem FALSCHEN "
+        "Grund (der #error-Wortlaut 'verlangt COMDARE_CE_ENABLE_STATISTICS' fehlt in der "
+        "Compiler-Ausgabe). Compiler-Ausgabe:\n${_b2_g3_ohne_g2_ausgabe}")
+endif()
+# KONTROLLE (K13, der Koeder muss beissen): dieselbe Probe-TU MIT beiden Gates MUSS bauen -- sonst
+# waere der Fehlschlag oben still einem fremden Grund zuzuschreiben (Include-Pfad, Standard).
+try_compile(_b2_g3_mit_g2_baut
+    SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/b2_probe_g3_schichtung_tu.cpp"
+    CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    COMPILE_DEFINITIONS "-DCOMDARE_CE_ENABLE_SEGMENT_TIMING=1" "-DCOMDARE_CE_ENABLE_STATISTICS=1"
+    CXX_STANDARD 23
+    OUTPUT_VARIABLE _b2_g3_mit_g2_ausgabe)
+if(NOT _b2_g3_mit_g2_baut)
+    message(FATAL_ERROR "B2-ABSCHLUSS KONTROLLE: die Probe-TU baut NICHT einmal MIT beiden Gates -- "
+        "die Negativprobe darueber ist damit beweislos (sie scheitert dann aus einem fremden "
+        "Grund, nicht am #error). Compiler-Ausgabe:\n${_b2_g3_mit_g2_ausgabe}")
+endif()
+message(STATUS "B2-ABSCHLUSS Schichtungs-Wache: Negativprobe feuert am #error, Kontrolle baut (2/2)")
+
 # M-1/H-A + M-1/H-2 (06.08.2026): die STUFEN-Wache im CT-losen Zweig und die PMC-Ausstattungs-Invariante.
 # BEWUSST OHNE COMDARE_MEASUREMENT_COMBO_CT -- und hier ist das nicht bloss Unabhaengigkeit vom Makro-
 # Zustand wie beim Nachbarn oben, sondern die SACHE selbst: die H-A-Luecke SASS im #else-Zweig. Eine TU,

@@ -373,9 +373,42 @@
 # auf beide Variablen, LC_ALL=C comm in BEIDE Richtungen); Zahlen und
 # comm-Verlustlisten woertlich im Bericht der B2-Scheibe.
 #
+# -- NACHZUG B2-ABSCHLUSS (2026-08-15, Dual-Review-Fixstufe derselben Scheibe) --
+# KONTO, je Name (Registrierungs-Diff tests/unit/CMakeLists.txt der Fix-Stufe,
+# Gegenrichtung leer -- nichts entfallen): GENAU EINE neue Registrierung,
+# test_b2_gate_zustand_g2an_g3aus (Gate-Zustands-Probe G2-an/G3-aus als
+# instanziiertes Kompilat, add_executable + add_test + COMDARE_TEST_TARGETS,
+# LABELS b2;messachse;gates;standalone). Weder ISA- noch Pruefling-gegatet
+# (Registrierung auf oberster Ebene) -> +1 in ALLEN DREI Klassen gegenueber dem
+# NACHZUG-B2-Block darueber; Sprossenabstaende -4 und -2 bleiben. Die
+# try_compile-Negativprobe derselben Fix-Stufe (b2_probe_g3_schichtung_tu.cpp)
+# registriert NICHTS (Configure-Zeit, kein ctest-Eintrag). LIVE nachgemessen
+# 2026-08-15 nach dem Rezept des Datei-Kopfs (build-covguard KALT, J-1-Muster:
+# beide Registrierungs-Werkzeuge, dann RE-KONFIGURIERT; cmake-Erzwingen beider
+# Klassen, ctest -N je Klasse, 'cmake -U' auf beide Variablen, Wiederherstellung
+# byte-gleich cmp leer, LC_ALL=C comm in BEIDE Richtungen: avx512f->avx2
+# verliert exakt die dokumentierten VIER, avx2->basis die ZWEI, Gegenrichtungen
+# leer):
+#     avx512f (gemessen, prod1)                                          -> 494
+#     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                -> 490
+#     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0     -> 488
+#
+# LANDE-AUFLAGE (Dual-Review-Fund Floor-Kollision, 2026-08-15) -- FUER DEN, DER
+# DIESEN BRANCH ODER bau/golden-homes ALS ZWEITEN MERGT: bau/golden-homes
+# (Stand 0eea2a0a) schreibt fuer seinen EIGENEN neuen Test
+# (fixture_schema_subset_check_ce) die Wertzeilen 493/489/487 aus derselben
+# Basis 492/488/486. Diese Zeilen hier (494/490/488) kollidieren mit ihnen im
+# 3-Wege-Merge ABSICHTLICH als Textkonflikt -- das ist die Harmonisierungs-
+# Doktrin in Dateiform: beim Merge der ZWEITEN Scheibe den Floor EINMAL LIVE
+# neu messen (Rezept im Datei-Kopf; nach Doppel-Landung sind 495/491/489 zu
+# ERWARTEN, gueltig ist ausschliesslich die Messung) und NIEMALS eine der
+# beiden Seiten uebernehmen oder Deltas addieren. Die Landung dieser Scheibe
+# selbst ist ein DEKLARIERTES GOLDEN-EREIGNIS und faehrt AUSSCHLIESSLICH im
+# golden-Fenster (mess_achsen_naht.hpp, Abschnitt BYTE-BILANZ B2).
+#
 # FORMAT: '#'-Kommentare und Leerzeilen sind erlaubt. Wertzeilen haben die Form
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
-avx512f 493
-avx2 489
-basis 487
+avx512f 494
+avx2 490
+basis 488
