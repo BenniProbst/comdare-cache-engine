@@ -738,6 +738,7 @@ endif()
 add_subdirectory(libs/search_engine)      # Domaene 1
 # V30.D.4+D.5 (2026-05-14): cache_engine/ -> libs/cache_engine/ (inkl. builder/)
 add_subdirectory(libs/cache_engine)       # Domaene 2 (nutzt 1, 3, 4) + 22 Builder-Subkomponenten
+add_subdirectory(libs/traeger)            # DESIGN #29 (super 85c1174d): Traeger-Stufen planner->ceb->tier->hybrid
 # V30.D.3 (2026-05-14): engine_choice/ -> libs/common/config/ (via libs/common)
 # V23.E (2026-05-14): prt_art -> libs/deprecated/prt_art_legacy/
 #   (Memory-Direktive: PRT_ART konsumiert CacheEngine, nicht umgekehrt.
