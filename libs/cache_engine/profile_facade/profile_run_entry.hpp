@@ -277,7 +277,7 @@ struct RunProfileResult {
     return n;
 }
 
-// ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): die GETEILTE optxsimd-Flag-Aufloesung. Vorher lebten diese drei
+// -- GN-3 (Par.33 Systembeweis-Traeger, 2026-07-19): die GETEILTE optxsimd-Flag-Aufloesung. Vorher lebten diese drei
 //    Helfer im comdare_experiment-Kanal (experiment_run_entry.hpp), der DIESEN Header inkludiert; relokiert nach
 //    UNTEN, damit BEIDE Lauf-Pfade (run_profile hier + run_experiment_profile oben) die SELBE Naht nutzen (kein
 //    Duplikat). Single-Source der Flags = die Achsen-Structs (OptO*SubAxis::gcc_opt_flag / SimdSubAxis::gcc_march_flag).
@@ -806,7 +806,7 @@ struct RunProfileResult {
     else
         std::cout << "  [H2-AKTE] keine sota_h2_scores.xml — h2_code_quality_score der SOTA-Reihen = n/a (honest)\n";
 
-    // ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): per-Perm-Kontext der optxsimd-System-Achsen-Naht (Spiegel
+    // -- GN-3 (Par.33 Systembeweis-Traeger, 2026-07-19): per-Perm-Kontext der optxsimd-System-Achsen-Naht (Spiegel
     //    experiment_run_entry.hpp:257-289). make_cfg + die Pass-Treiber lesen diese drei Variablen; die optxsimd-
     //    Schleife (unten) setzt sie je Kombination. IDENTITAETS-DEFAULT (kein <system_axes> im Profil) = exakt das
     //    Vor-Wiring-Verhalten: perm_compile=a.compile, build_version/CSV-Tag UNVERAENDERT (die Facade traegt den
@@ -1180,15 +1180,15 @@ struct RunProfileResult {
         }
     };
 
-    // ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): optxsimd-System-Achsen-Permutation UM die Passes (Spiegel
+    // -- GN-3 (Par.33 Systembeweis-Traeger, 2026-07-19): optxsimd-System-Achsen-Permutation UM die Passes (Spiegel
     //    experiment_run_entry.hpp:257-289, KEINE Parallel-Schleife). Quelle = das GEPARSTE Profil
     //    (tp.compiler.opt_levels / tp.external_utils.simd_options, geteilte parse_system_axes-Naht). KEIN
     //    <system_axes> ⇒ EINE Identitaets-Perm: run_all_passes() genau einmal, perm_compile/perm_build_version/
     //    perm_tag_build_version bleiben auf a.compile/a.build_version/tag_build_version → byte-identisch zum
     //    Vor-Wiring-Verhalten (golden-320/golden_fullpilot unberuehrt; die Facade traegt dort den
-    //    system_axes_version_suffix). MIT <system_axes> ⇒ je optxsimd eigene CompileFn (compile_for_perm) + eigenes
+    //    system_axes_version_suffix). MIT <system_axes> => je optxsimd eigene CompileFn (compile_for_perm) + eigenes
     //    build_version-/CSV-Suffix (+cxx=+opt=+ext=) + eigener pass/sota-Dedup-Reset; binary_id BLEIBT Organ-only
-    //    (opt/simd=system_config, NIE binary_id, NIE N) — es waechst NUR die MESS-Matrix (CSV x |optxsimd|).
+    //    (opt/simd=system_config, NIE binary_id, NIE N) -- es waechst NUR die MESS-Matrix (CSV x |optxsimd|).
     //    ISA-gegated (avx2 nur x86_64, wie system_axis_host_supports_simd). ──
     namespace cm = ::comdare::cache_engine::measurement;
     // T-1 (2026-08-09): DIESELBE Funktion, die auch die Facade fragt (profile_run_facade.cpp). Hier stand
