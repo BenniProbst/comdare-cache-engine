@@ -199,9 +199,6 @@ tests/unit/  (alle MSVC-Debug ctest verifiziert, 100% pass)
 ├── test_pressure_state.cpp                  L8 concepts
 ├── test_cache_recommendation.cpp            L8 concepts
 ├── test_cpuid_probe.cpp                     L5 platform
-├── test_concepts_compile.cpp                L8
-├── test_value_handle.cpp                    L6 page (PRT-ART concept)
-├── test_three_layer_audit.cpp               L3 ABI
 ├── test_permutation_flags.cpp               L4 flags
 ├── test_event_hierarchy.cpp                 L8 events
 ├── test_observer_registry.cpp               L8 events
@@ -214,7 +211,6 @@ tests/unit/  (alle MSVC-Debug ctest verifiziert, 100% pass)
 ├── test_strategy_command.cpp                L5 command
 ├── test_measurement_buffer.cpp              L8 buffer
 ├── test_sub_engines.cpp                     L8 sub_engines
-├── test_six_page_structures.cpp             L6 pages
 ├── test_allocator_concepts.cpp              L7 allocators
 ├── test_abi_interface.cpp                   L3 ABI
 ├── test_test_data_accumulation.cpp          L11 test_data
@@ -229,6 +225,13 @@ tests/unit/  (alle MSVC-Debug ctest verifiziert, 100% pass)
 ├── test_hbm_hierarchy.cpp           NEU      L5 hbm
 ├── test_module_loader.cpp           NEU      L2 builder (Phase 4)
 └── mock_permutation_module.cpp      NEU      L2 builder (Test-DLL)
+
+tests/deprecated/prt_art_legacy_waisen/  (ARCHIVIERT 2026-08-15, W-B/Vorlage-B2-GO: per git mv
+                                          aus tests/unit/ -- kein ctest-Target, s. VERMERK.md dort)
+    test_concepts_compile.cpp                L8   (Alt-Welt prt_art/prt_art.hpp)
+    test_value_handle.cpp                    L6 page (PRT-ART concept, Alt-Welt)
+    test_three_layer_audit.cpp               L3 ABI  (Alt-Welt)
+    test_six_page_structures.cpp             L6 pages (Alt-Welt)
 
 prt_art/legacy_reimpl/P{11..27}/tests/*  NEU  L7 reimpl
 ```
