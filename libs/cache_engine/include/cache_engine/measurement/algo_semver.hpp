@@ -194,7 +194,7 @@
 ///         * MECHANISCH GESICHERT (bricht beim Scharfschalten von selbst mit): jede Stelle, an der
 ///           neben dem ungated meta_meta_version_wohlgeformt<> auch der gated
 ///           meta_meta_version_cpu_pflicht<>-Zwilling steht -- heute
-///           measurement/external_utils_family_axis.hpp (SimdExternalUtilsFamily).
+///           system_axes/external_utils_family_axis.hpp (SimdExternalUtilsFamily).
 ///         * UNGESICHERT (bricht NICHT mit, muss aktiv gefunden werden): test-lokale Meta-Metas ohne
 ///           gated Wache -- heute tests/unit/test_striktheit_axis_dach_guard.cpp (ProofOrganMetaMeta)
 ///           und tests/unit/test_meta_meta_halbordnung.cpp (Avx512MetaMeta, GpuMetaMeta,
@@ -221,7 +221,7 @@
 ///       Scharfschalten von selbst mit.
 ///       Erhebung: grep -rn 'kPlannerVersion *=' --include=*.hpp profile_facade/planner
 ///   (f) OS-U3 (Commit d115e4cc; Befund GA-05/Z-10 vom 03.08.2026, in A13-M3/C2 nachgetragen): die
-///       OS-PROBE-VERFAHRENS-Version. measurement/operating_system_probe.hpp fuehrt kOsProbeVersion als
+///       OS-PROBE-VERFAHRENS-Version. system_axes/operating_system_probe.hpp fuehrt kOsProbeVersion als
 ///       EIGENES ce-Literal -- EIN Literal, aber DREI probe_ids ("os_probe.<familie>@1.0.0.c", je Familie
 ///       eine). MECHANISCH GESICHERT: die gated ENFORCE-Wache in operating_system_probe.hpp bricht beim
 ///       Scharfschalten von selbst mit. WARUM DIE KLASSE HIER FEHLTE (die Lehre): das Literal heisst weder

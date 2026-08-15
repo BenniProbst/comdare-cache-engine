@@ -16,9 +16,9 @@
 #include <cache_engine/abi/anatomy_version_stamp.hpp>     // A-15-Gegenprobe: system_stamp_line()
 #include <cache_engine/abi/system_axis_code_versions.hpp> // Bump-Verbots-Wache: kSystemAxisCodeVersions (Single-Source)
 #include <cache_engine/measurement/ceb_sub_axis.hpp>
-#include <cache_engine/measurement/operating_system_axis.hpp>
-#include <cache_engine/measurement/operating_system_sub_axes.hpp>
-#include <cache_engine/measurement/target_isa_sub_axes.hpp> // Abgrenzung: gleiche Mechanik, andere Eltern
+#include <system_axes/operating_system_axis.hpp>
+#include <system_axes/operating_system_sub_axes.hpp>
+#include <system_axes/target_isa_sub_axes.hpp> // Abgrenzung: gleiche Mechanik, andere Eltern
 
 #include <gtest/gtest.h>
 

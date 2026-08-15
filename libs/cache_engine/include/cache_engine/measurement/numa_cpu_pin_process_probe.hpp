@@ -131,8 +131,8 @@
 
 #include <cache_engine/measurement/algo_semver.hpp>
 #include <cache_engine/measurement/axis_error.hpp>
-#include <cache_engine/measurement/operating_system_axis.hpp>
-#include <cache_engine/measurement/target_isa_sub_axes.hpp>
+#include <system_axes/operating_system_axis.hpp>
+#include <system_axes/target_isa_sub_axes.hpp>
 
 #include <array>
 #include <concepts>

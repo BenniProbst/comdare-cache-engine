@@ -11,15 +11,15 @@
 
 #include <cache_engine/concepts/scheduling_strategy.hpp>
 #include <cache_engine/measurement/ceb_system_axis.hpp>
-#include <cache_engine/measurement/compiler_system_axis.hpp>
-#include <cache_engine/measurement/extension_hardware_system_axis.hpp>
+#include <system_axes/compiler_system_axis.hpp>
+#include <system_axes/extension_hardware_system_axis.hpp>
 #include <cache_engine/measurement/hardware_isa_system_axis.hpp>
 #include <cache_engine/measurement/load_framework_measurement_axis.hpp>
-#include <cache_engine/measurement/optimization_level_sub_axis.hpp>
-#include <cache_engine/measurement/scheduling_system_axis.hpp>
-#include <cache_engine/measurement/simd_sub_axis.hpp>
-#include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>
-#include <cache_engine/measurement/target_isa_system_axis.hpp>
+#include <system_axes/optimization_level_sub_axis.hpp>
+#include <system_axes/scheduling_system_axis.hpp>
+#include <system_axes/simd_sub_axis.hpp>
+#include <system_axes/compiler_atomic_sub_axis.hpp>
+#include <system_axes/target_isa_system_axis.hpp>
 #include <cache_engine/measurement/system_axis.hpp>
 // A13-M2 (Owner-E2 02.08.2026, OP-11-Rueckbau): die ORGAN-Realm-Meta-Meta-Wurzel. Dieser Test ist zugleich
 // die TU, in der der Header im Default-Sweep TATSAECHLICH uebersetzt wird -- eine nie inkludierte Wurzel

@@ -27,7 +27,7 @@
 
 #include <profile_facade/mess_achsen_naht.hpp>
 
-#include <cache_engine/measurement/measurement_tooling_registry.hpp>
+#include <mess_axes/measurement_tooling_registry.hpp>
 
 #include <algorithm>
 #include <exception>

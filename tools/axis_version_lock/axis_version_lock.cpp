@@ -221,12 +221,15 @@ namespace ovl  = ::comdare::cache_engine::builder::overlay;
 // MINDEST-NENNER (G5a, Hausvertrag V-1 'Nenner 0 = Exit != 0, nie GRUEN'): unterschreitet die
 // Grundgesamtheit diese Anker, ist der Lauf ein Umgebungsfehler (Exit 2) -- eine Wache ueber
 // einer leeren Menge behauptet sonst Konsistenz, die sie nie gemessen hat. Die Werte spiegeln
-// die ctest-Anker und sind BEWUSST so gewaehlt, dass die angekuendigte #16-Umgliederung der
-// Homes sie anfassen MUSS (wer Homes verschiebt/leert, entscheidet die neuen Anker hier, nicht
-// per stillem Gruen). MITGEZOGEN in Fixup 3 (D5) auf die Ist-Zahlen der Overlay-Grundgesamtheit
-// vom 13.08.2026 (Messkommando im Fixup-Commit): heuristik 6, organ 640, system 16, mess 1,
-// tier_substanz 55; die Schwellen stehen knapp darunter, damit eine bewusste Einzel-Loeschung
-// den Regen-Weg behaelt, ein Struktur-Verlust (Home leer/umgezogen) aber IMMER hier aufschlaegt.
+// die ctest-Anker. #16-UMGLIEDERUNG VOLLZOGEN (15.08.2026, S-18/KON27-01): die system-/mess-
+// Familien wohnen seither in den Kategorie-Homes libs/cache_engine/system_axes/ (16 Dateien)
+// und libs/cache_engine/mess_axes/ (1 Datei) statt flach in include/cache_engine/measurement/;
+// der Schnitt (builder/overlay_source_set.hpp) traegt die neuen Pfade und pinnt die Homes
+// compile-hart (kategorie_haelt_ihr_home). Die ANKER-WERTE bleiben BEWUSST unveraendert --
+// der Umzug bewegt exakt die 17 verzeichneten Dateien, die Ist-Zahlen (heuristik 6, organ 640,
+// system 16, mess 1, tier_substanz 55; gemessen 13.08., am 15.08. unveraendert) halten die
+// Schwellen weiter; ein Struktur-Verlust (Home leer/umgezogen ohne Schnitt-Nachzug) schlaegt
+// weiterhin IMMER hier bzw. am Schnitt-Pfad-Fehler auf.
 // Die exakten Ist-Zahlen pinnt der ctest (Anker organ-traeger==123 inkl. Synthetik usw.).
 inline constexpr int kMinHeuristikDiscovered = 6;
 inline constexpr int kMinOrganDiscovered     = 600; // Ist 640 (13.08.2026)

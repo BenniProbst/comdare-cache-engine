@@ -389,7 +389,7 @@ struct ExperimentEngine {
 // (CPU-Fabrikation) hat KEIN eigenes Attribut -- es ist das O-4a-Kern-Tupel aus machine_identity.hpp,
 // aufgeloest ueber den unveraenderten Schluessel cpu_fabrication + ram_pair.
 // A14/OS-U2 (Owner-Entscheid E3, 02.08.2026): <machines> ist zusaetzlich der ERWARTUNGS-Kanal der drei
-// operating_system-Unter-Achsen os_version/kernel/build (measurement/operating_system_sub_axes.hpp).
+// operating_system-Unter-Achsen os_version/kernel/build (system_axes/operating_system_sub_axes.hpp).
 // AUSDRUECKLICH ERWARTUNG, NICHT WERTE-QUELLE: die Werte werden je Lauf auf der Maschine ERHOBEN
 // (Paket OS-U3, Owner-KERN 27.07. "HW-Werte nie statisch"); was hier steht, ist der Soll-Wert, gegen den
 // die Erhebung gegengeprueft wird. ADDITIV + OPTIONAL + PASSIV: leer/fehlend = nicht deklariert (NICHT

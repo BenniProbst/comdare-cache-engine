@@ -85,7 +85,7 @@
 //      (D6: Pfad-Split dirname/basename wegen der 120-Spalten-Diff-Hygiene); S weist auch v2 ab.
 //
 // HERMETIK: der Test kopiert die Traeger-Baeume der Overlay-Grundgesamtheit (heuristik/, axes/,
-// topics/ GANZ, anatomy/, include/cache_engine/measurement/) in ein Temp-Verzeichnis
+// topics/ GANZ, anatomy/, system_axes/, mess_axes/ -- S-18/#16-Homes) in ein Temp-Verzeichnis
 // (comdare_test_tmp.hpp, worktree-getrennt) und faehrt das Tool per --root NUR auf den Kopien.
 // Der Quellbaum wird ausschliesslich GELESEN; golden-/TABU-Fixtures werden nicht beruehrt.
 //
@@ -298,9 +298,12 @@ int main(int argc, char** argv) {
 
     // Schritt 2: die Traeger-Baeume der Overlay-Grundgesamtheit KOPIEREN (Quellbaum nur lesen).
     // Fixup 3: topics/ GANZ (die Schnitt-Eintraege liegen unter topics/*/axis_*), dazu anatomy/
-    // (tier_substanz) und include/cache_engine/measurement/ (system- + mess-Praefix-Familien).
+    // (tier_substanz). S-18/#16 (15.08.2026): die system-/mess-Praefix-Familien wohnen seither in
+    // den Kategorie-Homes system_axes/ und mess_axes/ (KON27-01) -- include/cache_engine/
+    // measurement/ ist aus dem Schnitt und damit aus dieser Kopierliste ausgetreten.
     for (char const* sub : {"libs/cache_engine/heuristik", "libs/cache_engine/axes", "libs/cache_engine/topics",
-                            "libs/cache_engine/anatomy", "libs/cache_engine/include/cache_engine/measurement"}) {
+                            "libs/cache_engine/anatomy", "libs/cache_engine/system_axes",
+                            "libs/cache_engine/mess_axes"}) {
         fs::path const from = source_root / sub;
         if (!fs::exists(from)) {
             std::printf("FEHLER Schritt 2: Quellbaum fehlt: %s\n", from.string().c_str());

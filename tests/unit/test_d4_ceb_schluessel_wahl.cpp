@@ -25,7 +25,7 @@
 #include <cache_engine/abi/anatomy_fingerprint.hpp> // anatomy_fingerprint_hex (Zweitweg-Nachrechnung)
 // measurement_stamp_line_from_combo_legend -- der Runtime-Zwilling des consteval-Renderers
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
-#include <cache_engine/measurement/measurement_tooling_registry.hpp>
+#include <mess_axes/measurement_tooling_registry.hpp>
 
 #include <array>
 #include <cstddef>

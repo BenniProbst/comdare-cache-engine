@@ -200,7 +200,7 @@
 // header-only, ASCII-only, keine Bau-Abhaengigkeit ausser der Mess-Tooling-Registry.
 
 #include <cache_engine/abi/mess_gates_glied.hpp> // R-3: die EINE Grammatik des Mess-Gates-Preimage-Glieds
-#include <cache_engine/measurement/measurement_tooling_registry.hpp> // kMeasurementToolingRegistry (Single-Source)
+#include <mess_axes/measurement_tooling_registry.hpp> // kMeasurementToolingRegistry (Single-Source)
 
 #include <algorithm> // R-3: std::find ueber den Define-Vektor (die Spiegelung liest, statt nachzubauen)
 #include <array>

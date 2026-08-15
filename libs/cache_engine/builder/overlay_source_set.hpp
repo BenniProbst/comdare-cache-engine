@@ -98,9 +98,10 @@ enum class Kategorie : unsigned char {
 
 /// Die FORM eines Pfad-Eintrags. Zwei Formen, weil die Achsen-Welten verschieden gebaut sind:
 ///   verzeichnis  -- die Organ-Achsen und anatomy/ besitzen je einen eigenen Ordner (REKURSIV gelesen).
-///   datei_praefix-- die System-/Mess-Achsen liegen FLACH in include/cache_engine/measurement/
-///                   nebeneinander; sie besitzen keinen Ordner, sondern eine Namens-Familie. Der Eintrag
-///                   nennt dann das Verzeichnis und ein Datei-Namens-PRAEFIX (nicht rekursiv).
+///   datei_praefix-- die System-/Mess-Achsen liegen FLACH in ihren Kategorie-Homes system_axes/ bzw.
+///                   mess_axes/ (S-18/#16, KON27-01) nebeneinander; sie besitzen keinen Achsen-Ordner,
+///                   sondern eine Namens-Familie. Der Eintrag nennt dann das Verzeichnis und ein
+///                   Datei-Namens-PRAEFIX (nicht rekursiv).
 /// WARUM PRAEFIX UND KEINE DATEI-LISTE: eine Liste waere beim naechsten neuen Unter-Achsen-Header still
 /// unvollstaendig -- die neue Datei fiele aus dem Schnitt, und genau das ist der Fehlermodus, gegen den
 /// dieses Glied gebaut ist. Ein Praefix nimmt sie automatisch mit, sobald sie der Namens-Konvention folgt.
@@ -163,7 +164,8 @@ inline constexpr auto kOverlaySourceSet = std::to_array<Eintrag>({
     {Kategorie::organ, "persistence_target", Form::verzeichnis, "topics/io/axis_persistence_target", ""},
 
     // -- SYSTEM (3 Achsen, Ordnung == kSystemAxisOrder) -----------------------------------------------
-    // Sie besitzen KEINEN eigenen Ordner: alle drei liegen flach in include/cache_engine/measurement/.
+    // S-18/#16 (KON27-01 Home-Prinzip): die drei Achsen wohnen im SYSTEM-Kategorie-Home system_axes/
+    // (flach, Praefix-Familien; bis 15.08.2026 lagen sie flach in include/cache_engine/measurement/).
     // Die Zuordnung Datei -> Achse folgt der ORDNUNGS-QUELLE SELBST (system_axis_order.hpp:15-22), nicht
     // dem Dateinamen allein:
     //   * scheduling gehoert zu target_isa   -- ":21 scheduling wird Unter-Achse (sub_axis) des
@@ -174,24 +176,24 @@ inline constexpr auto kOverlaySourceSet = std::to_array<Eintrag>({
     //   * extension_hardware ist der VOR-RENAME-Name derselben Achse (A2-Rename, O-8 Schritt 3) und
     //     bleibt im Schnitt, obwohl deprecated: solange die Datei uebersetzt werden KANN, waere ihr
     //     Weglassen genau die stille Luecke, gegen die dieses Glied gebaut ist.
-    {Kategorie::system, "target_isa", Form::datei_praefix, "include/cache_engine/measurement", "target_isa"},
-    {Kategorie::system, "target_isa", Form::datei_praefix, "include/cache_engine/measurement",
+    {Kategorie::system, "target_isa", Form::datei_praefix, "system_axes", "target_isa"},
+    {Kategorie::system, "target_isa", Form::datei_praefix, "system_axes",
      "scheduling_system_axis"},
-    {Kategorie::system, "operating_system", Form::datei_praefix, "include/cache_engine/measurement",
+    {Kategorie::system, "operating_system", Form::datei_praefix, "system_axes",
      "operating_system"},
-    {Kategorie::system, "external_utils", Form::datei_praefix, "include/cache_engine/measurement", "external_utils"},
-    {Kategorie::system, "external_utils", Form::datei_praefix, "include/cache_engine/measurement",
+    {Kategorie::system, "external_utils", Form::datei_praefix, "system_axes", "external_utils"},
+    {Kategorie::system, "external_utils", Form::datei_praefix, "system_axes",
      "extension_hardware"},
-    {Kategorie::system, "external_utils", Form::datei_praefix, "include/cache_engine/measurement", "compiler_"},
-    {Kategorie::system, "external_utils", Form::datei_praefix, "include/cache_engine/measurement", "simd_sub_axis"},
-    {Kategorie::system, "external_utils", Form::datei_praefix, "include/cache_engine/measurement",
+    {Kategorie::system, "external_utils", Form::datei_praefix, "system_axes", "compiler_"},
+    {Kategorie::system, "external_utils", Form::datei_praefix, "system_axes", "simd_sub_axis"},
+    {Kategorie::system, "external_utils", Form::datei_praefix, "system_axes",
      "optimization_level_sub_axis"},
 
     // -- MESS (1 Achse) -------------------------------------------------------------------------------
     // measurement_tooling ist strukturell die EINE Mess-Haupt-Achse; pro Binary wird genau eine
     // Auspraegung gewaehlt (measurement_tooling_registry.hpp:2-3) -- es gibt hier nichts zu sortieren.
-    {Kategorie::mess, "measurement_tooling", Form::datei_praefix, "include/cache_engine/measurement",
-     "measurement_tooling"},
+    // S-18/#16: Home = mess_axes/ (KON27-01; bis 15.08.2026 include/cache_engine/measurement/).
+    {Kategorie::mess, "measurement_tooling", Form::datei_praefix, "mess_axes", "measurement_tooling"},
 
     // -- TIER-SUBSTANZ --------------------------------------------------------------------------------
     // anatomy/ gehoert KEINER Achse, sondern allen: observable_tier.hpp, abi_adapter.hpp,
@@ -365,5 +367,41 @@ static_assert(detail::anzahl_der_kategorie(Kategorie::tier_substanz) == 1,
 static_assert(kOverlaySourceSet.back().kategorie == Kategorie::tier_substanz &&
                   kOverlaySourceSet.back().pfad == "anatomy",
               "E-E: anatomy/ ist der LETZTE Eintrag des Schnitts -- der gemeinsame Grund hinter allen Achsen.");
+
+// -- DIE HOME-PIN-WACHEN (S-18/#16, KON27-01: je Achsen-Kategorie EIN Verzeichnis-Home) ---------------
+// Der Schnitt darf eine Kategorie nicht still aus ihrem Home fuehren: ein system-Eintrag ausserhalb von
+// system_axes/ (bzw. mess ausserhalb von mess_axes/, organ ausserhalb von axes/ oder topics/) waere ein
+// Home-Bruch, den erst der Waechter-Lauf saehe. Hier bricht er COMPILE-HART, mit Datei und Regel.
+namespace detail {
+[[nodiscard]] consteval bool pfad_liegt_unter(std::string_view pfad, std::string_view wurzel) {
+    if (pfad == wurzel) return true;
+    return pfad.size() > wurzel.size() && pfad.substr(0, wurzel.size()) == wurzel &&
+           pfad[wurzel.size()] == '/';
+}
+[[nodiscard]] consteval bool kategorie_haelt_ihr_home() {
+    for (auto const& e : kOverlaySourceSet) {
+        switch (e.kategorie) {
+            case Kategorie::organ:
+                if (!pfad_liegt_unter(e.pfad, "axes") && !pfad_liegt_unter(e.pfad, "topics")) return false;
+                break;
+            case Kategorie::system:
+                if (e.pfad != "system_axes") return false;
+                break;
+            case Kategorie::mess:
+                if (e.pfad != "mess_axes") return false;
+                break;
+            case Kategorie::tier_substanz:
+                if (e.pfad != "anatomy") return false;
+                break;
+        }
+    }
+    return true;
+}
+} // namespace detail
+static_assert(detail::kategorie_haelt_ihr_home(),
+              "S-18/#16 HOME-PIN (KON27-01): ein Schnitt-Eintrag liegt ausserhalb des Homes seiner "
+              "Kategorie (organ: axes/ oder topics/ -- system: system_axes -- mess: mess_axes -- "
+              "tier_substanz: anatomy). Wer ein Home verschiebt, zieht Schnitt, Waechter-Nenner, "
+              "Tripwire-Anker und den Lock-Regen im SELBEN bewussten Change nach.");
 
 } // namespace comdare::cache_engine::builder::overlay

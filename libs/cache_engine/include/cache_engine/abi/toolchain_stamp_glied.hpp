@@ -38,7 +38,7 @@
 
 #include <cache_engine/abi/stempel_basis.hpp>                // S-1: ist_stempel_baustein (Baustein-Anbindung)
 #include <cache_engine/measurement/algo_semver.hpp>          // algo_semver_string (X.Y.Z[Flag]-Voll-Form, Owner-Q10)
-#include <cache_engine/measurement/compiler_system_axis.hpp> // NB/CX-3: die Dialekt-Ids als Single-Source
+#include <system_axes/compiler_system_axis.hpp> // NB/CX-3: die Dialekt-Ids als Single-Source
 
 #include <array>
 #include <cstddef>
