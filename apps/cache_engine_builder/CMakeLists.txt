@@ -10,6 +10,7 @@ if(COMDARE_BUILD_BUILDER)
     main.cpp
   )
   target_include_directories(cache_engine_builder PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine" # S-18/#16: Fach-Wurzel (<mess_axes/...> via ceb_version_stamp.hpp:217)
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src" # A5: ceb_version_stamp.hpp -> anatomy_fingerprint.hpp -> sha512/ctsha512.hpp
   )
