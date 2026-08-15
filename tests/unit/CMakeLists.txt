@@ -2845,6 +2845,7 @@ target_compile_definitions(test_a14_os_sub_axes_guard PRIVATE
 comdare_add_test(test_meta_meta_halbordnung
     SOURCES test_meta_meta_halbordnung.cpp)
 target_include_directories(test_meta_meta_halbordnung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 target_link_libraries(test_meta_meta_halbordnung PRIVATE Boost::mp11)
 target_compile_definitions(test_meta_meta_halbordnung PRIVATE
@@ -6958,6 +6959,7 @@ set_tests_properties(test_s1_stempel_basis_vertrag PROPERTIES LABELS "s1;stempel
 comdare_add_test(test_s3_ordnung_relation
     SOURCES test_s3_ordnung_relation.cpp)
 target_include_directories(test_s3_ordnung_relation PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 target_compile_definitions(test_s3_ordnung_relation PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
