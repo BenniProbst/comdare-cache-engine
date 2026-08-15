@@ -138,10 +138,10 @@
 # ENDGUELTIGE Form (Archiv bestaetigen und Wachen-SOLL-Frage klaeren ODER Loeschung mit
 # eigenem Owner-GO) -- der Posten soll weiterhin nicht lautlos alt werden koennen.
 # -----------------------------------------------------------------------------
-tests/deprecated/prt_art_legacy_waisen/test_concepts_compile.cpp | frist:2026-09-15 | Legacy-Concept-Test, geparkt: PA-3 (E-1 8a8f6877); archiviert W-B 2026-08-15
-tests/deprecated/prt_art_legacy_waisen/test_value_handle.cpp | frist:2026-09-15 | Legacy-Concept-Test, geparkt: PA-3 (E-1 8a8f6877); archiviert W-B 2026-08-15
-tests/deprecated/prt_art_legacy_waisen/test_three_layer_audit.cpp | frist:2026-09-15 | Legacy-Concept-Test, geparkt: PA-3 (E-1 8a8f6877); archiviert W-B 2026-08-15
-tests/deprecated/prt_art_legacy_waisen/test_six_page_structures.cpp | frist:2026-09-15 | Legacy-Seitentypen, geparkt: PA-3 (E-1 8a8f6877); archiviert W-B 2026-08-15
+tests/deprecated/prt_art_legacy_waisen/test_concepts_compile.cpp | frist:2026-09-15 | PA-3 8a8f6877; Archiv W-B
+tests/deprecated/prt_art_legacy_waisen/test_value_handle.cpp | frist:2026-09-15 | PA-3 8a8f6877; Archiv W-B
+tests/deprecated/prt_art_legacy_waisen/test_three_layer_audit.cpp | frist:2026-09-15 | PA-3 8a8f6877; Archiv W-B
+tests/deprecated/prt_art_legacy_waisen/test_six_page_structures.cpp | frist:2026-09-15 | PA-3 8a8f6877; Archiv W-B
 
 # -----------------------------------------------------------------------------
 # HOST-ISA-GATTER: EINE Test-QUELLDATEI haengt an der ISA des Bau-Hosts.
