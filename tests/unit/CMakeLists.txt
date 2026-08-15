@@ -1953,6 +1953,26 @@ set_tests_properties(test_s14_axis_version_lock_tripwire PROPERTIES
     TIMEOUT 900
     LABELS "s14;axis_lock;tripwire")
 
+# S-18/#16 RIDER #95 (KF-Design; Codex-Auflagen Nichtleer/CDATA-Kante/Skip-bei-fehlend=rot): die
+# ce-SEITIGE Wache der ce-eigenen Fixture experiment_golden_kern.xml -- bis hierher hatte sie in
+# der ce-CI KEINE Wache (A7-Befund). Script-Test (cmake -P, Vorbild f15_compare_cli_smoke);
+# xmllint ist PFLICHT im Script (FATAL statt Skip). Das SCHEMA-Bein sucht die Single-Source-XSD
+# des super-Nachbarn (Submodul-Layout ../../test_data_xml/) und meldet ohne Nachbarn einen
+# BENANNTEN Halb-Skip -- eine XSD-Kopie in ce waere eine zweite Quelle (Begruendung im Script).
+add_test(NAME fixture_schema_subset_check_ce
+    COMMAND "${CMAKE_COMMAND}"
+        "-DFIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere/experiment_golden_kern.xml"
+        "-DCE_ROOT=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/fixture_schema_subset_check.cmake")
+set_tests_properties(fixture_schema_subset_check_ce PROPERTIES
+    TIMEOUT 60
+    LABELS "golden;fixture;s18")
+comdare_registrierung_vermerken(
+    BLOCK  s18_fixture_schema_subset_check_ce
+    STATUS AKTIV
+    TESTS  fixture_schema_subset_check_ce
+    GRUND  "Rider #95 im #16-Auftrag: ce-Fixture-Wache (Nichtleer/Wohlform/DOCTYPE hart, Schema-Bein nachbar-gebunden)")
+
 # -----------------------------------------------------------------------------
 # E-24 C6-V (2026-08-04, Entscheid E5 LEDGER:3828) -- die Statistics-Huellen der GATTUNGS-EIGENEN
 # Achsen-Themen. Die Huellen sind COMDARE_CE_ENABLE_STATISTICS-gegated (Praezedenz
