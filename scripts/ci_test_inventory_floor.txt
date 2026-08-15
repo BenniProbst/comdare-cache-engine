@@ -40,7 +40,34 @@
 # nicht die Commit-Granularitaet -- er erzwingt Floor-Datei und Registrierung
 # im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
-# -- WIE DIE ZAHLEN ENTSTANDEN SIND (NACHMESSUNG 2026-08-14, LANDUNG S-7+WACHEN+P6) --
+# -- WIE DIE ZAHLEN ENTSTANDEN SIND (NACHMESSUNG 2026-08-15, S-18/#16 HOMES + RIDER #95) --
+# GEMESSEN am 2026-08-15 in diesem Repo, Stand = #16-Arbeitsbaum (Branch bau/golden-homes,
+# Worktree wt-ce-golden-homes, Basis 0817c7bf), Messhost prod1, GCC 15.3.0, Ninja. Bau-Baum
+# build-covguard KALT angelegt (rm -rf, existierte danach nicht) und UNVERAENDERT nach dem
+# Rezept des 2026-08-14-Abschnitts gebaut einschliesslich Pruefling-Schalter
+# (CC=gcc-15 CXX=g++-15 configure.sh --with-generator=Ninja --enable-build-tests
+# --build-dir=build-covguard -DCOMDARE_CE_PRUEFLINGE="$PWD/tests/pruefling_fixture");
+# J-1-Muster: erst die beiden Registrierungs-Werkzeuge (comdare_anatomy_codegen_cli,
+# comdare_adhoc_emitter_cli), dann RE-KONFIGURIERT. Registrierungs-Protokoll dieses Baums:
+# alle bedingten Bloecke AKTIV (inkl. des neuen s18_fixture_schema_subset_check_ce).
+#     avx512f (gemessen, prod1)                                          -> 493
+#     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                -> 489
+#     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0     -> 487
+# danach 'cmake -U' auf BEIDE Variablen; Wiederherstellung nachgewiesen: 493 Tests,
+# Namensmenge Byte-gleich zur Erstmessung (cmp leer). Namensdiffs mit LC_ALL=C comm in
+# BEIDE Richtungen: avx512f->avx2 verliert exakt die dokumentierten VIER, avx2->basis
+# die ZWEI, Gegenrichtungen leer -- die Sprossenabstaende -4 und -2 stehen.
+#
+# WOHER +1 JE SPROSSE KOMMT (Konto, je Name; Registrierungs-Diff des #16-Strangs in
+# tests/unit/CMakeLists.txt, Gegenrichtung leer -- nichts entfallen): GENAU EINE neue
+# Registrierung, fixture_schema_subset_check_ce (Rider #95 im #16-Auftrag, rohes
+# add_test/cmake -P Script-Test, Vermerk-Block s18_fixture_schema_subset_check_ce).
+# Der Test ist weder ISA- noch Pruefling-gegatet (Registrierung auf oberster Ebene;
+# steht in ALLEN drei Klassen-Namensmengen, je 1x, und in KEINER comm-Verlustliste).
+# Nachzug ALLER DREI Zeilen im SELBEN Change wie die Registrierung (#39-Pflicht;
+# die Registrierung kam im selben Push-Zug dieses Branches).
+#
+# -- HISTORIE (NACHMESSUNG 2026-08-14, LANDUNG S-7+WACHEN+P6) --
 # GEMESSEN am 2026-08-14 in diesem Repo, Stand a6804dfa (development im Lande-Baum
 # wt-super-landung nach den DREI seriellen --no-ff-Merges der Drei-Stufen-Landung
 # Stufe 1: d215b127 = S-7/P2, 0304ebf1 = Wachen-Floor-Inventar/#39, a6804dfa =
@@ -364,6 +391,6 @@
 # FORMAT: '#'-Kommentare und Leerzeilen sind erlaubt. Wertzeilen haben die Form
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
-avx512f 492
-avx2 488
-basis 486
+avx512f 493
+avx2 489
+basis 487
