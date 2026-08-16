@@ -131,7 +131,7 @@
 #include "alloc_hw_config.hpp" // F-B: NUMA/Page->allocator-Unterachse (GO4/#8, 2026-07-12)
 #include <topics/axis_base.hpp>
 #include <topics/organ_axis.hpp> // INC-1a: OrganAxis<Derived> = topics::Axis-Dach + AxisBase (axis_kind()==organ)
-#include <topics/organ_axis_error_classes.hpp> // FK-5: der Fehlerraum neben dem Versionsraum
+#include <topics/organ_axis_error_classes.hpp>       // FK-5: der Fehlerraum neben dem Versionsraum
 #include <organ_axes/cacheline/cacheline_config.hpp> // KF-5: per-Organ Cache-Line-Unterachse
 
 #include <concepts>

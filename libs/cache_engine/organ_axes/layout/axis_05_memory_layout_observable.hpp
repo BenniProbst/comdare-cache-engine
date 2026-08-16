@@ -19,7 +19,7 @@
 #include "axis_05_memory_layout_strategy_base.hpp" // RepresentationKind (2026-07-06: Job 214061 — TU-Reihenfolge-Glueck beendet)
 #include "concepts/axis_05_memory_layout_concept.hpp"
 #include <organ_axes/cacheline/cacheline_line_bytes.hpp> // B14-NB3: Linienzaehlung NUR ueber die cacheline-Unterachse
-#include <anatomy/organ_location.hpp>              // INC-A #6: per-Organ-Codegen-Lokation (header_include)
+#include <anatomy/organ_location.hpp>                    // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 #include <cstddef>
 #include <cstdint>
 #include <string_view>

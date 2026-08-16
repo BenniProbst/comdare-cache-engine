@@ -30,7 +30,7 @@
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_registry.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_registry.hpp>
 #include <organ_axes/axis_centric_namespaces.hpp> // F.2/F.3: axen-zentrische Namespace-Fassade + Concepts
-#include <builder/codegen/type_name.hpp>    // R5.G Auto-Emitter: FQ-Typ-Namen pro Achse
+#include <builder/codegen/type_name.hpp>          // R5.G Auto-Emitter: FQ-Typ-Namen pro Achse
 
 // 17 Topic-Achsen Wrappers (identisch zu test_v41_anatomy_r4_driver.cpp)
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>

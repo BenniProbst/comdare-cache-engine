@@ -4,8 +4,8 @@
 #include "concepts/axis_04_node_type_concept.hpp"
 #include "concepts/axis_04_node_type_cache_engine_permutation_concept.hpp"
 #include <topics/axis_base.hpp>
-#include <topics/organ_axis.hpp>                // INC-1a: OrganAxis<Derived>-Dach (axis_kind()==organ)
-#include <topics/organ_axis_error_classes.hpp>  // FK-5: der Fehlerraum neben dem Versionsraum
+#include <topics/organ_axis.hpp>                      // INC-1a: OrganAxis<Derived>-Dach (axis_kind()==organ)
+#include <topics/organ_axis_error_classes.hpp>        // FK-5: der Fehlerraum neben dem Versionsraum
 #include <organ_axes/cacheline/cacheline_config.hpp>  // KF-5: per-Organ Cache-Line-Unterachse
 #include <organ_axes/cacheline/node_width_config.hpp> // C2/FF2: Knoten-Breite-in-Cache-Lines-Unterachse
 
