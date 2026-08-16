@@ -12,7 +12,8 @@
 #include <organ_axes/lookup/axis_03a_search_algo_vector_u16u16.hpp>
 #include <organ_axes/lookup/composable/capacity_constraint.hpp>
 #include <organ_axes/lookup/composable/direct_address_traversal_organ.hpp> // Review-F5: organ-scharfe Sparse-Proben
-#include <organ_axes/lookup/composable/store_traversable_search_algo.hpp> // Review-B1: Concept UNGEGATED fuer die static_asserts
+// Review-B1: Concept UNGEGATED fuer die static_asserts
+#include <organ_axes/lookup/composable/store_traversable_search_algo.hpp>
 #include <organ_axes/lookup/composable/traversal_for_search_algo.hpp>
 #include <compositions/art_reference.hpp>
 

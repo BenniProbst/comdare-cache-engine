@@ -29,7 +29,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_in_memory_only() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "io_mmap"; }
-    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::io_dispatch::MmapIo", "organ_axes/io_dispatch/axis_io_mmap.hpp");
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::io_dispatch::MmapIo",
+                                  "organ_axes/io_dispatch/axis_io_mmap.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "MmapIo (mmap file-backed, Persistent Memory, read-heavy)";
     }

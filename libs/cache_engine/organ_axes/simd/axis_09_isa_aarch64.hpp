@@ -35,7 +35,8 @@ public:
     [[nodiscard]] static constexpr std::string_view cpu_family() noexcept { return "aarch64"; }
     [[nodiscard]] static constexpr bool             supports_native_simd() noexcept { return true; } // NEON baseline
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "isa_aarch64"; }
-    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::simd::Aarch64Isa", "organ_axes/simd/axis_09_isa_aarch64.hpp");
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::simd::Aarch64Isa",
+                                  "organ_axes/simd/axis_09_isa_aarch64.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "Aarch64Isa (ARMv8-A 64-bit, ZIH Grace Hopper GH200, Apple M/Graviton)";
     }

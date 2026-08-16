@@ -25,7 +25,8 @@
 // degradiert sicher zu Copy (kein dangling &allocator_; cow_capable_ verlangt nur Copy).
 
 #include "tree_node_pool_concept.hpp"
-#include <organ_axes/alloc/axis_06_allocator_exgen.hpp> // axis_06-Default-Strategie ExgenAllocator + StdAllocatorAdapter
+// axis_06-Default-Strategie ExgenAllocator + StdAllocatorAdapter
+#include <organ_axes/alloc/axis_06_allocator_exgen.hpp>
 #include <organ_axes/alloc/concepts/axis_06_allocator_concept.hpp> // AllocatorStrategy-Concept (compile-time-strikt)
 #include <topics/nodes/axis_bst_shape/axis_bst_shape_ptr_size_t.hpp>
 #include <topics/nodes/axis_bst_shape/concepts/axis_bst_shape_concept.hpp>

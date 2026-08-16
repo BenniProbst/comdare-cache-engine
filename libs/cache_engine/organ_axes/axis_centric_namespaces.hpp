@@ -74,12 +74,14 @@ namespace comdare::cache_engine {
 // V41.F.2: node = ECHTER physischer Namespace (organ_axes/node/), KEIN Alias (Forwarder).
 // V41.F.2: layout = ECHTER physischer Namespace (organ_axes/layout/), KEIN Alias (Forwarder).
 // V41.F.2: alloc = ECHTER physischer Namespace (organ_axes/alloc/), KEIN Alias (Forwarder).
-// V41.F.2: prefetch_axis = ECHTER physischer Namespace (organ_axes/prefetch_axis/), KEIN Alias (Rueckwaerts-Alias in Forwardern).
+// V41.F.2: prefetch_axis = ECHTER physischer Namespace (organ_axes/prefetch_axis/), KEIN Alias
+// (Rueckwaerts-Alias in Forwardern).
 // V41.F.2: concurrency_axis = ECHTER physischer Namespace (organ_axes/concurrency_axis/), KEIN Alias (Forwarder).
 // V41.F.2: serialization_axis = ECHTER physischer Namespace (organ_axes/serialization_axis/), KEIN Alias (Forwarder).
 // V41.F.2: telemetry_axis ist jetzt der ECHTE physische Namespace (organ_axes/telemetry_axis/) -- KEIN Alias.
 // Rueckwaerts-Alias telemetry::axis_11_telemetry→telemetry_axis liegt in den Forwardern.
-// V41.F.2: value_handle_axis = ECHTER physischer Namespace (organ_axes/value_handle_axis/), KEIN Alias (Rueckwaerts-Alias in Forwardern).
+// V41.F.2: value_handle_axis = ECHTER physischer Namespace (organ_axes/value_handle_axis/), KEIN Alias
+// (Rueckwaerts-Alias in Forwardern).
 // V41.F.2: simd = ECHTER physischer Namespace (organ_axes/simd/), KEIN Alias (Forwarder).
 // V41.F.2: index_organization = ECHTER physischer Namespace (organ_axes/index_organization/), KEIN Alias (Forwarder).
 // V41.F.2: io_dispatch ist jetzt der ECHTE physische Namespace (organ_axes/io_dispatch/, Pilot-Migration) --

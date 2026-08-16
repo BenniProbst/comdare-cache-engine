@@ -44,7 +44,8 @@ namespace comdare::cache_engine::anatomy {
 /// Bau-INC-2c (F12iii, ABI-5): Telemetrie ist KEIN Kompositions-Slot mehr — sie wurde als
 /// CEB-System-Achse aus der binary_id-permutierenden Organ-Komposition herausgeloest
 /// (TelemetryConfig Active/Silent = System-Achsen-Belegung, versioniert im H-10-Sidecar
-/// NEBEN dem Binary; vorher T10 in der damals 19-slotigen Komposition). Das Telemetrie-ORGAN (organ_axes/telemetry) bleibt
+/// NEBEN dem Binary; vorher T10 in der damals 19-slotigen Komposition). Das Telemetrie-ORGAN
+/// (organ_axes/telemetry) bleibt
 /// als Mess-Infrastruktur bestehen — es permutiert nur nicht mehr.
 ///
 /// Bau-INC-2d (ABI-6): isa ist EBENFALLS KEIN Kompositions-Slot mehr — die Ziel-ISA wird zur

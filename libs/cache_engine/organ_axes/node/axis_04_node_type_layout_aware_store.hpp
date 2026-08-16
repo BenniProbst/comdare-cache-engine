@@ -44,8 +44,9 @@
 
 #include "axis_04_node_type_node4.hpp" // Pilot-NodeType (Selbstbeweis)
 #include "concepts/axis_04_node_type_concept.hpp"
-#include <organ_axes/cacheline/cacheline_line_bytes.hpp> // P-CACHELINE-LITERAL: Line-Groesse NUR aus der cacheline-Achse
-#include <organ_axes/cacheline/node_width_config.hpp>    // C2/FF2: Knoten-Breite-in-Cache-Lines-Unterachse (Konsum hier)
+// P-CACHELINE-LITERAL: Line-Groesse NUR aus der cacheline-Achse
+#include <organ_axes/cacheline/cacheline_line_bytes.hpp>
+#include <organ_axes/cacheline/node_width_config.hpp> // C2/FF2: Knoten-Breite-in-Cache-Lines-Unterachse (Konsum hier)
 #include <topics/memory_layout/axis_05_memory_layout/concepts/axis_05_memory_layout_concept.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_cache_line_aligned.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_strategy_base.hpp> // RepresentationKind

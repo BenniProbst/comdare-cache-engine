@@ -1387,8 +1387,9 @@ foreach(_o HEAP CLUSTERED NON_CLUSTERED INDEX_ORGANIZED_TABLE)
         set(COMDARE_AXIS_01_USE_${_o} 0)
     endif()
 endforeach()
+# axis_01: CMAKE_SOURCE_DIR (im Top-Level == CMAKE_CURRENT_SOURCE_DIR) haelt die .in-Zeile unter 120 Byte
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/index_organization/axis_01_index_organization_flags.hpp.in"
+    "${CMAKE_SOURCE_DIR}/libs/cache_engine/organ_axes/index_organization/axis_01_index_organization_flags.hpp.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/index_organization/axis_01_index_organization_flags.hpp"
     @ONLY)
 message(STATUS "  axis_01 (4 clusterings): HEAP=${COMDARE_AXIS_01_USE_HEAP} CLUSTERED=${COMDARE_AXIS_01_USE_CLUSTERED} NON_CLUSTERED=${COMDARE_AXIS_01_USE_NON_CLUSTERED} IOT=${COMDARE_AXIS_01_USE_INDEX_ORGANIZED_TABLE}")

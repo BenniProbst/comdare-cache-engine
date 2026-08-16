@@ -81,11 +81,14 @@
 #include <organ_axes/lookup/composable/capacity_constraint.hpp>
 #include <organ_axes/lookup/composable/store_traversable_search_algo.hpp>
 #include <organ_axes/lookup/composable/traversal_for_search_algo.hpp>
-#include <organ_axes/lookup/composable/organ_for_search_algo.hpp>        // #188-4b-b1b: organ_for_search_algo_t (Pool->Organ)
+#include <organ_axes/lookup/composable/organ_for_search_algo.hpp> // #188-4b-b1b: organ_for_search_algo_t (Pool->Organ)
 #include <organ_axes/lookup/composable/organ_for_search_algo_shaped.hpp> // 234-V-a: 2-armige Shaped-Naht (ShapeCarrier)
-#include <organ_axes/lookup/composable/search_algo_rebind.hpp> // A8-S5 PHASE B: search_algo_for_composition_t (bewusst boost-frei)
-#include <organ_axes/lookup/composable/observable_composed_container.hpp> // #188-4b-b1b: ObservableComposedContainer<Organ>
-#include "../organ_axes/node/axis_04_node_type_layout_aware_store.hpp" // Plan v2 S1: layout-honorierender Store (CLA-Stride echt, OOB behoben)
+// A8-S5 PHASE B: search_algo_for_composition_t (bewusst boost-frei)
+#include <organ_axes/lookup/composable/search_algo_rebind.hpp>
+// #188-4b-b1b: ObservableComposedContainer<Organ>
+#include <organ_axes/lookup/composable/observable_composed_container.hpp>
+// Plan v2 S1: layout-honorierender Store (CLA-Stride echt, OOB behoben)
+#include "../organ_axes/node/axis_04_node_type_layout_aware_store.hpp"
 // B14-NB2 / KF-6-Auflage (D): Line-Groesse NUR ueber die Achse (line_bytes_of<L>())
 #include "../organ_axes/cacheline/cacheline_line_bytes.hpp"
 // (X): ByteWiseKeyPrefix als kanonisches T3-Mess-Organ — IMMER deklariert (auch wenn die Composition
