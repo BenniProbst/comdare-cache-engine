@@ -28,10 +28,10 @@
 #include <anatomy/search_algorithm_anatomy.hpp>
 
 #include <compositions/hot_reference.hpp> // Basis-Composition (path_compression wird im Test ersetzt)
-#include <axes/path_compression/axis_02_path_compression_none.hpp>
-#include <axes/path_compression/axis_02_path_compression_patricia.hpp>
-#include <axes/path_compression/axis_02_path_compression_observable.hpp>
-#include <axes/path_compression/axis_02_path_compression_real_trie.hpp>
+#include <organ_axes/path_compression/axis_02_path_compression_none.hpp>
+#include <organ_axes/path_compression/axis_02_path_compression_patricia.hpp>
+#include <organ_axes/path_compression/axis_02_path_compression_observable.hpp>
+#include <organ_axes/path_compression/axis_02_path_compression_real_trie.hpp>
 
 #include <cstdint>
 #include <iostream>

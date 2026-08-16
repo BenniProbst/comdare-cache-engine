@@ -12,9 +12,9 @@
 #include <topics/hardware/axis_09b_simd_extension/axis_09b_simd_extension_avx512.hpp>   // SE
 #include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_x86_64.hpp> // HW
 // Doc 30 §8.0: queuing q1/q2 als reguläre SA-Achsen T17/T18 — Durchreich-Defaults NoBuffer/LazyFlush.
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
+#include <organ_axes/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(
     // ── die 3 Build-Achsen ZUERST (named PT, SE, HW) ──

@@ -29,8 +29,8 @@
 #include "system_axes_entscheidung.hpp"    // T-1: die EINE <system_axes>-Entscheidung + ihre Zwei-Parse-Wache
 #include "toolchain_stamp_naht.hpp"        // NB/CX-4: die LIVE-Werte der Preimage-Glieder [5]/[6] + ihre Define-Args
 #include "mess_achsen_naht.hpp"            // M-1/D-1: die Mess-Achse -> Tier-Defines (Stufe-2->Stufe-3-Naht)
-#include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
-#include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
+#include <organ_axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
+#include <organ_axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp>  // Bauplan §4: ceb_contract_version (+ceb= in build_version)
 #include <builder/bestandslog/artifact_cache_transport.hpp> // G4b-1 (#46b I1): make_bestand_transport -- NUR hier, die

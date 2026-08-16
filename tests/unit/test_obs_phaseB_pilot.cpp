@@ -26,21 +26,21 @@
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 
 // Direkte Hüllen-Treiber (strategie-Divergenz-Beleg) — die echten Achsen-Strategien.
-#include <axes/path_compression/axis_02_path_compression_observable.hpp>
+#include <organ_axes/path_compression/axis_02_path_compression_observable.hpp>
 #include <topics/nodes/axis_02_path_compression/axis_02_path_compression_byte_wise.hpp>
 #include <topics/nodes/axis_02_path_compression/axis_02_path_compression_patricia.hpp>
 #include <topics/nodes/axis_02_path_compression/axis_02_path_compression_none.hpp>
-#include <axes/index_organization/axis_01_index_organization_observable.hpp>
-#include <axes/index_organization/axis_01_index_organization_heap.hpp>
-#include <axes/index_organization/axis_01_index_organization_clustered.hpp>
-#include <axes/index_organization/axis_01_index_organization_non_clustered.hpp>
-#include <axes/index_organization/axis_01_index_organization_index_organized_table.hpp>
+#include <organ_axes/index_organization/axis_01_index_organization_observable.hpp>
+#include <organ_axes/index_organization/axis_01_index_organization_heap.hpp>
+#include <organ_axes/index_organization/axis_01_index_organization_clustered.hpp>
+#include <organ_axes/index_organization/axis_01_index_organization_non_clustered.hpp>
+#include <organ_axes/index_organization/axis_01_index_organization_index_organized_table.hpp>
 
 #include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an    = ::comdare::cache_engine::anatomy;
 namespace comp  = ::comdare::cache_engine::compositions;

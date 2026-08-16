@@ -9,8 +9,8 @@
 // SUPERSEDED 2026-07-11: obiger .ps1-Build-Weg entfernt (Behelfsweg-Bereinigung); Test jetzt registriertes
 //   ctest-Target (tests/unit/CMakeLists.txt, Block COMDARE_GOALV6_BOOST_DTESTS).
 
-#include <axes/telemetry_axis/axis_11_telemetry_leaf_only.hpp>
-#include <axes/telemetry_axis/axis_11_telemetry_insert_counter.hpp>
+#include <organ_axes/telemetry_axis/axis_11_telemetry_leaf_only.hpp>
+#include <organ_axes/telemetry_axis/axis_11_telemetry_insert_counter.hpp>
 #include "anatomy/observer_aggregate.hpp"
 
 #include <iostream>

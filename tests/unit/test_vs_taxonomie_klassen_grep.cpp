@@ -25,7 +25,7 @@
 // WARUM DER NENNER AN DER AUFRUF-FORM HAENGT UND NICHT AM BLOSSEN NAMEN:
 //   Das bindende Kommando des Headers (Absatz "DAS ERSTE, BINDENDE KOMMANDO", heute algo_semver.hpp:145 --
 //   die Zeilennummer wandert, der Absatz-Titel nicht) sucht den Bezeichner OHNE Klammer und faengt deshalb
-//   auch reine Prosa mit. Am Objekt gemessen: libs/cache_engine/axes/alloc/axis_06_allocator_strategy_base.hpp
+//   auch reine Prosa mit. Am Objekt gemessen: libs/cache_engine/organ_axes/alloc/axis_06_allocator_strategy_base.hpp
 //   nennt "ce_owned_version_satisfies_cpu_enforce (ENFORCE ist scharf)" zweimal in KOMMENTAREN -- mit
 //   Leerzeichen vor der Klammer. Das ist keine Versions-Quelle, sondern ein Verweis. Der Riegel verlangt
 //   deshalb die AUFRUF-Form "<name>(" und zaehlt genau die Stellen, an denen die Politik wirklich

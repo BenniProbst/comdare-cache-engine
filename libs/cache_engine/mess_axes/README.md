@@ -2,7 +2,7 @@
 
 DESIGN-ENTSCHEID (#16, laut deklariert): der konkrete Home-Pfad war in keiner Planquelle
 festgelegt. Gewaehlt: `libs/cache_engine/mess_axes/` -- Geschwister des ORGAN-Homes
-`axes/` in der Fach-Zone, Include-Form `<mess_axes/...>`. NICHT zu verwechseln mit
+`organ_axes/` in der Fach-Zone, Include-Form `<mess_axes/...>`. NICHT zu verwechseln mit
 `libs/cache_engine/mess/` (Tier-Laufzeit-Messkaskade, Zielstruktur Par. 2a: TIER-Zone,
 KEIN Achsen-Home).
 

@@ -34,7 +34,7 @@
 //   (I)  die KOMPOSITIONS-getragene filter-Achse (Bloom/Cuckoo/RangeSurf/Xor) liegt im T14-Mess-Pfad, ist
 //        heap-frei und wurde vom Scrub NICHT beruehrt. Bloecke (1)-(3) pruefen SIE -- als Nachweis, dass
 //        die Achse messfaehig geblieben ist.
-//   (II) die COMPOSABLE Filter-Organe (S1/S2, axes/filter_axis/composable/) SIND der Scrub-Gegenstand, aber
+//   (II) die COMPOSABLE Filter-Organe (S1/S2, organ_axes/filter_axis/composable/) SIND der Scrub-Gegenstand, aber
 //        sie liegen NICHT im T14-Pfad (sie sind keine Registry-Strategie). Eine T14-Spalte kann ueber sie
 //        also gar nichts aussagen. Block (4) misst sie deshalb DIREKT -- Zeit UND Achsen-Allokations-Zaehler
 //        derselben Op-Schleife, mit demselben Anti-Phantom-Paar. Diese Trennung wird hier ausgeschrieben,
@@ -52,14 +52,14 @@
 #include <compositions/hot_reference.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 
-#include <axes/filter_axis/axis_filter_bloom.hpp>
-#include <axes/filter_axis/axis_filter_cuckoo.hpp>
-#include <axes/filter_axis/axis_filter_observable.hpp>
-#include <axes/filter_axis/axis_filter_range_surf.hpp>
-#include <axes/filter_axis/axis_filter_xor.hpp>
-#include <axes/filter_axis/composable/exact_prefix_filter_organ.hpp>
-#include <axes/filter_axis/composable/louds_sparse_filter_organ.hpp>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp>
+#include <organ_axes/filter_axis/axis_filter_bloom.hpp>
+#include <organ_axes/filter_axis/axis_filter_cuckoo.hpp>
+#include <organ_axes/filter_axis/axis_filter_observable.hpp>
+#include <organ_axes/filter_axis/axis_filter_range_surf.hpp>
+#include <organ_axes/filter_axis/axis_filter_xor.hpp>
+#include <organ_axes/filter_axis/composable/exact_prefix_filter_organ.hpp>
+#include <organ_axes/filter_axis/composable/louds_sparse_filter_organ.hpp>
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp>
 
 #include <chrono>
 #include <cstddef>
@@ -268,7 +268,7 @@ int main() {
     // enthalten" gemeldet (s. Block (3) unten, literal). Das ist die bekannte Eigenschaft eines
     // Xor-Filters: er wird OFFLINE aus dem VOLLSTAENDIGEN Key-Satz gepeelt; ein inkrementelles
     // insert_key kann die Xor-Invariante nicht erhalten. Der 02b-Scrub hat axis_filter_xor.hpp NICHT
-    // angefasst (er beruehrt ausschliesslich axes/filter_axis/composable/) -- die Wache pinnt den Befund
+    // angefasst (er beruehrt ausschliesslich organ_axes/filter_axis/composable/) -- die Wache pinnt den Befund
     // hier sichtbar, statt ihn durch eine schwaechere Formulierung verschwinden zu lassen.
     tr("(2) T14 no-FN auf Kompositions-Ebene: der Zustands-Scan probt ausschliesslich GESPEICHERTE Keys, "
        "ein neg IST ein false negative (neg == 0 bei RangeSurf/Bloom/Cuckoo)",

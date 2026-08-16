@@ -6,7 +6,7 @@
 // Dieser Contract beweist: (a) der aktive Pfad ist numerisch KORREKT (== uint64-Referenzsumme) ueber alle
 // Tail-Restlaengen aller Lane-Breiten; (b) BUILD-INVARIANZ unter Ueberlauf; (c) die aktive SIMD-Stufe wird ehrlich gemeldet.
 
-#include <axes/simd/axis_09_isa_amd64.hpp>
+#include <organ_axes/simd/axis_09_isa_amd64.hpp>
 
 #include <cstdint>
 #include <cstring>

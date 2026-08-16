@@ -1,6 +1,6 @@
 // P33-VAMPIR Option A: VampirNfpAllocator conformance and neutral statistics check.
 
-#include <axes/alloc/axis_06_allocator_vampir_nfp.hpp>
+#include <organ_axes/alloc/axis_06_allocator_vampir_nfp.hpp>
 #include <cache_engine/concepts/cache_recommendation.hpp>
 
 #include <gtest/gtest.h>

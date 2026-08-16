@@ -21,7 +21,7 @@
 #include <cstdint>
 #include <string_view>
 #include <vector>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace comp = ::comdare::cache_engine::compositions;
 namespace ana  = ::comdare::cache_engine::anatomy;

@@ -7,8 +7,8 @@
 // Phase 3 aus, FK-5 (diese Ebene) war die im M3-Fenster VERFALLENE Zusage und hat mit E-24 C9 ihren Slot.
 //
 // WARUM DIESER HEADER IM topics/-DACH LIEGT UND NICHT IN measurement/ (Layering, am Ist erhoben):
-// KEINE einzige Datei unter axes/ oder topics/ inkludiert heute cache_engine/measurement/ (eigener grep
-// 04.08.2026: axes/ zieht aus cache_engine/ ausschliesslich allocators/portable_aligned_alloc.hpp (24x)
+// KEINE einzige Datei unter organ_axes/ oder topics/ inkludiert heute cache_engine/measurement/ (eigener grep
+// 04.08.2026: organ_axes/ zieht aus cache_engine/ ausschliesslich allocators/portable_aligned_alloc.hpp (24x)
 // und concepts/cache_recommendation.hpp (1x); topics/ zieht NICHTS aus measurement/). Die 18 CRTP-Basen
 // in den Fehlerraum zu heben haette diese Kante in ~110 Varianten-TUs neu gezogen -- eine
 // Baseline-Layering-Aenderung im letzten ABI-Fenster vor dem Trigger, und zwar als Nebenwirkung einer
@@ -96,7 +96,7 @@ constexpr void assert_organ_axis_error_classes() noexcept {
 //
 //   126  registrierte Organ-Varianten gesamt (mp_size ueber AllRegisteredOrganVariantsFlat; die
 //        oft zitierte "121" ist NICHT der Ist-Stand -- gegengeprueft mit 124 algo_version-Literalen
-//        unter axes/+topics/, die Differenz sind Registry-Wrapper ohne eigenes Literal)
+//        unter organ_axes/+topics/, die Differenz sind Registry-Wrapper ohne eigenes Literal)
 //    26  davon tragen ueberhaupt requires_specialized_hardware() (die gesamte Allokator-Achse)
 //     1  davon meldet true: pim_malloc (PIM-DPU-Hardware, UPMEM/HBM-PIM)
 //

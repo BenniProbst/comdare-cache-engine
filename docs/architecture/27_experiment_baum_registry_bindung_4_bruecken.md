@@ -44,7 +44,7 @@
 ## 0. KORREKTUR des Achsen-Inventars — 22 Achsen, nicht 18
 
 Ein früherer Explore-Agent zählte **18** und übersah `queuing q1/q2`, `simd_extension 09b`, `general_hardware 12`.
-Rigorose Zählung der `*_registry.hpp` (dedupliziert axes/ vs topics/-Spiegel): **15 Topics, 22 Achsen** — exakt
+Rigorose Zählung der `*_registry.hpp` (dedupliziert organ_axes/ vs topics/-Spiegel): **15 Topics, 22 Achsen** — exakt
 Doku 22 „15 Topics · 22 Achsen". Die User-Angabe „22/23" war korrekt; „18" ist verworfen.
 
 ### 22 Achsen, gruppiert nach Topic + Enabled-Liste + Komposition-Zugehörigkeit

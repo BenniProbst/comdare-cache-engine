@@ -107,11 +107,14 @@ constexpr char const* kGegenprobe = "tests/unit/test_pressure_state.cpp";
 
 // Die vier geparkten Posten. Sie stehen hier als Literale, weil Fall (8) und Fall (9)
 // genau sie gegen die beiden committeten Allowlists fahren.
+// W-B (2026-08-15, Vorlage-B2-GO): per 'git mv' nach tests/deprecated/prt_art_legacy_waisen/
+// archiviert (VERMERK.md dort). Der SOLL ist am DATEINAMEN verankert, die vier bleiben also
+// im SOLL und in der Allowlist -- nur der Pfad in Feld 1 und hier ist nachgezogen.
 constexpr char const* kGeparkt[] = {
-    "tests/unit/test_concepts_compile.cpp",
-    "tests/unit/test_value_handle.cpp",
-    "tests/unit/test_three_layer_audit.cpp",
-    "tests/unit/test_six_page_structures.cpp",
+    "tests/deprecated/prt_art_legacy_waisen/test_concepts_compile.cpp",
+    "tests/deprecated/prt_art_legacy_waisen/test_value_handle.cpp",
+    "tests/deprecated/prt_art_legacy_waisen/test_three_layer_audit.cpp",
+    "tests/deprecated/prt_art_legacy_waisen/test_six_page_structures.cpp",
 };
 
 [[nodiscard]] std::string wachen_pfad() {

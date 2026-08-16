@@ -659,7 +659,7 @@ if(COMDARE_BUILD_PERMUTATIONS OR COMDARE_PROVISION_VENDOR_ALLOCATORS)
   if(COMDARE_PROVISION_VENDOR_ALLOCATORS)
   # wf_1009d16f-FIX (2026-07-12): Vendor-Include-VERERBUNG an der Quelle.
   # Das USE-Flag (USE = ENABLE && HAVE, s.u. "MIMALLOC: ENABLE && HAVE") wird per
-  # configure_file GLOBAL in generated/axes/alloc/axis_06_allocator_flags.hpp gebacken —
+  # configure_file GLOBAL in generated/organ_axes/alloc/axis_06_allocator_flags.hpp gebacken --
   # JEDES Target mit -I<build>/generated sieht COMDARE_AXIS_06_USE_MIMALLOC=1 und zieht
   # via vendor_includes/mimalloc_include.hpp den echten <mimalloc.h>. Der Include-Pfad
   # + das Archiv hingen bisher aber NUR target-scoped an comdare_vendor_mimalloc
@@ -1055,8 +1055,8 @@ foreach(_q1 NO_BUFFER FIFO LIFO BOUNDED_RING APPEND_ONLY PRIORITY_HEAP DELTA_CHA
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/axis_q1_queuing/axis_q1_queuing_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/axis_q1_queuing/axis_q1_queuing_flags.hpp"
     @ONLY)
 
 # axis_Q2 flush_policy VOLLAUSBAU (5/5 W3-Policies)
@@ -1068,8 +1068,8 @@ foreach(_q2 EAGER WATERMARK LAZY TIMED ADAPTIVE_LSM)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/queuing/axis_q2_queuing/axis_q2_queuing_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/queuing/axis_q2_queuing/axis_q2_queuing_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/axis_q2_queuing/axis_q2_queuing_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/axis_q2_queuing/axis_q2_queuing_flags.hpp"
     @ONLY)
 
 message(STATUS "V41.F.6.1 Topic queuing Pilot:")
@@ -1086,8 +1086,8 @@ foreach(_s03a ARRAY256 VECTOR_U8U8 VECTOR_U16U16 ARRAY65535 ORIGINAL_ART ORIGINA
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/lookup/axis_03a_search_algo_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/lookup/axis_03a_search_algo_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/lookup/axis_03a_search_algo_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/lookup/axis_03a_search_algo_flags.hpp"
     @ONLY)
 
 # axis_03b cache_traversal
@@ -1099,8 +1099,8 @@ foreach(_s03b LINEAR_FANOUT HASH_LOOKUP BINARY_SEARCH_FANOUT)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/cache_traversal/axis_03b_cache_traversal_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/cache_traversal/axis_03b_cache_traversal_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/cache_traversal/axis_03b_cache_traversal_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/cache_traversal/axis_03b_cache_traversal_flags.hpp"
     @ONLY)
 
 # axis_03m mapping
@@ -1112,8 +1112,8 @@ foreach(_s03m DIRECT_PLACEMENT POOL_RELATIVE)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/mapping/axis_03m_mapping_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/mapping/axis_03m_mapping_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/mapping/axis_03m_mapping_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/mapping/axis_03m_mapping_flags.hpp"
     @ONLY)
 
 message(STATUS "V41.F.6.1 Topic traversal Pilot:")
@@ -1122,8 +1122,8 @@ message(STATUS "  axis_03b (3 cache_traversal): LINEAR_FANOUT=${COMDARE_AXIS_03B
 message(STATUS "  axis_03m (2 mapping): DIRECT_PLACEMENT=${COMDARE_AXIS_03M_USE_DIRECT_PLACEMENT} POOL_RELATIVE=${COMDARE_AXIS_03M_USE_POOL_RELATIVE}")
 
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/alloc/axis_06_allocator_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/alloc/axis_06_allocator_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/alloc/axis_06_allocator_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/alloc/axis_06_allocator_flags.hpp"
     @ONLY)
 
 # V41.F.6.1.R7.1.a.2 axis_12 General-Hardware Flags (USE = ENABLE; alle Plattformen
@@ -1151,8 +1151,8 @@ foreach(_l CACHE_LINE_ALIGNED AOS_STRICT SOA PACKED_BITMAP AOSOA)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/layout/axis_05_memory_layout_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/layout/axis_05_memory_layout_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/layout/axis_05_memory_layout_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/layout/axis_05_memory_layout_flags.hpp"
     @ONLY)
 message(STATUS "  axis_05 (5 layouts): CACHE_LINE_ALIGNED=${COMDARE_AXIS_05_USE_CACHE_LINE_ALIGNED} AOS_STRICT=${COMDARE_AXIS_05_USE_AOS_STRICT} SOA=${COMDARE_AXIS_05_USE_SOA} PACKED_BITMAP=${COMDARE_AXIS_05_USE_PACKED_BITMAP} AOSOA=${COMDARE_AXIS_05_USE_AOSOA}")
 
@@ -1165,8 +1165,8 @@ foreach(_c NONE PATRICIA BYTE_WISE)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/path_compression/axis_02_path_compression_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/path_compression/axis_02_path_compression_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/path_compression/axis_02_path_compression_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/path_compression/axis_02_path_compression_flags.hpp"
     @ONLY)
 message(STATUS "  axis_02 (3 compressions): NONE=${COMDARE_AXIS_02_USE_NONE} PATRICIA=${COMDARE_AXIS_02_USE_PATRICIA} BYTE_WISE=${COMDARE_AXIS_02_USE_BYTE_WISE}")
 
@@ -1245,8 +1245,8 @@ foreach(_n NODE4 NODE16 NODE48 NODE256)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/node/axis_04_node_type_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/node/axis_04_node_type_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/node/axis_04_node_type_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/node/axis_04_node_type_flags.hpp"
     @ONLY)
 message(STATUS "  axis_04 (4 node-types): NODE4=${COMDARE_AXIS_04_USE_NODE4} NODE16=${COMDARE_AXIS_04_USE_NODE16} NODE48=${COMDARE_AXIS_04_USE_NODE48} NODE256=${COMDARE_AXIS_04_USE_NODE256}")
 
@@ -1259,8 +1259,8 @@ foreach(_p NONE DISTANCE_ESTIMATOR HARDWARE_PREFETCH PATH_ORIENTED)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/prefetch_axis/axis_07_prefetch_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/prefetch_axis/axis_07_prefetch_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/prefetch_axis/axis_07_prefetch_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/prefetch_axis/axis_07_prefetch_flags.hpp"
     @ONLY)
 message(STATUS "  axis_07 (4 prefetchers): NONE=${COMDARE_AXIS_07_USE_NONE} DISTANCE_ESTIMATOR=${COMDARE_AXIS_07_USE_DISTANCE_ESTIMATOR} HARDWARE_PREFETCH=${COMDARE_AXIS_07_USE_HARDWARE_PREFETCH} PATH_ORIENTED=${COMDARE_AXIS_07_USE_PATH_ORIENTED}")
 
@@ -1273,8 +1273,8 @@ foreach(_t LEAF_ONLY_COUNTER DENSITY_TRACKER INSERT_COUNTER LATENCY_HISTOGRAM)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/telemetry_axis/axis_11_telemetry_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/telemetry_axis/axis_11_telemetry_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/telemetry_axis/axis_11_telemetry_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/telemetry_axis/axis_11_telemetry_flags.hpp"
     @ONLY)
 message(STATUS "  axis_11 (4 telemetries): LEAF=${COMDARE_AXIS_11_USE_LEAF_ONLY_COUNTER} DENSITY=${COMDARE_AXIS_11_USE_DENSITY_TRACKER} INSERT=${COMDARE_AXIS_11_USE_INSERT_COUNTER} LATENCY=${COMDARE_AXIS_11_USE_LATENCY_HISTOGRAM}")
 
@@ -1287,8 +1287,8 @@ foreach(_s RAW_BINARY VAR_LEN SUCCINCT COMPRESSED)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/serialization_axis/axis_10_serialization_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/serialization_axis/axis_10_serialization_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/serialization_axis/axis_10_serialization_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/serialization_axis/axis_10_serialization_flags.hpp"
     @ONLY)
 message(STATUS "  axis_10 (4 serializers): RAW=${COMDARE_AXIS_10_USE_RAW_BINARY} VAR_LEN=${COMDARE_AXIS_10_USE_VAR_LEN} SUCCINCT=${COMDARE_AXIS_10_USE_SUCCINCT} COMPRESSED=${COMDARE_AXIS_10_USE_COMPRESSED}")
 
@@ -1301,8 +1301,8 @@ foreach(_h INLINE EXTERNAL_POOL IMMUTABLE_SHARED_REF VERSIONED_POINTER CHAIN_REF
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/value_handle_axis/axis_14_value_handle_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/value_handle_axis/axis_14_value_handle_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/value_handle_axis/axis_14_value_handle_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/value_handle_axis/axis_14_value_handle_flags.hpp"
     @ONLY)
 message(STATUS "  axis_14 (5 value-handles): INLINE=${COMDARE_AXIS_14_USE_INLINE} EXT_POOL=${COMDARE_AXIS_14_USE_EXTERNAL_POOL} SHARED_REF=${COMDARE_AXIS_14_USE_IMMUTABLE_SHARED_REF} VERSIONED=${COMDARE_AXIS_14_USE_VERSIONED_POINTER} CHAIN_REF=${COMDARE_AXIS_14_USE_CHAIN_REF}")
 
@@ -1315,8 +1315,8 @@ foreach(_c NONE BLOCKING READER_WRITER OPTIMISTIC LOCK_FREE WAIT_FREE RCU HAZARD
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/concurrency_axis/axis_08_concurrency_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/concurrency_axis/axis_08_concurrency_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/concurrency_axis/axis_08_concurrency_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/concurrency_axis/axis_08_concurrency_flags.hpp"
     @ONLY)
 message(STATUS "  axis_08 (9 concurrency): NONE=${COMDARE_AXIS_08_USE_NONE} BLOCKING=${COMDARE_AXIS_08_USE_BLOCKING} RW=${COMDARE_AXIS_08_USE_READER_WRITER} OLC=${COMDARE_AXIS_08_USE_OPTIMISTIC} LF=${COMDARE_AXIS_08_USE_LOCK_FREE} WF=${COMDARE_AXIS_08_USE_WAIT_FREE} RCU=${COMDARE_AXIS_08_USE_RCU} HP=${COMDARE_AXIS_08_USE_HAZARD_PTR} OLC_RB=${COMDARE_AXIS_08_USE_OLC_RESERVED_BLOCKS}")
 
@@ -1329,8 +1329,8 @@ foreach(_f BLOOM CUCKOO RANGE_SURF XOR NONE)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/filter_axis/axis_filter_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/filter_axis/axis_filter_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/filter_axis/axis_filter_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/filter_axis/axis_filter_flags.hpp"
     @ONLY)
 message(STATUS "  axis_filter (5 filters): BLOOM=${COMDARE_AXIS_FILTER_USE_BLOOM} "
     "CUCKOO=${COMDARE_AXIS_FILTER_USE_CUCKOO} RANGE_SURF=${COMDARE_AXIS_FILTER_USE_RANGE_SURF} "
@@ -1344,10 +1344,10 @@ foreach(_i IN_MEMORY_ONLY DIRECT BUFFERED MMAP)
         set(COMDARE_AXIS_IO_USE_${_i} 0)
     endif()
 endforeach()
-# V41.F.2: axis_io physisch nach axes/io_dispatch/ migriert (Pilot der axen-zentrischen Struktur, Doku 23a).
+# V41.F.2: axis_io physisch nach organ_axes/io_dispatch/ migriert (Pilot der axen-zentrischen Struktur, Doku 23a).
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/io_dispatch/axis_io_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/io_dispatch/axis_io_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/io_dispatch/axis_io_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/io_dispatch/axis_io_flags.hpp"
     @ONLY)
 message(STATUS "  axis_io (4 io-strategies): IN_MEM=${COMDARE_AXIS_IO_USE_IN_MEMORY_ONLY} DIRECT=${COMDARE_AXIS_IO_USE_DIRECT} BUFFERED=${COMDARE_AXIS_IO_USE_BUFFERED} MMAP=${COMDARE_AXIS_IO_USE_MMAP}")
 
@@ -1360,8 +1360,8 @@ foreach(_pt MEMORY_ONLY DISK_WRITEBACK)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/persistence_target/axis_persistence_target_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/persistence_target/axis_persistence_target_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/persistence_target/axis_persistence_target_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/persistence_target/axis_persistence_target_flags.hpp"
     @ONLY)
 message(STATUS "  axis_persistence_target (2 targets): MEMORY_ONLY=${COMDARE_AXIS_PERSISTENCE_USE_MEMORY_ONLY} DISK_WRITEBACK=${COMDARE_AXIS_PERSISTENCE_USE_DISK_WRITEBACK} (Q-1 FALL B: DISK_WRITEBACK=0 haelt den Voll-Bau bei 2^17)")
 
@@ -1374,8 +1374,8 @@ foreach(_m NONE HOT_COLD TIER_BASED ADAPTIVE)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/migration_policy/axis_migration_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/migration_policy/axis_migration_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/migration_policy/axis_migration_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/migration_policy/axis_migration_flags.hpp"
     @ONLY)
 message(STATUS "  axis_migration (4 migrations): NONE=${COMDARE_AXIS_MIGRATION_USE_NONE} HOT_COLD=${COMDARE_AXIS_MIGRATION_USE_HOT_COLD} TIER=${COMDARE_AXIS_MIGRATION_USE_TIER_BASED} ADAPTIVE=${COMDARE_AXIS_MIGRATION_USE_ADAPTIVE}")
 
@@ -1388,8 +1388,8 @@ foreach(_o HEAP CLUSTERED NON_CLUSTERED INDEX_ORGANIZED_TABLE)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/index_organization/axis_01_index_organization_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/index_organization/axis_01_index_organization_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/index_organization/axis_01_index_organization_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/index_organization/axis_01_index_organization_flags.hpp"
     @ONLY)
 message(STATUS "  axis_01 (4 clusterings): HEAP=${COMDARE_AXIS_01_USE_HEAP} CLUSTERED=${COMDARE_AXIS_01_USE_CLUSTERED} NON_CLUSTERED=${COMDARE_AXIS_01_USE_NON_CLUSTERED} IOT=${COMDARE_AXIS_01_USE_INDEX_ORGANIZED_TABLE}")
 
@@ -1402,8 +1402,8 @@ foreach(_isa AMD64 AARCH64 RISCV POWERPC)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/simd/axis_09_isa_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/simd/axis_09_isa_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/organ_axes/simd/axis_09_isa_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/simd/axis_09_isa_flags.hpp"
     @ONLY)
 message(STATUS "  axis_09 (4 main-CPU-ISAs): AMD64=${COMDARE_AXIS_09_USE_AMD64} AARCH64=${COMDARE_AXIS_09_USE_AARCH64} RISCV=${COMDARE_AXIS_09_USE_RISCV} POWERPC=${COMDARE_AXIS_09_USE_POWERPC}")
 
@@ -1624,7 +1624,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     # ─────────────────────────────────────────────────────────────────────────
     # V41.F.6.1.R7.6.b: Paper-Code unter ext/<topic>/<axis>/ statt libs/.../legacy_code/
     set(_aq1_legacy_root "${CMAKE_CURRENT_SOURCE_DIR}/ext/queuing/axis_q1_queuing")
-    set(_aq1_gen_root    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/queuing/axis_q1_queuing/legacy_code")
+    set(_aq1_gen_root    "${CMAKE_CURRENT_BINARY_DIR}/generated/organ_axes/axis_q1_queuing/legacy_code")
     set(_aq1_namespace_root "comdare::cache_engine::queuing::axis_q1_queuing::generated")
     set(_aq1_axis_mixin     "comdare::cache_engine::queuing::axis_q1_queuing::concepts::BufferOriginalCodeMixin")
 

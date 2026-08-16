@@ -25,7 +25,7 @@
 // (axis_error.hpp:42 -- exakt die Klasse der Sache: die Maschine gibt das Geforderte nicht frei).
 //
 // INERTHEITS-BEWEIS (Aktivierungs-Auftrag, kein Verhaltens-Ereignis): alle 123 Bestands-Literale
-// unter axes/+topics/ (97x "1.0.0.c" + 2x "1.0.1.c" + 24x "1.0.2.c", gezaehlt am Objekt 5f3f26a5)
+// unter organ_axes/+topics/ (97x "1.0.0.c" + 2x "1.0.1.c" + 24x "1.0.2.c", gezaehlt am Objekt 5f3f26a5)
 // sind nackte c-Formen -- 'c' ist Struktur-Token (Fall 1 der Bruecke), also ist JEDE davon gegen
 // JEDE Signatur gedeckt, auch gegen die LEERE (CT-Batterie unten, 4x3). Die Bruecke ist nach der
 // Aktivierung heute byte-/golden-neutral BY CONSTRUCTION.

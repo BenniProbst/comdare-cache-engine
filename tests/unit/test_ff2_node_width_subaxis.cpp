@@ -11,10 +11,10 @@
 //       Blaetter) = Native -> byte-identisch zum Ist-Stand.
 // Thesis FF2 (kapitel/de/01_einleitung.tex:94-99): CSS/CSB+ = 1 Cache-Line vs. Hankins/Patel = 16 Cache-Lines.
 
-#include <axes/cacheline/node_width_config.hpp>
-#include <axes/node/axis_04_node_type_strategy_base.hpp>
-#include <axes/node/axis_04_node_type_node4.hpp>
-#include <axes/node/axis_04_node_type_layout_aware_store.hpp>
+#include <organ_axes/cacheline/node_width_config.hpp>
+#include <organ_axes/node/axis_04_node_type_strategy_base.hpp>
+#include <organ_axes/node/axis_04_node_type_node4.hpp>
+#include <organ_axes/node/axis_04_node_type_layout_aware_store.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_cache_line_aligned.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_aos_strict.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_mimalloc.hpp>

@@ -23,14 +23,14 @@
 #include <anatomy/search_algorithm_anatomy.hpp>
 
 #include <compositions/hot_reference.hpp>
-#include <axes/node/axis_04_node_type_layout_aware_store.hpp>
-#include <axes/node/axis_04_node_type_node4.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_real_descent.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_observable.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_none.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_hardware_prefetch.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_distance_estimator.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_path_oriented.hpp>
+#include <organ_axes/node/axis_04_node_type_layout_aware_store.hpp>
+#include <organ_axes/node/axis_04_node_type_node4.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_real_descent.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_observable.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_none.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_hardware_prefetch.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_distance_estimator.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_path_oriented.hpp>
 
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_cache_line_aligned.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_mimalloc.hpp>

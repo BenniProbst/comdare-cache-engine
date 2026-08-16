@@ -578,7 +578,7 @@ void check_fingerprint_drift_free(std::vector<std::string> const& g320_ids) {
     // liefert. Ohne diese zwei Zeilen bliebe der Laufzeit-Weg in dem Zustand, den R-3 am consteval-Weg
     // gerade geheilt hat -- gate-blind.
     namespace cea = ::comdare::cache_engine::abi;
-    cea::MessGatesGlied const mg{"mg=m1;s1;x1;tw1;tm1;tmi1"};
+    cea::MessGatesGlied const mg{"mg=m1;s1;st1;x1;tw1;tm1;tmi1"}; // B2: 7-Feld-Grammatik (st = G3)
     cea::ToolchainGlied const tc{cea::kToolchainStampGlied};
     cea::BvsetGlied const     bv{cea::kBuildVariantSetSignatureGlied};
     cea::OverlayHash const    ov{cea::kOverlaySourceHash};

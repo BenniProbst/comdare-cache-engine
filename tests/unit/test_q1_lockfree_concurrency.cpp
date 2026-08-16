@@ -14,8 +14,8 @@
 // Plain int main() (KEIN gtest), g_fail-Zaehler -> return 0/1. Der sanitize:tsan-Job kann dasselbe Target
 // zusaetzlich mit -fsanitize=thread bauen (dann wird die Data-Race-Freiheit scharf).
 
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_lockfree_mpmc.hpp>
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_lockfree_spsc.hpp>
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_lockfree_mpmc.hpp>
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_lockfree_spsc.hpp>
 
 #include <atomic>
 #include <cstdint>

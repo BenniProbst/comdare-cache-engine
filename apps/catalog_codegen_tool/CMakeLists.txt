@@ -16,11 +16,11 @@ foreach(_ccg_d ${_ccg_axis_src_dirs})
     endif()
 endforeach()
 file(GLOB _ccg_axes_dirs LIST_DIRECTORIES true
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/axes/*")
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/organ_axes/*")
 foreach(_ccg_d ${_ccg_axes_dirs})
     if(IS_DIRECTORY "${_ccg_d}")
         get_filename_component(_ccg_name "${_ccg_d}" NAME)
-        list(APPEND _ccg_axis_gen_dirs "${_ccg_generated_root}/axes/${_ccg_name}")
+        list(APPEND _ccg_axis_gen_dirs "${_ccg_generated_root}/organ_axes/${_ccg_name}")
     endif()
 endforeach()
 

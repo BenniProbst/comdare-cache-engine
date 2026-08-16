@@ -6,14 +6,14 @@
 
 #include <anatomy/composition_concept.hpp>
 #include <anatomy/composition_factory.hpp>
-#include <axes/lookup/axis_03a_search_algo_array256.hpp>
-#include <axes/lookup/axis_03a_search_algo_array65535.hpp>
-#include <axes/lookup/axis_03a_search_algo_vector_u8u8.hpp>
-#include <axes/lookup/axis_03a_search_algo_vector_u16u16.hpp>
-#include <axes/lookup/composable/capacity_constraint.hpp>
-#include <axes/lookup/composable/direct_address_traversal_organ.hpp> // Review-F5: organ-scharfe Sparse-Proben
-#include <axes/lookup/composable/store_traversable_search_algo.hpp> // Review-B1: Concept UNGEGATED fuer die static_asserts
-#include <axes/lookup/composable/traversal_for_search_algo.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_array256.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_array65535.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_vector_u8u8.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_vector_u16u16.hpp>
+#include <organ_axes/lookup/composable/capacity_constraint.hpp>
+#include <organ_axes/lookup/composable/direct_address_traversal_organ.hpp> // Review-F5: organ-scharfe Sparse-Proben
+#include <organ_axes/lookup/composable/store_traversable_search_algo.hpp> // Review-B1: Concept UNGEGATED fuer die static_asserts
+#include <organ_axes/lookup/composable/traversal_for_search_algo.hpp>
 #include <compositions/art_reference.hpp>
 
 #if COMDARE_MEASUREMENT_ON
@@ -33,7 +33,7 @@
 #include <string_view>
 #include <type_traits>
 #include <vector>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an   = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;

@@ -94,16 +94,16 @@
 // Standalone (plain int main, KEIN gtest) -- konsistent mit den uebrigen Phase-E-Standalone-Wachen.
 // ASCII-only.
 
-#include <axes/alloc/axis_06_allocator_exgen.hpp>        // die reale Achsen-Default-Strategie (Positiv-Kontrolle)
-#include <axes/alloc/axis_06_allocator_pmr_resource.hpp> // injizierbare Resource -> deterministisches Wurf-Orakel
-#include <axes/alloc/axis_06_allocator_pool_resource.hpp>
-#include <axes/alloc/axis_06_allocator_strategy_base.hpp>
-#include <axes/alloc/axis_06_allocator_subaxes_aa1_to_aa7.hpp>
-#include <axes/alloc/concepts/axis_06_allocator_cache_engine_permutation_concept.hpp>
-#include <axes/alloc/concepts/axis_06_allocator_concept.hpp>
-#include <axes/cacheline/cacheline_line_bytes.hpp>
-#include <axes/cacheline/node_width_config.hpp>
-#include <axes/node/axis_04_node_type_layout_aware_store.hpp>
+#include <organ_axes/alloc/axis_06_allocator_exgen.hpp>        // die reale Achsen-Default-Strategie (Positiv-Kontrolle)
+#include <organ_axes/alloc/axis_06_allocator_pmr_resource.hpp> // injizierbare Resource -> deterministisches Wurf-Orakel
+#include <organ_axes/alloc/axis_06_allocator_pool_resource.hpp>
+#include <organ_axes/alloc/axis_06_allocator_strategy_base.hpp>
+#include <organ_axes/alloc/axis_06_allocator_subaxes_aa1_to_aa7.hpp>
+#include <organ_axes/alloc/concepts/axis_06_allocator_cache_engine_permutation_concept.hpp>
+#include <organ_axes/alloc/concepts/axis_06_allocator_concept.hpp>
+#include <organ_axes/cacheline/cacheline_line_bytes.hpp>
+#include <organ_axes/cacheline/node_width_config.hpp>
+#include <organ_axes/node/axis_04_node_type_layout_aware_store.hpp>
 #include <topics/allocator/concepts/topic_allocator_concept.hpp>
 #include <topics/axis_base.hpp>
 #include <topics/organ_axis.hpp>

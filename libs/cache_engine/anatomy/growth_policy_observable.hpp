@@ -4,7 +4,7 @@
 // Katalog-Anker: docs/sessions/20260804-DOSSIER-achsen-qualitaets-parameter-katalog.md, Zeile C-A
 // (Mindest-Feldsatz GrowthStatistics, 7 Felder) + Sektion 2 Punkt 1/2.
 //
-// MUSTER: exakt ObservableIndexOrg<Strategy> (axes/index_organization/axis_01_index_organization_observable.hpp:
+// MUSTER: exakt ObservableIndexOrg<Strategy> (organ_axes/index_organization/axis_01_index_organization_observable.hpp:
 // 60-134). Die Policy selbst (DoublingGrowth sequence_composition.hpp:24-30, GoldenRatio/FixedChunk/Exact
 // topics/sequence/axis_growth/axis_growth_policies.hpp) traegt die verhaltens-tragende Op next_capacity(),
 // aber KEIN statistics()/snapshot_t -- sie ist damit keine ObservableAxis, und der C3-Slot der Sequence-Gattung

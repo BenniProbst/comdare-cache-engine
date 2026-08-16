@@ -38,13 +38,13 @@
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <builder/experiment_tree/axis_path_serialization.hpp> // kCompositionAxisNames (NUR gelesen, golden-Tabu)
 
-#include <axes/lookup/composable/observable_composed_search.hpp>
-#include <axes/lookup/composable/traversal_for_search_algo.hpp>
-#include <axes/node/axis_04_node_type_layout_aware_store.hpp>
-#include <axes/node/concepts/axis_04_node_type_concept.hpp>
-#include <axes/layout/concepts/axis_05_memory_layout_concept.hpp>
-#include <axes/alloc/concepts/axis_06_allocator_concept.hpp>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp>
+#include <organ_axes/lookup/composable/observable_composed_search.hpp>
+#include <organ_axes/lookup/composable/traversal_for_search_algo.hpp>
+#include <organ_axes/node/axis_04_node_type_layout_aware_store.hpp>
+#include <organ_axes/node/concepts/axis_04_node_type_concept.hpp>
+#include <organ_axes/layout/concepts/axis_05_memory_layout_concept.hpp>
+#include <organ_axes/alloc/concepts/axis_06_allocator_concept.hpp>
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp>
 
 #include <array>
 #include <chrono>

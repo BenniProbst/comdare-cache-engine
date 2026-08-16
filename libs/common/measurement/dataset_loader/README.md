@@ -69,7 +69,7 @@ Fehlt `dataset_source`, faellt `load_or_generate_ycsb` automatisch auf den YCSB-
 (kein Fatal-Error).
 
 ## Build-Kartierung (Achtung: Thesis-T ≠ Code-axis)
-Bezug zur I/O-Dispatch-Achse (Thesis-T14, Code `axes/io_dispatch/`): der Dataset-Loader ist orthogonal
+Bezug zur I/O-Dispatch-Achse (Thesis-T14, Code `organ_axes/io_dispatch/`): der Dataset-Loader ist orthogonal
 zur Achse — er erzeugt die *Eingabe-Last*, waehrend `io_dispatch` das *Storage-Backend* (mmap/direct/
 in-memory) waehlt. Beide zusammen ergeben realistische Nicht-YCSB-Messungen. Vgl. Doc 35, Handout
 `docs/sessions/20260617-HANDOUT-impl-agent-io-achse-tpie-mehlhorn.md`.

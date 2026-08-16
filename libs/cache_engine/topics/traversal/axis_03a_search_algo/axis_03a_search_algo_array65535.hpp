@@ -1,5 +1,5 @@
 #pragma once
-#include <axes/lookup/axis_03a_search_algo_array65535.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_array65535.hpp>
 namespace comdare::cache_engine::traversal::axis_03a_search_algo {
 using namespace comdare::cache_engine::lookup;
 }

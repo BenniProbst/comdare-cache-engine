@@ -2,22 +2,22 @@
 
 #include <topics/axis_command_base.hpp>
 
-#include <axes/cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp>
-#include <axes/concurrency_axis/axis_08_concurrency_none.hpp>
-#include <axes/filter_axis/axis_filter_bloom.hpp>
-#include <axes/index_organization/axis_01_index_organization_clustered.hpp>
-#include <axes/io_dispatch/axis_io_in_memory_only.hpp>
-#include <axes/layout/axis_05_memory_layout_soa.hpp>
-#include <axes/lookup/axis_03a_search_algo_linear_scan.hpp>
-#include <axes/mapping/axis_03m_mapping_direct_placement.hpp>
-#include <axes/migration_policy/axis_migration_none.hpp>
-#include <axes/node/axis_04_node_type_node4.hpp>
-#include <axes/path_compression/axis_02_path_compression_none.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_none.hpp>
-#include <axes/serialization_axis/axis_10_serialization_raw_binary.hpp>
-#include <axes/simd/axis_09_isa_amd64.hpp>
-#include <axes/telemetry_axis/axis_11_telemetry_insert_counter.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_inline.hpp>
+#include <organ_axes/cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp>
+#include <organ_axes/concurrency_axis/axis_08_concurrency_none.hpp>
+#include <organ_axes/filter_axis/axis_filter_bloom.hpp>
+#include <organ_axes/index_organization/axis_01_index_organization_clustered.hpp>
+#include <organ_axes/io_dispatch/axis_io_in_memory_only.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_soa.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_linear_scan.hpp>
+#include <organ_axes/mapping/axis_03m_mapping_direct_placement.hpp>
+#include <organ_axes/migration_policy/axis_migration_none.hpp>
+#include <organ_axes/node/axis_04_node_type_node4.hpp>
+#include <organ_axes/path_compression/axis_02_path_compression_none.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_none.hpp>
+#include <organ_axes/serialization_axis/axis_10_serialization_raw_binary.hpp>
+#include <organ_axes/simd/axis_09_isa_amd64.hpp>
+#include <organ_axes/telemetry_axis/axis_11_telemetry_insert_counter.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_inline.hpp>
 #include <topics/hardware/axis_09b_simd_extension/axis_09b_simd_extension_no_extension.hpp>
 #include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_generic.hpp>
 #include <topics/nodes/axis_01_page_type/axis_01_page_type_bplus.hpp>
@@ -25,8 +25,8 @@
 #include <topics/nodes/axis_btree_order/axis_btree_order_kt4.hpp>
 #include <topics/nodes/axis_hash_probe_shape/axis_hash_probe_shape_chaining.hpp>
 #include <topics/nodes/axis_skip_list_shape/axis_skip_list_shape_max16_p50.hpp>
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_eager.hpp>
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
+#include <organ_axes/axis_q2_queuing/axis_q2_queuing_eager.hpp>
 
 #include <boost/mp11.hpp>
 #include <gtest/gtest.h>

@@ -7,7 +7,7 @@
 // DIESE TU IST DIE CROSS-LAYER-NAHT und beweist die vier Aussagen, die man sonst nur behaupten kann:
 //
 //   (A) EINE WAHRHEITSQUELLE. Der Fehlerraum-Header liegt im topics/-Dach und fuehrt die D2-Etiketten als
-//       string_view, weil KEINE Datei unter axes//topics/ heute cache_engine/measurement/ zieht (Layering,
+//       string_view, weil KEINE Datei unter organ_axes//topics/ heute cache_engine/measurement/ zieht (Layering,
 //       am Ist erhoben). Genau deshalb MUSS hier verwacht werden, dass die Etiketten zeichenfolgen-gleich
 //       zu measurement::sample_status_label() sind -- sonst waeren es zwei Wahrheiten. Diese TU darf beide
 //       Schichten sehen; die Praezedenz dafuer steht woertlich in test_w10_c4_zellwert_naht.cpp.
@@ -23,24 +23,24 @@
 #include <cache_engine/measurement/axis_error.hpp> // die EINE Taxonomie-Quelle (measurement-Schicht)
 #include <topics/organ_axis_error_classes.hpp>     // der Fehlerraum-Traeger (topics-Schicht)
 
-#include <axes/alloc/axis_06_allocator_strategy_base.hpp>
-#include <axes/cache_traversal/axis_03b_cache_traversal_base.hpp>
-#include <axes/concurrency_axis/axis_08_concurrency_strategy_base.hpp>
-#include <axes/filter_axis/axis_filter_strategy_base.hpp>
-#include <axes/index_organization/axis_01_index_organization_strategy_base.hpp>
-#include <axes/io_dispatch/axis_io_strategy_base.hpp>
-#include <axes/layout/axis_05_memory_layout_strategy_base.hpp>
-#include <axes/lookup/axis_03a_search_algo_base.hpp>
-#include <axes/mapping/axis_03m_mapping_base.hpp>
-#include <axes/migration_policy/axis_migration_strategy_base.hpp>
-#include <axes/node/axis_04_node_type_strategy_base.hpp>
-#include <axes/path_compression/axis_02_path_compression_strategy_base.hpp>
-#include <axes/persistence_target/axis_persistence_target_strategy_base.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_strategy_base.hpp>
-#include <axes/serialization_axis/axis_10_serialization_strategy_base.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_strategy_base.hpp>
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_base.hpp>
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_strategy_base.hpp>
+#include <organ_axes/alloc/axis_06_allocator_strategy_base.hpp>
+#include <organ_axes/cache_traversal/axis_03b_cache_traversal_base.hpp>
+#include <organ_axes/concurrency_axis/axis_08_concurrency_strategy_base.hpp>
+#include <organ_axes/filter_axis/axis_filter_strategy_base.hpp>
+#include <organ_axes/index_organization/axis_01_index_organization_strategy_base.hpp>
+#include <organ_axes/io_dispatch/axis_io_strategy_base.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_strategy_base.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_base.hpp>
+#include <organ_axes/mapping/axis_03m_mapping_base.hpp>
+#include <organ_axes/migration_policy/axis_migration_strategy_base.hpp>
+#include <organ_axes/node/axis_04_node_type_strategy_base.hpp>
+#include <organ_axes/path_compression/axis_02_path_compression_strategy_base.hpp>
+#include <organ_axes/persistence_target/axis_persistence_target_strategy_base.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_strategy_base.hpp>
+#include <organ_axes/serialization_axis/axis_10_serialization_strategy_base.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_strategy_base.hpp>
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_base.hpp>
+#include <organ_axes/axis_q2_queuing/axis_q2_queuing_strategy_base.hpp>
 
 #include <array>
 #include <cstddef>

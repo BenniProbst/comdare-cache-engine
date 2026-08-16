@@ -1,6 +1,6 @@
 // AP-7a/#241 -- SwissTable S22 Wrapper-Konformitaet und Gruppen-Probe-Shape.
 
-#include <axes/lookup/axis_03a_search_algo_swisstable.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_swisstable.hpp>
 
 #include "support/std_map_equivalence_harness.hpp"
 

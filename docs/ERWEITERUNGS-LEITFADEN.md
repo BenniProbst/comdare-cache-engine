@@ -92,9 +92,9 @@ pwsh tests/unit/thesis_tiere/build_and_measure_150_tiere.ps1 -Validate `
 
 | # | Anpassungs-Stelle (file:line) | Was |
 |---|---|---|
-| 1 | NEU `libs/cache_engine/axes/lookup/axis_03a_search_algo_myalgo.hpp` | Wrapper-Header nach Goldstandard (Vorlage `axis_03a_search_algo_bst.hpp:39` Klasse, `:41` `enabled = flags::myalgo_enabled`, `:52` `name()=="myalgo"`, `:54` `flag_suffix()`, `:205-207` Concept-`static_assert`). |
-| 2 | `libs/cache_engine/axes/lookup/axis_03a_search_algo_registry.hpp:8-35` (Include) + `:49-76` (`AllStrategies`-Liste) | `#include "..._myalgo.hpp"` + `MyAlgoSearchAlgo` in die `mp::mp_list` aufnehmen. `EnabledStrategies` (`:81`) filtert dann nach `enabled`. |
-| 3 | `libs/cache_engine/axes/lookup/axis_03a_search_algo_flags.hpp.in:57-59` (neuer `#cmakedefine01`) + `:61-77` (neue `inline constexpr bool myalgo_enabled = …`) | Flag-Template-Eintrag. |
+| 1 | NEU `libs/cache_engine/organ_axes/lookup/axis_03a_search_algo_myalgo.hpp` | Wrapper-Header nach Goldstandard (Vorlage `axis_03a_search_algo_bst.hpp:39` Klasse, `:41` `enabled = flags::myalgo_enabled`, `:52` `name()=="myalgo"`, `:54` `flag_suffix()`, `:205-207` Concept-`static_assert`). |
+| 2 | `libs/cache_engine/organ_axes/lookup/axis_03a_search_algo_registry.hpp:8-35` (Include) + `:49-76` (`AllStrategies`-Liste) | `#include "..._myalgo.hpp"` + `MyAlgoSearchAlgo` in die `mp::mp_list` aufnehmen. `EnabledStrategies` (`:81`) filtert dann nach `enabled`. |
+| 3 | `libs/cache_engine/organ_axes/lookup/axis_03a_search_algo_flags.hpp.in:57-59` (neuer `#cmakedefine01`) + `:61-77` (neue `inline constexpr bool myalgo_enabled = …`) | Flag-Template-Eintrag. |
 | 4 | `CMakeLists.txt:217` (neue `option(COMDARE_AXIS_03A_ENABLE_MYALGO … ON)`) + `:727` (`MYALGO` in die `foreach(_s03a …)`-Liste) | Build-Option + USE-Berechnung; `configure_file` (`:734-737`) erzeugt die `flags.hpp`. |
 
 **Was NICHT angefasst werden muss (verifiziert):**
@@ -181,7 +181,7 @@ Kombinationen (1 DLL = 1 TU).
 ## Anhang — Verifizierte Schlüsselstellen (Kurzindex)
 
 - Build-Modell: `docs/architecture/BUILD-MODELL-1DLL-1TU-KLARSTELLUNG.md` (1 DLL = 1 TU, Resume = einzige Inkrementalität).
-- Wrapper-Vorlage: `libs/cache_engine/axes/lookup/axis_03a_search_algo_bst.hpp`.
+- Wrapper-Vorlage: `libs/cache_engine/organ_axes/lookup/axis_03a_search_algo_bst.hpp`.
 - Registry/Enabled-Filter: `axis_03a_search_algo_registry.hpp:49-81`.
 - Flags: `axis_03a_search_algo_flags.hpp.in` + `CMakeLists.txt:217,727-737`.
 - Umbrella (19 Registries): `builder/codegen/all_axes_umbrella.hpp:19-40`.

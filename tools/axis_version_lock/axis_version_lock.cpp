@@ -9,7 +9,8 @@
 //     ueber Lock-Eintraege; am 13.08.2026 literal belegt: Phantom-Eintrag -> 'GRUEN', Exit 0).
 //     v2 erhebt seine Grundgesamtheit SELBST unter --root und prueft BIDIREKTIONAL.
 //   * KATEGORIE-DETAIL-KLASSEN (KON17-03): HeuristikDetail traegt den Marker-Mechanismus,
-//     OrganDetail die Literal-Mechanik (axes/ + topics/queuing/). EINE Wache, EIN Lock
+//     OrganDetail die Literal-Mechanik (organ_axes/ inkl. der per #72 eingezogenen queuing-Traeger
+//     + topics/-Andock-Verzeichnisse). EINE Wache, EIN Lock
 //     (KON27-01/KON17-03) -- die Kategorien sind Spalten desselben Locks, kein zweites Lockfile.
 //   * ZWEI RIEGEL-SCHAERFUNGEN: (i) Lock-Eintrag ohne Datei => ROT (verwaist); (ii) je Kategorie
 //     ein discovered-Zaehler MIT NENNER in der Ausgabe (BESTAND-Zeilen), damit die Zahl gefahren
@@ -32,7 +33,7 @@
 //        KONKRETEN Inhalt. (b) Der CI-Job erzwingt zusaetzlich Byte-Identitaet des Registers
 //        (--write + git diff --exit-code) -- Tiefenstaffelung, faengt auch Klassen, die --check
 //        strukturell nicht sieht.
-//   (G3) ALLE LITERALE EINER DATEI, NICHT DAS ERSTE. axes/lookup/axis_03a_search_algo_k_ary.hpp
+//   (G3) ALLE LITERALE EINER DATEI, NICHT DAS ERSTE. organ_axes/lookup/axis_03a_search_algo_k_ary.hpp
 //        traegt ZWEI Variantenfamilien mit je eigenem Literal (:141 KArySearchAlgoCore, :573
 //        KAryPerKCore). Vorher zaehlte nur :141 -- Bump am falschen Literal => 'OK MIT
 //        Version-Bump'/GRUEN, korrekter Bump an :573 => falsches ROT (beides literal belegt).
@@ -75,9 +76,9 @@
 //        system 16, mess 1, tier_substanz 55) + heuristik 6 = 718 Records. Dateien ohne Literal
 //        stehen digest-only ('-') im Lock; der Riegel faengt sie ueber Digest-Drift.
 //        DIFFERENZ BEIDER MENGEN, BENANNT: 26 *.hpp der alten Homes stehen NICHT im Schnitt
-//        (axes/telemetry_axis 10: telemetry ist CEB-System-Achse geworden; axes/simd 10: isa ->
-//        target_isa, simd_extension ist Build-only-Achse in Glied [6]; axes/cacheline 3 +
-//        axes/axis_centric_namespaces.hpp + topics/queuing-Topic-Huelle 2: keine Achsen-
+//        (organ_axes/telemetry_axis 10: telemetry ist CEB-System-Achse geworden; organ_axes/simd 10: isa ->
+//        target_isa, simd_extension ist Build-only-Achse in Glied [6]; organ_axes/cacheline 3 +
+//        organ_axes/axis_centric_namespaces.hpp + topics/queuing-Topic-Huelle 2: keine Achsen-
 //        Implementierung im Sinne des Schnitts). 0 der 26 waren gelockt, 0 enthalten
 //        'algo_version' (gemessen) -- die Wache folgt dem Schnitt, nicht umgekehrt.
 //   (D2) TRAEGER-AUSTRITT IST ROT. Rot-zuerst literal: Literal entfernt und --write gefahren =>
@@ -144,7 +145,7 @@
 //              Home + Phasigkeits-Pruefsyntax (system+organ ZWEIPHASIG hardware-only via
 //              ce_owned_version_is_wellformed; mess DREIPHASIG = benannte Leerstelle bis zum
 //              G-1-Stufe-C-Bau, bis dahin Parser-Pruefung). Homes: system_axes/ + mess_axes/
-//              (organ: axes/+topics/, compile-hart gepinnt im Schnitt-Header).
+//              (organ: organ_axes/+topics/, compile-hart gepinnt im Schnitt-Header).
 //
 // LOCK-FORMAT v3 (v1 UND v2 werden mit klarer Meldung abgewiesen, kein stilles Weiterlesen):
 //   # format: v3

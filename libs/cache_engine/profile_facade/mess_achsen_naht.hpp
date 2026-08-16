@@ -69,13 +69,15 @@
 // (COMDARE_EXPERIMENT_MODE_ON, 4 Vorkommen, ist KEIN Mess-Instrument: es markiert Experiment-Kompilate
 // und verlangt seinerseits MEASUREMENT_ON, abi_adapter.hpp:9-10 #error.)
 //
-// Die schaltbare Flaeche zerfaellt damit in DREI Schichten, aber nur ZWEI davon sind heute trennbar:
+// Die schaltbare Flaeche zerfaellt in DREI Schichten -- seit B2 (15.08.2026) sind ALLE drei trennbar:
 //   G1 BASIS-ZEIT    IMeasurableWorkload::run_workload (abi_adapter.hpp:589-1123) -- der aeussere
 //                    steady_clock je Batch. Liegt unter #if COMDARE_MEASUREMENT_ON.
 //   G2 OBSERVER      fill_observer_v3 / axis_stats (abi_adapter.hpp:1426-1714) -- die per-Achsen-
 //                    Zaehler. Liegt unter #ifdef COMDARE_CE_ENABLE_STATISTICS.
-//   G3 FEINKORN      fill_segment_timing_v3 (abi_adapter.hpp:1784-2057) -- die 18 per-Achsen-Segment-
-//                    Timer je Batch. Liegt EBENFALLS unter #ifdef COMDARE_CE_ENABLE_STATISTICS.
+//   G3 FEINKORN      fill_segment_timing_v3 (abi_adapter.hpp) -- die 18 per-Achsen-Segment-Timer je
+//                    Batch (samt spaetem T17-Read und dessen Reset). Lag bis B2 im G2-Gate; liegt
+//                    seither unter #if COMDARE_CE_ENABLE_SEGMENT_TIMING (Ableitung/Vererbung:
+//                    cache_engine/abi/mess_gate_segment_timing.hpp).
 //
 // DIE TRENNLINIE WAR BIS M-1 NICHT BAUBAR -- AM OBJEKT GEMESSEN, NICHT VERMUTET.
 // Der erste Bau-Versuch der [wallclock]-Konfiguration (MEASUREMENT_ON=1 OHNE CE_ENABLE_STATISTICS)
@@ -101,27 +103,30 @@
 //   macro     : braucht G1+G2. Die Registry nennt es "Ende-zu-Ende-Durchsatz/Latenz ueber Observer"
 //               -> zusaetzlich CE_ENABLE_STATISTICS.
 //   micro     : braucht G1+G2+G3. Die Registry nennt es "feinkoernige Counter-Instrumentierung"
-//               -> ebenfalls CE_ENABLE_STATISTICS, WEIL G3 heute im selben Gate wohnt wie G2.
+//               -> zusaetzlich CE_ENABLE_SEGMENT_TIMING=1 (B2; bis dahin wohnte G3 im G2-Gate).
 //
 // ------------------------------------------------------------------------------------------------
-// EHRLICHE GRENZE DIESER SCHEIBE -- macro UND micro SIND HEUTE NICHT TRENNBAR
+// DIE GRENZE IST GEFALLEN -- B2 (15.08.2026): macro UND micro SIND GETRENNT SCHALTBAR
 // ------------------------------------------------------------------------------------------------
-// G2 und G3 teilen sich EIN Gate. Es gibt im gesamten anatomy/-Baum kein drittes Makro, ueber das man
-// die Segment-Timer ohne die Observer-Zaehler (oder umgekehrt) entfernen koennte. Ein solches Gate
-// hier zu ERFINDEN hiesse, Semantik zu behaupten, die der Code nicht traegt -- also genau der Fehler,
-// den D-1 heilt, nur in die andere Richtung.
-// DIESE NAHT TRAEGT DIE TRENNUNG DESHALB, SOBALD ES SIE GIBT, UND BEHAUPTET SIE NICHT VORHER:
-//   -- der GATE-Teil (MEASUREMENT_ON / CE_ENABLE_STATISTICS) unterscheidet heute real
-//      {wallclock} von {macro, micro};
-//   -- der DEKLARATIONS-Teil (COMDARE_MEASUREMENT_TOOLING_<ID>=1, ein Define je EINKOMPILIERTEM
-//      Tooling) macht die Wahl im Kompilat vollstaendig sichtbar und injektiv, auch wo noch kein
-//      Gate daran haengt.
-// Das Herausloesen von G3 aus dem STATISTICS-Gate in ein eigenes Makro ist ein EIGENES FOLGEPAKET
-// (es beruehrt abi_adapter.hpp im Hot-Path und die A8-S4-Praeprozessor-Wache,
-// tests/unit/test_a8s4_release_pfad_neutralitaet.cpp TEIL 1, die genau zwei Gate-Makros kennt).
-// Solange es nicht gebaut ist, gilt: macro und micro erzeugen denselben GATE-Zustand und
-// unterscheiden sich ausschliesslich im Deklarations-Define. Das steht hier, damit es niemand fuer
-// eine gebaute Trennung haelt.
+// Das hier bis B2 angekuendigte Folgepaket ist gebaut. G3 traegt sein eigenes Gate:
+//     G2 (macro) : COMDARE_CE_ENABLE_STATISTICS      -- unveraendert (#ifdef, alle Bestands-Stellen)
+//     G3 (micro) : COMDARE_CE_ENABLE_SEGMENT_TIMING  -- wertbasiert; die EINE Ableitung wohnt in
+//                  cache_engine/abi/mess_gate_segment_timing.hpp (VERERBUNG: ist das Makro nicht
+//                  gesetzt, folgt G3 dem Alt-Gate G2 -- kein Bestandsbau bewegt seinen Gate-Zustand)
+// Geschaltet sind die drei Segment-Lauf-Flaechen in anatomy/abi_adapter.hpp (fill_segment_timing_v3,
+// fill_observer_pathb_driven_v3, reset_pathb_driven_organs_); die A8-S4-Praeprozessor-Wache kennt
+// das dritte Gate; das neunte Preimage-Glied traegt es als Feld <st> (mess_gates_glied.hpp).
+// Diese Naht ENTSCHEIDET das G3-Gate ab B2 IMMER MIT, sobald sie G2 emittiert: =1 wenn micro in der
+// Menge ist, =0 sonst (mess_achsen_defines unten). Ein blosses Weglassen waere die Vererbung und
+// damit KEINE Entscheidung -- der Stufe-2-CT-Einbau (KON37-01) entscheidet aus der EIGENEN Menge.
+//   wallclock : G1                  macro : G1+G2            micro : G1+G2+G3
+//
+// [HISTORIE, bis B2 wahr -- bleibt als Beleg, warum die Trennung nicht frueher behauptet wurde]
+// G2 und G3 teilten sich EIN Gate; es gab im anatomy/-Baum kein drittes Makro. Ein solches Gate zu
+// ERFINDEN, ohne die Schalt-Flaechen zu bauen, hiesse Semantik zu behaupten, die der Code nicht
+// traegt -- der D-1-Fehler in die andere Richtung. Bis B2 galt deshalb: macro und micro erzeugten
+// denselben GATE-Zustand und unterschieden sich ausschliesslich im Deklarations-Define
+// (COMDARE_MEASUREMENT_TOOLING_<ID>=1, das die Wahl im Kompilat sichtbar und injektiv machte).
 //
 // ------------------------------------------------------------------------------------------------
 // WARUM DIE DEKLARATIONS-DEFINES KEIN ZWEITER LUEGEN-KANAL SIND
@@ -418,6 +423,23 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
            menge[static_cast<std::size_t>(cm::MeasurementTooling::Micro)];
 }
 
+/// mess_menge_hat_feinkorn_gate(menge) -- traegt eine so gebaute Tier-Binary das FEINKORN (G3)?
+///
+/// B2 (15.08.2026). Dieselbe Rolle wie mess_menge_hat_observer_gate eine Schicht hoeher: die EINE
+/// benannte Bedingung, aus der mess_achsen_defines() den Wert des G3-Gates
+/// (-DCOMDARE_CE_ENABLE_SEGMENT_TIMING={1|0}) setzt und aus der die CSV-Seite ihr ehrliches "n/a"
+/// fuer die seg_*-Spalten ableitet (live_mess_feinkorn_ausstattung unten). G3 ist der TIER-Beitrag
+/// von micro (die Segment-Timer); die HOST-Kollektor-Frage PMC bleibt davon getrennt (Block unten).
+///
+/// WOZU DIE CSV-SEITE SIE BRAUCHT: fill_segment_timing_v3 hat seinen Rumpf ab B2 unter dem G3-Gate.
+/// Eine [wallclock,macro]-Binary liefert seg_ns durchgehend 0 bei batches_measured == 0 -- Zahlen,
+/// die von einer echten Messung mit Ergebnis 0 nicht unterscheidbar waeren. Dieselbe Luegen-Klasse,
+/// die M-1/H-B fuer die Observer-Zellen geschlossen hat, eine Schicht hoeher.
+[[nodiscard]] inline bool mess_menge_hat_feinkorn_gate(MessToolingMenge const& menge) noexcept {
+    namespace cm = ::comdare::cache_engine::measurement;
+    return menge[static_cast<std::size_t>(cm::MeasurementTooling::Micro)];
+}
+
 /// mess_achsen_defines(menge) -- DIE ABBILDUNG: einkompilierte Mess-Achse -> Tier-Compile-Defines.
 ///
 /// Das ist die Funktion, die D-1 heilt. Sie ist REIN (Argument rein, Vektor raus, kein Env, kein
@@ -425,13 +447,17 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
 /// Mess-Achsen-Konfigurationen verschiedene Tier-Defines erzeugen.
 ///
 /// REIHENFOLGE ist bindend (deterministisches Compile-Kommando): erst die GATES in der Reihenfolge
-/// ihrer Schichten (G1 -> G2/G3), dann die DEKLARATIONEN in Registry-Reihenfolge.
+/// ihrer Schichten (G1 -> G2 -> G3), dann die DEKLARATIONEN in Registry-Reihenfolge.
 ///
-/// BYTE-BILANZ: fuer die Vollmenge (der gesamte golden-/CI-Bestand, [all]) stehen die beiden Gates in
-/// derselben Reihenfolge und mit demselben Wortlaut da wie in der abgeloesten Literal-Liste --
-/// -DCOMDARE_MEASUREMENT_ON=1 dann -DCOMDARE_CE_ENABLE_STATISTICS=1. Neu sind ausschliesslich die drei
-/// Deklarations-Defines; sie haben im Tier heute keinen Leser und aendern damit kein Byte des
-/// erzeugten Kompilats, nur das Bau-Kommando.
+/// BYTE-BILANZ [HISTORIE M-1, bis B2]: fuer die Vollmenge standen die beiden Gates in derselben
+/// Reihenfolge und mit demselben Wortlaut da wie in der abgeloesten Literal-Liste; neu waren nur die
+/// drei leserlosen Deklarations-Defines.
+/// BYTE-BILANZ B2 (15.08.2026), DEKLARIERTES GOLDEN-EREIGNIS: [all] emittiert ab B2 zusaetzlich
+/// -DCOMDARE_CE_ENABLE_SEGMENT_TIMING=1 (zwischen G2 und den Deklarationen). Der GATE-ZUSTAND und
+/// damit das VERHALTEN jedes [all]-Kompilats sind unveraendert (G2+G3 an, wie immer); das
+/// Bau-Kommando und das neunte Preimage-Glied (Feld <st>) bewegen sich aber fuer JEDE TU -- jeder
+/// Fingerprint wandert, jedes Sidecar wird stale, die Flotte baut neu. Das ist die bestellte
+/// Wirkung der Gate-Trennung (KON34/B2), kein Nebeneffekt; das golden-Fenster kommt separat.
 [[nodiscard]] inline std::vector<std::string> mess_achsen_defines(MessToolingMenge const& menge) {
     namespace cm = ::comdare::cache_engine::measurement;
     std::vector<std::string> d;
@@ -491,13 +517,23 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
     }
     if (braucht_g1) d.emplace_back("-DCOMDARE_MEASUREMENT_ON=1");
 
-    // G2 OBSERVER (+ G3 FEINKORN, solange beide dasselbe Gate teilen) -- fill_observer_v3 /
-    // fill_segment_timing_v3. [wallclock] allein braucht sie nicht und bekommt sie ab hier auch nicht
-    // mehr: DAS ist die erste reale Wirkung, die die Mess-Achse auf das Tier-Kompilat hat.
+    // G2 OBSERVER -- fill_observer_v3 / axis_stats. [wallclock] allein braucht sie nicht und bekommt
+    // sie seit M-1 auch nicht mehr: die erste reale Wirkung der Mess-Achse auf das Tier-Kompilat.
     if (mess_menge_hat_observer_gate(menge)) d.emplace_back("-DCOMDARE_CE_ENABLE_STATISTICS=1");
 
+    // G3 FEINKORN (B2, 15.08.2026) -- fill_segment_timing_v3 samt spaetem T17-Read und Reset. Die
+    // Naht ENTSCHEIDET das Gate immer mit, sobald die Observer-Schicht existiert: =1 wenn micro in
+    // der EIGENEN Menge dieser CEB ist (KON37-01), =0 sonst. Ein blosses WEGLASSEN waere keine
+    // Entscheidung -- im Kompilat griffe dann die Vererbung des Ableitungs-Headers (G3 folgt G2),
+    // und eine [wallclock,macro]-Binary bekaeme die Segment-Timer, die ihr Stempel verschweigt.
+    // Unterhalb der Observer-Schicht ([wallclock]) gibt es nichts zu entscheiden: kein G3-Define,
+    // die Vererbung laeuft dort auf dasselbe AUS, das auch G2 hat.
+    if (mess_menge_hat_observer_gate(menge))
+        d.emplace_back(mess_menge_hat_feinkorn_gate(menge) ? "-DCOMDARE_CE_ENABLE_SEGMENT_TIMING=1"
+                                                           : "-DCOMDARE_CE_ENABLE_SEGMENT_TIMING=0");
+
     // DEKLARATION -- ein Define je EINKOMPILIERTEM Tooling, Registry-Reihenfolge. Traegt die
-    // Injektivitaet auch dort, wo der Gate-Teil (noch) nicht unterscheidet (macro vs micro).
+    // Injektivitaet der Bestellung unabhaengig vom Gate-Teil (seit B2 unterscheidet auch der).
     for (std::size_t i = 0; i < cm::kMeasurementToolingCount; ++i)
         if (menge[i]) d.push_back(mess_tooling_deklarations_define(i));
 
@@ -534,10 +570,19 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
     namespace cm                       = ::comdare::cache_engine::measurement;
     std::vector<std::string> const def = mess_achsen_defines_for_legend(legend);
     auto const hat = [&def](std::string const& d) { return std::find(def.begin(), def.end(), d) != def.end(); };
+    // B2: das <st>-Feld spiegelt die ABLEITUNG der TU (mess_gate_segment_timing.hpp), mechanisch aus
+    // dem Define-Vektor: ein explizites =1 gewinnt; ohne jede G3-Entscheidung erbt G3 den G2-Zustand.
+    // (Aus DIESER Emission ist der Erb-Fall nur ohne G2 erreichbar -- die Naht entscheidet G3 immer
+    // mit, wenn sie G2 emittiert. Die Spiegelung bildet trotzdem die volle Regel ab, nicht die
+    // Emissions-Gewohnheit: ein zweiter, engerer Ausdruck waere die Drift-Klasse aus D-1.)
+    bool const g2 = hat("-DCOMDARE_CE_ENABLE_STATISTICS=1");
+    bool const g3_entschieden =
+        hat("-DCOMDARE_CE_ENABLE_SEGMENT_TIMING=1") || hat("-DCOMDARE_CE_ENABLE_SEGMENT_TIMING=0");
+    bool const st = hat("-DCOMDARE_CE_ENABLE_SEGMENT_TIMING=1") || (!g3_entschieden && g2);
     // .str() ist der Laufzeit-Ausgang der EINEN Bildung: sie rechnet in einem heap-freien Puffer
     // (abi::MessGatesGliedText), damit derselbe Aufruf auch in einer constant expression laufen kann.
     return ::comdare::cache_engine::abi::mess_gates_glied_komponieren(
-               hat("-DCOMDARE_MEASUREMENT_ON=1"), hat("-DCOMDARE_CE_ENABLE_STATISTICS=1"), /*experiment_mode_on=*/true,
+               hat("-DCOMDARE_MEASUREMENT_ON=1"), g2, st, /*experiment_mode_on=*/true,
                hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::WallClock))),
                hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::Macro))),
                hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::Micro))))
@@ -566,6 +611,16 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
 /// zwischen echten Observer-Zahlen und ehrlichem "n/a".
 [[nodiscard]] inline bool live_mess_observer_ausstattung() {
     return mess_menge_hat_observer_gate(mess_tooling_menge_from_legend(resolve_live_measurement_combo_legend()));
+}
+
+/// live_mess_feinkorn_ausstattung() -- traegt die Tier-Binary DIESES Laufs das FEINKORN (G3)?
+/// B2 (15.08.2026): dieselbe Aufloesung, dieselbe Abbildung wie live_mess_observer_ausstattung --
+/// eine Schicht hoeher. Die CSV-Seite (cache_engine_builder_iterator, seg_*-Spalten) entscheidet
+/// damit zwischen echten Segment-Timern und ehrlichem "n/a": eine [wallclock,macro]-Binary liefert
+/// seg_ns strukturell 0 (fill_segment_timing_v3 ist ohne G3 nicht einkompiliert) -- diese Nullen als
+/// Messwerte zu schreiben waere dieselbe Luege, die M-1/H-B fuer die Observer-Zellen geschlossen hat.
+[[nodiscard]] inline bool live_mess_feinkorn_ausstattung() {
+    return mess_menge_hat_feinkorn_gate(mess_tooling_menge_from_legend(resolve_live_measurement_combo_legend()));
 }
 
 // ----------------------------------------------------------------------------------------------------

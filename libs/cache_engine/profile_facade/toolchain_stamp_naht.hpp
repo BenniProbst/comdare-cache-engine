@@ -48,7 +48,7 @@
 // die Entscheidung ist ein #if, und ein Header, der sie ohne den definierenden Header trifft, faellt in
 // jeder TU anders aus, die ihn frueher inkludiert. Genau so entstuende ein Glied, das je Uebersetzungs-
 // einheit etwas anderes behauptet -- die Drift-Klasse, gegen die diese Naht gebaut ist.
-#include <axes/alloc/axis_06_allocator_flags.hpp> // COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
+#include <organ_axes/alloc/axis_06_allocator_flags.hpp> // COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
 #include <cache_engine/abi/stempel_basis.hpp>         // S-1: ist_stempel_baustein (Baustein-Anbindung)
 #include <cache_engine/abi/toolchain_stamp_glied.hpp> // Renderer + die CT-Compiler-Realversions-Erhebung

@@ -51,6 +51,17 @@
 //   • IMigratableTier (MESSUNG-AN)    — tier_migrate_step (echter 2-Ebenen-Move, P4 #123)           (~:1557)
 //   • private Member (~:1631)         — container_algorithm_ (LayoutAwareChunkedStore<N,L,A>, ~:1680) + Mess-Organe + state_
 
+// B2 (15.08.2026), GATE-TRENNUNG G2/G3: die EINE Ableitung des G3-Gates
+// (COMDARE_CE_ENABLE_SEGMENT_TIMING -- Vererbung: unentschieden folgt G3 dem Alt-Gate G2). Quoted-
+// relativ inkludiert, damit JEDE TU sie unabhaengig vom Include-Pfad bekommt; dieselbe Datei liest
+// auch das neunte Preimage-Glied (abi/mess_gates_glied.hpp) -- eine zweite Lesung waere die
+// Drift-Klasse D-1 (Stempel behauptet einen Gate-Zustand, den der Bau nicht faehrt).
+// Geschaltet sind unten GENAU die drei Segment-Lauf-Flaechen: fill_segment_timing_v3 (die 18
+// per-Achsen-Segment-Timer), fill_observer_pathb_driven_v3 (der spaete T17-Read, dessen Zaehler
+// AUSSCHLIESSLICH der Segment-Lauf treibt) und reset_pathb_driven_organs_ (SCHRITT 4). Alle
+// uebrigen Observer-Flaechen bleiben unter COMDARE_CE_ENABLE_STATISTICS (G2).
+#include "../include/cache_engine/abi/mess_gate_segment_timing.hpp"
+
 #include "anatomy_base.hpp"
 #include "measurable_workload.hpp"        // F15/Stufe B: optionales Mess-Sub-Interface (ABI-sicher)
 #include "observable_tier.hpp"            // R6/Pfad B: ABI-stabiler Observer-Zugriff (Doku 24 §8.6)
@@ -67,45 +78,45 @@
 // belasten diese topics/-Includes nur die Voll-Header-Konsumenten (DLLs/Tests, die die Pfade ohnehin haben).
 #include "../topics/traversal/axis_03a_search_algo/composable/observable_composed_search.hpp"
 // (E-Welle-A2 / Befund-2 / A2.5) Klassifikation + Mapping store-traversierbarer Such-Algos (für die container_algorithm_t-Traversal-Wahl)
-#include <axes/lookup/composable/capacity_constraint.hpp>
-#include <axes/lookup/composable/store_traversable_search_algo.hpp>
-#include <axes/lookup/composable/traversal_for_search_algo.hpp>
-#include <axes/lookup/composable/organ_for_search_algo.hpp>        // #188-4b-b1b: organ_for_search_algo_t (Pool→Organ)
-#include <axes/lookup/composable/organ_for_search_algo_shaped.hpp> // 234-V-a: 2-armige Shaped-Naht (ShapeCarrier)
-#include <axes/lookup/composable/search_algo_rebind.hpp> // A8-S5 PHASE B: search_algo_for_composition_t (bewusst boost-frei)
-#include <axes/lookup/composable/observable_composed_container.hpp> // #188-4b-b1b: ObservableComposedContainer<Organ>
-#include "../axes/node/axis_04_node_type_layout_aware_store.hpp" // Plan v2 S1: layout-honorierender Store (CLA-Stride echt, OOB behoben)
+#include <organ_axes/lookup/composable/capacity_constraint.hpp>
+#include <organ_axes/lookup/composable/store_traversable_search_algo.hpp>
+#include <organ_axes/lookup/composable/traversal_for_search_algo.hpp>
+#include <organ_axes/lookup/composable/organ_for_search_algo.hpp>        // #188-4b-b1b: organ_for_search_algo_t (Pool->Organ)
+#include <organ_axes/lookup/composable/organ_for_search_algo_shaped.hpp> // 234-V-a: 2-armige Shaped-Naht (ShapeCarrier)
+#include <organ_axes/lookup/composable/search_algo_rebind.hpp> // A8-S5 PHASE B: search_algo_for_composition_t (bewusst boost-frei)
+#include <organ_axes/lookup/composable/observable_composed_container.hpp> // #188-4b-b1b: ObservableComposedContainer<Organ>
+#include "../organ_axes/node/axis_04_node_type_layout_aware_store.hpp" // Plan v2 S1: layout-honorierender Store (CLA-Stride echt, OOB behoben)
 // B14-NB2 / KF-6-Auflage (D): Line-Groesse NUR ueber die Achse (line_bytes_of<L>())
-#include "../axes/cacheline/cacheline_line_bytes.hpp"
+#include "../organ_axes/cacheline/cacheline_line_bytes.hpp"
 // (X): ByteWiseKeyPrefix als kanonisches T3-Mess-Organ — IMMER deklariert (auch wenn die Composition
 // PatriciaPathCompression/PathCompressionNone trägt; der `else`-Zweig der T3-Treibe-Op qualifiziert den Namen).
-#include "../axes/path_compression/axis_02_path_compression_byte_wise.hpp"
+#include "../organ_axes/path_compression/axis_02_path_compression_byte_wise.hpp"
 // Phase B (2026-06-04): Per-Achsen-Observer-Hüllen für T7 prefetch + T8 concurrency. Diese Hüllen halten ein
 // Mess-Organ (ObservablePrefetch<Strategy>/ObservableConcurrency<Strategy>) um die NACKTE Composition-Strategie
 // (anders als telemetry/memory_layout/… trägt die Composition für prefetch/concurrency die rohe Strategie, s.
 // art_reference.hpp). Der abi_adapter koppelt sie in tier_insert/lookup an die Tier-Op (Pfad-B Auto-Kopplung).
-#include "../axes/prefetch_axis/axis_07_prefetch_observable.hpp"
-#include "../axes/concurrency_axis/axis_08_concurrency_observable.hpp"
+#include "../organ_axes/prefetch_axis/axis_07_prefetch_observable.hpp"
+#include "../organ_axes/concurrency_axis/axis_08_concurrency_observable.hpp"
 // Phase B (2026-06-04): die value_handle- (T10) Observer-HÜLLE. Analog T7/T8: gehalten als EXPLIZITES
 // Member-Organ über Composition::value_handle (das — anders als memory_layout — NICHT per Registry-
 // make_observable_* vorab dekoriert ist), getrieben über das ECHTE container_algorithm_-Slot-Backing
 // (store_observe_value_handle → NodeChunkedStore::organ_observe_*, analog layout/serialization).
 // Bau-INC-2d: das isa-Observer-Member ist entfernt (isa = Target-ISA-System-Achse); der ObservableIsa-TYP
 // (axis_09_isa_observable.hpp) bleibt als Codegen-Träger inkludiert, wird aber nicht mehr im POD getrieben.
-#include "../axes/value_handle_axis/axis_14_value_handle_observable.hpp"
-#include "../axes/simd/axis_09_isa_observable.hpp"
+#include "../organ_axes/value_handle_axis/axis_14_value_handle_observable.hpp"
+#include "../organ_axes/simd/axis_09_isa_observable.hpp"
 // Phase B (2026-06-04) Abschluss: die 5 verbleibenden Observer-HÜLLEN. T3 path_compression (Instanz-Driver compress(),
 // auto-gekoppelt in tier_insert/lookup wie T1/T2) + T13 index_org / T14 io_dispatch / T15 migration_policy / T16 filter
 // (scan-Achsen, getrieben über das ECHTE container_algorithm_-Slot-Backing in fill_observer_v3, store_observe_* → NodeChunkedStore::
 // organ_observe_*, idempotenter reset()+scan, analog value_handle/isa/memory_layout/serialization). Anders als
 // telemetry/q1/q2 trägt die Composition für T3/T13/T14/T15/T16 die NACKTE Strategie (kein statistics()) → die Hülle hält
 // das Mess-Organ.
-#include "../axes/path_compression/axis_02_path_compression_observable.hpp"
-#include "../axes/index_organization/axis_01_index_organization_observable.hpp"
-#include "../axes/io_dispatch/axis_io_dispatch_observable.hpp"
-#include "../axes/persistence_target/axis_persistence_target_observable.hpp" // STRUKT-R ORG-18: T17-Mess-Organ
-#include "../axes/migration_policy/axis_migration_observable.hpp"
-#include "../axes/filter_axis/axis_filter_observable.hpp"
+#include "../organ_axes/path_compression/axis_02_path_compression_observable.hpp"
+#include "../organ_axes/index_organization/axis_01_index_organization_observable.hpp"
+#include "../organ_axes/io_dispatch/axis_io_dispatch_observable.hpp"
+#include "../organ_axes/persistence_target/axis_persistence_target_observable.hpp" // STRUKT-R ORG-18: T17-Mess-Organ
+#include "../organ_axes/migration_policy/axis_migration_observable.hpp"
+#include "../organ_axes/filter_axis/axis_filter_observable.hpp"
 
 #include <array>
 #include <algorithm> // #278: std::max (Segment-Batch-Mindest-Ops) — direkt inkludieren, MSVC-strikt
@@ -152,7 +163,7 @@ namespace comdare::cache_engine::anatomy {
 // GEGENMITTEL (Owner-KERN "ALLE Achsen-Eigenschaften NUR ueber die Achsen", generalisierte
 // Schnitt-Regel 04.08.): die Line-Groesse ist Eigentum der cacheline-Unterachse. Sie wird deshalb nicht
 // mehr hier hartkodiert, sondern ueber die Konsum-Bruecke line_bytes_of<Layout>() bezogen
-// (axes/cacheline/cacheline_line_bytes.hpp) und der Stride daraus abgeleitet. Zusaetzlich pinnt je Pfad
+// (organ_axes/cacheline/cacheline_line_bytes.hpp) und der Stride daraus abgeleitet. Zusaetzlich pinnt je Pfad
 // ein static_assert die Puffer-Untergrenze gegen den groessten moeglichen Zugriff -- die Wache bricht den
 // BUILD, nicht die Messung, falls die Formel je wieder auseinanderlaeuft.
 //
@@ -1748,7 +1759,10 @@ public:
     // *out muss von SCHRITT 1 kommen (filled_axis_count ist dort gesetzt und wird hier fortgeschrieben).
     void fill_observer_pathb_driven_v3(ComdareTierObserverSnapshot* out) const noexcept {
         if (out == nullptr) return;
-#ifdef COMDARE_CE_ENABLE_STATISTICS
+// B2: G3-Gate statt G2 -- die T17-Zaehler ENTSTEHEN ausschliesslich im Segment-Lauf (SCHRITT 2).
+// In einer G2-an/G3-aus-Binary ([wallclock,macro]) laeuft der Segment-Lauf nicht; die Zeile hier zu
+// lesen und als befuellt zu zaehlen waere exakt der strukturell-0-Defekt, den A8-S3 geheilt hat.
+#if COMDARE_CE_ENABLE_SEGMENT_TIMING
         auto& s = *out;
         // -- T17 persistence_target (STRUKT-R ORG-18, Pfad-B-Rueckschreib-Strom ueber die REAL gespeicherten
         //    Keys). pt_organ_ (ObservablePersistenceTarget-Huelle) treibt persistence_writeback_scan.
@@ -1772,7 +1786,7 @@ public:
         }
 #else
         (void)out;
-#endif // COMDARE_CE_ENABLE_STATISTICS
+#endif // COMDARE_CE_ENABLE_SEGMENT_TIMING (B2: war bis dahin das geteilte G2-Gate)
     }
 
     // A8-S3 (2026-08-04): SCHRITT 4 -- Reset der NUR-Pfad-B-getriebenen Organe. Frueher lag er am Ende von
@@ -1780,7 +1794,7 @@ public:
     // strukturell-0-Defekt). Er steht jetzt HINTER dem spaeten Observer-READ, damit das Mess-Fenster der
     // T17-Zeile exakt EIN Segment-Lauf ist -- dieselbe Fenster-Semantik wie seg_ns[T17].
     void reset_pathb_driven_organs_() const noexcept {
-#ifdef COMDARE_CE_ENABLE_STATISTICS
+#if COMDARE_CE_ENABLE_SEGMENT_TIMING // B2: G3 -- der Reset gehoert zum Segment-Lauf-Fenster (SCHRITT 4)
         if constexpr (requires { pt_organ_.reset(); }) pt_organ_.reset(); // T17 (STRUKT-R ORG-18)
 #endif
     }
@@ -1796,7 +1810,12 @@ public:
     void fill_segment_timing_v3(ComdareSegmentLatencyV2* out) const noexcept {
         if (out == nullptr) return;
         *out = ComdareSegmentLatencyV2{};
-#ifdef COMDARE_CE_ENABLE_STATISTICS
+// B2 (15.08.2026): DIE G3-FLAECHE. Bis B2 wohnten die 18 Segment-Timer im G2-Gate; seither traegt
+// sie ihr eigenes -- eine [wallclock,macro]-Binary liefert hier den genullten POD (ehrlich: kein
+// Segment-Lauf einkompiliert; die CSV-Seite rendert die seg_*-Spalten dann als "n/a" ueber
+// live_mess_feinkorn_ausstattung). Im [all]-/Bestandsbau ist G3 per Vererbung an -- byte-gleicher
+// Gate-Zustand, identisches Verhalten.
+#if COMDARE_CE_ENABLE_SEGMENT_TIMING
         try {
             using clock = std::chrono::steady_clock;
             auto dns    = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
@@ -2069,7 +2088,7 @@ public:
             // der Observer sie lesen konnte (strukturell-0). Die uebrigen Organe oben bleiben unveraendert:
             // sie werden in tier_insert/lookup auto-gekoppelt getrieben und in SCHRITT 1 bereits gelesen.
         } catch (...) { *out = ComdareSegmentLatencyV2{}; }
-#endif // COMDARE_CE_ENABLE_STATISTICS
+#endif // COMDARE_CE_ENABLE_SEGMENT_TIMING (B2: war bis dahin das geteilte G2-Gate)
     }
 
     // KONSOLIDIERUNG (I1, 2026-06-05): die EINZIGE Observer-Methode über den konsolidierten POD. Vereint Observer-

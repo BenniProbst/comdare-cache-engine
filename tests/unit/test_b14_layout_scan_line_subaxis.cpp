@@ -29,16 +29,16 @@
 //                       Linien-Zahlen durch den ECHTEN ObserverSnapshotSystemAxis und rechnet den
 //                       Alt-Nenner daneben mit.
 
-#include <axes/cacheline/cacheline_config.hpp>
-#include <axes/cacheline/cacheline_line_bytes.hpp>
-#include <axes/layout/axis_05_memory_layout_aos_strict.hpp>
-#include <axes/layout/axis_05_memory_layout_aosoa.hpp>
-#include <axes/layout/axis_05_memory_layout_cache_line_aligned.hpp>
-#include <axes/layout/axis_05_memory_layout_observable.hpp>
-#include <axes/layout/axis_05_memory_layout_packed_bitmap.hpp>
-#include <axes/layout/axis_05_memory_layout_registry.hpp>
-#include <axes/layout/axis_05_memory_layout_soa.hpp>
-#include <axes/layout/axis_05_memory_layout_strategy_base.hpp>
+#include <organ_axes/cacheline/cacheline_config.hpp>
+#include <organ_axes/cacheline/cacheline_line_bytes.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_aos_strict.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_aosoa.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_cache_line_aligned.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_observable.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_packed_bitmap.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_registry.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_soa.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_strategy_base.hpp>
 #include <topics/memory_layout/topic_memory_layout_config_set.hpp>
 // B14-NB4: der ECHTE Verbraucher der Linienzahl gehoert in diese Wache. Ohne ihn zementiert sie nur die
 // neue Einheit -- genau der Vorwurf, an dem B14-NB3 im Review gescheitert ist.

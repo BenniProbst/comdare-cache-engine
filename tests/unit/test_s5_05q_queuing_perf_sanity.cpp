@@ -62,11 +62,11 @@
 #include <compositions/hot_reference.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp>
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_fifo.hpp>
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_eager.hpp>
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp>
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_fifo.hpp>
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
+#include <organ_axes/axis_q2_queuing/axis_q2_queuing_eager.hpp>
+#include <organ_axes/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
 
 #include <cstddef>
 #include <cstdint>

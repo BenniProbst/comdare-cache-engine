@@ -55,17 +55,17 @@
 #include <compositions/hot_reference.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 
-#include <axes/layout/axis_05_memory_layout_aos_strict.hpp>
-#include <axes/layout/axis_05_memory_layout_cache_line_aligned.hpp>
-#include <axes/layout/axis_05_memory_layout_observable.hpp>
-#include <axes/node/axis_04_node_type_node256.hpp>
-#include <axes/node/axis_04_node_type_node4.hpp>
-#include <axes/node/axis_04_node_type_observable.hpp>
-#include <axes/path_compression/axis_02_path_compression_none.hpp>
-#include <axes/path_compression/axis_02_path_compression_patricia.hpp>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp>
-#include <axes/serialization_axis/axis_10_serialization_observable.hpp>
-#include <axes/serialization_axis/axis_10_serialization_var_len.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_aos_strict.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_cache_line_aligned.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_observable.hpp>
+#include <organ_axes/node/axis_04_node_type_node256.hpp>
+#include <organ_axes/node/axis_04_node_type_node4.hpp>
+#include <organ_axes/node/axis_04_node_type_observable.hpp>
+#include <organ_axes/path_compression/axis_02_path_compression_none.hpp>
+#include <organ_axes/path_compression/axis_02_path_compression_patricia.hpp>
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp>
+#include <organ_axes/serialization_axis/axis_10_serialization_observable.hpp>
+#include <organ_axes/serialization_axis/axis_10_serialization_var_len.hpp>
 
 #include <cstddef>
 #include <cstdint>

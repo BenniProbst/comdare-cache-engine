@@ -5,8 +5,8 @@
 
 #define COMDARE_CE_ENABLE_STATISTICS 1
 
-#include <axes/serialization_axis/axis_10_serialization_observable.hpp>
-#include <axes/serialization_axis/axis_10_serialization_raw_binary.hpp>
+#include <organ_axes/serialization_axis/axis_10_serialization_observable.hpp>
+#include <organ_axes/serialization_axis/axis_10_serialization_raw_binary.hpp>
 #include "anatomy/observer_aggregate.hpp" // ObservableAxis
 
 #include <cassert>

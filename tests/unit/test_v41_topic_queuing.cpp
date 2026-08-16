@@ -7,8 +7,8 @@
 // Schablone analog allocator-Achse — strukturelle Bewaehrung der Vorlage.
 
 #include <topics/queuing/concepts/topic_queuing_concept.hpp>
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_registry.hpp>
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_registry.hpp>
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_registry.hpp>
+#include <organ_axes/axis_q2_queuing/axis_q2_queuing_registry.hpp>
 #include <topics/queuing/topic_queuing_config_set.hpp>
 
 #include <boost/mp11.hpp>

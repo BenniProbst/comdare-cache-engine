@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- DOKU-AKTE (#48 Scheibe 2, 2026-07-22): kein Code-Leser; Allocator-Wahl = CT-Adapter (Statischer-Dispatch-Doktrin). -->
 <comdare_allocator_profile id="exgen_malloc" family_ref="A18">
-  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:28,48; axes source: axis_06_allocator_exgen.hpp:5,38,41,59-65 -->
+  <!-- metadata source: libs/cache_engine/organ_axes/alloc/PAPER_REFERENCES.md:28,48; axes source: axis_06_allocator_exgen.hpp:5,38,41,59-65 -->
   <metadata>
     <name>Exgen-Malloc (Single-Threaded Specialized)</name>
     <year>2025</year>

@@ -4,7 +4,7 @@
 #include "concepts/axis_01_page_type_concept.hpp"
 #include "concepts/axis_01_page_type_cache_engine_permutation_concept.hpp"
 #include "../../axis_base.hpp"
-#include <axes/cacheline/cacheline_config.hpp> // KF-5: per-Organ Cache-Line-Unterachse
+#include <organ_axes/cacheline/cacheline_config.hpp> // KF-5: per-Organ Cache-Line-Unterachse
 
 namespace comdare::cache_engine::nodes::axis_01_page_type {
 

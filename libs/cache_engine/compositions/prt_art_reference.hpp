@@ -40,13 +40,13 @@
 #include "../topics/io/axis_io/axis_io_in_memory_only.hpp"
 #include "../topics/migration/axis_migration/axis_migration_none.hpp"
 #include "../topics/filter/axis_filter/axis_filter_bloom.hpp"
-#include "../topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp"
-#include "../topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp"
+#include "../organ_axes/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp"
+#include "../organ_axes/axis_q2_queuing/axis_q2_queuing_lazy.hpp"
 
 #include "../anatomy/composition_concept.hpp"
 
 #include <string_view>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace comdare::cache_engine::compositions {
 

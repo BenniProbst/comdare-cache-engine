@@ -7,7 +7,7 @@
 //
 // Standalone (plain int main, KEIN gtest).
 
-#include <axes/cache_traversal/axis_03b_cache_traversal_hash_lookup.hpp>
+#include <organ_axes/cache_traversal/axis_03b_cache_traversal_hash_lookup.hpp>
 
 #include <cstdint>
 #include <iostream>

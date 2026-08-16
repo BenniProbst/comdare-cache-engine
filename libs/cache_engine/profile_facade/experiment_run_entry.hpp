@@ -176,6 +176,8 @@ struct RunExperimentResult {
     std::string const live_mess_zeile = measurement_stamp_from_env();
     // M-1/H-B: die Observer-Ausstattung aus DERSELBEN Aufloesung (n/a statt 0 in den Observer-Zellen).
     bool const live_observer_ausstattung = ::comdare::cache_engine::profile_facade::live_mess_observer_ausstattung();
+    // B2 (15.08.2026): das FEINKORN (G3, Segment-Timer) derselben Aufloesung -- eine Schicht hoeher.
+    bool const live_feinkorn_ausstattung = ::comdare::cache_engine::profile_facade::live_mess_feinkorn_ausstattung();
     std::vector<ExperimentPhaseProjection> const projections = project_experiment_to_sota_passes(ep, live_mess_zeile);
     res.phases                                               = projections.size();
 
@@ -468,6 +470,8 @@ struct RunExperimentResult {
                         cfg.erwartete_mess_zeile = live_mess_zeile;
                         // M-1/H-B: Observer-Ausstattung derselben Aufloesung (n/a statt 0).
                         cfg.mess_observer_ausstattung = live_observer_ausstattung;
+                        // B2 (15.08.2026): FEINKORN (G3) derselben Aufloesung (seg_* n/a statt 0).
+                        cfg.mess_feinkorn_ausstattung = live_feinkorn_ausstattung;
                         cfg.row_platform              = tag_platform;
                         cfg.row_build_version = perm_tag_build_version; // opt-g: CSV-Provenienz-Spalte je opt×simd
                         cfg.source_dir        = a.src_dir;

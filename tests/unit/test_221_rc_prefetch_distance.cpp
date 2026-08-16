@@ -18,8 +18,8 @@
 #include <topics/nodes/axis_02_path_compression/axis_02_path_compression_none.hpp>
 #include <topics/nodes/axis_04_node_type/axis_04_node_type_node256.hpp>
 #include <topics/prefetch/axis_07_prefetch/axis_07_prefetch_distance_estimator.hpp>
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
+#include <organ_axes/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
 #include <topics/search_engine/axis_01_index_organization/axis_01_index_organization_index_organized_table.hpp>
 #include <topics/serialization/axis_10_serialization/axis_10_serialization_raw_binary.hpp>
 #include <topics/telemetry/axis_11_telemetry/axis_11_telemetry_leaf_only.hpp>
@@ -31,7 +31,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an    = ::comdare::cache_engine::anatomy;
 namespace al    = ::comdare::cache_engine::allocator::axis_06_allocator;

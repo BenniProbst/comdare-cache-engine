@@ -7,17 +7,17 @@
 // ist standard_layout + trivially_copyable (Cross-ABI-POD-Pflicht). Reine Header-Verifikation (keine abi_adapter-
 // Abhängigkeit) — bestätigt, dass die Hüllen die Achsen-Concepts erfüllen und die Decorator-Mechanik kompiliert.
 
-#include <axes/io_dispatch/axis_io_dispatch_observable.hpp>
-#include <axes/io_dispatch/axis_io_in_memory_only.hpp>
-#include <axes/io_dispatch/axis_io_buffered.hpp>
+#include <organ_axes/io_dispatch/axis_io_dispatch_observable.hpp>
+#include <organ_axes/io_dispatch/axis_io_in_memory_only.hpp>
+#include <organ_axes/io_dispatch/axis_io_buffered.hpp>
 
-#include <axes/migration_policy/axis_migration_observable.hpp>
-#include <axes/migration_policy/axis_migration_none.hpp>
-#include <axes/migration_policy/axis_migration_hot_cold.hpp>
+#include <organ_axes/migration_policy/axis_migration_observable.hpp>
+#include <organ_axes/migration_policy/axis_migration_none.hpp>
+#include <organ_axes/migration_policy/axis_migration_hot_cold.hpp>
 
-#include <axes/filter_axis/axis_filter_observable.hpp>
-#include <axes/filter_axis/axis_filter_bloom.hpp>
-#include <axes/filter_axis/axis_filter_cuckoo.hpp>
+#include <organ_axes/filter_axis/axis_filter_observable.hpp>
+#include <organ_axes/filter_axis/axis_filter_bloom.hpp>
+#include <organ_axes/filter_axis/axis_filter_cuckoo.hpp>
 
 #include <anatomy/observer_aggregate.hpp> // ObservableAxis-Concept
 

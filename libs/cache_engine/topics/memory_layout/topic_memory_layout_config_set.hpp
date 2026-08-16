@@ -15,7 +15,7 @@
 //   - aspect_values<V>() Pflicht-Helper (heute leerer span)
 
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_registry.hpp>
-#include <axes/layout/axis_05_memory_layout_observable.hpp> // V42 L-74c: ObservableMemoryLayout-Huelle
+#include <organ_axes/layout/axis_05_memory_layout_observable.hpp> // V42 L-74c: ObservableMemoryLayout-Huelle
 
 #include <boost/mp11.hpp>
 

@@ -70,4 +70,4 @@ das ist Absicht, denn ein Verzeichnis ohne Produktions-Leser verrottet sonst unb
 - `ext/allocator/REPOS_OVERVIEW.md` (Quell-Repos)
 - `adapters/A*` (V26.B Adapter-Skelette; vorhanden fuer die 10 implementierten)
 - `ext/allocator/A*` (Original-Code, kompiliert mit Original-Compiler)
-- `libs/cache_engine/axes/alloc/PAPER_REFERENCES.md` (Paper, Venue, Jahr, DOI je Wrapper)
+- `libs/cache_engine/organ_axes/alloc/PAPER_REFERENCES.md` (Paper, Venue, Jahr, DOI je Wrapper)

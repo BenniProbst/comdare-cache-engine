@@ -135,7 +135,7 @@
 /// ueber die Prosa einer Klasse. Er haelt die VOLLSTAENDIGKEIT, nicht die Richtigkeit der Beschreibung.
 /// EINE PRAEZISIERUNG AM RANDE, die der Riegel sichtbar gemacht hat: der generische grep sucht den
 /// Bezeichner OHNE Klammer und faengt deshalb auch reine VERWEISE mit. Am Objekt:
-/// axes/alloc/axis_06_allocator_strategy_base.hpp nennt die Wache zweimal in Kommentaren, mit Leerzeichen
+/// organ_axes/alloc/axis_06_allocator_strategy_base.hpp nennt die Wache zweimal in Kommentaren, mit Leerzeichen
 /// vor der Klammer -- das ist keine Quelle und steht deshalb zu Recht nicht als Klasse hier. Der Riegel
 /// zaehlt darum die AUFRUF-Form "<name>(" und nicht den blossen Namen.
 ///

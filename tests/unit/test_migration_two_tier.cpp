@@ -23,13 +23,13 @@
 // Volle HotComposition als ACHSEN-Spender — wir tauschen NUR search_algo + migration_policy.
 #include <compositions/hot_reference.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array65535.hpp>
-#include <axes/migration_policy/axis_migration_none.hpp>
-#include <axes/migration_policy/axis_migration_hot_cold.hpp>
+#include <organ_axes/migration_policy/axis_migration_none.hpp>
+#include <organ_axes/migration_policy/axis_migration_hot_cold.hpp>
 
 #include <cstdint>
 #include <iostream>
 #include <string>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an    = ::comdare::cache_engine::anatomy;
 namespace comp  = ::comdare::cache_engine::compositions;

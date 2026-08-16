@@ -2,7 +2,7 @@
 // ---------------------------------------------------------------------------
 // DEPRECATED (2026-07-16): HISTORISCHER V32.EE.5-ALGORITHMUS-ACHSEN-ENTWURF
 // (vtable) -- 0 Konsumenten. Gattungs-Substanz lebt als CRTP:
-//   axis_08/T08 concurrency -- axes/concurrency_axis/
+//   axis_08/T08 concurrency -- organ_axes/concurrency_axis/
 //   axis_08_concurrency_registry.hpp (9 CRTP-Organe: BlockingConcurrency =
 //   coarse-grained std::mutex, ReaderWriterConcurrency, OlcOptimisticConcurrency
 //   u.a.; Sub-Achse CC1 synchronization_pattern_tag in

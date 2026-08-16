@@ -38,7 +38,7 @@
 // #188 per-K Increment 2b: explizite per-K-Wrapper-Typen (KArySearchAlgoK2/4/8/16) fuer den dedizierten per-K-Katalog
 // (die search_algo-Achse ist NICHT vertieft -> die per-K stehen bewusst NICHT in den Basis-320-First-4). Transitiv via
 // die Traversal-ConfigSet ohnehin sichtbar; hier EXPLIZIT als saubere Direkt-Abhaengigkeit.
-#include <axes/lookup/axis_03a_search_algo_k_ary.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_k_ary.hpp>
 #include <topics/nodes/topic_nodes_config_set.hpp>
 #include <topics/memory_layout/topic_memory_layout_config_set.hpp>
 #include <topics/allocator/topic_allocator_config_set.hpp>

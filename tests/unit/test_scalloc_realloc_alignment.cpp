@@ -11,7 +11,7 @@
 //
 // Standalone (plain int main, KEIN gtest).
 
-#include <axes/alloc/axis_06_allocator_scalloc.hpp>
+#include <organ_axes/alloc/axis_06_allocator_scalloc.hpp>
 
 #include <cstddef>
 #include <cstdint>

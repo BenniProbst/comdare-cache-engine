@@ -1,11 +1,11 @@
 // V42-Probe (2026-06-02) — empirischer Befund für den Composition-Driver (Doc 29 §3): Ist die telemetry-Achse
 // (InsertCounter) direkt als Anatomie-Member haltbar (default-konstruierbar trotz protected CRTP-Base-ctor?) UND
 // ObservableAxis (statistics()/snapshot_t)? Das entscheidet, ob telemetry per Member ODER per Hülle/Tuple verdrahtet
-// werden muss. Build: cl /I libs/cache_engine /I src /I build/generated /I build/generated/axes/telemetry_axis -Boost.
+// werden muss. Build: cl /I libs/cache_engine /I src /I build/generated /I build/generated/organ_axes/telemetry_axis -Boost.
 
-#include <axes/telemetry_axis/axis_11_telemetry_insert_counter.hpp>
-#include <axes/telemetry_axis/axis_11_telemetry_density_tracker.hpp>
-#include <axes/telemetry_axis/axis_11_telemetry_latency_histogram.hpp>
+#include <organ_axes/telemetry_axis/axis_11_telemetry_insert_counter.hpp>
+#include <organ_axes/telemetry_axis/axis_11_telemetry_density_tracker.hpp>
+#include <organ_axes/telemetry_axis/axis_11_telemetry_latency_histogram.hpp>
 #include "anatomy/observer_aggregate.hpp"
 
 #include <iostream>

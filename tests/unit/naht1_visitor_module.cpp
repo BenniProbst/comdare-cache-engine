@@ -50,10 +50,10 @@
 #include <topics/serialization/axis_10_serialization/axis_10_serialization_raw_binary.hpp>
 #include <topics/nodes/axis_04_node_type/axis_04_node_type_node256.hpp>
 // Doc 30 §8.0: queuing q1/q2 als regulaere SA-Achsen T17/T18 -- Durchreich-Defaults NoBuffer/LazyFlush.
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
+#include <organ_axes/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
 // STRUKT-R ORG-18: 18. Organ-Slot (der Umbrella zieht die Registry, der Baustein-Header explizit).
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp>
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp>
 
 COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(
     ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256SearchAlgo,

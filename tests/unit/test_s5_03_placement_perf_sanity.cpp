@@ -46,11 +46,11 @@
 #include <compositions/hot_reference.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 
-#include <axes/mapping/axis_03m_mapping_direct_placement.hpp>
-#include <axes/mapping/axis_03m_mapping_pool_relative.hpp>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_external_pool.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_inline.hpp>
+#include <organ_axes/mapping/axis_03m_mapping_direct_placement.hpp>
+#include <organ_axes/mapping/axis_03m_mapping_pool_relative.hpp>
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_external_pool.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_inline.hpp>
 
 #include <cstddef>
 #include <cstdint>

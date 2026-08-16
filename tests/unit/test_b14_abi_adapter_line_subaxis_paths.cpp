@@ -20,12 +20,12 @@
 #include <anatomy/measurable_workload.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
-#include <axes/cacheline/cacheline_config.hpp>
-#include <axes/cacheline/cacheline_line_bytes.hpp>
-#include <axes/layout/axis_05_memory_layout_cache_line_aligned.hpp>
-#include <axes/layout/axis_05_memory_layout_observable.hpp>
-#include <axes/layout/axis_05_memory_layout_strategy_base.hpp>
-#include <axes/layout/axis_05_memory_layout_subaxes_hm1_to_hm4.hpp>
+#include <organ_axes/cacheline/cacheline_config.hpp>
+#include <organ_axes/cacheline/cacheline_line_bytes.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_cache_line_aligned.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_observable.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_strategy_base.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_subaxes_hm1_to_hm4.hpp>
 #include <compositions/art_reference.hpp>
 
 #include <gtest/gtest.h>

@@ -23,7 +23,7 @@
 #include <anatomy/known_algorithms.hpp>
 
 #include <type_traits>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace ana       = ::comdare::cache_engine::anatomy;
 namespace ce_compos = ::comdare::cache_engine::compositions;

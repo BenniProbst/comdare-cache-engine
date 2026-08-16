@@ -1,0 +1,258 @@
+#pragma once
+// V41.F.6.1 Batch 4 ScallocAllocator A08 (2026-05-26)
+//
+// @topic allocator
+// @achse 6
+// @family A08 (Scalloc Spans — Aigner/Kirsch/Lippautz/Sokolova, OOPSLA 2015)
+// @subaxis AA1 freelist_topology (Spans als Variable-Size-Free-List)
+//
+// **SONDERFALL Scalloc:** Standard-API hat KEINE native aligned_alloc.
+// Wir verwenden Vendor-API nur fuer power-of-2 alignments <= alignof(max_align_t),
+// fuer groessere alignments fallback auf portable_aligned_alloc (auch bei enabled=true).
+//
+// Begruendung: Spans sind intern fix-size, manuelle Overallocation+Justierung waere
+// nicht kompatibel mit scalloc_free (das wuerde den justierten Pointer nicht erkennen).
+
+#include "axis_06_allocator_strategy_base.hpp"
+#include "axis_06_allocator_subaxes_aa1_to_aa7.hpp"
+#include "concepts/axis_06_allocator_concept.hpp"
+#include "concepts/axis_06_allocator_cache_engine_permutation_concept.hpp"
+#include "concepts/axis_06_allocator_zeroing_strategy_concept.hpp"
+#include "concepts/axis_06_allocator_reallocating_strategy_concept.hpp"
+#include <topics/allocator/concepts/topic_allocator_concept.hpp>
+
+#include <organ_axes/alloc/axis_06_allocator_flags.hpp>
+#include "vendor_includes/scalloc_include.hpp"
+
+#include <cache_engine/allocators/portable_aligned_alloc.hpp>
+#include <measurement/measurable_concept.hpp>
+#include <cstddef>
+#include <cstdlib>
+#include <cstring>
+#include <string_view>
+#include <type_traits>
+
+namespace comdare::cache_engine::alloc {
+
+class ScallocAllocator : public AllocatorStrategyBase<ScallocAllocator> {
+public:
+    static constexpr bool enabled = flags::scalloc_enabled;
+
+    using value_type = std::byte;
+    using size_type  = std::size_t;
+    using topic_tag  = ::comdare::cache_engine::allocator::concepts::AllocatorTopicTag;
+    using axis_tag   = subaxes::freelist_topology_tag;
+    using family_id  = std::integral_constant<int, 8>;
+
+    [[nodiscard]] static constexpr bool        is_thread_safe() noexcept { return true; }
+    [[nodiscard]] static constexpr bool        supports_pmr() noexcept { return true; }
+    [[nodiscard]] static constexpr std::size_t max_alignment() noexcept { return alignof(std::max_align_t); }
+
+    [[nodiscard]] static constexpr std::string_view name() noexcept {
+        if constexpr (enabled) {
+            return "scalloc";
+        } else {
+            return "scalloc(real=std)";
+        }
+    }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "Scalloc Spans (Aigner/Kirsch/Lippautz/Sokolova, OOPSLA 2015)";
+    }
+    /// Algorithmus-Version (Organ-Provenienz, inkrementeller Tier-Binary-Cache): Bump bei algorithmischer
+    /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
+    /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
+    /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
+    /// A1-WURF-VERTRAG (2026-08-06), 1. Bump: v1.0.0c -> v1.0.1c, weil der FEHLSCHLAG-Vertrag der Achse sich
+    /// geaendert hat, ohne eine Registry-/XML-Flaeche zu bewegen -- ohne Bump wuerde der inkrementelle
+    /// Tier-Binary-Cache alte Binaries weiterverwenden. Volle Begruendung samt Frozen-Neutralitaets-Beweis:
+    /// axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP".
+    /// 2. Bump (2026-08-06): v1.0.1c -> v1.0.2c -- die reallocate()-Statistik-Korrektur bekam
+    /// nachtraeglich einen Bump (Owner-Entscheid: "heute unerreichbar" entlastet nicht, s. dort).
+    /// Volle Begruendung: axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP, 2. BUMP".
+    static constexpr std::string_view               algo_version = "1.0.2.c";
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "SCALLOC"; }
+
+    // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc() noexcept {
+        return false;
+    } // SONDERFALL: keine native aligned_alloc API
+    [[nodiscard]] static constexpr bool requires_explicit_init() noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_numa_node_hint() noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; } // per-thread spans
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
+        return concepts::ProgressGuarantee::LockFree;
+    } // Spans-Free-List lock-free
+    [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
+
+    [[nodiscard]] bool operator==(ScallocAllocator const&) const noexcept { return true; }
+
+    [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment) {
+        void* p;
+        // Sonderfall: scalloc kennt keine native aligned-Allocation. Bei alignment
+        // <= max_align_t verlassen wir uns auf Vendor's Default-Alignment (intern
+        // 16-byte spans). Sonst Fallback fuer korrekte alignment-Garantie.
+        if constexpr (enabled) {
+            if (alignment <= alignof(std::max_align_t)) {
+                p = ::scalloc_malloc(bytes);
+            } else {
+                // Echt grosses alignment -> portable Pfad fuer Korrektheit
+                p = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, bytes);
+            }
+        } else {
+            p = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, bytes);
+        }
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
+        if (p != nullptr) {
+            ++stats_.allocation_count;
+            stats_.total_bytes_allocated += aligned_bytes;
+            stats_.total_bytes_in_use += aligned_bytes;
+        } else {
+            ++stats_.failure_count;
+        }
+        observer_.notify(stats_);
+#endif
+        return p;
+    }
+
+    void deallocate(void* p, std::size_t bytes, std::size_t alignment) noexcept {
+        if (p == nullptr) return;
+        // Symmetrie zum allocate-Pfad: gleiche alignment-Logik
+        if constexpr (enabled) {
+            if (alignment <= alignof(std::max_align_t)) {
+                ::scalloc_free(p);
+            } else {
+                ::comdare::cache_engine::allocator::portable_aligned_free(p);
+            }
+        } else {
+            ::comdare::cache_engine::allocator::portable_aligned_free(p);
+        }
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
+        ++stats_.deallocation_count;
+        if (aligned_bytes <= stats_.total_bytes_in_use)
+            stats_.total_bytes_in_use -= aligned_bytes;
+        else
+            stats_.total_bytes_in_use = 0;
+        observer_.notify(stats_);
+#else
+        (void)bytes;
+        (void)alignment;
+#endif
+    }
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    using snapshot_t = concepts::AllocationStatistics;
+    using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
+
+    [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
+    // Phase 0.3 (Memento, VERVOLLSTAENDIGUNG 2026-08-05 / A8-S5 01c Vorlauf 0): Statistik auf einen zuvor
+    // via statistics() gezogenen Snapshot zuruecksetzen -- spiegelbildlich zu reset(). Die Deklaration ist
+    // PFLICHT, kein Komfort: AllocatorStrategyBase::restore_statistics ist ein CRTP-WEITERLEITER
+    // (derived().restore_statistics(s)). Fehlt der eigene Member, findet der Weiterleiter nur sich SELBST
+    // wieder -- unbeschraenkte Selbst-Rekursion, die g++ 15.3 unter -O3 als Endlosschleife ('jmp .')
+    // emittiert und unter -O1 als rekursiven Selbstaufruf. Bis 2026-08-05 trug ausschliesslich
+    // ExgenAllocator diesen Member; jede andere Strategie haette den Memento-Pfad (Copy-Ctor der
+    // strategie-besitzenden Stores/Puffer) zum Haenger gemacht. Die Basis pinnt das jetzt zusaetzlich
+    // compile-hart (self-proving static_assert im Weiterleiter).
+    void restore_statistics(snapshot_t const& s) noexcept {
+        stats_ = s;
+        observer_.notify(stats_);
+    }
+    [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+#endif
+
+    [[nodiscard]] void* zero_allocate(std::size_t n, std::size_t size) {
+        void* p;
+        if constexpr (enabled) {
+            p = ::scalloc_calloc(n, size);
+        } else {
+            p = std::calloc(n, size);
+        }
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        std::size_t bytes = n * size;
+        if (p != nullptr) {
+            ++stats_.allocation_count;
+            stats_.total_bytes_allocated += bytes;
+            stats_.total_bytes_in_use += bytes;
+        } else {
+            ++stats_.failure_count;
+        }
+        observer_.notify(stats_);
+#endif
+        return p;
+    }
+
+    [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes, std::size_t alignment) {
+        void* np;
+        if constexpr (enabled) {
+            // MUSS dieselbe alignment-Weiche wie allocate()/deallocate() spiegeln: bei alignment >
+            // max_align_t stammt `p` aus portable_aligned_alloc (NICHT aus scalloc) — es an
+            // ::scalloc_realloc zu uebergeben waere ein Fremd-Heap-Pointer → Heap-Korruption.
+            if (alignment <= alignof(std::max_align_t)) {
+                np = ::scalloc_realloc(p, new_bytes);
+            } else {
+                // Grosses alignment: manuell aligned-alloc + copy + free (realloc-Semantik).
+                np = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, new_bytes);
+                if (np != nullptr && p != nullptr) {
+                    std::size_t copy_bytes = (old_bytes < new_bytes) ? old_bytes : new_bytes;
+                    std::memcpy(np, p, copy_bytes);
+                    ::comdare::cache_engine::allocator::portable_aligned_free(p);
+                }
+            }
+        } else {
+            np = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, new_bytes);
+            if (np != nullptr && p != nullptr) {
+                std::size_t copy_bytes = (old_bytes < new_bytes) ? old_bytes : new_bytes;
+                std::memcpy(np, p, copy_bytes);
+                ::comdare::cache_engine::allocator::portable_aligned_free(p);
+            }
+        }
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        if (np == nullptr) {
+            ++stats_.failure_count;
+            observer_.notify(stats_);
+            return nullptr;
+        }
+        if (p != nullptr) {
+            // A1-Nachbesserung 2026-08-06 (Statistik-Symmetrie der Achse): die Gegenbuchung des ALTEN
+            // Blocks rechnet ALIGNED -- genau wie seine Buchung in allocate() und wie die Gegenbuchung
+            // in deallocate(). Die rohe old_bytes liess je reallocate Phantom-Bytes stehen. Volle
+            // Begruendung: axis_06_allocator_pool_resource.hpp, Abschnitt reallocate.
+            std::size_t aligned_old = ((old_bytes + alignment - 1) / alignment) * alignment;
+            if (aligned_old <= stats_.total_bytes_in_use)
+                stats_.total_bytes_in_use -= aligned_old;
+            else
+                stats_.total_bytes_in_use = 0;
+            ++stats_.deallocation_count;
+        }
+        std::size_t aligned_new = ((new_bytes + alignment - 1) / alignment) * alignment;
+        stats_.total_bytes_in_use += aligned_new;
+        stats_.total_bytes_allocated += aligned_new;
+        ++stats_.allocation_count;
+        observer_.notify(stats_);
+#endif
+        return np;
+    }
+
+private:
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    concepts::AllocationStatistics stats_{};
+    observer_t                     observer_{};
+#endif
+};
+
+} // namespace comdare::cache_engine::alloc
+
+namespace comdare::cache_engine::alloc {
+static_assert(concepts::AllocatorStrategy<ScallocAllocator>);
+static_assert(concepts::CacheEnginePermutationStrategy<ScallocAllocator>);
+static_assert(concepts::ZeroingStrategy<ScallocAllocator>);
+static_assert(concepts::ReallocatingStrategy<ScallocAllocator>);
+} // namespace comdare::cache_engine::alloc

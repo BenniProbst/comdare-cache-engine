@@ -40,7 +40,33 @@
 # nicht die Commit-Granularitaet -- er erzwingt Floor-Datei und Registrierung
 # im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
-# -- WIE DIE ZAHLEN ENTSTANDEN SIND (NACHMESSUNG 2026-08-15, S-18/#16 HOMES + RIDER #95) --
+# -- WIE DIE ZAHLEN ENTSTANDEN SIND (NACHMESSUNG 2026-08-15, GOLDEN-FENSTER: B2-MERGE IN #16) --
+# GEMESSEN am 2026-08-15 in diesem Repo, Stand = golden-Fenster-Arbeitsbaum (Branch
+# bau/golden-homes, Worktree wt-ce-golden-homes, WAEHREND der Aufloesung des ABSICHTLICHEN
+# Floor-Textkonflikts des B2-Merges e966ee81 -- Werte im SELBEN Change wie der Merge-Commit),
+# Messhost prod1, GCC 15.3.0, Ninja. Bau-Baum build-covguard KALT angelegt (rm -rf, existierte
+# danach nicht) und UNVERAENDERT nach dem Rezept gebaut einschliesslich Pruefling-Schalter
+# (CC=gcc-15 CXX=g++-15 configure.sh --with-generator=Ninja --enable-build-tests
+# --build-dir=build-covguard -DCOMDARE_CE_PRUEFLINGE="$PWD/tests/pruefling_fixture");
+# J-1-Muster: erst die beiden Registrierungs-Werkzeuge (comdare_anatomy_codegen_cli,
+# comdare_adhoc_emitter_cli), dann RE-KONFIGURIERT.
+#     avx512f (gemessen, prod1)                                          -> 495
+#     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                -> 491
+#     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0     -> 489
+# danach 'cmake -U' auf BEIDE Variablen; Wiederherstellung nachgewiesen: 495 Tests,
+# Namensmenge byte-gleich zur Erstmessung (cmp leer). Namensdiffs mit LC_ALL=C comm in
+# BEIDE Richtungen: avx512f->avx2 verliert exakt die dokumentierten VIER, avx2->basis
+# die ZWEI, Gegenrichtungen leer -- die Sprossenabstaende -4 und -2 stehen.
+#
+# WOHER +2 JE SPROSSE KOMMEN (Konto, je Name; gegen den 493/489/487-Stand des #16-Strangs):
+# GENAU ZWEI neue Registrierungen aus dem B2-Strang (bau/b2-gate-trennung, KON74-01/KON75-01):
+# test_b2_mess_gate_trennung (Bau 11972b3d) + test_b2_gate_zustand_g2an_g3aus (Abschluss-Fix
+# e966ee81). Beide weder ISA- noch Pruefling-gegatet (stehen in ALLEN drei Klassen-Namensmengen,
+# je 1x, in KEINER comm-Verlustliste). Die B2-seitige Prognose im HARMONISIERUNGS-Block unten
+# ('nach Doppel-Landung sind 495/491/489 zu ERWARTEN') ist damit durch Messung EINGELOEST --
+# uebernommen wurde die MESSUNG, nicht die Prognose und keine Delta-Addition.
+#
+# -- HISTORIE (NACHMESSUNG 2026-08-15, S-18/#16 HOMES + RIDER #95) --
 # GEMESSEN am 2026-08-15 in diesem Repo, Stand = #16-Arbeitsbaum (Branch bau/golden-homes,
 # Worktree wt-ce-golden-homes, Basis 0817c7bf), Messhost prod1, GCC 15.3.0, Ninja. Bau-Baum
 # build-covguard KALT angelegt (rm -rf, existierte danach nicht) und UNVERAENDERT nach dem
@@ -388,9 +414,55 @@
 # Untergrenze ist die GROBE Achse gegen Schwund im Grossen und ersetzt die
 # beiden feinen nicht.
 #
+# -- NACHZUG B2 GATE-TRENNUNG (2026-08-15, Scheibe B2 auf Basis 0817c7bf) -----
+# KONTO, je Name (Registrierungs-Diff tests/unit/CMakeLists.txt dieser Scheibe,
+# Gegenrichtung leer -- nichts entfallen): GENAU EINE neue Registrierung,
+# test_b2_mess_gate_trennung (Koeder der G2/G3-Gate-Trennung, add_executable +
+# add_test + COMDARE_TEST_TARGETS, LABELS b2;messachse;stempel;gates). Weder
+# ISA- noch Pruefling-gegatet (Registrierung auf oberster Ebene, keine
+# COMDARE_HOST_RUNS_*-Bedingung) -> +1 in ALLEN DREI Klassen; die
+# Sprossenabstaende -4 und -2 bleiben. LIVE nachgemessen nach dem Rezept des
+# Datei-Kopfs (cmake-Erzwingen beider Klassen, ctest -N je Klasse, 'cmake -U'
+# auf beide Variablen, LC_ALL=C comm in BEIDE Richtungen); Zahlen und
+# comm-Verlustlisten woertlich im Bericht der B2-Scheibe.
+#
+# -- NACHZUG B2-ABSCHLUSS (2026-08-15, Dual-Review-Fixstufe derselben Scheibe) --
+# KONTO, je Name (Registrierungs-Diff tests/unit/CMakeLists.txt der Fix-Stufe,
+# Gegenrichtung leer -- nichts entfallen): GENAU EINE neue Registrierung,
+# test_b2_gate_zustand_g2an_g3aus (Gate-Zustands-Probe G2-an/G3-aus als
+# instanziiertes Kompilat, add_executable + add_test + COMDARE_TEST_TARGETS,
+# LABELS b2;messachse;gates;standalone). Weder ISA- noch Pruefling-gegatet
+# (Registrierung auf oberster Ebene) -> +1 in ALLEN DREI Klassen gegenueber dem
+# NACHZUG-B2-Block darueber; Sprossenabstaende -4 und -2 bleiben. Die
+# try_compile-Negativprobe derselben Fix-Stufe (b2_probe_g3_schichtung_tu.cpp)
+# registriert NICHTS (Configure-Zeit, kein ctest-Eintrag). LIVE nachgemessen
+# 2026-08-15 nach dem Rezept des Datei-Kopfs (build-covguard KALT, J-1-Muster:
+# beide Registrierungs-Werkzeuge, dann RE-KONFIGURIERT; cmake-Erzwingen beider
+# Klassen, ctest -N je Klasse, 'cmake -U' auf beide Variablen, Wiederherstellung
+# byte-gleich cmp leer, LC_ALL=C comm in BEIDE Richtungen: avx512f->avx2
+# verliert exakt die dokumentierten VIER, avx2->basis die ZWEI, Gegenrichtungen
+# leer):
+#     avx512f (gemessen, prod1)                                          -> 494
+#     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                -> 490
+#     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0     -> 488
+#
+# LANDE-AUFLAGE (Dual-Review-Fund Floor-Kollision, 2026-08-15) -- FUER DEN, DER
+# DIESEN BRANCH ODER bau/golden-homes ALS ZWEITEN MERGT: bau/golden-homes
+# (Stand 0eea2a0a) schreibt fuer seinen EIGENEN neuen Test
+# (fixture_schema_subset_check_ce) die Wertzeilen 493/489/487 aus derselben
+# Basis 492/488/486. Diese Zeilen hier (494/490/488) kollidieren mit ihnen im
+# 3-Wege-Merge ABSICHTLICH als Textkonflikt -- das ist die Harmonisierungs-
+# Doktrin in Dateiform: beim Merge der ZWEITEN Scheibe den Floor EINMAL LIVE
+# neu messen (Rezept im Datei-Kopf; nach Doppel-Landung sind 495/491/489 zu
+# ERWARTEN, gueltig ist ausschliesslich die Messung) und NIEMALS eine der
+# beiden Seiten uebernehmen oder Deltas addieren. Die Landung dieser Scheibe
+# selbst ist ein DEKLARIERTES GOLDEN-EREIGNIS und faehrt AUSSCHLIESSLICH im
+# golden-Fenster (mess_achsen_naht.hpp, Abschnitt BYTE-BILANZ B2).
+#
 # FORMAT: '#'-Kommentare und Leerzeilen sind erlaubt. Wertzeilen haben die Form
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
-avx512f 493
-avx2 489
-basis 487
+
+avx512f 495
+avx2 491
+basis 489

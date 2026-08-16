@@ -21,7 +21,7 @@
 #include "anatomy/growth_policy_observable.hpp"   // GrowthStatistics + ObservableGrowth
 #include "anatomy/inner_container_observable.hpp" // InnerContainerStatistics + Huelle
 #include "anatomy/view_policies_observable.hpp"   // Extent/Layout/AccessorStatistics + Huellen
-#include "axes/alloc/concepts/axis_06_allocator_cache_engine_permutation_concept.hpp" // AllocationStatistics
+#include "organ_axes/alloc/concepts/axis_06_allocator_cache_engine_permutation_concept.hpp" // AllocationStatistics
 
 #include <cstddef>
 #include <cstdint>

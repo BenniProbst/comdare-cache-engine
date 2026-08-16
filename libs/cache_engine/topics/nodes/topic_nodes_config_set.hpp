@@ -8,7 +8,7 @@
 
 #include <topics/nodes/axis_02_path_compression/axis_02_path_compression_registry.hpp>
 #include <topics/nodes/axis_04_node_type/axis_04_node_type_registry.hpp>
-#include <axes/node/axis_04_node_type_observable.hpp> // V42 L-74c: ObservableNodeType-Huelle
+#include <organ_axes/node/axis_04_node_type_observable.hpp> // V42 L-74c: ObservableNodeType-Huelle
 
 #include <boost/mp11.hpp>
 #include <array>

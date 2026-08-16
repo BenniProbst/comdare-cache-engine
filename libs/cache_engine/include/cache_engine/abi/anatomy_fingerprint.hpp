@@ -392,7 +392,7 @@ private:
 /// nicht falsch behaupten -- er kann ihn nur VORHERSAGEN (mess_gates_glied_for_legend an der Mess-Naht),
 /// und diese Vorhersage benutzt dieselbe Grammatik-Bildung (mess_gates_glied_komponieren).
 ///
-/// DIE WACHE IST DIESELBE: die Grammatik "mg=m1;s1;x1;tw1;tm1;tmi1" benutzt ausschliesslich Zeichen aus
+/// DIE WACHE IST DIESELBE: die Grammatik "mg=m1;s1;st1;x1;tw1;tm1;tmi1" (B2) benutzt ausschliesslich Zeichen aus
 /// anatomy_glied_zeichen_erlaubt, traegt kein '\n' und keinen leeren Schluessel. Der Traeger prueft das
 /// im Konstruktor, anatomy_fingerprint_glieder() ein zweites Mal beim Gebrauch (NB-3/T2-D).
 class MessGatesGlied {
@@ -441,8 +441,9 @@ inline constexpr std::size_t kAnatomyFingerprintOverlayGlied   = 7;
 /// Umsortierung waere ein zweites Byte-Ereignis ohne Gewinn. Das Overlay-Glied verliert damit seine
 /// Schwanz-Stellung; ihre urspruengliche Begruendung ("ein noch leeres Glied gehoert an den Schwanz,
 /// damit die Positionen der GEFUELLTEN Glieder stabil bleiben") gilt fuer das Mess-Gates-Glied NICHT --
-/// es ist niemals leer (der Aus-Zustand ist "mg=m0;s0;x0;tw0;tm0;tmi0", nicht ""), es kann also nicht
-/// "spaeter scharfgeschaltet" werden und braucht die Schwanz-Stellung nicht.
+/// es ist niemals leer (der Aus-Zustand ist "mg=m0;s0;st0;x0;tw0;tm0;tmi0" seit B2, davor ohne das
+/// <st>-Feld), es kann also nicht "spaeter scharfgeschaltet" werden und braucht die Schwanz-Stellung
+/// nicht.
 inline constexpr std::size_t kAnatomyFingerprintMessGatesGlied = 8;
 
 // -- BUDGET-NACHWEIS (O-2/C-2), maschinell statt als Absatz --------------------------------------------
@@ -456,9 +457,10 @@ inline constexpr std::size_t kAnatomyFingerprintMessGatesGlied = 8;
 //   bvset 1536  -- das einzige mit der Flotte wachsende Glied; LEBEND gemessen in
 //                  driver_build_variant_signature.hpp gegen genau diese Konstante
 //   Overlay 128 -- ein SHA-512-Hex
-//   mess-gates 64 -- die feste Grammatik "mg=m1;s1;x1;tw1;tm1;tmi1" misst heute 24 Zeichen; 64 laesst
-//                  Raum fuer die angekuendigte G3-Gate-Verfeinerung (mess_achsen_naht.hpp:93-98) und
-//                  fuer ein viertes Mess-Tooling in der Registry, ohne das Budget neu zu verhandeln.
+//   mess-gates 64 -- die feste Grammatik "mg=m1;s1;st1;x1;tw1;tm1;tmi1" misst seit B2 (15.08.2026,
+//                  G3-Gate-Verfeinerung -- genau der Fall, fuer den dieses Budget Raum liess) 28
+//                  Zeichen; 64 laesst weiter Raum fuer ein viertes Mess-Tooling in der Registry,
+//                  ohne das Budget neu zu verhandeln.
 inline constexpr std::size_t kAnatomyFingerprintFormatMax      = 32;
 inline constexpr std::size_t kAnatomyFingerprintOrganMax       = 768;
 inline constexpr std::size_t kAnatomyFingerprintSystemMax      = 256;
@@ -528,9 +530,9 @@ static_assert(kMessGatesTuGlied.find(kAnatomyFingerprintSeparator) == std::strin
 static_assert(injizierter_glied_wert_ist_wohlgeformt(kMessGatesTuGlied),
               "R-3: kMessGatesTuGlied verletzt die Injektivitaets-Format-Wache.");
 static_assert(!kMessGatesTuGlied.empty(),
-              "R-3: das Mess-Gates-Glied ist NIEMALS leer -- der Aus-Zustand heisst 'mg=m0;s0;x0;tw0;tm0;tmi0'. "
-              "Ein leerer Wert waere die Identitaet und wuerde eine gate-lose TU mit dem CEB-Default (der "
-              "bewusst leeren Nicht-Tier-Identitaet) kollidieren lassen.");
+              "R-3/B2: das Mess-Gates-Glied ist NIEMALS leer -- der Aus-Zustand heisst "
+              "'mg=m0;s0;st0;x0;tw0;tm0;tmi0'. Ein leerer Wert waere die Identitaet und wuerde eine gate-lose "
+              "TU mit dem CEB-Default (der bewusst leeren Nicht-Tier-Identitaet) kollidieren lassen.");
 
 /// anatomy_fingerprint_glieder(...) -- DIE EINE QUELLE der Preimage-Ordnung. Jede Rechen-Stelle (der
 /// consteval-Hex unten, der Laufzeit-Zwilling lazy_adhoc_fingerprint_for, der Lager-Key-Ableiter

@@ -1,6 +1,6 @@
 // AP-7b/#262 -- SwissTableOrgan Weg-B native organ conformance.
 
-#include <axes/lookup/composable/tier_to_organ_mapping.hpp>
+#include <organ_axes/lookup/composable/tier_to_organ_mapping.hpp>
 
 #include "builder/measurement_snapshot.hpp"
 #include <anatomy/observable_tier.hpp>

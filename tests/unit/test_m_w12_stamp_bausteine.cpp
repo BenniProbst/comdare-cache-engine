@@ -44,7 +44,7 @@
 #include <type_traits> // NB-3/T2-D: is_constructible_v-Beweis des geloeschten Rvalue-Konstruktors
 #include <utility>     // die Fehlform-Tabelle der Form-Wache (Paar aus Beschreibung und Literal)
 #include <vector>      // A4: die Flag-Schwanz-Gegenprobe der POD-Rekonstruktion
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace m  = ::comdare::cache_engine::measurement;
 namespace pl = ::comdare::cache_engine::planner;

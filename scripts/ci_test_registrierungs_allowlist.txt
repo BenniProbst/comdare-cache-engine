@@ -127,11 +127,21 @@
 #                                            Namens lautlos weg.
 # Die Listen laufen hier also nicht auseinander, sie antworten auf verschiedene Fragen.
 # Der Google Test test_pa1_tote_ausnahme, Fall (9), haelt genau das fest.
+#
+# W-B-NACHTRAG (2026-08-15, Vorlage-B2-GO "Aufraeumen (a)"): die vier Dateien sind per
+# 'git mv' nach tests/deprecated/prt_art_legacy_waisen/ archiviert -- NICHT geloescht;
+# Begruendung, Messungen und die drei aufgegebenen Deckungs-Luecken stehen dort in
+# VERMERK.md. Der SOLL dieser Wache ist 'git ls-files' mit DATEINAMEN-Anker, die vier
+# bleiben also im SOLL; ihre 'frist:'-Zeilen tragen deshalb weiter, nur mit dem neuen
+# Pfad in Feld 1 (tests/unit/test_pa1_tote_ausnahme.cpp kGeparkt ist nachgezogen).
+# Die Frist 2026-09-15 bleibt unveraendert: sie gehoert dem Owner und deckt jetzt die
+# ENDGUELTIGE Form (Archiv bestaetigen und Wachen-SOLL-Frage klaeren ODER Loeschung mit
+# eigenem Owner-GO) -- der Posten soll weiterhin nicht lautlos alt werden koennen.
 # -----------------------------------------------------------------------------
-tests/unit/test_concepts_compile.cpp | frist:2026-09-15 | Legacy-Concept-Test, geparkt: PA-3 (E-1 8a8f6877)
-tests/unit/test_value_handle.cpp | frist:2026-09-15 | Legacy-Concept-Test, geparkt: PA-3 (E-1 8a8f6877)
-tests/unit/test_three_layer_audit.cpp | frist:2026-09-15 | Legacy-Concept-Test, geparkt: PA-3 (E-1 8a8f6877)
-tests/unit/test_six_page_structures.cpp | frist:2026-09-15 | Legacy-Seitentypen, geparkt: PA-3 (E-1 8a8f6877)
+tests/deprecated/prt_art_legacy_waisen/test_concepts_compile.cpp | frist:2026-09-15 | PA-3 8a8f6877; Archiv W-B
+tests/deprecated/prt_art_legacy_waisen/test_value_handle.cpp | frist:2026-09-15 | PA-3 8a8f6877; Archiv W-B
+tests/deprecated/prt_art_legacy_waisen/test_three_layer_audit.cpp | frist:2026-09-15 | PA-3 8a8f6877; Archiv W-B
+tests/deprecated/prt_art_legacy_waisen/test_six_page_structures.cpp | frist:2026-09-15 | PA-3 8a8f6877; Archiv W-B
 
 # -----------------------------------------------------------------------------
 # HOST-ISA-GATTER: EINE Test-QUELLDATEI haengt an der ISA des Bau-Hosts.

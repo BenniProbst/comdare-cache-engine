@@ -55,7 +55,7 @@
 #include <anatomy/rollbackable_tier.hpp>
 #include <anatomy/scannable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp>
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp>
 
 #include <chrono>
 #include <cstdint>
@@ -121,7 +121,9 @@ static void chk(std::string const& w, bool c) {
 /// Eine Quelltext-Zeile mit ihrem Gate-Zustand.
 struct GatedLine {
     std::size_t nr    = 0;     ///< 1-basierte Zeilennummer (fuer den literalen Beleg)
-    bool        gated = false; ///< innerhalb #if COMDARE_MEASUREMENT_ON oder #ifdef COMDARE_CE_ENABLE_STATISTICS
+    bool        gated = false; ///< innerhalb #if COMDARE_MEASUREMENT_ON, #ifdef COMDARE_CE_ENABLE_STATISTICS
+                               ///< oder #if COMDARE_CE_ENABLE_SEGMENT_TIMING (B2: das G3-Gate; im
+                               ///< Release-Pfad per Ableitung 0, also ebenso tot wie die beiden anderen)
     std::string code;          ///< Zeile OHNE //-Kommentar-Schwanz
 };
 
@@ -165,7 +167,10 @@ struct GatedLine {
             while (!rest.empty() && (rest.back() == ' ' || rest.back() == '\t' || rest.back() == '\r')) rest.pop_back();
             bool const ist_gate = (bed.rfind("#if ", 0) == 0 && rest == "COMDARE_MEASUREMENT_ON") ||
                                   (bed.rfind("#ifdef ", 0) == 0 && rest == "COMDARE_CE_ENABLE_STATISTICS") ||
-                                  (bed.rfind("#ifdef ", 0) == 0 && rest == "COMDARE_MEASUREMENT_ON");
+                                  (bed.rfind("#ifdef ", 0) == 0 && rest == "COMDARE_MEASUREMENT_ON") ||
+                                  // B2: das dritte Gate (G3). Wertbasiert; die Ableitung liefert im
+                                  // Release-Pfad 0 (kein STATISTICS -> kein SEGMENT_TIMING).
+                                  (bed.rfind("#if ", 0) == 0 && rest == "COMDARE_CE_ENABLE_SEGMENT_TIMING");
             stack.push_back(ist_gate ? 1 : 0);
             out.push_back(GatedLine{nr, offen_gated, ""});
             continue;
@@ -310,7 +315,7 @@ int main() {
         for (auto const& g : karte)
             if (g.gated) ++gated_zeilen;
         std::cout << "    Quelle: " << karte.size() << " Zeilen, davon " << gated_zeilen
-                  << " im Release-Gate (MEASUREMENT_ON / CE_ENABLE_STATISTICS)\n";
+                  << " im Release-Gate (MEASUREMENT_ON / CE_ENABLE_STATISTICS / CE_ENABLE_SEGMENT_TIMING)\n";
 
         // SELBSTBEWEIS der Wache (sonst waere jedes gruene Ergebnis unten wertlos): die Gate-Karte MUSS
         // beide Zustaende unterscheiden koennen. Referenz-UNGEGATED = ein Steuer-Setter der immer

@@ -17,7 +17,7 @@
 //        Diese Strategien sind heap-frei (std::array-Bitmaps) und erfuellen Form (A). Sie liegen im
 //        T14-Mess-Pfad und wurden vom Scrub NICHT angefasst -- die Wache pinnt sie trotzdem, damit ein
 //        kuenftiger Container dort sofort auffaellt (Nachweis-Charakter, wie 02a es fuer memory_layout tut).
-//   (II) die COMPOSABLE Filter-Organe (S1 exakt / S2 succinct LOUDS, axes/filter_axis/composable/).
+//   (II) die COMPOSABLE Filter-Organe (S1 exakt / S2 succinct LOUDS, organ_axes/filter_axis/composable/).
 //        DAS ist der Gegenstand des 02b-Scrubs: sie tragen unbeschraenkt wachsende Puffer, erfuellen also
 //        Form (B), und ihre Verdrahtung wird hier zusaetzlich real belegt.
 //
@@ -39,15 +39,15 @@
 
 #include "s5_family_alloc_conformance.hpp"
 
-#include <axes/filter_axis/axis_filter_observable.hpp>
-#include <axes/filter_axis/axis_filter_registry.hpp>
-#include <axes/filter_axis/composable/exact_prefix_filter_organ.hpp>
-#include <axes/filter_axis/composable/exact_prefix_filter_store.hpp>
-#include <axes/filter_axis/composable/louds_sparse_filter_organ.hpp>
-#include <axes/filter_axis/composable/louds_sparse_filter_store.hpp>
-#include <axes/filter_axis/composable/surf_axis_allocator.hpp>
-#include <axes/filter_axis/composable/surf_louds_bitvector.hpp>
-#include <axes/filter_axis/composable/surf_suffix_bits.hpp>
+#include <organ_axes/filter_axis/axis_filter_observable.hpp>
+#include <organ_axes/filter_axis/axis_filter_registry.hpp>
+#include <organ_axes/filter_axis/composable/exact_prefix_filter_organ.hpp>
+#include <organ_axes/filter_axis/composable/exact_prefix_filter_store.hpp>
+#include <organ_axes/filter_axis/composable/louds_sparse_filter_organ.hpp>
+#include <organ_axes/filter_axis/composable/louds_sparse_filter_store.hpp>
+#include <organ_axes/filter_axis/composable/surf_axis_allocator.hpp>
+#include <organ_axes/filter_axis/composable/surf_louds_bitvector.hpp>
+#include <organ_axes/filter_axis/composable/surf_suffix_bits.hpp>
 
 #include <boost/mp11.hpp>
 

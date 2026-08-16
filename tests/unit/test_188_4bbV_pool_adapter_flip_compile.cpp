@@ -32,8 +32,8 @@
 #include <anatomy/abi_adapter.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
-#include <axes/lookup/composable/organ_for_search_algo.hpp>         // organ_for_search_algo_t (pool_family_-Typ-Beleg)
-#include <axes/lookup/composable/observable_composed_container.hpp> // #188-4b-DEG1: Organ-Huelle fuer den Ernte-Beleg
+#include <organ_axes/lookup/composable/organ_for_search_algo.hpp>         // organ_for_search_algo_t (pool_family_-Typ-Beleg)
+#include <organ_axes/lookup/composable/observable_composed_container.hpp> // #188-4b-DEG1: Organ-Huelle fuer den Ernte-Beleg
 #include <builder/codegen/all_axes_umbrella.hpp> // volle Definitionen ALLER Achsen-Wrapper (die 9 rohen search_algo)
 #include <compositions/art_reference.hpp>        // ArtComposition = Basis fuer die 18 Nicht-search-Achsen
 
@@ -42,7 +42,7 @@
 #include <memory>
 #include <string_view>
 #include <type_traits>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an   = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;

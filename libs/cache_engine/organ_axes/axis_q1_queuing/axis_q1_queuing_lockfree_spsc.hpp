@@ -1,0 +1,270 @@
+#pragma once
+// V41.F.6.1 axis_q1_queuing LockFreeSPSCBuffer Q-SPSC (2026-05-26)
+//
+// @topic queuing @achse Q1 @family Q13a LockFreeSPSCBuffer
+// @subaxis QS6 lock_free_access (ERSTE QS6-Strategie)
+//
+// Lock-Free Single-Producer/Single-Consumer Ring-Queue nach Lamport's
+// klassischem Konzept (Lamport 1983 "Specifying Concurrent Program Modules"):
+// 1 Producer schreibt nur an tail_, 1 Consumer liest nur von head_ — kein
+// Contention dank disjoint Modified-Sets. atomic-loads/stores mit acquire/
+// release reichen aus (kein CAS noetig).
+//
+// **ECHTE Lock-Freedom** (sogar wait-free fuer SPSC, da kein Retry-Loop):
+//   - put() ist wait-free (1 atomic.store + 1 atomic.load)
+//   - get() ist wait-free (1 atomic.load + 1 atomic.store)
+//
+// **Erste Q1-Strategie mit ProgressGuarantee::LockFree** + erste QS6 lock_free
+// Subaxis-Belegung. **3. Strategie mit iterable_aspect_t** (nach BoundedRingBuffer
+// + EpochBuffer) — Capacity ist iterable Aspekt.
+//
+// Overflow-Verhalten: put() bei vollem Buffer ist dropping (kein Block, kein
+// Throw — typisch SPSC Disruptor-Pattern, Producer ist "verantwortlich").
+//
+// Pflicht-Vertrag: **Genau 1 Producer-Thread + genau 1 Consumer-Thread.**
+// Mehrere Threads auf einer Seite brechen das Lamport-Modell → UB.
+//
+// Allocation: A8-S5 SCHNITT-FORM (B), 2026-08-05 -- der Ring-Speicher haengt an der Allokator-ACHSE
+// (axis_06). cap=0 wirft weiterhin std::invalid_argument ([[zero-size-allocation-exception]]).
+//
+// FORM-ENTSCHEID am Objekt (der Auftrag verlangt hier ausdruecklich EHRLICHKEIT statt Schablone):
+// dieses Organ SIEHT nach Form A aus -- es ist bounded, es alloziert genau einmal, und die
+// Kapazitaeten stehen als kIterableCapacities im Header. Sie sind aber KEINE Compile-Time-Kappe: die
+// Kapazitaet ist ein LAUFZEIT-Aspekt (iterable_aspect_t; set_iterable_aspect setzt sie neu, und die
+// hybride Laufzeit-Permutation faehrt GENAU DESHALB eine Binary statt fuenf, Doku Par.15.5). Eine
+// CT-Kappe muesste das Maximum tragen -- 65536 * 8 Byte inline in JEDER Komposition, in der dieses
+// Organ steckt. Das waere keine staerkere Aussage, sondern eine falsche. Also Form B.
+//
+// LOCK-FREE-SORGFALT: der Schnitt beruehrt die Lamport-Semantik NICHT. Alloziert wird ausschliesslich
+// im Konstruktor und in set_iterable_aspect, und beide sind am Objekt bereits als Reconfigure-Time
+// ("nur sicher wenn weder Producer noch Consumer aktiv") deklariert. Der wait-freie put/get-Pfad
+// sieht den Allokator nie -- er indiziert nur in den bereits stehenden Block.
+// [[allocation-failure-exception]]: der Wurf kommt seit diesem Schnitt vom StdAllocatorAdapter der
+// Achse (Posten 64), nicht mehr vom Default-Allokator.
+
+#include "axis_q1_queuing_axis_storage.hpp"
+#include "axis_q1_queuing_base.hpp"
+#include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
+#include "concepts/axis_q1_queuing_concept.hpp"
+#include "concepts/axis_q1_queuing_cache_engine_permutation_concept.hpp"
+#include "concepts/axis_q1_queuing_bounded_strategy_concept.hpp"
+#include "concepts/axis_q1_queuing_iterable_aspect_strategy_concept.hpp"
+#include <topics/queuing/concepts/topic_queuing_concept.hpp>
+
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_flags.hpp>
+#include <measurement/measurable_concept.hpp>
+#include <array>
+#include <atomic>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <span>
+#include <stdexcept>
+#include <string_view>
+#include <type_traits>
+#include <vector>
+
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
+namespace comdare::cache_engine::queuing::axis_q1_queuing {
+
+class LockFreeSPSCBuffer : public BufferStrategyBase<LockFreeSPSCBuffer> {
+public:
+    static constexpr bool enabled = flags::lockfree_spsc_enabled;
+
+    using element_type = std::uint64_t;
+    using size_type    = std::size_t;
+    using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
+    using axis_tag     = subaxes::lock_free_access_tag;
+    using family_id    = std::integral_constant<int, 13>; // Q13a
+
+    /// A8-S5 SCHNITT-FORM (B): DIESE Zeile ist der Ausweis, den die Familien-Konformitaets-Wache
+    /// liest (tests/unit/s5_family_alloc_conformance.hpp). Achsen-Default: axis_q1_queuing_axis_storage.hpp.
+    using allocator_type = queuing_buffer_allocator_t;
+
+    /// iterable_aspect_t (F.6.1.E hybride Laufzeit-Permutation)
+    using iterable_aspect_t = std::size_t;
+    static constexpr std::array<std::size_t, 5>                 kIterableCapacities{8u, 64u, 1024u, 16384u, 65536u};
+    [[nodiscard]] static constexpr std::span<std::size_t const> iterable_values() noexcept {
+        return std::span<std::size_t const>{kIterableCapacities.data(), kIterableCapacities.size()};
+    }
+
+    /// SPSC-Vertrag: thread-safe NUR fuer exakt 1 Producer + 1 Consumer.
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return true; }
+    [[nodiscard]] static constexpr bool             is_bounded() noexcept { return true; }
+    [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 1024; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "lockfree_spsc"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::queuing::axis_q1_queuing::LockFreeSPSCBuffer",
+                                  "organ_axes/axis_q1_queuing/axis_q1_queuing_lockfree_spsc.hpp");
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "LockFreeSPSCBuffer (Lamport 1983, wait-free SPSC Ring)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "LOCKFREE_SPSC"; }
+    /// Algorithmus-Version (Organ-Provenienz, inkrementeller Tier-Binary-Cache): Bump bei algorithmischer
+    /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
+    /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
+    /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
+    static constexpr std::string_view algo_version = "1.0.0.c";
+
+    [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; } // S = Single
+    [[nodiscard]] static constexpr bool supports_concurrent_consumers() noexcept { return false; } // S = Single
+    [[nodiscard]] static constexpr bool supports_priority_ordering() noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_versioned() noexcept { return false; }
+    /// SONDERFALL: 1. Q1-Strategie mit ProgressGuarantee::LockFree.
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
+        return concepts::ProgressGuarantee::LockFree;
+    }
+
+    LockFreeSPSCBuffer() : LockFreeSPSCBuffer(default_capacity()) {}
+    /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 wirft std::invalid_argument
+    /// (UB-Vermeidung: tail_=(tail_+1)%capacity_ ist Division-By-Zero bei cap=0).
+    /// Der Ring wird an das EIGENE allocator_ gebunden (der Adapter haelt &allocator_); die
+    /// cap==0-Wache bleibt an derselben Stelle im Initialisierer wie zuvor.
+    explicit LockFreeSPSCBuffer(std::size_t cap)
+        : buffer_((cap == 0 ? throw std::invalid_argument(
+                                  "LockFreeSPSCBuffer: capacity must be > 0 (cap=0 division-by-zero in modulo)")
+                            : cap),
+                  element_type{0}, allocator_.template as_std_allocator<element_type>()),
+          capacity_(cap), head_(0), tail_(0) {}
+
+    // SPSC ist nicht copy/move-faehig (atomics) -- Vergleich nur ueber Capacity. Das deckt zugleich die
+    // COW-Falle des Achsen-Adapters ab: ohne Kopie kann kein Fremd-Zeiger auf ein anderes allocator_
+    // entstehen (Praezedenz btree_node_pool_store.hpp:86 -- hier per delete statt per Rebind geloest).
+    LockFreeSPSCBuffer(LockFreeSPSCBuffer const&)            = delete;
+    LockFreeSPSCBuffer& operator=(LockFreeSPSCBuffer const&) = delete;
+    LockFreeSPSCBuffer(LockFreeSPSCBuffer&&)                 = delete;
+    LockFreeSPSCBuffer& operator=(LockFreeSPSCBuffer&&)      = delete;
+
+    [[nodiscard]] bool operator==(LockFreeSPSCBuffer const& other) const noexcept {
+        return capacity_ == other.capacity_;
+    }
+
+    /// Lamport-Producer: schreibt nur tail_. Bei vollem Buffer: drop (kein Block).
+    /// Wait-free (kein Retry-Loop).
+    void put(element_type v) {
+        std::size_t const tail = tail_.load(std::memory_order_relaxed);
+        std::size_t const next = (tail + 1) % capacity_;
+        std::size_t const head = head_.load(std::memory_order_acquire);
+        if (next == head) {
+            // Buffer voll — Drop (typisch SPSC Disruptor-Pattern)
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            ++stats_.overflow_count;
+            observer_.notify(stats_);
+#endif
+            return;
+        }
+        buffer_[tail] = v;
+        tail_.store(next, std::memory_order_release);
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        ++stats_.total_put_count;
+        std::size_t cur_size = (next + capacity_ - head) % capacity_;
+        if (cur_size > stats_.peak_size) stats_.peak_size = cur_size;
+        observer_.notify(stats_);
+#endif
+    }
+
+    /// Lamport-Consumer: liest nur head_. Wait-free.
+    [[nodiscard]] std::optional<element_type> get() {
+        std::size_t const head = head_.load(std::memory_order_relaxed);
+        std::size_t const tail = tail_.load(std::memory_order_acquire);
+        if (head == tail) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            ++stats_.underflow_count;
+            observer_.notify(stats_);
+#endif
+            return std::nullopt;
+        }
+        element_type v = buffer_[head];
+        head_.store((head + 1) % capacity_, std::memory_order_release);
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        ++stats_.total_get_count;
+        observer_.notify(stats_);
+#endif
+        return v;
+    }
+
+    [[nodiscard]] size_type size() const noexcept {
+        std::size_t const t = tail_.load(std::memory_order_acquire);
+        std::size_t const h = head_.load(std::memory_order_acquire);
+        return (t + capacity_ - h) % capacity_;
+    }
+    [[nodiscard]] bool is_empty() const noexcept { return size() == 0; }
+    /// clear() ist nur sicher wenn weder Producer noch Consumer aktiv.
+    void clear() noexcept {
+        head_.store(0, std::memory_order_relaxed);
+        tail_.store(0, std::memory_order_relaxed);
+    }
+
+    [[nodiscard]] size_type capacity() const noexcept { return capacity_; }
+
+    // std::queue-API: peek_front=oldest (head), peek_back=newest (tail-1).
+    // Achtung: peek bei concurrent put/get ist nur Snapshot.
+    [[nodiscard]] std::optional<element_type> peek_front() const noexcept {
+        std::size_t const h = head_.load(std::memory_order_acquire);
+        std::size_t const t = tail_.load(std::memory_order_acquire);
+        if (h == t) return std::nullopt;
+        return buffer_[h];
+    }
+    [[nodiscard]] std::optional<element_type> peek_back() const noexcept {
+        std::size_t const h = head_.load(std::memory_order_acquire);
+        std::size_t const t = tail_.load(std::memory_order_acquire);
+        if (h == t) return std::nullopt;
+        return buffer_[(t + capacity_ - 1) % capacity_];
+    }
+    void emplace(element_type v) { put(v); }
+
+    /// Setter fuer Runtime-Capacity-Switch ([[iterable-aspect-strategy]] Sub-Concept).
+    /// Konsolidierter Name `set_iterable_aspect` analog allen anderen iterable Strategien.
+    /// **Nur sicher wenn weder Producer noch Consumer aktiv** (Reconfigure-Time).
+    /// SONDERFALL [[allocation-failure-exception]]: assign kann std::bad_alloc werfen.
+    /// SONDERFALL [[zero-size-allocation-exception]]: new_cap=0 wirft std::invalid_argument.
+    void set_iterable_aspect(std::size_t new_cap) {
+        if (new_cap == 0) {
+            throw std::invalid_argument("LockFreeSPSCBuffer::set_iterable_aspect: capacity must be > 0");
+        }
+        buffer_.assign(new_cap, 0);
+        capacity_ = new_cap;
+        head_.store(0, std::memory_order_relaxed);
+        tail_.store(0, std::memory_order_relaxed);
+    }
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    using snapshot_t = concepts::BufferStatistics;
+    using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
+    [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
+    [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11) -- EIGENER Name, DISJUNKT zum
+    /// konstitutiven Store-Snapshot; die Summierungs-Frage gehoert ins Mess-Schnitt-Fenster.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t buffer_allocator_statistics() const noexcept { return allocator_.statistics(); }
+#endif
+
+private:
+    using buffer_type = std::vector<element_type, queuing_buffer_alloc_t<element_type>>;
+
+    // allocator_ MUSS VOR buffer_ stehen (Adapter haelt &allocator_) -- Ordnung wie 01a/01c/01d.
+    allocator_type           allocator_{};
+    buffer_type              buffer_;
+    std::size_t              capacity_;
+    std::atomic<std::size_t> head_;
+    std::atomic<std::size_t> tail_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    concepts::BufferStatistics stats_{};
+    observer_t                 observer_{};
+#endif
+};
+
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing
+
+namespace comdare::cache_engine::queuing::axis_q1_queuing {
+static_assert(concepts::BufferStrategy<LockFreeSPSCBuffer>);
+static_assert(concepts::CacheEngineBufferPermutationStrategy<LockFreeSPSCBuffer>);
+static_assert(concepts::BoundedBufferStrategy<LockFreeSPSCBuffer>);
+static_assert(concepts::IterableAspectStrategy<LockFreeSPSCBuffer>);
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing

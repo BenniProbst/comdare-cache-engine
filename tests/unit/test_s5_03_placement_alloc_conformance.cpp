@@ -27,12 +27,12 @@
 // erste, die Form B WIRKLICH benutzt. Ohne (4)/(5) waere die gruene Wache genau die Sorte Erfolgsmeldung, vor
 // der die Form-B-Grenze warnt.
 //
-// SONDERROLLE DER ALLOKATOR-ACHSE (axes/alloc/): sie ist der VERSORGER, nicht ein Verbraucher. "Bezieht ihren
+// SONDERROLLE DER ALLOKATOR-ACHSE (organ_axes/alloc/): sie ist der VERSORGER, nicht ein Verbraucher. "Bezieht ihren
 // Speicher ueber die Allokator-Achse" auf sie selbst anzuwenden waere zirkulaer -- und faktisch falsch: der
 // PoolResourceAllocator BESITZT bestimmungsgemaess eine eigene Speicher-Ressource (std::pmr::unsynchronized_
 // pool_resource, axis_06_allocator_pool_resource.hpp:205). Ihr Konformitaets-Kriterium ist deshalb ein anderes
 // und wird hier als solches geprueft: JEDE Strategie der Achse erfuellt AllocatorStrategy, ist also ein
-// gueltiger Versorger (Block (0)). Der Familien-grep hatte in axes/alloc/ ohnehin nur EINEN Treffer, und der
+// gueltiger Versorger (Block (0)). Der Familien-grep hatte in organ_axes/alloc/ ohnehin nur EINEN Treffer, und der
 // ist die Adapter-DOKUMENTATION selbst (axis_06_allocator_strategy_base.hpp, Doku-Block ueber
 // StdAllocatorAdapter -- Verweis bewusst per NAME statt per Zeilennummer, die driftet) -- kein Scrub-Objekt.
 //
@@ -40,20 +40,20 @@
 
 #include "s5_family_alloc_conformance.hpp"
 
-#include <axes/alloc/axis_06_allocator_registry.hpp>
-#include <axes/index_organization/axis_01_index_organization_observable.hpp>
-#include <axes/index_organization/axis_01_index_organization_registry.hpp>
-#include <axes/mapping/axis_03m_mapping_registry.hpp>
-#include <axes/migration_policy/axis_migration_observable.hpp>
-#include <axes/migration_policy/axis_migration_registry.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_observable.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_real_slot.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_registry.hpp>
+#include <organ_axes/alloc/axis_06_allocator_registry.hpp>
+#include <organ_axes/index_organization/axis_01_index_organization_observable.hpp>
+#include <organ_axes/index_organization/axis_01_index_organization_registry.hpp>
+#include <organ_axes/mapping/axis_03m_mapping_registry.hpp>
+#include <organ_axes/migration_policy/axis_migration_observable.hpp>
+#include <organ_axes/migration_policy/axis_migration_registry.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_observable.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_real_slot.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_registry.hpp>
 
 // Form-(B)-REFERENZ am realen Repo-Typ (Pilot-Vorbild): der B-Baum-Knoten-Pool fuehrt seinen unbounded
 // Knoten-Speicher ueber die Allokator-Achse (StdAllocatorAdapter-Rebind + COW-Memento). Er gehoert NICHT zu
 // dieser Familie und wird hier nur GELESEN -- er ist der Anker, an dem der Scrub dieser Familie Mass nimmt.
-#include <axes/lookup/composable/btree_node_pool_store.hpp>
+#include <organ_axes/lookup/composable/btree_node_pool_store.hpp>
 
 #include <boost/mp11.hpp>
 

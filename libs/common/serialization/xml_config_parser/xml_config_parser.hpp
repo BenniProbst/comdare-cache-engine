@@ -54,7 +54,7 @@ enum class MessreihenMode {
 
 // REV 7.6 V8.6 — Ein Profil aus algorithm_profiles/sota/<id>.profile.xml
 // REV 7.6 V19.1 — expected_workload Tag (optional Override fuer V11.2-Heuristik)
-// REV 7.7 V29.A — allocator_override Tag (optional Override fuer axes/allocator)
+// REV 7.7 V29.A -- allocator_override Tag (optional Override fuer organ_axes/allocator)
 struct AlgorithmProfile {
     std::string id;        // z.B. "art", "hot", "masstree"
     std::string paper_ref; // z.B. "P01", "P02"

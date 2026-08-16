@@ -27,6 +27,6 @@
     <baustein name="prtart_chain_ref_handle" wrapper="PrtArtChainRefHandle" type="::comdare::prt_art::slots::axis_14::PrtArtChainRefHandle" header="prt_art/slots/axis_14_value_handle_slot.hpp" enabled="true" golden_wired="false"/>
   </axis>
   <axis id="path_compression" slot="axis_02" category="golden_merge_slot" genus="SearchAlgorithm" baustein_count="1">
-    <baustein name="path_compression_patricia" wrapper="PatriciaPathCompression" type="::comdare::cache_engine::path_compression::PatriciaPathCompression" header="axes/path_compression/axis_02_path_compression_patricia.hpp" enabled="true" golden_wired="true"/>
+    <baustein name="path_compression_patricia" wrapper="PatriciaPathCompression" type="::comdare::cache_engine::path_compression::PatriciaPathCompression" header="organ_axes/path_compression/axis_02_path_compression_patricia.hpp" enabled="true" golden_wired="true"/>
   </axis>
 </comdare_axis_registry>

@@ -2,7 +2,7 @@
 // Deutscher Verhaltensbeleg gegen std::map<uint64,uint64>: OA_LF50/OA_LF90/CHAINING muessen insert/update/
 // lookup/erase/clear und for_each_record exakt tragen; Level-0 HashOaLf70 bleibt am alten 7/10-Prädikat.
 
-#include <axes/lookup/composable/tier_to_organ_mapping.hpp>
+#include <organ_axes/lookup/composable/tier_to_organ_mapping.hpp>
 #include <topics/nodes/axis_hash_probe_shape/axis_hash_probe_shape_chaining.hpp>
 #include <topics/nodes/axis_hash_probe_shape/axis_hash_probe_shape_oa_lf50.hpp>
 #include <topics/nodes/axis_hash_probe_shape/axis_hash_probe_shape_oa_lf70.hpp>

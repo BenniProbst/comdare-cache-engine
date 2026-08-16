@@ -136,7 +136,7 @@ könnte verlangen, dass manche Organe ihren Original-Algorithmus monolithisch be
 
 **Q2 Schritt 1–3 UMGESETZT + im echten Mess-Pfad VERIFIZIERT (literal):** Der `container_` im `SearchAlgorithmAbiAdapter`
 ist von der unbounded `ComposedStore` auf die node-wirksame **`NodeChunkedStore<N,L,A>`** umgestellt (`abi_adapter.hpp`
-container_t + Include `axes/node/axis_04_node_type_chunked_store.hpp`). `NodeChunkedStore` speichert in node-großen
+container_t + Include `organ_axes/node/axis_04_node_type_chunked_store.hpp`). `NodeChunkedStore` speichert in node-großen
 Chunks (cap=`N::max_capacity()`) und meldet `allocator_statistics().allocation_count = ceil(size/cap)` → node-abhängig.
 Belegt (perm_runner, alle 8 thesis-Lebewesen neu gebaut + gemessen, `build/thesis_tiere/thesis_measurements.csv`):
 
@@ -297,16 +297,16 @@ Kategorienfehler UNABHÄNGIG + bleibt gültig (betrifft search↔node/layout/all
 > C2 „alles dokumentiert, Doku nachlesen statt entscheiden"); die Sektion trifft KEINE neue Design-Entscheidung.
 
 **Die Achse (autoritativ, flach):** `memory_layout` deklariert je Strategie genau EINE von 5 realen, byte-distinkten
-`RepresentationKind` (`axes/layout/axis_05_memory_layout_strategy_base.hpp:18-24` — `aos_interleaved_packed`,
+`RepresentationKind` (`organ_axes/layout/axis_05_memory_layout_strategy_base.hpp:18-24` — `aos_interleaved_packed`,
 `aos_interleaved_padded`, `soa_split_columns`, `aosoa_blocked_columns`, `succinct_hot_cold_split`; je Strategie
 via `representation_kind()` `:59-61`). Der **flache** `LayoutAwareChunkedStore<N,L,A>` konsumiert L AUTORITATIV
-(`axes/node/axis_04_node_type_layout_aware_store.hpp` — if-constexpr-Dispatch auf `kRep`, realer
+(`organ_axes/node/axis_04_node_type_layout_aware_store.hpp` — if-constexpr-Dispatch auf `kRep`, realer
 representation-genauer Key-Scan-Footprint). Das ist das D2-Muster „Achse konsumiert Achse" und steht im
 §3.3-DELEGATIONS-STATUS oben (9 delegierte Achsen, memory_layout darunter).
 
 **IST für NODE-POOLS (code-verifiziert 2026-07-07 am aktiven development):** L ist bei den Pool-Speichern NICHT
 angewandt — die Pool-Store-Typen tragen KEINEN L-Template-Parameter:
-- `TreeNodePoolStore<Shape, A>` (`axes/lookup/composable/tree_node_pool_store.hpp:39-40`) — Node-Struct fest
+- `TreeNodePoolStore<Shape, A>` (`organ_axes/lookup/composable/tree_node_pool_store.hpp:39-40`) — Node-Struct fest
   (`{key,val,left,right}`), Backing `std::vector`, kein L.
 - `SwissGroupPoolStore<A=…>` (`swiss_group_pool_store.hpp:30-31`) — nur Allocator-Tag, kein L.
 - An der Pool-Naht des Adapters bleiben die Store-Messstellen für diese Familien ehrlich honest-0 (kein

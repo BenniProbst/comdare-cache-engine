@@ -18,25 +18,25 @@ ist die autoritative Brücke:
 
 | Thesis | Achse | Code-Header (Repräsentant) |
 |---|---|---|
-| T0  search_algo        | `axes/lookup/composable/` (axis_03a) + `axis_03a_search_algo_registry.hpp` |
-| T1  cache_traversal    | `axes/cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp` |
-| T2  mapping            | `axes/mapping/axis_03m_mapping_direct_placement.hpp` |
-| T3  path_compression   | `axes/path_compression/axis_02_path_compression_observable.hpp` |
-| T4  node_type          | `axes/node/axis_04_node_type_composed_store.hpp` |
+| T0  search_algo        | `organ_axes/lookup/composable/` (axis_03a) + `axis_03a_search_algo_registry.hpp` |
+| T1  cache_traversal    | `organ_axes/cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp` |
+| T2  mapping            | `organ_axes/mapping/axis_03m_mapping_direct_placement.hpp` |
+| T3  path_compression   | `organ_axes/path_compression/axis_02_path_compression_observable.hpp` |
+| T4  node_type          | `organ_axes/node/axis_04_node_type_composed_store.hpp` |
 | T5  memory_layout      | `topics/memory_layout/axis_05_memory_layout/…` |
-| T6  allocator          | `axes/alloc/axis_06_allocator_*.hpp` |
-| T7  prefetch           | `axes/prefetch_axis/axis_07_prefetch_observable.hpp` |
-| T8  concurrency        | `axes/concurrency_axis/axis_08_concurrency_observable.hpp` |
+| T6  allocator          | `organ_axes/alloc/axis_06_allocator_*.hpp` |
+| T7  prefetch           | `organ_axes/prefetch_axis/axis_07_prefetch_observable.hpp` |
+| T8  concurrency        | `organ_axes/concurrency_axis/axis_08_concurrency_observable.hpp` |
 | T9  serialization      | `topics/serialization/axis_10_serialization/…` |
 | T10 telemetry          | `topics/telemetry/axis_11_telemetry/…` |
-| T11 value_handle       | `axes/value_handle_axis/axis_14_value_handle_observable.hpp` |
-| T12 isa                | `axes/simd/axis_09_isa_observable.hpp` |
-| T13 index_organization | `axes/index_organization/axis_01_index_organization_observable.hpp` |
-| T14 io_dispatch        | `axes/io_dispatch/axis_io_dispatch_observable.hpp` (+ `axis_io_mmap.hpp`, `axis_io_direct.hpp`) |
-| T15 migration_policy   | `axes/migration_policy/axis_migration_observable.hpp` |
-| T16 filter             | `axes/filter_axis/axis_filter_observable.hpp` |
-| T17 queuing_q1         | `topics/queuing/axis_q1_queuing/…` |
-| T18 queuing_q2         | `topics/queuing/axis_q2_queuing/…` |
+| T11 value_handle       | `organ_axes/value_handle_axis/axis_14_value_handle_observable.hpp` |
+| T12 isa                | `organ_axes/simd/axis_09_isa_observable.hpp` |
+| T13 index_organization | `organ_axes/index_organization/axis_01_index_organization_observable.hpp` |
+| T14 io_dispatch        | `organ_axes/io_dispatch/axis_io_dispatch_observable.hpp` (+ `axis_io_mmap.hpp`, `axis_io_direct.hpp`) |
+| T15 migration_policy   | `organ_axes/migration_policy/axis_migration_observable.hpp` |
+| T16 filter             | `organ_axes/filter_axis/axis_filter_observable.hpp` |
+| T17 queuing_q1         | `organ_axes/axis_q1_queuing/…` |
+| T18 queuing_q2         | `organ_axes/axis_q2_queuing/…` |
 
 > Merke: Code-`axis_14` = **value_handle** (T11), NICHT io_dispatch (T14). Code-`axis_09` = isa (T12),
 > NICHT prefetch.
@@ -79,7 +79,7 @@ Das ist der Kern des Prüfling-gegen-Standard-Mechanismus (Tag-Dispatch + `std::
 
 | Concept/Test | Datei | Wirkung |
 |---|---|---|
-| `StoreTraversableSearchAlgo<S>` | `axes/lookup/composable/store_traversable_search_algo.hpp` | **Weg A** (Traversal über `ComposedStore`) vs. **Weg B** (separates Such-Organ) |
+| `StoreTraversableSearchAlgo<S>` | `organ_axes/lookup/composable/store_traversable_search_algo.hpp` | **Weg A** (Traversal über `ComposedStore`) vs. **Weg B** (separates Such-Organ) |
 | `ObservableAxis<T>` | (concepts) | besitzt die Achse einen Observer? steuert `tier_observe`-Aggregation |
 | `MementoAxis<T>` | (concepts) | save/restore-Fähigkeit (Warmlauf-Zustand, CoW) |
 | `if constexpr (requires { … })` | je Aufrufstelle | optionale Auto-Kopplung der Achsen-Handles |
@@ -96,7 +96,7 @@ tier_insert(uint64,uint64)
  ├─ [RT] CoW-Memento: if (cow_armed_) cow_materialize_copy_()
  ├─ [CT] StoreTraversableSearchAlgo<SearchAlgo>?
  │    ├─ Weg A:  container_.insert(k,v)
- │    │           -> ObservableComposedSearch::insert        (axes/lookup/composable/observable_composed_search.hpp)
+ │    │           -> ObservableComposedSearch::insert        (organ_axes/lookup/composable/observable_composed_search.hpp)
  │    │              -> ComposedSearch::insert
  │    │                 -> Traversal::insert_into<Store>      (SortedBinary | LinearScan)
  │    │                    -> ComposedStore<N,L,A>::insert_slot_at   (axis_04_node_type_composed_store.hpp)

@@ -37,13 +37,13 @@
 #include <compositions/hot_reference.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 
-#include <axes/concurrency_axis/axis_08_concurrency_blocking.hpp>
-#include <axes/concurrency_axis/axis_08_concurrency_none.hpp>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_none.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_observable.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_path_oriented.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_real_descent.hpp>
+#include <organ_axes/concurrency_axis/axis_08_concurrency_blocking.hpp>
+#include <organ_axes/concurrency_axis/axis_08_concurrency_none.hpp>
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_none.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_observable.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_path_oriented.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_real_descent.hpp>
 
 #include <cstddef>
 #include <cstdint>

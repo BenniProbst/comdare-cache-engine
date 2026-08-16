@@ -5,12 +5,12 @@
 // (CacheLineConfigurable), Default-Verhalten unverändert (nicht-brechend). + make_config-Factory korrekt.
 // Build: cl /std:c++latest /EHsc /I<libs/cache_engine> /I<.../include> /I<.../src> /I<build/generated> ...
 
-#include <axes/node/axis_04_node_type_node4.hpp>
-#include <axes/lookup/axis_03a_search_algo_array256.hpp>
-#include <axes/alloc/axis_06_allocator_std_malloc.hpp>
-#include <axes/layout/axis_05_memory_layout_cache_line_aligned.hpp>
+#include <organ_axes/node/axis_04_node_type_node4.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_array256.hpp>
+#include <organ_axes/alloc/axis_06_allocator_std_malloc.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_cache_line_aligned.hpp>
 #include <topics/nodes/axis_01_page_type/axis_01_page_type_dense_byte.hpp>
-#include <axes/cacheline/cacheline_config.hpp>
+#include <organ_axes/cacheline/cacheline_config.hpp>
 
 #include <cstddef>
 #include <iostream>

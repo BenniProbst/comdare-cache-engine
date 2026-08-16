@@ -2,9 +2,9 @@
 
 DESIGN-ENTSCHEID (#16, laut deklariert): der konkrete Home-Pfad war in keiner Planquelle
 festgelegt (Wellenplan Par. 15.9/17.5, KON27-01, Zielstruktur Par. 1/2c nennen nur
-"FEHLT (anzulegen)", Fach-Zone neben `axes/`). Gewaehlt: `libs/cache_engine/system_axes/`
--- Geschwister des ORGAN-Homes `axes/` in der Fach-Zone, Include-Form `<system_axes/...>`
-(dieselbe Include-Wurzel `libs/cache_engine`, die `<axes/...>` traegt). KEIN Traeger-
+"FEHLT (anzulegen)", Fach-Zone neben `organ_axes/`). Gewaehlt: `libs/cache_engine/system_axes/`
+-- Geschwister des ORGAN-Homes `organ_axes/` in der Fach-Zone, Include-Form `<system_axes/...>`
+(dieselbe Include-Wurzel `libs/cache_engine`, die `<organ_axes/...>` traegt). KEIN Traeger-
 Verzeichnis (`libs/traeger/` ordnet TRAEGER, Homes ordnen KATEGORIEN -- zwei orthogonale
 Ordnungen, Zielstruktur-Schnitt 20260813).
 

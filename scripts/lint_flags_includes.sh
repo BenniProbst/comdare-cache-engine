@@ -3,8 +3,8 @@
 #
 # Invariante: jeder `#include` eines GENERIERTEN `*_flags.hpp` muss den tatsächlichen
 # configure_file-Generierungs-Ort treffen. Hintergrund: die Flags-Header werden je Achse
-# entweder nach `generated/axes/<x>/` ODER nach `generated/topics/<x>/` generiert (NICHT beides).
-# Ein Include über den falschen Pfad (z.B. `topics/...` für einen nach `axes/...` generierten
+# entweder nach `generated/organ_axes/<x>/` ODER nach `generated/topics/<x>/` generiert (NICHT beides).
+# Ein Include ueber den falschen Pfad (z.B. `topics/...` fuer einen nach `organ_axes/...` generierten
 # Flags-Header) kompiliert nur, solange ein stale Build-Artefakt am falschen Ort liegt — ein
 # frischer Build-Dir scheitert (genau der 2026-06-01 gefundene Bug: vendor_includes + 2 Tests).
 #

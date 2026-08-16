@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- DOKU-AKTE (#48 Scheibe 2, 2026-07-22): kein Code-Leser; Allocator-Wahl = CT-Adapter (Statischer-Dispatch-Doktrin). -->
 <comdare_allocator_profile id="vmem_magazines" family_ref="A23">
-  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:36; axes source: axis_06_allocator_vmem_mag.hpp:5,44,47,65-71 -->
+  <!-- metadata source: libs/cache_engine/organ_axes/alloc/PAPER_REFERENCES.md:36; axes source: axis_06_allocator_vmem_mag.hpp:5,44,47,65-71 -->
   <metadata>
     <name>Vmem + Magazines (Slab-Erweiterung)</name>
     <year>2001</year>

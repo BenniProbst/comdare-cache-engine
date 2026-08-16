@@ -31,7 +31,7 @@
 // Sequence/View) und anatomy/container_framework.hpp (Slot-Pins 11/13/9/5) geht.
 //
 // MUSTER: C++23-Concept + CRTP-Wachen-Basis nach dem Repo-Goldstandard
-// axes/io_dispatch/axis_io_strategy_base.hpp (protected CRTP-Ctor traegt die static_asserts).
+// organ_axes/io_dispatch/axis_io_strategy_base.hpp (protected CRTP-Ctor traegt die static_asserts).
 // CT-statisch, zero-cost, dispatch-frei -- keine vtable, kein Runtime-Switch.
 //
 // @doku docs/architecture/20260803-e24_container_gattungs_abi_dossier.md (S12.1, Abschnitt 2.2/2.4)
@@ -524,7 +524,7 @@ static_assert(sizeof(ObservableOrgan<organ_concept_detail::OrganArchetype>) ==
 //     Vereinheitlichung waere ein Wire-POD-Ereignis und gehoert damit in den b-Teil (C6), nicht hierher.
 //
 // L5  [C1 GESCHLOSSEN] DIE FUENF ANATOMIEN ERBEN OrganGuard. Angeheftet nach dem Repo-Goldstandard
-//     axes/io_dispatch/axis_io_strategy_base.hpp:15-21 (protected CRTP-Ctor traegt die static_asserts):
+//     organ_axes/io_dispatch/axis_io_strategy_base.hpp:15-21 (protected CRTP-Ctor traegt die static_asserts):
 //     search_algorithm_anatomy.hpp / set_anatomy.hpp / sequence_anatomy.hpp / adapter_anatomy.hpp /
 //     view_anatomy.hpp. Wirkung: jede Anatomie prueft sich bei ihrer ERSTEN Konstruktion selbst gegen
 //     OrganConcept -- der Vertrag kann nicht mehr still auseinanderlaufen. Kein ABI-Ereignis (leere

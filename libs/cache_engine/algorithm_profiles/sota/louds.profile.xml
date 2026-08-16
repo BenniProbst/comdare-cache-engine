@@ -2,7 +2,7 @@
 <comdare_algorithm_profile id="louds" paper_ref="P09" pruefling_type="abstract">
   <!-- abstract Pruefling marker -> axis_05 PackedBitmapMemoryLayout.
        Metadata source: docs/architecture/18_achsen_algorithmus_paper_code_map.md:127,383.
-       Wrapper source: libs/cache_engine/axes/layout/axis_05_memory_layout_packed_bitmap.hpp:17-43. -->
+       Wrapper source: libs/cache_engine/organ_axes/layout/axis_05_memory_layout_packed_bitmap.hpp:17-43. -->
   <metadata>
     <name>Space-efficient Static Trees and Graphs (LOUDS)</name>
     <authors>Jacobson</authors>

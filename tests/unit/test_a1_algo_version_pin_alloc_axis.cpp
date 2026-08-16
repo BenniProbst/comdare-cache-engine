@@ -43,7 +43,7 @@
 // beruehrt. Der Kontrast arbeitet auf einer LOKALEN Kopie der Versions-Tabelle.
 // ASCII-only.
 
-#include <axes/alloc/axis_06_allocator_registry.hpp>
+#include <organ_axes/alloc/axis_06_allocator_registry.hpp>
 #include <builder/experiment_tree/axis_variant_version_table.hpp>
 #include <cache_engine/measurement/algo_semver.hpp>
 

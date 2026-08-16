@@ -22,9 +22,9 @@
 //
 // DOKTRIN: header-only C++23, ASCII-Kommentare, consteval (compile-time only, nie zur Laufzeit).
 
-#include "../../../axes/alloc/alloc_hw_config.hpp"       // kAllocHwSubaxisVersion
-#include "../../../axes/cacheline/cacheline_config.hpp"  // kCacheLineSubaxisVersion
-#include "../../../axes/cacheline/node_width_config.hpp" // kNodeWidthSubaxisVersion
+#include "../../../organ_axes/alloc/alloc_hw_config.hpp"       // kAllocHwSubaxisVersion
+#include "../../../organ_axes/cacheline/cacheline_config.hpp"  // kCacheLineSubaxisVersion
+#include "../../../organ_axes/cacheline/node_width_config.hpp" // kNodeWidthSubaxisVersion
 
 #include <array>
 #include <cstddef>
