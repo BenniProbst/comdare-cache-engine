@@ -61,10 +61,12 @@
 #   * Sie prueft nur den DIFF-BEREICH, nicht den Gesamtbestand -- Alt-Zeilen,
 #     die nur durch reines Whitespace-Reformatieren zu "+"-Zeilen werden,
 #     zaehlt sie trotzdem (kein `git diff -w`); das ist Aufrufer-Sache.
-#   * Sie prueft ALLES ausser zwei ausdruecklich benannten Ausnahmen (s.
+#   * Sie prueft ALLES ausser zwei ausdruecklich benannten VOLL-Ausnahmen (s.
 #     skip_grund() unten): deutsche Doku-Prosa (*.md) traegt per Sprachdoktrin
 #     korrekte Umlaute, und Vendor-Baeume mit COMDARE-VENDOR-PROVENANCE.md sind
-#     fremder Quelltext, den niemand umschreiben darf. Ausgenommene Zeilen werden
+#     fremder Quelltext, den niemand umschreiben darf. Dazu EINE NUR-BREITEN-
+#     Ausnahme (16.08.2026, Begruendung unten im eigenen Abschnitt): *.xml wird
+#     auf ASCII geprueft, aber nicht auf Spaltenbreite. Ausgenommene Zeilen werden
 #     trotzdem GEZAEHLT und ihre Dateien NAMENTLICH samt GRUND gemeldet, damit
 #     "ausserhalb des Scopes" nicht zu einer zweiten stillen Null wird. Rohe
 #     Build-/Test-Logs mit Unicode-Trennlinien (CMake/make) stehen nie in einem
@@ -94,6 +96,24 @@
 # und sieht nur HINZUGEFUEGTE Zeilen. Der Umbau stoppt den ZUWACHS. Der Bestand
 # ist ein eigener Posten (analog zum ASCII-Zaehler des Wellenplans fuer W7) --
 # ausdruecklich UNGEDECKT und hier benannt, damit er nicht still bleibt.
+#
+# WARUM *.xml AM 16.08.2026 VON DER BREITEN-REGEL (NICHT VON ASCII) FREIGESTELLT
+# WURDE (Befund am Objekt, golden-homes-Landung, Bereich 0eea2a0a..369b62ce):
+# Der Landebereich trug 131 Breiten-Verstoesse, davon 96 in XML: 83 GENERIERTE
+# Registry-Records (libs/cache_engine/algorithm_profiles/cache_engine_axis_registry.xml,
+# EIN Record je Zeile, 184-343 Byte, "NICHT von Hand editieren" steht im Kopf der
+# Datei selbst), 12 Profil-Kommentarzeilen, 1 Fixture-Record (266 Byte). Die
+# 120er-Grenze ist der ColumnLimit aus .clang-format -- ein C++-FORMAT-Vertrag;
+# einen XML-Formatierer-Vertrag gibt es in diesem Baum nicht, und ein
+# Generator-Umbruch haette die Registry (TABU-Datei) komplett neu geschrieben
+# und ihre Ein-Record-je-Zeile-Form gebrochen, auf der die Registry-Analytik
+# (zeilenweises grep nach header=) steht. NUR die BREITE ist frei: ASCII wird
+# fuer *.xml WEITER geprueft -- das ist strenger als die Whitelist-Aera vor dem
+# 10.08.2026, die .xml ueberhaupt nie angesehen hat. Die Ausnahme ist NICHT
+# still (width-freie Zeilen werden gezaehlt und je Datei mit GRUND genannt) und
+# NICHT ungeprueft: Selbsttest-Fall 16 pinnt die Breiten-Haelfte, Fall 17 die
+# scharfe ASCII-Haelfte, und der bestehende Fall 6 ist der Gegeneingang dafuer,
+# dass dieselbe ueberlange Zeile AUSSERHALB von *.xml weiter beisst.
 #
 # WAS DER UMBAU KOSTET, auf ECHTEN Bereichen gemessen statt geschaetzt (dieselbe
 # Wache, einmal mit alter und einmal mit neuer skip_grund(), gegen dieselben
@@ -638,7 +658,9 @@ awk -v vendor_roots="$_ce_vendor_roots" '
         total_skipped = 0
         ascii_viol = 0
         width_viol = 0
+        width_frei = 0
         skipped_files_n = 0
+        wskipped_files_n = 0
         fatal = 0
         for (n = 128; n <= 255; n++) { is_high[sprintf("%c", n)] = 1 }
         sigma = sprintf("%c%c", 194, 167)   # SS als UTF-8: 0xC2 0xA7 -- erlaubte Ausnahme
@@ -682,6 +704,27 @@ awk -v vendor_roots="$_ce_vendor_roots" '
         # galt nie fuer Quelltext, der nur zufaellig nicht auf der Liste stand.
         if (ext == ".md") return "Doku-Prosa *.md, Sprachdoktrin"
         return ""
+    }
+    # NUR-BREITEN-AUSNAHME (16.08.2026, Begruendung im Kopf): *.xml. Rueckgabe
+    # wie bei skip_grund(): leer heisst "Breite wird geprueft", sonst der GRUND.
+    # Sie liegt bewusst NICHT in skip_grund(): eine Datei hier bleibt GESCOPED
+    # und ASCII-geprueft -- ein dritter skip_grund()-Zweig waere die Rueckkehr
+    # der Whitelist-Aera (Datei komplett unsichtbar). Selbsttest: Fall 16 pinnt
+    # die Breiten-Haelfte, Fall 17 die scharfe ASCII-Haelfte, Fall 6 den
+    # Gegeneingang (dieselbe Ueberlaenge AUSSERHALB von *.xml beisst weiter).
+    function breite_frei_grund(fname,    base, i, last_dot, ext) {
+        base = fname
+        i = length(base)
+        while (i > 0 && substr(base, i, 1) != "/") i--
+        base = substr(base, i + 1)
+        last_dot = 0
+        for (i = 1; i <= length(base); i++) if (substr(base, i, 1) == ".") last_dot = i
+        ext = (last_dot == 0) ? "" : substr(base, last_dot)
+        if (ext == ".xml") return "XML-Markup *.xml, nur Breite frei (ASCII gilt)"
+        return ""
+    }
+    function note_wskip(f, grund) {
+        if (!(f in wskipped_files)) { wskipped_files[f] = grund; wskipped_files_n++ }
     }
     function strip_sigma(s,    i, out, two) {
         out = ""
@@ -780,8 +823,14 @@ awk -v vendor_roots="$_ce_vendor_roots" '
                     printf "  NICHT-ASCII   %s:%d\n", curfile, newline_no
                 }
                 if (length(content) > 120) {
-                    width_viol++
-                    printf "  >120-SPALTEN  %s:%d (%d Byte)\n", curfile, newline_no, length(content)
+                    wgrund = breite_frei_grund(curfile)
+                    if (wgrund == "") {
+                        width_viol++
+                        printf "  >120-SPALTEN  %s:%d (%d Byte)\n", curfile, newline_no, length(content)
+                    } else {
+                        width_frei++
+                        note_wskip(curfile, wgrund)
+                    }
                 }
             } else {
                 total_skipped++
@@ -800,16 +849,18 @@ awk -v vendor_roots="$_ce_vendor_roots" '
         printf "SUMMARY_SKIPPED=%d\n", total_skipped > "'"$_ce_awk_out"'.meta"
         printf "SUMMARY_ASCII=%d\n",   ascii_viol     > "'"$_ce_awk_out"'.meta"
         printf "SUMMARY_WIDTH=%d\n",   width_viol     > "'"$_ce_awk_out"'.meta"
+        printf "SUMMARY_WIDTH_FREI=%d\n", width_frei  > "'"$_ce_awk_out"'.meta"
         # Tabulator als Trenner: Dateinamen im Baum enthalten keinen, und die
         # Shell-Seite liest Pfad und Grund damit ohne Rateschritt auseinander.
         for (f in skipped_files) print f "\t" skipped_files[f] > "'"$_ce_awk_out"'.skipped"
+        for (f in wskipped_files) print f "\t" wskipped_files[f] > "'"$_ce_awk_out"'.wskipped"
     }
 ' "$_ce_diff_datei" > "$_ce_awk_out"
 _ce_awk_rc=$?
 
 if [ "$_ce_awk_rc" -ne 0 ]; then
     cat "$_ce_awk_out" 2>/dev/null
-    rm -f "${_ce_awk_out}.meta" "${_ce_awk_out}.skipped"
+    rm -f "${_ce_awk_out}.meta" "${_ce_awk_out}.skipped" "${_ce_awk_out}.wskipped"
     ce_abbruch "awk-Verarbeitung des Diffs fehlgeschlagen (rc=${_ce_awk_rc}) -- s. FATAL-Zeile oben."
 fi
 
@@ -829,6 +880,7 @@ _ce_scoped=0
 _ce_skipped=0
 _ce_ascii=0
 _ce_width=0
+_ce_wfrei=0
 while IFS='=' read -r _ce_k _ce_v; do
     case "$_ce_k" in
         SUMMARY_ADDED)   _ce_added=$_ce_v ;;
@@ -836,6 +888,7 @@ while IFS='=' read -r _ce_k _ce_v; do
         SUMMARY_SKIPPED) _ce_skipped=$_ce_v ;;
         SUMMARY_ASCII)   _ce_ascii=$_ce_v ;;
         SUMMARY_WIDTH)   _ce_width=$_ce_v ;;
+        SUMMARY_WIDTH_FREI) _ce_wfrei=$_ce_v ;;
     esac
 done < "${_ce_awk_out}.meta"
 
@@ -845,10 +898,11 @@ echo "NENNER (nie eine nackte Null):"
 echo "  ${_ce_scoped} Zusatzzeilen in selbst verfasstem Code geprueft, davon ${_ce_ascii} Nicht-ASCII,"
 echo "  davon ${_ce_width} ueber 120 Spalten."
 echo "  ${_ce_added} Zusatzzeilen insgesamt im Diff; ${_ce_skipped} davon uebersprungen."
-echo "  GEPRUEFT WIRD ALLES; ausgenommen sind genau zwei Klassen, je Datei unten"
-echo "  mit GRUND benannt: Doku-Prosa *.md und Vendor-Baeume. Die frueher hier"
-echo "  gedruckte Sammelbezeichnung \"(Doku-Prosa/Sonstiges)\" war irrefuehrend --"
-echo "  unter \"Sonstiges\" lagen 143 getrackte *.sh mit 10.084 Zeilen Quelltext."
+echo "  GEPRUEFT WIRD ALLES; VOLL ausgenommen sind genau zwei Klassen, je Datei"
+echo "  unten mit GRUND benannt: Doku-Prosa *.md und Vendor-Baeume. *.xml ist NUR"
+echo "  von der BREITEN-Regel frei (16.08.2026, s. Kopf) und bleibt ASCII-geprueft."
+echo "  Die frueher hier gedruckte Sammelbezeichnung \"(Doku-Prosa/Sonstiges)\" war"
+echo "  irrefuehrend -- darunter lagen 143 getrackte *.sh mit 10.084 Zeilen Quelltext."
 if [ -f "${_ce_awk_out}.skipped" ] && [ -s "${_ce_awk_out}.skipped" ]; then
     echo "  Uebersprungene Dateien (namentlich MIT GRUND, keine zweite stille Null):"
     # printf STATT echo -- und das ist keine Stilfrage (Befund 2026-08-10, am
@@ -867,6 +921,16 @@ if [ -f "${_ce_awk_out}.skipped" ] && [ -s "${_ce_awk_out}.skipped" ]; then
     while IFS="$(printf '\t')" read -r _ce_sf _ce_sg; do
         [ -n "$_ce_sf" ] && printf '    - %s  [%s]\n' "$_ce_sf" "$_ce_sg"
     done < "${_ce_awk_out}.skipped"
+fi
+if [ "$_ce_wfrei" -gt 0 ]; then
+    echo "  BREITEN-AUSNAHME (nicht still): ${_ce_wfrei} Zeile(n) ueber 120 Byte in *.xml"
+    echo "  NICHT als Breiten-Verstoss gezaehlt -- ASCII wurde an ihnen GEPRUEFT."
+    echo "  Je Datei mit GRUND (printf statt echo: s. Begruendung oben):"
+    if [ -f "${_ce_awk_out}.wskipped" ] && [ -s "${_ce_awk_out}.wskipped" ]; then
+        while IFS="$(printf '\t')" read -r _ce_wf _ce_wg; do
+            [ -n "$_ce_wf" ] && printf '    - %s  [%s]\n' "$_ce_wf" "$_ce_wg"
+        done < "${_ce_awk_out}.wskipped"
+    fi
 fi
 if [ -n "$_ce_vendor_roots" ]; then
     echo "  VENDOR-AUSNAHME (nicht still): diese Baeume tragen COMDARE-VENDOR-PROVENANCE.md"
@@ -889,7 +953,7 @@ echo "  nicht der Bestand der beruehrten Dateien und nicht der des Baums. Wer ue
 echo "  eine DATEI urteilen will, misst die Datei -- nicht diesen Bereich."
 echo "-----------------------------------------------------------------------------"
 
-rm -f "${_ce_awk_out}.meta" "${_ce_awk_out}.skipped"
+rm -f "${_ce_awk_out}.meta" "${_ce_awk_out}.skipped" "${_ce_awk_out}.wskipped"
 
 # GRUEN MIT NENNER 0 IST ROT (Hausdoktrin, s. scripts/vor_push_alle_wachen.sh im
 # Kopf). Im DEFAULT-MODUS hat der Aufrufer gesagt "pruefe meinen Arbeitsstand" --

@@ -58,9 +58,14 @@
 #     skip_grund(): Vendor-Baum via Provenance    13     13, nicht 11/12/15
 #     Quotierung: core.quotePath=false            12     12, nicht 15
 #     Quotierung: awk streift Klammerung ab       15     15, nicht 12
+#     breite_frei_grund(): *.xml NUR Breite       16     16; ASCII-Haelfte: 17
 # Zu Fall 13 gehoert Fall 14 als GEGENEINGANG: derselbe Verstoss OHNE die
 # Provenance-Datei muss gemeldet werden. Ohne ihn waere Fall 13 auch von einer
 # Wache zu bestehen, die pauschal alles unter ext/ ueberspringt.
+# Zu Fall 16 gehoeren ZWEI Gegeneingaenge: Fall 17 (Nicht-ASCII in derselben
+# Datei-Klasse MUSS beissen -- sonst waere 16 auch von einer dritten
+# VOLL-Ausnahme in skip_grund() zu bestehen) und der bestehende Fall 6
+# (dieselbe Ueberlaenge in .cpp MUSS beissen -- pinnt die Endungs-Bindung).
 #
 # ZAHLEN IN DIESEM KOPF TRAGEN IHREN ANKER (Stand + Kommando) oder sie stehen
 # nicht hier. Eine nackte Zahl ueber einen lebenden Gegenstand verjaehrt zwischen
@@ -528,6 +533,48 @@ _st_erw=$(printf '%s\n%s\n' \
 ( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh --stdin < "$_st_diff" ) \
     > "$_st_out" 2>&1
 st_bewerte "15 awk-Entklammerung haelt (stdin)" 0 "$_st_erw" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
+# --- Fall 16: die NUR-BREITEN-Ausnahme fuer *.xml haelt -- und sie ist nicht still ---
+# BEFUND, DER DIESEN FALL ERZWINGT (2026-08-16, golden-homes-Landung, am Objekt
+# gemessen): der Landebereich 0eea2a0a..369b62ce trug 131 Breiten-Verstoesse,
+# davon 96 in XML -- 83 davon GENERIERTE Registry-Records (EIN Record je Zeile;
+# "NICHT von Hand editieren" steht im Kopf der Datei selbst). Die 120er-Grenze
+# ist der ColumnLimit aus .clang-format, ein C++-Format-Vertrag; einen
+# XML-Formatierer-Vertrag gibt es in diesem Baum nicht. Die Wache stellt
+# deshalb fuer *.xml NUR die Breiten-Regel frei; ASCII bleibt scharf (Fall 17),
+# und dieselbe Ueberlaenge AUSSERHALB von *.xml beisst weiter (Fall 6).
+# Die Zusicherungen pinnen beide Haelften der Meldung: der Nenner zaehlt die
+# Zeile als GEPRUEFT (nicht uebersprungen -- das trennt diese Schicht von
+# skip_grund()), und die Datei steht NAMENTLICH mit GRUND in der
+# Breiten-Ausnahme. Eine stille dritte Klasse waere die naechste Falle.
+st_neues_repo
+printf '<!-- %s %s -->\n' "$_st_kennzeichen" "$(od -An -N70 -tx1 /dev/urandom | tr -d ' \n')" \
+    > "${_st_repo}/probe_daten.xml"
+git -C "$_st_repo" add probe_daten.xml || st_abbruch "git add (Fall 16) fehlgeschlagen."
+_st_erw=$(printf '%s\n%s\n%s\n' \
+    "GRUEN" \
+    "1 Zusatzzeilen in selbst verfasstem Code geprueft" \
+    "- probe_daten.xml  [XML-Markup *.xml, nur Breite frei (ASCII gilt)]")
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
+st_bewerte "16 xml-Breiten-Ausnahme haelt" 0 "$_st_erw" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
+# --- Fall 17: ASCII bleibt in *.xml SCHARF -- die Ausnahme ist NUR die Breite ---
+# Ohne diesen Fall waere Fall 16 auch von einer dritten VOLL-Ausnahme in
+# skip_grund() zu bestehen -- dann waere *.xml komplett blind, also exakt der
+# Zustand der Whitelist-Aera vor dem 10.08.2026 zurueck. Der Koeder ist die
+# gleiche Datei-Klasse mit dem gewuerfelten Nicht-ASCII-Zeichen; er MUSS
+# NAMENTLICH gemeldet werden, nicht bloss den Exit kippen.
+st_neues_repo
+printf '<!-- KOEDER %s %s -->\n' "$_st_kennzeichen" "$_st_na" \
+    > "${_st_repo}/probe_daten.xml"
+git -C "$_st_repo" add probe_daten.xml || st_abbruch "git add (Fall 17) fehlgeschlagen."
+_st_erw=$(printf '%s\n%s\n' \
+    "NICHT-ASCII" \
+    "probe_daten.xml")
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
+st_bewerte "17 xml bleibt ASCII-geprueft" 1 "$_st_erw" "$?" "$_st_out"
 rm -rf "$_st_repo"
 
 rm -f "$_st_out" "$_st_muster_datei" "$_st_diff"
