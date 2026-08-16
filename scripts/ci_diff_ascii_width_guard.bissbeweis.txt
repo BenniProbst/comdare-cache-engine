@@ -323,3 +323,47 @@ DIFF-HYGIENE-WACHE: GRUEN.
 ###
 ################################################################################
 ################################################################################
+
+################################################################################
+### NACHTRAG 2026-08-16 (golden-fenster A2.5): *.xml NUR-BREITEN-AUSNAHME
+### Wache-Stand: f4e29eab (Fassung mit breite_frei_grund(), Selbsttest 17 Faelle)
+################################################################################
+###
+### BISS VOR DEM UMBAU, am ECHTEN Bereich erhoben (kein praeparierter Diff):
+###   sh scripts/ci_diff_ascii_width_guard.sh 5fa37f36..369b62ce
+###     -> "140 Zusatzzeilen ... davon 4 ueber 120 Spalten" / ROT (Exit 1)
+###        (alle 4: libs/cache_engine/builder/commands/axis_library_registry.hpp
+###         :131 125 Byte, :134 121, :263 126, :266 121)
+###   sh scripts/ci_diff_ascii_width_guard.sh 0eea2a0a..369b62ce
+###     -> "3879 Zusatzzeilen ... davon 131 ueber 120 Spalten" / ROT (Exit 1)
+###   sh scripts/ci_diff_ascii_width_guard.sh 8fe66469..369b62ce
+###     -> "7225 Zusatzzeilen ... davon 131 ueber 120 Spalten" / ROT (Exit 1)
+###   Zerlegung der 131: 96 in *.xml (83 generierte Registry-Records, 12
+###   Profil-Kommentarzeilen, 1 Fixture-Record) + 34 Quell-/Testzeilen +
+###   1 CMakeLists.txt:1391.
+###
+### NACH DEM UMBAU (f4e29eab), VOR den Quell-Fixes -- die Ausnahme traegt NUR
+### die XML-Haelfte, der Rest beisst weiter (kein stilles Gesamt-Gruen):
+###   sh scripts/ci_diff_ascii_width_guard.sh 0eea2a0a..369b62ce
+###     -> "davon 35 ueber 120 Spalten" / ROT (Exit 1)
+###        + "BREITEN-AUSNAHME (nicht still): 96 Zeile(n) ueber 120 Byte in
+###           *.xml ... Je Datei mit GRUND" (14 Dateien namentlich)
+###
+### SELBSTTEST (ausfuehrbarer Beweis, Koeder je Lauf frisch gewuerfelt):
+###   sh scripts/ci_diff_ascii_width_guard.selbsttest.sh
+###     -> "17 von 17 Faellen wie erwartet, 0 abweichend." / GRUEN (Exit 0)
+###   Fall 16: ueberlange ASCII-Zeile in probe_daten.xml -> Exit 0 GRUEN, Zeile
+###     GEZAEHLT ("1 Zusatzzeilen ... geprueft") UND namentlich in der
+###     Breiten-Ausnahme ("- probe_daten.xml  [XML-Markup *.xml, nur Breite
+###     frei (ASCII gilt)]"). 3 Zusicherungen.
+###   Fall 17: Nicht-ASCII-Koeder in probe_daten.xml -> Exit 1 ROT,
+###     "NICHT-ASCII" namentlich an probe_daten.xml. 2 Zusicherungen.
+###   Gegeneingang Endungs-Bindung = Fall 6 (dieselbe Ueberlaenge in .cpp
+###     beisst weiter, Exit 1).
+###
+### GEGENPROBE NACH DEN QUELL-FIXES (7f4710f6, 35 Zeilen <=120 + Lock-Regen):
+###   5fa37f36..HEAD -> "340 Zusatzzeilen ... 0 Nicht-ASCII ... 0 ueber 120" GRUEN
+###   0eea2a0a..HEAD -> "4038 ... 0 ... 0" + Breiten-Ausnahme 96 benannt, GRUEN
+###   8fe66469..HEAD -> "7384 ... 0 ... 0" + Breiten-Ausnahme 96 benannt, GRUEN
+###   Alle drei Exit 0.
+################################################################################
