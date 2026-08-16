@@ -125,16 +125,16 @@ public:
             // = TODO-Systemachse (Dossier 23 S-2), hier nicht vorhanden.
         } else if (axis_id == "6.3") {
             result.push_back({"6.3", "Local",
-                              "cache_engine/axes/alloc/alloc_hw_config.hpp::AllocNumaNode (NUMA-Allocator-Kante, "
+                              "cache_engine/organ_axes/alloc/alloc_hw_config.hpp::AllocNumaNode (NUMA-Allocator-Kante, "
                               "compile-time Unterachse; ex-Phantom numa_affinity.hpp::NumaAffinity)"});
             result.push_back({"6.3", "Interleave",
-                              "cache_engine/axes/alloc/axis_06_allocator_subaxes_aa1_to_aa7.hpp AA5 allocation_policy "
+                              "cache_engine/organ_axes/alloc/axis_06_allocator_subaxes_aa1_to_aa7.hpp AA5 allocation_policy "
                               "(NUMA-origin-aware); Host-NUMA-Interleave = TODO-Systemachse (Dossier 23 S-2)"});
             result.push_back({"6.3", "Preferred",
-                              "cache_engine/axes/alloc/alloc_hw_config.hpp::AllocNumaNode (Auto/Node-Praeferenz); "
+                              "cache_engine/organ_axes/alloc/alloc_hw_config.hpp::AllocNumaNode (Auto/Node-Praeferenz); "
                               "Host-Preferred-Regie = TODO-Systemachse (Dossier 23 S-2)"});
             result.push_back({"6.3", "Bind",
-                              "cache_engine/axes/alloc/alloc_hw_config.hpp::AllocNumaNode{Node0,Node1} "
+                              "cache_engine/organ_axes/alloc/alloc_hw_config.hpp::AllocNumaNode{Node0,Node1} "
                               "(if-constexpr numa_capable-gated)"});
 
             // ===== Achse 6.4: Huge-Page Strategy =====
@@ -179,16 +179,16 @@ public:
             // umgebogen.
         } else if (axis_id == "8.2") {
             result.push_back({"8.2", "Optimistic",
-                              "cache_engine/axes/concurrency_axis/axis_08_concurrency_registry.hpp::"
+                              "cache_engine/organ_axes/concurrency_axis/axis_08_concurrency_registry.hpp::"
                               "OlcOptimisticConcurrency (live CRTP-Organ; ex-Phantom locking_mode.hpp)"});
             result.push_back({"8.2", "Pessimistic",
-                              "cache_engine/axes/concurrency_axis/axis_08_concurrency_registry.hpp::"
+                              "cache_engine/organ_axes/concurrency_axis/axis_08_concurrency_registry.hpp::"
                               "BlockingConcurrency (live CRTP-Organ, coarse-grained std::mutex; ex-Phantom)"});
             result.push_back({"8.2", "LockFree",
-                              "cache_engine/axes/concurrency_axis/axis_08_concurrency_registry.hpp::"
+                              "cache_engine/organ_axes/concurrency_axis/axis_08_concurrency_registry.hpp::"
                               "LockFreeConcurrency (live CRTP-Organ; ex-Phantom)"});
             result.push_back({"8.2", "WaitFree",
-                              "cache_engine/axes/concurrency_axis/axis_08_concurrency_registry.hpp::"
+                              "cache_engine/organ_axes/concurrency_axis/axis_08_concurrency_registry.hpp::"
                               "WaitFreeConcurrency (live CRTP-Organ; ex-Phantom)"});
 
             // ===== Achse 9: ISA-Targeting =====
@@ -257,16 +257,16 @@ public:
             // Kante alloc_hw umgebogen (identisch Achse 6.3). Host-NUMA-Regie =
             // TODO-Systemachse (Dossier 23 S-2).
             result.push_back({"12.3", "Local",
-                              "cache_engine/axes/alloc/alloc_hw_config.hpp::AllocNumaNode (NUMA-Allocator-Kante; "
+                              "cache_engine/organ_axes/alloc/alloc_hw_config.hpp::AllocNumaNode (NUMA-Allocator-Kante; "
                               "ex-Draft hardware_strategy.hpp::NumaStrategy)"});
             result.push_back({"12.3", "Interleave",
-                              "cache_engine/axes/alloc/axis_06_allocator_subaxes_aa1_to_aa7.hpp AA5 allocation_policy; "
+                              "cache_engine/organ_axes/alloc/axis_06_allocator_subaxes_aa1_to_aa7.hpp AA5 allocation_policy; "
                               "Host-Interleave = TODO-Systemachse"});
             result.push_back({"12.3", "Preferred",
-                              "cache_engine/axes/alloc/alloc_hw_config.hpp::AllocNumaNode; Host-Preferred-Regie = "
+                              "cache_engine/organ_axes/alloc/alloc_hw_config.hpp::AllocNumaNode; Host-Preferred-Regie = "
                               "TODO-Systemachse"});
             result.push_back({"12.3", "Bind",
-                              "cache_engine/axes/alloc/alloc_hw_config.hpp::AllocNumaNode{Node0,Node1} "
+                              "cache_engine/organ_axes/alloc/alloc_hw_config.hpp::AllocNumaNode{Node0,Node1} "
                               "(if-constexpr numa_capable-gated)"});
 
             // ===== Achse 12.4: Prefetch-Distance =====

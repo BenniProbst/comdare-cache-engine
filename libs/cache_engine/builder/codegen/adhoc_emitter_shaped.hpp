@@ -2,7 +2,7 @@
 // 234-V-a (2026-07-07, User-GO Option A) -- SHAPED-Emission als SIBLING zum R5.G-adhoc_emitter.
 //
 // BEWUSST eigener Header (nicht in adhoc_emitter.hpp): der organ_for!=void-Filter braucht
-// <axes/lookup/composable/organ_for_search_algo.hpp> und damit den Pool-Store-Include-Baum inkl.
+// <organ_axes/lookup/composable/organ_for_search_algo.hpp> und damit den Pool-Store-Include-Baum inkl.
 // generierter axis_*_flags.hpp. Der Plain-Emitter wird von Konsumenten OHNE diese Include-Wurzeln
 // gebaut (tools-Facade, ceb_generator) -- ihr Include-Graph bleibt hier byte-identisch unangetastet.
 // Konsumenten dieses Headers (Tests, spaeter der Baum-Pfad in 234-V-b) bringen die Achsen-Wurzeln mit.
@@ -12,7 +12,7 @@
 
 #include "adhoc_emitter.hpp"
 
-#include <axes/lookup/composable/organ_for_search_algo.hpp> // Filter: exakt die Adapter-Ableitung (pool_family_)
+#include <organ_axes/lookup/composable/organ_for_search_algo.hpp> // Filter: exakt die Adapter-Ableitung (pool_family_)
 
 #include <filesystem>
 #include <fstream>

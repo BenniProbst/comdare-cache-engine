@@ -15,11 +15,11 @@
 #include <anatomy/observer_aggregate.hpp>
 #include <topics/axis_command_base.hpp>
 #include <topics/traversal/axis_03a_search_algo/composable/observable_composed_search.hpp> // Saeule-2
-#include <axes/lookup/composable/organ_for_search_algo.hpp>
-#include <axes/lookup/composable/observable_composed_container.hpp>
-#include <axes/lookup/composable/store_traversable_search_algo.hpp>
-#include <axes/lookup/composable/traversal_for_search_algo.hpp>
-#include <axes/node/axis_04_node_type_composed_store.hpp>
+#include <organ_axes/lookup/composable/organ_for_search_algo.hpp>
+#include <organ_axes/lookup/composable/observable_composed_container.hpp>
+#include <organ_axes/lookup/composable/store_traversable_search_algo.hpp>
+#include <organ_axes/lookup/composable/traversal_for_search_algo.hpp>
+#include <organ_axes/node/axis_04_node_type_composed_store.hpp>
 
 #include <cstdint>
 #include <optional>

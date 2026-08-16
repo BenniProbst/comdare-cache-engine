@@ -36,8 +36,8 @@
 #include <topics/filter/axis_filter/axis_filter_registry.hpp>          // T16 filter
 // Doc 30 §8.0: queuing als reguläre SA-Achse (q1 buffer_strategy / q2 flush_policy). Die Registries ziehen
 // alle Varianten inkl. der Durchreich-Defaults NoBuffer (q1) / LazyFlush (q2), die ein nicht-pufferndes Tier wählt.
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_registry.hpp> // T17 queuing_q1
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_registry.hpp> // T18 queuing_q2
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_registry.hpp> // T17 queuing_q1
+#include <organ_axes/axis_q2_queuing/axis_q2_queuing_registry.hpp> // T18 queuing_q2
 // STRUKT-R ORG-18: 18. Organ-Haupt-Achse. Ohne diesen Include melden die emittierten perm_<id>.cpp
 // "kein Member persistence_target" -- der Umbrella IST die Sichtbarkeits-Quelle des Codegen.
 #include <topics/io/axis_persistence_target/axis_persistence_target_registry.hpp> // persistence_target
@@ -47,7 +47,7 @@
 // Komposition-Slots SIND `ObservableNodeType<…>` etc. Der TYP-getriebene Emitter (adhoc_macro_args) schreibt
 // genau diese dekorierten FQ-Namen in den Modul-Quelltext → die Hüllen-Header MÜSSEN über den Umbrella sichtbar
 // sein, sonst „ObservableSerialization ist kein Member" (C3878, Befund 2026-06-03 beim ersten realen perm-DLL-Build).
-#include <axes/node/axis_04_node_type_observable.hpp>                   // ObservableNodeType<S>
-#include <axes/layout/axis_05_memory_layout_observable.hpp>             // ObservableMemoryLayout<S>
-#include <axes/serialization_axis/axis_10_serialization_observable.hpp> // ObservableSerialization<S>
-#include <axes/telemetry_axis/axis_11_telemetry_observable.hpp>         // ObservableTelemetry<S>
+#include <organ_axes/node/axis_04_node_type_observable.hpp>                   // ObservableNodeType<S>
+#include <organ_axes/layout/axis_05_memory_layout_observable.hpp>             // ObservableMemoryLayout<S>
+#include <organ_axes/serialization_axis/axis_10_serialization_observable.hpp> // ObservableSerialization<S>
+#include <organ_axes/telemetry_axis/axis_11_telemetry_observable.hpp>         // ObservableTelemetry<S>

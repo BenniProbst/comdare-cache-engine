@@ -46,15 +46,17 @@
 //
 // -- WO DIE ORGAN-ACHSEN WIRKLICH WOHNEN (am Objekt erhoben, nicht angenommen) -------------------------
 // 16 der 18 Organ-Achsen haben unter topics/ nur eine WEITERLEITUNGS-HUELLE (4-5 Zeilen: #include
-// <axes/...> + using namespace); ihre eigene Implementierung liegt unter libs/cache_engine/axes/.
+// <organ_axes/...> + using namespace); ihre eigene Implementierung liegt unter libs/cache_engine/organ_axes/.
 // Beleg-Beispiel: topics/allocator/axis_06_allocator/axis_06_allocator_registry.hpp ist vier Zeilen lang
-// und leitet nach axes/alloc/ weiter. Die Bindung Achsen-NAME -> Typ steht in
+// und leitet nach organ_axes/alloc/ weiter. Die Bindung Achsen-NAME -> Typ steht in
 // experiment_tree/registry_to_axis_levels.hpp:51-81 (axes26::T*) und :127-141/:166-168
 // (push_static_axis<...>(lv, "<name>")).
-// DESHALB TRAEGT EINE ORGAN-ACHSE HIER ZWEI PFADE: das Owner-Verzeichnis unter axes/ UND das
+// DESHALB TRAEGT EINE ORGAN-ACHSE HIER ZWEI PFADE: das Owner-Verzeichnis unter organ_axes/ UND das
 // Andock-Verzeichnis unter topics/. Beide sind Quelltext dieser Achse -- eine Aenderung an der Huelle
 // aendert, was die Binary einbindet, also muss sie in den Hash. queuing_q1/queuing_q2 sind die zwei
-// Ausnahmen: sie liegen NATIV unter topics/ und tragen deshalb nur EINEN Pfad.
+// Ausnahmen: ihre Implementierung wohnt seit dem #72-Umzug (KON72-05, 15.08.2026) im ORGAN-Home
+// organ_axes/axis_q{1,2}_queuing/ und traegt nur EINEN Pfad; die Topic-Huelle (2 Dateien unter
+// topics/queuing/) bleibt BEWUSST ausserhalb des Schnitts (keine Achsen-Implementierung, s. Lock-Kopf D1).
 //
 // -- DIE ABGRENZUNG ZU DEN NACHBAR-GLIEDERN (am Code erhoben) ------------------------------------------
 //   Glied [5] Toolchain traegt BAU-SCHALTER (Dialekt, Compiler-Version, opt-Flags, atomic128, ext, bt,
@@ -127,40 +129,41 @@ struct Eintrag {
 /// (gut) oder, wenn jemand sie mitzieht ohne zu zaehlen, gar nicht.
 inline constexpr auto kOverlaySourceSet = std::to_array<Eintrag>({
     // -- ORGAN (18 Achsen, Ordnung == kCompositionAxisNames) ------------------------------------------
-    {Kategorie::organ, "search_algo", Form::verzeichnis, "axes/lookup", ""},
+    {Kategorie::organ, "search_algo", Form::verzeichnis, "organ_axes/lookup", ""},
     {Kategorie::organ, "search_algo", Form::verzeichnis, "topics/traversal/axis_03a_search_algo", ""},
-    {Kategorie::organ, "cache_traversal", Form::verzeichnis, "axes/cache_traversal", ""},
+    {Kategorie::organ, "cache_traversal", Form::verzeichnis, "organ_axes/cache_traversal", ""},
     {Kategorie::organ, "cache_traversal", Form::verzeichnis, "topics/traversal/axis_03b_cache_traversal", ""},
-    {Kategorie::organ, "mapping", Form::verzeichnis, "axes/mapping", ""},
+    {Kategorie::organ, "mapping", Form::verzeichnis, "organ_axes/mapping", ""},
     {Kategorie::organ, "mapping", Form::verzeichnis, "topics/traversal/axis_03m_mapping", ""},
-    {Kategorie::organ, "path_compression", Form::verzeichnis, "axes/path_compression", ""},
+    {Kategorie::organ, "path_compression", Form::verzeichnis, "organ_axes/path_compression", ""},
     {Kategorie::organ, "path_compression", Form::verzeichnis, "topics/nodes/axis_02_path_compression", ""},
-    {Kategorie::organ, "node_type", Form::verzeichnis, "axes/node", ""},
+    {Kategorie::organ, "node_type", Form::verzeichnis, "organ_axes/node", ""},
     {Kategorie::organ, "node_type", Form::verzeichnis, "topics/nodes/axis_04_node_type", ""},
-    {Kategorie::organ, "memory_layout", Form::verzeichnis, "axes/layout", ""},
+    {Kategorie::organ, "memory_layout", Form::verzeichnis, "organ_axes/layout", ""},
     {Kategorie::organ, "memory_layout", Form::verzeichnis, "topics/memory_layout/axis_05_memory_layout", ""},
-    {Kategorie::organ, "allocator", Form::verzeichnis, "axes/alloc", ""},
+    {Kategorie::organ, "allocator", Form::verzeichnis, "organ_axes/alloc", ""},
     {Kategorie::organ, "allocator", Form::verzeichnis, "topics/allocator/axis_06_allocator", ""},
-    {Kategorie::organ, "prefetch", Form::verzeichnis, "axes/prefetch_axis", ""},
+    {Kategorie::organ, "prefetch", Form::verzeichnis, "organ_axes/prefetch_axis", ""},
     {Kategorie::organ, "prefetch", Form::verzeichnis, "topics/prefetch/axis_07_prefetch", ""},
-    {Kategorie::organ, "concurrency", Form::verzeichnis, "axes/concurrency_axis", ""},
+    {Kategorie::organ, "concurrency", Form::verzeichnis, "organ_axes/concurrency_axis", ""},
     {Kategorie::organ, "concurrency", Form::verzeichnis, "topics/concurrency/axis_08_concurrency", ""},
-    {Kategorie::organ, "serialization", Form::verzeichnis, "axes/serialization_axis", ""},
+    {Kategorie::organ, "serialization", Form::verzeichnis, "organ_axes/serialization_axis", ""},
     {Kategorie::organ, "serialization", Form::verzeichnis, "topics/serialization/axis_10_serialization", ""},
-    {Kategorie::organ, "value_handle", Form::verzeichnis, "axes/value_handle_axis", ""},
+    {Kategorie::organ, "value_handle", Form::verzeichnis, "organ_axes/value_handle_axis", ""},
     {Kategorie::organ, "value_handle", Form::verzeichnis, "topics/value_handle/axis_14_value_handle", ""},
-    {Kategorie::organ, "index_organization", Form::verzeichnis, "axes/index_organization", ""},
+    {Kategorie::organ, "index_organization", Form::verzeichnis, "organ_axes/index_organization", ""},
     {Kategorie::organ, "index_organization", Form::verzeichnis, "topics/search_engine/axis_01_index_organization", ""},
-    {Kategorie::organ, "io_dispatch", Form::verzeichnis, "axes/io_dispatch", ""},
+    {Kategorie::organ, "io_dispatch", Form::verzeichnis, "organ_axes/io_dispatch", ""},
     {Kategorie::organ, "io_dispatch", Form::verzeichnis, "topics/io/axis_io", ""},
-    {Kategorie::organ, "migration_policy", Form::verzeichnis, "axes/migration_policy", ""},
+    {Kategorie::organ, "migration_policy", Form::verzeichnis, "organ_axes/migration_policy", ""},
     {Kategorie::organ, "migration_policy", Form::verzeichnis, "topics/migration/axis_migration", ""},
-    {Kategorie::organ, "filter", Form::verzeichnis, "axes/filter_axis", ""},
+    {Kategorie::organ, "filter", Form::verzeichnis, "organ_axes/filter_axis", ""},
     {Kategorie::organ, "filter", Form::verzeichnis, "topics/filter/axis_filter", ""},
-    // queuing_q1/q2: NATIV unter topics/, kein axes/-Owner (geprueft: axes/queuing existiert nicht).
-    {Kategorie::organ, "queuing_q1", Form::verzeichnis, "topics/queuing/axis_q1_queuing", ""},
-    {Kategorie::organ, "queuing_q2", Form::verzeichnis, "topics/queuing/axis_q2_queuing", ""},
-    {Kategorie::organ, "persistence_target", Form::verzeichnis, "axes/persistence_target", ""},
+    // queuing_q1/q2: seit #72 (KON72-05) im ORGAN-Home -- der fruehere NATIV-unter-topics/-Zustand
+    // (42 Lock-Records unter topics/queuing/) war das benannte Aufraeumproblem aus KON27-01.
+    {Kategorie::organ, "queuing_q1", Form::verzeichnis, "organ_axes/axis_q1_queuing", ""},
+    {Kategorie::organ, "queuing_q2", Form::verzeichnis, "organ_axes/axis_q2_queuing", ""},
+    {Kategorie::organ, "persistence_target", Form::verzeichnis, "organ_axes/persistence_target", ""},
     {Kategorie::organ, "persistence_target", Form::verzeichnis, "topics/io/axis_persistence_target", ""},
 
     // -- SYSTEM (3 Achsen, Ordnung == kSystemAxisOrder) -----------------------------------------------
@@ -366,7 +369,7 @@ static_assert(kOverlaySourceSet.back().kategorie == Kategorie::tier_substanz &&
 
 // -- DIE HOME-PIN-WACHEN (S-18/#16, KON27-01: je Achsen-Kategorie EIN Verzeichnis-Home) ---------------
 // Der Schnitt darf eine Kategorie nicht still aus ihrem Home fuehren: ein system-Eintrag ausserhalb von
-// system_axes/ (bzw. mess ausserhalb von mess_axes/, organ ausserhalb von axes/ oder topics/) waere ein
+// system_axes/ (bzw. mess ausserhalb von mess_axes/, organ ausserhalb von organ_axes/ oder topics/) waere ein
 // Home-Bruch, den erst der Waechter-Lauf saehe. Hier bricht er COMPILE-HART, mit Datei und Regel.
 namespace detail {
 [[nodiscard]] consteval bool pfad_liegt_unter(std::string_view pfad, std::string_view wurzel) {
@@ -377,7 +380,7 @@ namespace detail {
     for (auto const& e : kOverlaySourceSet) {
         switch (e.kategorie) {
             case Kategorie::organ:
-                if (!pfad_liegt_unter(e.pfad, "axes") && !pfad_liegt_unter(e.pfad, "topics")) return false;
+                if (!pfad_liegt_unter(e.pfad, "organ_axes") && !pfad_liegt_unter(e.pfad, "topics")) return false;
                 break;
             case Kategorie::system:
                 if (e.pfad != "system_axes") return false;
@@ -395,7 +398,7 @@ namespace detail {
 } // namespace detail
 static_assert(detail::kategorie_haelt_ihr_home(),
               "S-18/#16 HOME-PIN (KON27-01): ein Schnitt-Eintrag liegt ausserhalb des Homes seiner "
-              "Kategorie (organ: axes/ oder topics/ -- system: system_axes -- mess: mess_axes -- "
+              "Kategorie (organ: organ_axes/ oder topics/ -- system: system_axes -- mess: mess_axes -- "
               "tier_substanz: anatomy). Wer ein Home verschiebt, zieht Schnitt, Waechter-Nenner, "
               "Tripwire-Anker und den Lock-Regen im SELBEN bewussten Change nach.");
 
