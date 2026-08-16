@@ -391,6 +391,10 @@ namespace detail {
             case Kategorie::tier_substanz:
                 if (e.pfad != "anatomy") return false;
                 break;
+            default:
+                // fail-closed: eine kuenftige Kategorie OHNE eigene Home-Regel faellt hier
+                // durch und macht den static_assert unten sofort rot -- nie still gruen.
+                return false;
         }
     }
     return true;

@@ -577,6 +577,24 @@ _st_erw=$(printf '%s\n%s\n' \
 st_bewerte "17 xml bleibt ASCII-geprueft" 1 "$_st_erw" "$?" "$_st_out"
 rm -rf "$_st_repo"
 
+# --- Fall 18: KOMBI-Koeder -- ueberlang UND Nicht-ASCII in *.xml ---
+# Die Breiten-Freiheit (Fall 16) darf die ASCII-Schaerfe (Fall 17) nicht
+# verdecken: eine Zeile, die BEIDE Verletzungen traegt, MUSS ueber die
+# ASCII-Stufe ROT werden (namentlich), obwohl ihre Breite fuer *.xml frei
+# ist. Ohne diesen Fall bestuende eine Wache, die ASCII nur an kurzen
+# xml-Zeilen prueft, die Faelle 16 UND 17 -- die Kombination fing keiner.
+st_neues_repo
+_st_pad=$(printf 'x%.0s' $(seq 1 130))
+printf '<!-- KOEDER %s %s %s -->\n' "$_st_kennzeichen" "$_st_na" "$_st_pad" \
+    > "${_st_repo}/probe_daten.xml"
+git -C "$_st_repo" add probe_daten.xml || st_abbruch "git add (Fall 18) fehlgeschlagen."
+_st_erw=$(printf '%s\n%s\n' \
+    "NICHT-ASCII" \
+    "probe_daten.xml")
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
+st_bewerte "18 xml-Kombi ueberlang+non-ASCII bleibt ROT" 1 "$_st_erw" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
 rm -f "$_st_out" "$_st_muster_datei" "$_st_diff"
 
 echo ""
