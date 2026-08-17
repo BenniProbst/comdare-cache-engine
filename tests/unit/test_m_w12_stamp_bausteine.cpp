@@ -763,6 +763,60 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     // test_reflect_versions_all17 (dort liegt build_axis_variant_version_table; diese TU bleibt leicht).
 }
 
+// -- S-6b CT-NEGATIV-PROBE: DIE TRANSPOSITIONS-SPERRE, VOM KONSUMENTEN AUS GESEHEN --------------------
+//
+// WARUM HIER UND NICHT NUR AM EIGENTUEMER: anatomy_fingerprint.hpp beweist die Disjunktheit der drei
+// Zeilen-Traeger bei sich selbst. Was es dort NICHT beweisen kann, ist die Wirkung an der Naht, an der
+// die Falle real zuschlaegt -- in einer fremden TU, die die Funktion RUFT. Genau dort stand der Fehler:
+// 42 Aufrufstellen reichten drei gleichartige string_view, und keine einzige konnte eine Vertauschung
+// bemerken.
+//
+// DER BELEGTE VORHER-ZUSTAND (17.08.2026, am Objekt gemessen, nicht behauptet): die Vertauschung zweier
+// Zeilen-Argumente an einer gewuerfelten Aufrufstelle (test_e24_c10_g6_identitaets_bilanz.cpp:217,
+// kRefOrgan <-> kRefSystem) uebersetzte mit rc=0 und OHNE eine einzige Diagnose. Nach der Sperre bricht
+// dieselbe Vertauschung compile-hart ("no matching function for call to anatomy_fingerprint_glieder(
+// SystemZeile, OrganZeile, MessZeile, ...)"). Der Koeder hat also nachweislich gebissen.
+//
+// WAS DIESE PROBE DAUERHAFT HAELT: nicht die Vertauschung selbst -- die ist per Definition unbaubar und
+// liesse sich nur als auskommentierter Text ablegen, der nichts pruefte. Geprueft wird die BEDINGUNG,
+// unter der die Vertauschung unbaubar BLEIBT: dass die drei Traeger auch von hier aus paarweise
+// unkonvertierbar sind und keiner von ihnen still aus einer Zeichenkette entsteht. Wer einem der Typen
+// spaeter eine Konvertierung anhaengt (die naheliegende "Bequemlichkeit"), macht die Vertauschung wieder
+// baubar -- und bricht dann HIER, in der Test-TU, statt unbemerkt im Digest.
+TEST(MW12StampBausteine, S6bZeilenTraegerSperrenDieTranspositionAuchBeimAufrufer) {
+    namespace abi = ::comdare::cache_engine::abi;
+
+    static_assert(!std::is_constructible_v<abi::OrganZeile, abi::SystemZeile> &&
+                      !std::is_constructible_v<abi::OrganZeile, abi::MessZeile> &&
+                      !std::is_constructible_v<abi::SystemZeile, abi::OrganZeile> &&
+                      !std::is_constructible_v<abi::SystemZeile, abi::MessZeile> &&
+                      !std::is_constructible_v<abi::MessZeile, abi::OrganZeile> &&
+                      !std::is_constructible_v<abi::MessZeile, abi::SystemZeile>,
+                  "S-6b: die drei Zeilen-Traeger duerfen sich paarweise NICHT ineinander bilden lassen -- "
+                  "sonst kompiliert eine Vertauschung wieder still.");
+    static_assert(!std::is_convertible_v<std::string_view, abi::OrganZeile> &&
+                      !std::is_convertible_v<std::string_view, abi::SystemZeile> &&
+                      !std::is_convertible_v<std::string_view, abi::MessZeile>,
+                  "S-6b: kein Zeilen-Traeger darf IMPLIZIT aus einer Zeichenkette entstehen -- sonst waere "
+                  "die Sperre an jeder Aufrufstelle mit Literalen wieder offen.");
+    static_assert(!std::is_convertible_v<abi::OrganZeile, std::string_view> &&
+                      !std::is_convertible_v<abi::SystemZeile, std::string_view> &&
+                      !std::is_convertible_v<abi::MessZeile, std::string_view>,
+                  "S-6b: kein Zeilen-Traeger darf ZURUECK nach string_view konvertieren.");
+
+    // Die POSITIVE Haelfte: der typisierte Aufruf legt die Werte an genau die Positionen, an denen die
+    // Preimage-Ordnung sie erwartet. Ohne sie wuerde eine Sperre, die ALLES verbietet, ebenfalls "gruen"
+    // aussehen -- die drei Zeilen muessen ankommen, nicht nur unvertauschbar sein.
+    constexpr auto glieder =
+        abi::anatomy_fingerprint_glieder(abi::OrganZeile{"ORGAN"}, abi::SystemZeile{"SYSTEM"}, abi::MessZeile{"MESS"});
+    static_assert(glieder[1] == std::string_view{"ORGAN"});
+    static_assert(glieder[abi::kAnatomyFingerprintSystemGlied] == std::string_view{"SYSTEM"});
+    static_assert(glieder[3] == std::string_view{"MESS"});
+    EXPECT_EQ(glieder[1], "ORGAN");
+    EXPECT_EQ(glieder[abi::kAnatomyFingerprintSystemGlied], "SYSTEM");
+    EXPECT_EQ(glieder[3], "MESS");
+}
+
 TEST(MW12StampBausteine, GA01FingerprintPreimageIsInjective) {
     // A13-M3 / OF-M3-1 = Option A (Owner-Entscheid 03.08.2026) -- die NEUE Pflicht-Probe zu Befund GA-01
     // [BLOCK]. VOR M3 entstand das Preimage als reine Byte-Konkatenation OHNE Trenner; die drei folgenden
