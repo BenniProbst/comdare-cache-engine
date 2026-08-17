@@ -176,6 +176,15 @@ constexpr std::size_t kWartelisteObergrenze = 3;
 // der Biss am Objekt nachgemessen (3 Sperren, 2 davon mit Marker in der Diagnose, im Commit
 // protokolliert); ein maschineller Selbsttest ist das NICHT und wird hier nicht als solcher
 // gezaehlt.
+//
+// NACHTRAG 17.08.2026 (A2.5-FUND-11) -- WORIN DIE DECKUNGSLUECKE GENAU BESTEHT, damit der
+// Warteliste-Posten seinen Gegenstand kennt: die Negativ-Fixturen sind EIN-TU-Bauformen. Ein
+// PASS_REGULAR_EXPRESSION prueft, DASS ein Marker in der Diagnose steht -- nicht, WELCHE der
+// Sperren ihn erzeugt hat. Faellt Sperre 3 weg, waehrend Sperre 1 weiter bricht, bleibt der
+// ctest GRUEN. Verschaerfend: test_hy_a1_contract_token_negativ dokumentiert selbst, dass seine
+// Probe 2 gar keinen eigenen Marker druckt (consteval-throw zeigt auf die Wurf-Zeile im Header).
+// Ein echter Selbsttest muesste je Sperre EINE eigene TU bauen und je einzeln belegen, dass ihr
+// Wegfall rot wird. Das ist der Inhalt dieses Wartelisten-Postens -- nicht "irgendein Test fehlt".
 constexpr std::size_t kKlasseCObergrenze = 4;
 
 // ---------------------------------------------------------------------------

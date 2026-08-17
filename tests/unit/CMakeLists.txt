@@ -2164,12 +2164,9 @@ target_include_directories(test_hy_a1_heuristik_adapter_gattung PRIVATE
 # hybrid/-lokal" -- die system-weite Fassung des Satzes trifft heute nicht zu).
 comdare_add_test(test_hy_a1_dock_contract
     SOURCES test_hy_a1_dock_contract.cpp)
-target_include_directories(test_hy_a1_dock_contract PRIVATE
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
-    "${PROJECT_SOURCE_DIR}/libs/common"
-    "${PROJECT_BINARY_DIR}/generated"
-    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+# F-10: Include-Wurzeln kommen ab jetzt aus comdare::ce_hybrid statt handgefuehrt.
+target_link_libraries(test_hy_a1_dock_contract PRIVATE comdare::ce_hybrid)
+target_include_directories(test_hy_a1_dock_contract PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_compile_definitions(test_hy_a1_dock_contract PRIVATE
     "COMDARE_HY_QUELLVERZEICHNIS=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/hybrid\"")
 
@@ -2182,12 +2179,9 @@ target_compile_definitions(test_hy_a1_dock_contract PRIVATE
 # sind NICHT gebaut -- letzterer haengt an der offenen Owner-Frage E-6.
 comdare_add_test(test_hy_a3_hybrid_config_parser
     SOURCES test_hy_a3_hybrid_config_parser.cpp)
-target_include_directories(test_hy_a3_hybrid_config_parser PRIVATE
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
-    "${PROJECT_SOURCE_DIR}/libs/common"
-    "${PROJECT_BINARY_DIR}/generated"
-    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+# F-10: Include-Wurzeln aus comdare::ce_hybrid.
+target_link_libraries(test_hy_a3_hybrid_config_parser PRIVATE comdare::ce_hybrid)
+target_include_directories(test_hy_a3_hybrid_config_parser PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 
 # HY-A1 (Dock-Schicht) -- VIERTE Negativ-Compile-Fixture, nach dem in C1 benannten Muster (a)-(d).
 # Gegenstand: die Vertrags-Registry. Bauplan-Auflage HY-A1 woertlich: "ein Vertrag-Token
@@ -2203,14 +2197,11 @@ set(_comdare_negativ_compile_tu_hy_a1_vertrag test_hy_a1_contract_token_negativ)
 add_executable(${_comdare_negativ_compile_tu_hy_a1_vertrag} EXCLUDE_FROM_ALL
     "${_comdare_negativ_compile_tu_hy_a1_vertrag}.cpp")
 target_compile_features(${_comdare_negativ_compile_tu_hy_a1_vertrag} PRIVATE cxx_std_23)
+# F-10: Include-Wurzeln aus comdare::ce_hybrid; src/ bleibt lokal (nur diese TU braucht es).
 target_include_directories(${_comdare_negativ_compile_tu_hy_a1_vertrag} PRIVATE
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${PROJECT_SOURCE_DIR}/libs/common"
-    "${PROJECT_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
-target_link_libraries(${_comdare_negativ_compile_tu_hy_a1_vertrag} PRIVATE Boost::mp11)
+target_link_libraries(${_comdare_negativ_compile_tu_hy_a1_vertrag} PRIVATE comdare::ce_hybrid)
 comdare_set_platform_defines(${_comdare_negativ_compile_tu_hy_a1_vertrag})
 add_test(NAME ${_comdare_negativ_compile_tu_hy_a1_vertrag}
          COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
@@ -7183,10 +7174,9 @@ set_tests_properties(test_stempel_zulassung_bruecke PROPERTIES
 # E-24-C4/C5-TUs oben.
 comdare_add_test(test_k2_stufen_neutraler_loader
     SOURCES test_k2_stufen_neutraler_loader.cpp)
-target_include_directories(test_k2_stufen_neutraler_loader PRIVATE
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
-    "${PROJECT_SOURCE_DIR}/libs/common"
-    "${PROJECT_BINARY_DIR}/generated"
-    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
-target_link_libraries(test_k2_stufen_neutraler_loader PRIVATE comdare::anatomy_module_loader)
+# F-2 (KERN): der Test haengt am STUFEN-NEUTRALEN Target -- nicht mehr am Loader direkt und nicht
+# mehr an handgefuehrten Include-Wurzeln. Damit exerziert er genau den K2-Vertrag, den er beweist:
+# wer comdare::ce_anatomy_drive linkt, bekommt Includes UND Loader-Kante, ohne den Builder zu ziehen.
+# Vorher bewies er nur, dass die HEADER ohne Builder auskommen -- die CMake-Kante blieb unbenutzt.
+target_include_directories(test_k2_stufen_neutraler_loader PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_k2_stufen_neutraler_loader PRIVATE comdare::ce_anatomy_drive)

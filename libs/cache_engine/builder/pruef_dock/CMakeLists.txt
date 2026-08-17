@@ -20,9 +20,12 @@ if(TARGET comdare::anatomy_module_loader)
 endif()
 
 # K2 (Owner 09.08.2026): Status-Codes + Antriebs-Buendel liegen stufen-neutral.
-if(TARGET comdare::ce_anatomy_drive)
-    target_link_libraries(comdare_ce_pruef_dock INTERFACE comdare::ce_anatomy_drive)
-endif()
+# HART, NICHT if(TARGET) -- A2.5-Fix F-2: der Waechter war ein TOTER ZWEIG. libs/cache_engine/
+# CMakeLists.txt bindet builder/ VOR anatomy_drive/ ein; zur PARSE-Zeit dieses Files existiert das
+# Target also noch nicht, if(TARGET) ist false, und die Kante entstand nie -- lautlos.
+# target_link_libraries loest Target-Namen zur GENERATE-Zeit auf: reihenfolgeunabhaengig, und ein
+# Tippfehler bricht laut statt still ("ERST LAUTE COMPILE-FEHLER, DANN VERSCHIEBEN").
+target_link_libraries(comdare_ce_pruef_dock INTERFACE comdare::ce_anatomy_drive)
 
 if(TARGET Boost::mp11)
     target_link_libraries(comdare_ce_pruef_dock INTERFACE Boost::mp11)

@@ -28,6 +28,13 @@
 // konstruiert, der Drive daran gezogen, die Status-Codes werden gelesen. Eine TU, die nur
 // inkludiert und nichts instanziiert, wuerde eine kaputte Schicht nicht bemerken.
 //
+// A2.5-FIX F-2 -- WAS BIS HIERHER FEHLTE: diese TU linkte den LOADER direkt und trug ihre
+// Include-Wurzeln handgefuehrt. Sie bewies damit nur, dass die HEADER ohne Builder auskommen --
+// der deklarierte CMake-Vertrag comdare::ce_anatomy_drive blieb dabei vollstaendig unbenutzt
+// (repo-weit NULL Konsumenten). Ab jetzt haengt sie an genau diesem Target: Includes UND
+// Loader-Kante kommen aus dem Vertrag. Faellt eine der beiden dort weg, bricht DIESER Test --
+// vorher waere es niemandem aufgefallen.
+//
 // WAS SIE NICHT BEWEIST, ausdruecklich: dass eine Hybrid-.so real ein Modul laedt. Dafuer braucht
 // es den Binary-Proxy und ein gebautes Tier -- das ist HY-A2. Bewiesen ist die SCHICHTUNG, nicht
 // der Reroute.

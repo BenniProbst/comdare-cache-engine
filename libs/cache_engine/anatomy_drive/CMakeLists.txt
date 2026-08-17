@@ -24,11 +24,10 @@ target_include_directories(comdare_ce_anatomy_drive INTERFACE
 target_compile_features(comdare_ce_anatomy_drive INTERFACE cxx_std_23)
 
 # Der Drive konstruiert/liest AnatomyModuleHandle -> Loader-Lib linken (unload() im .cpp).
-if(TARGET comdare::anatomy_module_loader)
-    target_link_libraries(comdare_ce_anatomy_drive INTERFACE comdare::anatomy_module_loader)
-endif()
-
-# Boost.MP11 transitiv ueber anatomy_base.hpp -> pruefling_merge.hpp
-if(TARGET Boost::mp11)
-    target_link_libraries(comdare_ce_anatomy_drive INTERFACE Boost::mp11)
-endif()
+# HART, NICHT if(TARGET) -- A2.5-Fix F-2: dieselbe reihenfolge-fragile Bauform wie im Pruefdock.
+# Sie war hier heute ZUFAELLIG wahr (builder/ wird vorher eingebunden); "zufaellig wahr" ist kein
+# Zustand, auf den sich eine Pflicht-Kante stuetzen darf. Eine fehlende Loader-Kante faellt sonst
+# erst am Linker auf -- und zwar bei einem beliebigen KONSUMENTEN, nicht hier.
+target_link_libraries(comdare_ce_anatomy_drive INTERFACE
+    comdare::anatomy_module_loader
+    Boost::mp11)

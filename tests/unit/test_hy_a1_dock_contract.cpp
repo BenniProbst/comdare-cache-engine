@@ -30,6 +30,7 @@
 // @design docs/architecture/20260802-hybrid_tier_stufe_soll_design.md Abschnitte 3.1/3.2, K6
 // @bauplan super docs/plaene/20260809-HYBRID-bauplan-und-entscheidungsvorlage.md Abschnitt IV HY-A1
 
+#include "hybrid/hybrid_config_xml.hpp"
 #include "hybrid/hybrid_dock_array.hpp"
 #include "hybrid/hybrid_dock_contract.hpp"
 #include "hybrid/hybrid_dock_factory.hpp"
@@ -205,10 +206,11 @@ TEST(HyA1DockContract, FactoryBautDenStandardVertragUndLehntUnbekannteAb) {
 TEST(HyA1DockContract, JederStatusHatEinenNamen) {
     // NAHT-1-Lehre (pruef_dock.hpp:59-63): ein Status ohne Namen ist im Bericht STUMM und sieht aus
     // wie ein bekannter Fehler. Deshalb wird die Namens-Totalitaet hier mitgeprueft.
-    int const alle[] = {hy::hybrid_status_ok, hy::hybrid_status_unbekannter_vertrag,
-                        hy::hybrid_status_contract_ohne_dock_typ, hy::hybrid_status_kein_zielfaehiges_genus,
-                        hy::hybrid_status_array_voll, hy::hybrid_status_slot_leer};
-    for (int const s : alle) {
+    // A2.5-Fix F-8: die frueher hier stehende HANDGEFUEHRTE 6er-Liste deckte nur 6 von inzwischen
+    // 12 Codes -- und sie ist genau die Bauform, die die Quelle woertlich verbietet ("handgefuehrte
+    // Listen IM TEST sind die Bauart, an der die alten Vollstaendigkeits-Wachen gescheitert sind").
+    // Jetzt laeuft die Schleife ueber die EINZELQUELLE; ein 13. Code ist automatisch mitgeprueft.
+    for (int const s : hy::kAlleHybridStatus) {
         EXPECT_NE(hy::hybrid_status_name(s), std::string_view{"unknown"}) << "Status " << s << " ist stumm";
     }
     // Gegenprobe: ein Status, den es nicht gibt, MUSS "unknown" heissen -- sonst waere die
@@ -271,10 +273,51 @@ TEST(HyA1DockContract, RuntimePolicyWaechstUndTraegtDenselbenVertrag) {
     EXPECT_EQ(arr.slot(99), nullptr);
 }
 
+TEST(HyA1DockContract, F4LaufzeitDeckelAusDerXmlGreiftWirklich) {
+    // A2.5-Fix F-4. VORHER war das hier rot: max_docks wurde geparst, geprueft -- und dann von
+    // niemandem gelesen. Ein Array mit "max_docks=4" nahm trotzdem 32 Docks. Der README-Satz
+    // "XML-Override" war ein Versprechen ohne Gegenstand.
+    auto const cfg = hy::parse_hybrid_tier_xml(
+        R"(<hybrid_tier enabled="true" genus="SearchAlgorithm"><dock_array storage="runtime" max_docks="2"/>)"
+        R"(</hybrid_tier>)");
+    ASSERT_TRUE(cfg.has_value());
+    ASSERT_EQ(cfg->max_docks, std::size_t{2});
+
+    // DER WEG, um den es geht: die geparste Zahl geht in das Array.
+    hy::DockArray<hy::RuntimeDockArrayPolicy> arr{cfg->max_docks};
+    EXPECT_EQ(arr.kapazitaet(), std::size_t{2});
+    EXPECT_EQ(arr.policy_kapazitaet(), hy::kHybridNodeObergrenzeDefault) << "der Programm-Deckel bleibt daneben";
+
+    hy::DockContractDescriptor const d{static_cast<std::uint8_t>(hy::HybridDockContract::Standard),
+                                       cfg->genus};
+    EXPECT_EQ(arr.attach(d), 0);
+    EXPECT_EQ(arr.attach(d), 1);
+    // DIE KERN-ZUSICHERUNG: beim dritten ist Schluss -- nicht erst bei 32.
+    EXPECT_EQ(arr.attach(d), -hy::hybrid_status_array_voll);
+    EXPECT_EQ(arr.size(), std::size_t{2});
+
+    // KLEMME: ein Wert ueber dem Programm-Deckel wird nicht angenommen, sondern geklemmt.
+    // (Der Parser weist ihn ohnehin ab; das hier ist die zweite Sperre fuer den Weg an ihm vorbei.)
+    hy::DockArray<hy::RuntimeDockArrayPolicy> zu_gross{9999};
+    EXPECT_EQ(zu_gross.kapazitaet(), hy::kHybridNodeObergrenzeDefault);
+    // Und 0 waere ein Array ohne Platz -- es wird auf 1 gehoben statt unbrauchbar zu bleiben.
+    hy::DockArray<hy::RuntimeDockArrayPolicy> null_deckel{0};
+    EXPECT_EQ(null_deckel.kapazitaet(), std::size_t{1});
+
+    // Auch die STATISCHE Policy respektiert den Laufzeit-Deckel (Kapazitaet 4, Deckel 1).
+    hy::DockArray<hy::StatischeDockArrayPolicy<4>> statisch{1};
+    EXPECT_EQ(statisch.kapazitaet(), std::size_t{1});
+    EXPECT_EQ(statisch.policy_kapazitaet(), std::size_t{4});
+    EXPECT_EQ(statisch.attach(d), 0);
+    EXPECT_EQ(statisch.attach(d), -hy::hybrid_status_array_voll);
+}
+
 TEST(HyA1DockContract, DerDeckelIstDIESELBEZahlWieInDerSyntheseMatrix) {
     // EINE Wahrheit, nicht zwei. Der Zahlen-Widerspruch 8-gegen-32 ist per KON28-03 aufgeloest
     // (32 loest die 8 ab); wer hier zwei getrennte Konstanten pflegt, holt ihn zurueck.
     EXPECT_EQ(hy::kHybridNodeObergrenzeDefault, std::size_t{32});
+    EXPECT_EQ(hy::DockArray<hy::RuntimeDockArrayPolicy>::policy_kapazitaet(), hy::kHybridNodeObergrenzeDefault);
+    // Default-Instanz ohne Laufzeit-Deckel: wirksame Kapazitaet == Programm-Deckel.
     EXPECT_EQ(hy::DockArray<hy::RuntimeDockArrayPolicy>{}.kapazitaet(), hy::kHybridNodeObergrenzeDefault);
 }
 
@@ -338,7 +381,36 @@ TEST(HyA1DockContract, StdVariantStehtNurInDerEinenErlaubtenDatei) {
     std::filesystem::path const hybrid_dir{COMDARE_HY_QUELLVERZEICHNIS};
     ASSERT_TRUE(std::filesystem::is_directory(hybrid_dir)) << hybrid_dir;
 
-    std::vector<std::string> traeger;
+    // A2.5-Fix F-6: die Wache zaehlte DATEIEN und war KOMMENTAR-BLIND. Beide Fehlrichtungen waren
+    // real: (a) der erklaerende Kommentar in hybrid_dock_array.hpp:35 zitiert "std::variant<" und
+    // zaehlte faelschlich mit -- er lag nur zufaellig in der erlaubten Datei; (b) eine ZWEITE
+    // echte variant-Stelle in derselben erlaubten Datei waere unsichtbar geblieben, weil die Datei
+    // ja schon gezaehlt war. Beides ist jetzt behoben: gezaehlt werden STELLEN, und Kommentare
+    // werden vorher entfernt (Muster wie der t6-Scanner fuer //-Zeilen).
+    auto ohne_kommentare = [](std::string const& roh) {
+        std::string        raus;
+        bool               in_block = false;
+        std::istringstream zeilen{roh};
+        std::string        z;
+        while (std::getline(zeilen, z)) {
+            std::string sauber;
+            for (std::size_t i = 0; i < z.size(); ++i) {
+                if (in_block) {
+                    if (i + 1 < z.size() && z[i] == '*' && z[i + 1] == '/') { in_block = false; ++i; }
+                    continue;
+                }
+                if (i + 1 < z.size() && z[i] == '/' && z[i + 1] == '/') break;      // Zeilen-Kommentar
+                if (i + 1 < z.size() && z[i] == '/' && z[i + 1] == '*') { in_block = true; ++i; continue; }
+                sauber += z[i];
+            }
+            raus += sauber;
+            raus += '\n';
+        }
+        return raus;
+    };
+
+    std::vector<std::string> traeger;   // Datei je STELLE (eine Datei kann mehrfach erscheinen)
+    std::size_t              stellen  = 0;
     std::size_t              geprueft = 0;
     for (auto const& eintrag : std::filesystem::directory_iterator{hybrid_dir}) {
         if (!eintrag.is_regular_file()) continue;
@@ -346,26 +418,33 @@ TEST(HyA1DockContract, StdVariantStehtNurInDerEinenErlaubtenDatei) {
         if (ext != ".hpp" && ext != ".cpp") continue;
         ++geprueft;
 
-        std::ifstream     ein{eintrag.path()};
+        std::ifstream ein{eintrag.path()};
         ASSERT_TRUE(ein.is_open()) << eintrag.path();
         std::ostringstream puffer;
         puffer << ein.rdbuf();
-        std::string const inhalt = puffer.str();
+        std::string const inhalt = ohne_kommentare(puffer.str());
 
-        // Gesucht wird die VERWENDUNG als Typ ("std::variant<"), nicht die Erwaehnung im Fliesstext.
-        // Die Doku-Zeilen dieser Stufe sprechen oft ueber variant, ohne einen zu bilden -- wer auf
-        // das nackte Wort prueft, baut eine Wache, die an ihren eigenen Kommentaren erstickt.
-        if (inhalt.find("std::variant<") != std::string::npos) {
+        // ALLE Vorkommen zaehlen, nicht nur das erste -- sonst bliebe eine zweite echte Stelle
+        // in einer bereits gezaehlten Datei unsichtbar.
+        for (std::size_t pos = inhalt.find("std::variant<"); pos != std::string::npos;
+             pos            = inhalt.find("std::variant<", pos + 1)) {
+            ++stellen;
             traeger.push_back(eintrag.path().filename().string());
         }
     }
 
     // Nenner mitdrucken: eine Wache ueber 0 Dateien waere gruen und wertlos.
     EXPECT_GE(geprueft, std::size_t{5}) << "zu wenige hybrid/-Quelldateien gescannt -- Wache ohne Gegenstand";
-    ASSERT_EQ(traeger.size(), std::size_t{1}) << "geprueft: " << geprueft << " Dateien";
+    ASSERT_EQ(stellen, std::size_t{1}) << "geprueft: " << geprueft << " Dateien, Stellen: " << stellen;
     EXPECT_EQ(traeger.front(), std::string{"hybrid_dock_array.hpp"})
         << "std::variant< darf im hybrid/-Baum NUR im DockSlot des Dock-Arrays stehen "
            "(Owner-E1 + Paragraf-49-KORREKTUR). Gefunden in: " << traeger.front();
+
+    // GEGENPROBE zur Kommentar-Festigkeit: der Entferner muss wirklich entfernen. Ohne diese
+    // Zeilen koennte er zu einer Identitaet degenerieren und die Wache waere wieder blind.
+    EXPECT_EQ(ohne_kommentare("// std::variant<X> im Zeilenkommentar\n"), std::string{"\n"});
+    EXPECT_EQ(ohne_kommentare("/* std::variant<X> */\n"), std::string{"\n"});
+    EXPECT_NE(ohne_kommentare("using V = std::variant<int>;\n").find("std::variant<"), std::string::npos);
 }
 
 // ============================================================================================

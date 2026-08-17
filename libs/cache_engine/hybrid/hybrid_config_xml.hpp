@@ -172,6 +172,10 @@ namespace detail {
 
     // (b) genus -- PFLICHT. Ein Hybrid-Gehaeuse ohne Gattung waere ein Gehaeuse ohne Ziel; die
     //     Gattung ist zugleich der Lager-Sortierschluessel und die Dock-Zuordnung.
+    // F-5: FEHLT und FALSCH sind zwei verschiedene Anwenderfehler und bekommen zwei Codes.
+    // has_attr wird hier genauso benutzt wie oben fuer enabled -- die Unterscheidung war schon
+    // moeglich, sie wurde nur nicht gezogen.
+    if (!knoten.has_attr("genus")) return {std::nullopt, hybrid_status_genus_fehlt};
     auto const g = detail::genus_of_token(knoten.attr("genus"));
     if (!g) return {std::nullopt, hybrid_status_unbekanntes_token};
     cfg.genus = *g;

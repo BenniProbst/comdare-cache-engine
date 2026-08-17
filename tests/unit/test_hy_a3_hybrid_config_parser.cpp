@@ -171,7 +171,10 @@ TEST(HyA3HybridConfigParser, DerProgrammDeckelLaesstSichNichtPerXmlUmgehen) {
     // angehoben, nicht per XML unterlaufen. 32 selbst ist zulaessig (die Grenze ist inklusiv), 33 nicht.
     std::string zu_gross = gueltige_sektion();
     zu_gross.replace(zu_gross.find("max_docks=\"8\""), 13, "max_docks=\"33\"");
-    EXPECT_FALSE(hy::parse_hybrid_tier_xml(zu_gross).has_value());
+    auto const zu_gross_erg = hy::parse_hybrid_tier_xml(zu_gross);
+    EXPECT_FALSE(zu_gross_erg.has_value());
+    // F-7: der GRUND gehoert mitgeprueft -- ein blosses nullopt saehe aus wie ein Syntaxfehler.
+    EXPECT_EQ(hy::letzter_parse_status(zu_gross_erg), hy::hybrid_status_max_docks_ungueltig);
 
     std::string genau = gueltige_sektion();
     genau.replace(genau.find("max_docks=\"8\""), 13, "max_docks=\"32\"");
@@ -182,7 +185,9 @@ TEST(HyA3HybridConfigParser, DerProgrammDeckelLaesstSichNichtPerXmlUmgehen) {
     // 0 Docks ist ebenfalls kein sinnvoller Wert -- ein Array ohne Platz traegt kein Dock.
     std::string null = gueltige_sektion();
     null.replace(null.find("max_docks=\"8\""), 13, "max_docks=\"0\"");
-    EXPECT_FALSE(hy::parse_hybrid_tier_xml(null).has_value());
+    auto const null_erg = hy::parse_hybrid_tier_xml(null);
+    EXPECT_FALSE(null_erg.has_value());
+    EXPECT_EQ(hy::letzter_parse_status(null_erg), hy::hybrid_status_max_docks_ungueltig);
 }
 
 TEST(HyA3HybridConfigParser, StorageWaehltDiePolicyUndKenntNurZweiWerte) {
@@ -245,8 +250,17 @@ TEST(HyA3HybridConfigParser, KlassifikationsGenusIstKeinZielUndDasGateGreiftAuch
 
 TEST(HyA3HybridConfigParser, UnbekanntesGenusTokenIstHart) {
     EXPECT_FALSE(hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true" genus="Baum"><dock_array max_docks="8"/></hybrid_tier>)").has_value());
-    EXPECT_FALSE(hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true"><dock_array max_docks="8"/></hybrid_tier>)").has_value())
-        << "genus ist Pflicht -- ein Hybrid ohne Gattung waere ein Gehaeuse ohne Ziel";
+    // F-5: FEHLT und FALSCH sind zwei verschiedene Anwenderfehler -- und tragen zwei Codes.
+    auto const ohne_genus =
+        hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true"><dock_array max_docks="8"/></hybrid_tier>)");
+    EXPECT_FALSE(ohne_genus.has_value()) << "genus ist Pflicht -- ein Hybrid ohne Gattung waere ein Gehaeuse ohne Ziel";
+    EXPECT_EQ(hy::letzter_parse_status(ohne_genus), hy::hybrid_status_genus_fehlt);
+    EXPECT_NE(hy::letzter_parse_status(ohne_genus), hy::hybrid_status_unbekanntes_token);
+    // Gegenprobe: ein FALSCH GESCHRIEBENES genus bleibt unbekanntes_token.
+    auto const falsches_genus = hy::parse_hybrid_tier_xml(
+        R"(<hybrid_tier enabled="true" genus="Baum"><dock_array max_docks="8"/></hybrid_tier>)");
+    EXPECT_FALSE(falsches_genus.has_value());
+    EXPECT_EQ(hy::letzter_parse_status(falsches_genus), hy::hybrid_status_unbekanntes_token);
     // Gegenprobe: alle fuenf ABI-sichtbaren Genera gehen durch (ein Gate, das nur ablehnt, waere
     // genauso falsch wie eines, das alles zulaesst).
     for (auto const* g : {"SearchAlgorithm", "Set", "Sequence", "Adapter", "View"}) {
@@ -277,8 +291,13 @@ TEST(HyA3HybridConfigParser, EinDokumentOhneHybridSektionIstKeinFehler) {
 }
 
 TEST(HyA3HybridConfigParser, NichtWohlgeformtesXmlIstEinBenannterFehler) {
-    EXPECT_FALSE(hy::parse_hybrid_tier_xml("<hybrid_tier enabled=").has_value());
-    EXPECT_FALSE(hy::parse_hybrid_tier_xml("").has_value());
+    // F-7: der Testname verspricht "BenannterFehler" -- also wird die Benennung auch geprueft.
+    auto const abgeschnitten = hy::parse_hybrid_tier_xml("<hybrid_tier enabled=");
+    EXPECT_FALSE(abgeschnitten.has_value());
+    EXPECT_EQ(hy::letzter_parse_status(abgeschnitten), hy::hybrid_status_xml_nicht_wohlgeformt);
+    auto const leer = hy::parse_hybrid_tier_xml("");
+    EXPECT_FALSE(leer.has_value());
+    EXPECT_EQ(hy::letzter_parse_status(leer), hy::hybrid_status_xml_nicht_wohlgeformt);
     // Falscher Wurzel-Tag: das ist KEINE Hybrid-Sektion, auch wenn es wohlgeformt ist.
     EXPECT_FALSE(hy::parse_hybrid_tier_xml(R"(<hybrid enabled="true" genus="Set"><dock_array max_docks="8"/></hybrid>)").has_value());
 }
@@ -287,9 +306,11 @@ TEST(HyA3HybridConfigParser, MehrDocksAlsMaxDocksIstEinBenannterFehler) {
     // Die beiden Zahlen der Sektion muessen zueinander passen: eine Bestueckung, die den selbst
     // gesetzten Deckel sprengt, ist in sich widerspruechlich. Sie erst beim attach auffallen zu
     // lassen hiesse, den Fehler eine Stufe zu spaet zu melden.
-    EXPECT_FALSE(hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true" genus="Set">
+    auto const zu_viele = hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true" genus="Set">
   <dock_array storage="runtime" max_docks="1"/>
   <docks><dock id="d0" contract="standard"/><dock id="d1" contract="standard"/></docks>
-</hybrid_tier>)")
-                     .has_value());
+</hybrid_tier>)");
+    EXPECT_FALSE(zu_viele.has_value());
+    // F-7: auch hier der GRUND -- der Testname verspricht ihn.
+    EXPECT_EQ(hy::letzter_parse_status(zu_viele), hy::hybrid_status_mehr_docks_als_deckel);
 }

@@ -148,12 +148,39 @@ struct RuntimeDockArrayPolicy {
 template <class Policy>
 class DockArray {
 public:
-    DockArray() noexcept(Policy::statisch) {
+    /// Default: der volle Policy-Deckel.
+    DockArray() noexcept(Policy::statisch) : deckel_{Policy::kapazitaet} {
         if constexpr (!Policy::statisch) { speicher_.reserve(4); }
     }
 
-    /// Die KAPAZITAET (Compile-Zeit-Groesse bzw. Programm-Deckel) -- nicht die Belegung.
-    [[nodiscard]] static constexpr std::size_t kapazitaet() noexcept { return Policy::kapazitaet; }
+    /// A2.5-Fix F-4: der LAUFZEIT-DECKEL. Er ist der Weg, auf dem `max_docks` aus der XML das
+    /// Array ueberhaupt erreicht.
+    ///
+    /// WAS VORHER FEHLTE: HybridTierConfig::max_docks wurde geparst, gegen den Programm-Deckel
+    /// geprueft -- und dann von niemandem gelesen. Die Kapazitaet stand fest bei
+    /// Policy::kapazitaet. Ein `max_docks="4"` haette also 32 Docks zugelassen, und der
+    /// README-Satz "XML-Override" war ein Versprechen ohne Gegenstand. Kein Live-Defekt (es gab
+    /// keinen Verbraucher), aber genau die unmarkierte Naht, die der Design-Nachtrag fuer offene
+    /// Punkte ausdruecklich verbietet.
+    ///
+    /// Ein Wert ueber dem Policy-Deckel wird GEKLEMMT, nicht angenommen: der Programm-Deckel
+    /// (KON28-03) ist die harte Grenze, der Laufzeit-Wert darf sie nur unterschreiten. Der Parser
+    /// weist groessere Werte ohnehin ab (hybrid_status_max_docks_ungueltig) -- die Klemme hier ist
+    /// die zweite Sperre fuer den Weg am Parser vorbei (Struct-Injektion).
+    explicit DockArray(std::size_t laufzeit_deckel) noexcept(Policy::statisch)
+        : deckel_{laufzeit_deckel == 0 ? std::size_t{1}
+                                       : (laufzeit_deckel > Policy::kapazitaet ? Policy::kapazitaet
+                                                                              : laufzeit_deckel)} {
+        if constexpr (!Policy::statisch) { speicher_.reserve(4); }
+    }
+
+    /// Die WIRKSAME Kapazitaet dieser Instanz: Laufzeit-Deckel, hoechstens Policy-Deckel.
+    [[nodiscard]] std::size_t kapazitaet() const noexcept { return deckel_; }
+
+    /// Der POLICY-Deckel (Compile-Zeit-Groesse bzw. Programm-Deckel) -- die obere Schranke, die
+    /// ein Laufzeit-Wert nicht ueberschreiten kann. Getrennt gefuehrt, weil beide Zahlen
+    /// verschiedene Fragen beantworten: "wie viel darf diese Kette" gegen "wie viel darf ueberhaupt".
+    [[nodiscard]] static constexpr std::size_t policy_kapazitaet() noexcept { return Policy::kapazitaet; }
 
     /// Die BELEGUNG: wie viele Slots tragen gerade ein Dock. Dynamisch in BEIDEN Policies.
     [[nodiscard]] std::size_t size() const noexcept {
@@ -172,7 +199,22 @@ public:
     /// die zweite Stelle, an der Vertrag zu Typ wird, und die beiden liefen auseinander.
     /// Die Deklaration steht in hybrid_dock_factory.hpp; die Definition unten ist bewusst
     /// out-of-line, damit diese Datei nicht von der Factory abhaengt und die Factory nicht von ihr.
+    /// A2.5-FUND F-9, NICHT BEHOBEN -- und hier ist der Grund, damit niemand ihn nochmal anlaeuft:
+    /// attach ist nur DEKLARIERT; die Definition steht in hybrid_dock_factory.hpp (bewusst -- die
+    /// Factory ist der einzige Konstruktions-Ort). Wer nur dieses Array inkludiert und attach
+    /// ruft, laeuft am LINKER auf, nicht am Compiler.
+    /// ZWEI ANLAEUFE, BEIDE AM OBJEKT GESCHEITERT (17.08.2026): ein Sichtbarkeits-Sentinel per
+    /// Template-Spezialisierung -- einmal als Klassen-Methode, einmal als freie Funktion -- quittiert
+    /// der Compiler mit "specialization of ... after instantiation": der Primaerfall ist bereits
+    /// instanziiert, bevor die Factory ihn spezialisieren kann. Das ist keine Nachlaessigkeit,
+    /// sondern die Sprachsemantik: eine Abfrage, die IM ERSTEN Header steht, kann keine Antwort
+    /// erzwingen, die erst der ZWEITE gibt.
+    /// WAS STATTDESSEN TRAEGT (offener Posten, HY-A2): die attach-Definition in einen gemeinsamen
+    /// dritten Header ziehen, den beide inkludieren. Das loest den Split auf, ohne die
+    /// "Factory ist einziger Konstruktions-Ort"-Zusage zu beruehren -- sie ist eine Aussage
+    /// darueber, WER baut, nicht darueber, in welcher Datei die Zeile steht.
     [[nodiscard]] int attach(DockContractDescriptor const& desc) noexcept;
+
 
     /// Gibt einen Slot frei. Loescht die Antriebs-Bindung MIT -- ein Slot darf nie einen Zeiger in
     /// ein Modul ueberleben lassen, das gleich entladen wird (soll_design 3.3: destroy-vor-dlclose,
@@ -219,19 +261,22 @@ private:
     /// Freie Plaetze WERDEN WIEDERVERWENDET (nicht nur angehaengt): sonst waere ein Array nach
     /// N attach/detach-Paaren voll, obwohl es leer ist.
     [[nodiscard]] std::size_t erster_freier_platz() noexcept {
-        for (std::size_t i = 0; i < speicher_.size(); ++i) {
+        std::size_t const grenze = speicher_.size() < deckel_ ? speicher_.size() : deckel_;
+        for (std::size_t i = 0; i < grenze; ++i) {
             if (!speicher_[i].has_value()) return i;
         }
         if constexpr (Policy::statisch) {
-            return Policy::kapazitaet; // voll
+            return deckel_; // voll (F-4: der LAUFZEIT-Deckel, nicht die Policy-Groesse)
         } else {
-            if (speicher_.size() >= Policy::kapazitaet) return Policy::kapazitaet; // Programm-Deckel
+            if (speicher_.size() >= deckel_) return deckel_; // F-4: Laufzeit- vor Programm-Deckel
             speicher_.emplace_back();
             return speicher_.size() - 1;
         }
     }
 
     typename Policy::storage speicher_{};
+    /// F-4: die wirksame Obergrenze dieser Instanz (<= Policy::kapazitaet).
+    std::size_t              deckel_ = Policy::kapazitaet;
 };
 
 // Die Kapazitaets-Zusage, an der Quelle statt nur im Test: die Runtime-Policy nimmt DENSELBEN

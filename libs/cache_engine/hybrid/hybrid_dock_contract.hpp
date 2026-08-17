@@ -93,12 +93,17 @@ inline constexpr int hybrid_status_mehr_docks_als_deckel = 9; ///< Bestueckung s
 // deklariert seine Dock-Zahl. Eigener Code, NICHT max_docks_ungueltig -- "fehlt" und "falscher
 // Wert" sind verschiedene Fehler des Anwenders und schicken ihn an verschiedene Stellen.
 inline constexpr int hybrid_status_max_docks_fehlt = 10; ///< enabled="true" ohne max_docks-Angabe
+// A2.5-Fix F-5: ein FEHLENDES genus-Attribut fiel bisher in unbekanntes_token -- derselbe Code
+// wie ein FALSCH GESCHRIEBENES. Das ist genau die Verwechslung, die W12 fuer max_docks bereits
+// aufloest (fehlt != falsch), und sie schickt den Anwender an die falsche Stelle: er sucht nach
+// einem Tippfehler, wo eine Zeile fehlt.
+inline constexpr int hybrid_status_genus_fehlt = 11; ///< <hybrid_tier> ohne genus-Attribut
 
 /// Die EINZELQUELLE aller Status-Codes. Wer einen anhaengt, traegt ihn HIER ein -- die
 /// Namens-Totalitaets-Wache unten faengt sonst den Vergessenen. Handgefuehrte Listen IM TEST sind
 /// genau die Bauart, an der die alten Vollstaendigkeits-Wachen gescheitert sind
 /// (nachgemessen, heuristik_adapter_klassifikation.hpp:20-30).
-inline constexpr std::array<int, 11> kAlleHybridStatus{
+inline constexpr std::array<int, 12> kAlleHybridStatus{
     hybrid_status_ok,
     hybrid_status_unbekannter_vertrag,
     hybrid_status_contract_ohne_dock_typ,
@@ -109,7 +114,8 @@ inline constexpr std::array<int, 11> kAlleHybridStatus{
     hybrid_status_unbekanntes_token,
     hybrid_status_max_docks_ungueltig,
     hybrid_status_mehr_docks_als_deckel,
-    hybrid_status_max_docks_fehlt};
+    hybrid_status_max_docks_fehlt,
+    hybrid_status_genus_fehlt};
 
 [[nodiscard]] constexpr std::string_view hybrid_status_name(int s) noexcept {
     switch (s) {
@@ -124,6 +130,7 @@ inline constexpr std::array<int, 11> kAlleHybridStatus{
         case hybrid_status_max_docks_ungueltig: return "max_docks_ungueltig";
         case hybrid_status_mehr_docks_als_deckel: return "mehr_docks_als_deckel";
         case hybrid_status_max_docks_fehlt: return "max_docks_fehlt";
+        case hybrid_status_genus_fehlt: return "genus_fehlt";
         default: return "unknown";
     }
 }

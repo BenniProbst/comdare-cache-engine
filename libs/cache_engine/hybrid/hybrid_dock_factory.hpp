@@ -100,7 +100,8 @@ int DockArray<Policy>::attach(DockContractDescriptor const& desc) noexcept {
     if (int const status = HybridDockFactory::make_dock(desc, gebaut); status != hybrid_status_ok) return -status;
 
     std::size_t const platz = erster_freier_platz();
-    if (platz >= Policy::kapazitaet) return -hybrid_status_array_voll;
+    // F-4: gegen den LAUFZEIT-Deckel pruefen, nicht gegen die Policy-Groesse.
+    if (platz >= kapazitaet()) return -hybrid_status_array_voll;
 
     speicher_[platz].emplace();
     speicher_[platz]->dock    = std::move(gebaut);
