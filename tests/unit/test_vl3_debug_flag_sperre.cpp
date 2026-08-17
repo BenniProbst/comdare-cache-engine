@@ -1,5 +1,6 @@
-// test_vl3_debug_flag_sperre.cpp -- VL-3 (#15-Vorlauf): das --debug-FLAG der Planer-Shell und seine
-// ANWENDER-SPERRE, plus die AdmissionStatus-Umhaengung, die diese Sperre traegt.
+// test_vl3_debug_flag_sperre.cpp -- VL-3 (#15-Vorlauf): die PROZESS-PROBE des --debug-FLAGS der
+// Planer-Shell und seiner ANWENDER-SPERRE am echten Kommando.
+// (Die compile-time-Haelfte der Sache liegt im Header -- s. Block vor main().)
 //
 // == WARUM DIESE SACHE UEBERHAUPT EXISTIERT (Ledger 09.08.2026 spaet, geltende work_mode-Fassung) =====
 // Owner verbatim: "Damit ist Debug auch eher als Flag entkoppelt, als dass es als State gleichrangig
@@ -43,8 +44,6 @@
 // Pfad eines GUELTIGEN Profils (aus der CMakeLists gereicht, nicht aus der Umgebung geraten -- der
 // Test ist hermetisch gegen COMDARE_THESIS_PROFILE). Muster: test_check_size_cli_deckel.cpp.
 
-#include <cache_engine/measurement/axis_error.hpp>
-
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -57,8 +56,6 @@
 #define COMDARE_POPEN  popen
 #define COMDARE_PCLOSE pclose
 #endif
-
-namespace cem = ::comdare::cache_engine::measurement;
 
 namespace {
 
@@ -125,23 +122,18 @@ void gate_setzen(char const* wert) {
 
 } // namespace
 
-// == TEIL 1: die AdmissionStatus-UMHAENGUNG (Ledger-Bauliste Punkt 4b) ===============================
-// "Die Zulassung haengt am FLAG, nicht am State. AdmissionStatus {Zugelassen, Gesperrt} bleibt die
-// Form, aber sie bewertet, OB --debug gesetzt werden darf ... Der fail-closed-Default (Unbekannt ->
-// gesperrt) traegt unveraendert."
+// == WO DIE COMPILE-TIME-HAELFTE GEPRUEFT WIRD -- und warum NICHT hier ==============================
+// Die AdmissionStatus-Umhaengung (Ledger-Bauliste 4b) ist durch static_asserts IM HEADER gedeckt
+// (measurement/axis_error.hpp, direkt bei debug_flag_admission): beide Richtungen plus die
+// Etiketten-Naht auf der Zugelassen-Seite.
 //
-// Diese Zusicherungen sind compile-time: faellt die Umhaengung weg oder dreht jemand ihre Richtung um,
-// bricht der Bau LAUT (Haus-Doktrin "erst laute Compile-Fehler"), statt still eine Freigabe zu
-// verschenken. Sie stehen ausserhalb von main(), damit sie auch dann greifen, wenn der Prozess-Teil
-// mangels Binary gar nicht erst laeuft.
-static_assert(cem::debug_flag_admission(false) == cem::AdmissionStatus::Gesperrt,
-              "fail-closed: ohne Freigabe-Kontext ist --debug GESPERRT (Ledger 4b)");
-static_assert(cem::debug_flag_admission(true) == cem::AdmissionStatus::Zugelassen,
-              "mit Freigabe-Kontext ist --debug zugelassen -- sonst waere die Wache konstant rot (V-2)");
-// Die Zell-Token-Naht bleibt dieselbe wie bei der Perm-Zulassung: die Umhaengung erfindet KEIN zweites
-// Vokabular (W-4-Doktrin -- eine Form, zwei Gegenstaende, aber nur EIN Etikettensatz).
-static_assert(cem::admission_status_token(cem::debug_flag_admission(false)) == std::string_view{"gesperrt"},
-              "die Umhaengung rendert durch admission_status_token, nicht durch ein eigenes Etikett");
+// Eine frueherere Fassung dieser Datei hat genau diese drei Asserts WOERTLICH wiederholt, mit der
+// Begruendung, sie "greifen auch dann, wenn der Prozess-Teil mangels Binary gar nicht erst laeuft".
+// Diese Begruendung traegt NICHT, und das ist am Objekt nachgemessen: axis_error.hpp enthaelt ausser
+// `#pragma once` keinen einzigen #if-Guard, die Header-Asserts sind also in JEDER uebersetzten
+// Einheit unbedingt aktiv -- auch in dieser. Die Duplikate konnten nur brechen, wenn die Originale
+// schon gebrochen waren; sie hatten null eigene Erkennungskraft und sind entfernt.
+// Damit ist dieser Test, was er der Sache nach ist: die PROZESS-Probe der Sperre am echten Kommando.
 
 int main(int argc, char* argv[]) {
     std::printf("test_vl3_debug_flag_sperre -- das --debug-Flag der Planer-Shell + seine Anwender-Sperre\n");
@@ -211,6 +203,15 @@ int main(int argc, char* argv[]) {
     gate_setzen("");
     pruefe_lauf(fahre(binary, "--debug version"), 8, kFehlerklasse,
                 "K5c: Freigabe=\"\" (leer gesetzt) => gesperrt");
+    // K5d ZEMENTIERT die Marge, die der Vergleich TATSAECHLICH hat -- sie beisst heute nicht rot,
+    // sondern haelt eine bestehende Eigenschaft fest: env_trimmed() trimmt (planner_cli_env.hpp), der
+    // Vergleich sieht also " true " als "true". Das ist das Haus-Idiom (COMDARE_BESTANDSLOG ebenso) und
+    // in CI erwuenscht -- ein YAML-Blockskalar oder $(cat datei) haengt sonst ein Newline an und das
+    // Gate ginge unerklaerlich zu. Ohne diese Zusicherung waere die Marge nur ein Implementierungs-
+    // Detail, das ein spaeterer Wechsel auf getenv() still entfernen koennte.
+    gate_setzen(" true ");
+    pruefe_lauf(fahre(binary, "--debug version"), 0, "[debug] AKTIV",
+                "K5d: Freigabe=\" true \" wird getrimmt und ZUGELASSEN (Haus-Idiom, bewusst)");
 
     // == K6 / ORTHOGONALITAET: --debug ist mit JEDEM Subkommando kombinierbar ========================
     // Ledger: "orthogonal zu allen vier States und mit jedem kombinierbar". Als fuenfter Enum-Wert
@@ -243,6 +244,58 @@ int main(int argc, char* argv[]) {
                "K6d-b: check-size meldet KEIN unbekanntes Flag");
     }
 
+    // == K10: --debug NIMMT KEINEN WERT -- und zwar an JEDER Position gleich laut ====================
+    // Das Flag ist ein Schalter, kein Wert-Paar. Vor dem Fix zerfiel die '='-Schreibweise in ZWEI
+    // Verhalten, je nach Stellung (am Objekt gemessen, mit Gate=true):
+    //   "version --debug=true"      -> rc 0, KEIN [debug]-Vermerk, KEINE Meldung  == still geschluckt
+    //   "cache-key|fingerprint|validate --debug=true" -> ebenso rc 0 und stumm
+    //   "--debug=true version"      -> rc 1, aber "unbekanntes Subkommando '--debug=true'"
+    // Die stille Haelfte ist die gefaehrliche: wer `--debug=true` schreibt, glaubt im Debug-Modus zu
+    // fahren, faehrt aber im normalen -- und bekommt spaeter Zahlen, die er fuer Debug-Ausschuss haelt
+    // (oder umgekehrt). Die laute Haelfte war zwar nicht still, nannte aber die falsche Ursache.
+    // Beide Positionen muessen dieselbe, zutreffende Diagnose liefern.
+    char const* const kWertNadel = "--debug nimmt keinen Wert";
+    gate_setzen("true");
+    {
+        auto const l = fahre(binary, "version --debug=true");
+        pruefe_lauf(l, 1, kWertNadel, "K10: 'version --debug=true' => rc 1 mit Wert-Diagnose");
+        pruefe(l.ausgabe.find("[debug] AKTIV") == std::string::npos,
+               "K10b: der abgewiesene Lauf schaltet KEINEN Debug-Modus ein");
+        pruefe(l.ausgabe.find(kVersionsNadel) == std::string::npos,
+               "K10c: der abgewiesene Lauf fuehrt das Subkommando NICHT aus");
+    }
+    pruefe_lauf(fahre(binary, "--debug=true version"), 1, kWertNadel,
+                "K10d: dieselbe Diagnose auch VOR dem Subkommando (nicht 'unbekanntes Subkommando')");
+    pruefe_lauf(fahre(binary, "validate " + profil + " --debug=false"), 1, kWertNadel,
+                "K10e: auch --debug=false wird abgewiesen (der Schalter kennt keinen Wert, auch keinen "
+                "harmlosen)");
+    // Und die Sperre bleibt vorrangig: ohne Gate ist die Zulassung das erste Urteil, nicht die Form.
+    gate_setzen(nullptr);
+    pruefe_lauf(fahre(binary, "version --debug"), 8, kFehlerklasse,
+                "K10f: das WOHLGEFORMTE Flag faellt weiterhin in die Sperre (rc 8, nicht rc 1)");
+    gate_setzen("true");
+
+    // == K11: '--' BEENDET DIE OPTIONEN -- danach ist --debug ein WORT, kein Schalter ===============
+    // Die Extraktion greift jedes Vorkommen ab Position 1. Heute ist keine Wert-Option davon
+    // betroffen (alle Planer-Optionen sind '='-gefuegt, die Positionals sind Profil-Pfade), die
+    // Unversehrtheit von Wert-Argumenten ruht damit allein auf dieser Eigenschaft der CLI-Flaeche --
+    // nicht auf einer Regel im Code. Die erste leerzeichen-getrennte Wert-Option wuerde sie brechen,
+    // ohne dass irgendetwas laut wird. '--' macht die Regel explizit und ist zugleich die einzige
+    // Stelle, an der sie heute schon beobachtbar ist: vor dem Fix schaltete `validate -- --debug`
+    // den Debug-Modus EIN und verschluckte das '--' obendrein.
+    gate_setzen("true");
+    {
+        auto const l = fahre(binary, "validate " + profil + " -- --debug");
+        pruefe(l.ausgabe.find("[debug] AKTIV") == std::string::npos,
+               "K11: nach '--' ist --debug ein Wort -- der Debug-Modus bleibt AUS");
+    }
+    // Gegenprobe: OHNE Terminator wirkt dasselbe Flag unveraendert (die Regel schaltet nichts ab).
+    {
+        auto const l = fahre(binary, "validate " + profil + " --debug");
+        pruefe(l.ausgabe.find("[debug] AKTIV") != std::string::npos,
+               "K11b: ohne '--' wirkt --debug weiterhin (der Terminator verengt nur, was hinter ihm steht)");
+    }
+
     // == K7 / REIHENFOLGE FESTGENAGELT: die Sperre schlaegt den Subkommando-Fehler ===================
     // Ohne diese Zusicherung koennte ein spaeterer Umbau die Sperre hinter den Dispatch schieben --
     // dann meldete ein gesperrter Lauf "unbekanntes Subkommando" und die Sperre waere unbeobachtbar.
@@ -265,8 +318,28 @@ int main(int argc, char* argv[]) {
         auto const l = fahre(binary, "help");
         pruefe(l.ausgabe.find("--debug") != std::string::npos,
                "K9: 'help' nennt das --debug-Flag");
-        pruefe(l.ausgabe.find("8 ") != std::string::npos,
-               "K9b: 'help' fuehrt den neuen Exit-Code 8 in der Exit-Code-Liste");
+        // Die Nadel ist der LISTEN-EINTRAG, nicht der blosse Teilstring "8 ". Erste Fassung war
+        // `find("8 ")` -- und die wurde bereits von der Fliesstext-Zeile "... mit Exit 8 abgewiesen"
+        // erfuellt, die derselbe Commit hinzufuegt. Loeschte jemand den Eintrag aus der Exit-Code-Liste,
+        // blieb die Zusicherung GRUEN: eine Wache, die nie beisst (V-2) -- genau die Klasse, die diese
+        // Datei ein paar Zeilen weiter oben (kVersionsNadel) schon einmal selbst dokumentiert hat.
+        // T-1 dazu gefahren: Listen-Eintrag entfernt -> mit "8 " GRUEN, mit dieser Nadel ROT.
+        pruefe(l.ausgabe.find("| 8 --debug-Zulassung gesperrt") != std::string::npos,
+               "K9b: 'help' fuehrt Exit 8 als EINTRAG der Exit-Code-Liste (nicht bloss im Fliesstext)");
+        // K9c GEGENPROBE zur Codeset-Behauptung des Datei-Kopfes: 7 ist im Haus das Lane-Fehlrouting
+        // der CEB und darf in DIESER Binary nicht als eigener Code auftauchen. Ohne diese Zusicherung
+        // ist "8 statt 7, weil 7 vergeben ist" nur eine Kommentar-Behauptung. Geprueft wird die
+        // Listen-Form "| 7 " -- der Fliesstext nennt "Exit 7" bewusst (Rollen-Trennung) und bleibt
+        // damit erlaubt.
+        pruefe(l.ausgabe.find("| 7 ") == std::string::npos,
+               "K9c: 'help' fuehrt KEINEN Exit-Code 7 in der Liste (der gehoert der CEB)");
+        // K9d: die Hilfe darf nicht SCHAERFER sein als die Implementierung. Ihre erste Fassung sagte
+        // "exakt dieser Wert; alles andere bleibt gesperrt" -- der Eingang ist aber vorgetrimmt (K5d),
+        // also war die Zusage um genau diese Marge zu stark. Eine Doku, die mehr verspricht als der
+        // Code haelt, ist dieselbe Klasse Fehler wie eine Wache, die nicht beisst: beide erzeugen
+        // Vertrauen ohne Deckung.
+        pruefe(l.ausgabe.find("umgebende Leerzeichen werden ignoriert") != std::string::npos,
+               "K9d: 'help' nennt die Trim-Marge des Freigabe-Vergleichs");
     }
 
     std::printf("%s: %d/%d Zusicherungen bestanden (Grundgesamtheit: alle Zusicherungen dieser Datei)\n",

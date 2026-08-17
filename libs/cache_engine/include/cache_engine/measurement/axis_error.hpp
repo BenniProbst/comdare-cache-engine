@@ -590,7 +590,16 @@ static_assert(debug_flag_admission(true) == AdmissionStatus::Zugelassen,
               "mit Freigabe zugelassen -- sonst ist die Wache konstant rot und damit wertlos");
 // Und die Umhaengung bleibt an DIESEM Etikettensatz: sie erfindet kein zweites Vokabular fuer dieselbe
 // Aussage (W-4-Doktrin, s. Kommentar an der Funktion).
-static_assert(admission_status_token(debug_flag_admission(false)) == std::string_view{"gesperrt"});
+//
+// WARUM HIER DIE ZUGELASSEN-SEITE STEHT UND NICHT DIE GESPERRT-SEITE: die Gesperrt-Fassung
+// (`admission_status_token(debug_flag_admission(false)) == "gesperrt"`) folgt ZWINGEND aus den beiden
+// Zeilen darueber und der vorbestehenden Gesperrt-Token-Wache -- sie kann durch keine Mutation
+// brechen, ohne dass vorher eine der drei bricht, und haette damit null eigene Erkennungskraft. Die
+// Zugelassen-Seite dagegen war ungepinnt: am Objekt gemessen ging eine Aenderung des
+// Zugelassen-Tokens durch den GESAMTEN Bau (Bau-rc 0, 0 static-assert-Treffer), weil die
+// vorhandenen Zugelassen-Wachen nur UNGLEICHHEITEN gegen sample_status_token pruefen. Diese Zeile
+// schliesst genau diese Luecke -- sie zementiert Richtung UND Etikett in einem.
+static_assert(admission_status_token(debug_flag_admission(true)) == std::string_view{"zugelassen"});
 // Token-Kontrakt (D2/OD-1): die entscheidenden Zell-Vokabeln sind zementiert.
 static_assert(sample_status_token(SampleStatus::Failed) == std::string_view{"failed"});
 static_assert(sample_status_token(SampleStatus::NotApplicable) == std::string_view{"n/a"});

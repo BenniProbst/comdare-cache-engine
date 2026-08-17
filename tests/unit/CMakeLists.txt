@@ -7107,10 +7107,11 @@ set_tests_properties(test_stempel_zulassung_bruecke PROPERTIES
 # ===================================================================================================
 # VL-3 (#15-Vorlauf, 17.08.2026): das --debug-FLAG der Planer-Shell + seine ANWENDER-SPERRE.
 #
-# EINE Registrierung fuer BEIDE Haelften der Sache, weil es EINE Sache ist: die compile-time-Wachen der
-# AdmissionStatus-Umhaengung (axis_error.hpp, Ledger-Bauliste 4b) und die Prozess-Probe der Sperre am
-# echten Kommando. Ein zweites Test-Ziel haette die Zulassungs-Regel auf zwei Orte verteilt, an denen
-# sie getrennt verfallen kann.
+# Dieses Ziel ist die PROZESS-Probe der Sperre am echten Kommando -- und NUR die. Die compile-time-
+# Haelfte (AdmissionStatus-Umhaengung, Ledger-Bauliste 4b) liegt als static_assert IM HEADER
+# measurement/axis_error.hpp und ist dort unbedingt aktiv (die Datei hat ausser `#pragma once` keinen
+# #if-Guard); eine erste Fassung dieses Ziels hat sie zusaetzlich woertlich wiederholt, was nichts
+# deckte, was der Header nicht schon deckt -- entfernt, samt der dafuer noetigen Include-Wurzel.
 #
 # Die ECHTE Binary als Prozess (Muster test_check_size_cli_deckel, dieselbe Shell, derselbe Gegenstand):
 # geprueft wird das KOMMANDO, nicht ein Nachbau seiner Parse-Logik (T-2/GEGENSTAND). Der Profil-Pfad
@@ -7118,8 +7119,6 @@ set_tests_properties(test_stempel_zulassung_bruecke PROPERTIES
 # Freigabe-Gate COMDARE_DEBUG_FREIGABE setzt der Test selbst per setenv (popen erbt die Umgebung).
 add_executable(test_vl3_debug_flag_sperre "test_vl3_debug_flag_sperre.cpp")
 target_compile_features(test_vl3_debug_flag_sperre PRIVATE cxx_std_23)
-target_include_directories(test_vl3_debug_flag_sperre PRIVATE
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 comdare_set_platform_defines(test_vl3_debug_flag_sperre)
 add_test(NAME test_vl3_debug_flag_sperre COMMAND test_vl3_debug_flag_sperre
     "$<TARGET_FILE:comdare_experiment_planner>"

@@ -580,6 +580,9 @@ void help_for(std::string const& topic) {
               << "                          Messwerte sind AUSSCHUSS und gehoeren nie ins Messwertlager.\n"
               << "                          FUER ANWENDER GESPERRT (Integritaetsregel): ohne den internen Kontext\n"
               << "                          COMDARE_DEBUG_FREIGABE=true wird der Aufruf mit Exit 8 abgewiesen.\n"
+              << "                          Verglichen wird der Wert 'true'; umgebende Leerzeichen werden ignoriert\n"
+              << "                          (Haus-Idiom; ein Newline aus der CI sperrt so nicht stumm).\n"
+              << "                          Das Flag nimmt KEINEN Wert: '--debug=true' ist ein Fehler, kein Synonym.\n"
               << "                          Das Flag aendert nie die Reihenfolge oder Abhaengigkeiten der Modi,\n"
               << "                          nur ihre Auspraegung.\n\n"
               << "Rollen-Trennung (Section 40.b/42, ZWEI MODULE): die STUFE-2-Sicht (tier ci|cmake) und der\n"
@@ -643,10 +646,40 @@ int main(int argc, char* argv[]) {
     {
         std::vector<std::string> ohne_debug;
         ohne_debug.reserve(args.size());
+        // '--' beendet die Optionen (POSIX-Konvention). Ohne diese Marke frisst die Schleife jedes
+        // `--debug` ab Position 1 -- heute folgenlos, weil ALLE Optionen dieser Shell '='-gefuegt sind
+        // (--root=, --max-bytes=, --max-tage=, --sekunden-je-op=) und die Positionals Profil-Pfade
+        // sind: ein Argument-WERT kann also nie der Token `--debug` sein. Diese Garantie ruht damit
+        // aber allein auf der heutigen Options-Flaeche und nicht auf einer Regel -- die erste
+        // leerzeichen-getrennte Wert-Option wuerde sie still brechen. WER HIER EINE SOLCHE OPTION
+        // EINFUEHRT, muss nichts aendern; wer das '--' entfernt, schon.
+        bool optionen_beendet = false;
         for (std::size_t i = 0; i < args.size(); ++i) {
-            if (i > 0 && args[i] == "--debug") {
+            if (i > 0 && !optionen_beendet && args[i] == "--") {
+                optionen_beendet = true; // die Marke selbst reist nicht weiter
+                continue;
+            }
+            if (i > 0 && !optionen_beendet && args[i] == "--debug") {
                 debug_flag = true; // mehrfache Nennung ist kein Fehler, nur Redundanz
                 continue;
+            }
+            // `--debug=<wert>` ist KEINE gueltige Schreibweise: das Flag ist ein Schalter, kein
+            // Wert-Paar. Ohne diesen Zweig zerfiel die Form in zwei Verhalten, je nach Stellung
+            // (am Objekt gemessen): HINTER dem Subkommando wurde sie STILL geschluckt --
+            // `version --debug=true` lief mit rc 0, ohne Debug-Modus und ohne jede Meldung, weil
+            // version sein a2 nur gegen --help prueft und resolve_profile jedes '-'-Argument
+            // verwirft; VOR dem Subkommando fiel sie in "unbekanntes Subkommando", also laut, aber
+            // mit der falschen Ursache. Die stille Haelfte ist die gefaehrliche: wer --debug=true
+            // schreibt, glaubt im Debug-Modus zu fahren und faehrt im normalen.
+            if (i > 0 && !optionen_beendet && args[i].rfind("--debug=", 0) == 0) {
+                std::cerr << "comdare-experiment-planner: FEHLER fehlerklasse=flag_syntax: "
+                          << "--debug nimmt keinen Wert -- '" << args[i] << "' ist keine gueltige "
+                          << "Schreibweise.\n"
+                          << "  --debug ist ein SCHALTER: entweder er steht da oder nicht. Die Zulassung "
+                          << "entscheidet allein\n"
+                          << "  der interne Freigabe-Kontext (COMDARE_DEBUG_FREIGABE=true), nie ein Wert "
+                          << "am Flag.\n";
+                return 1;
             }
             ohne_debug.push_back(args[i]);
         }
@@ -673,8 +706,10 @@ int main(int argc, char* argv[]) {
                       << "Seine Zahlen sehen wie\n"
                       << "  Messwerte aus und sind keine -- sie gehoeren nie ins Messwertlager, nie in "
                       << "eine Auswertung, nie in die Thesis.\n"
-                      << "  FREIGABE nur im internen/CI-Kontext: COMDARE_DEBUG_FREIGABE=true (exakt "
-                      << "dieser Wert; alles andere bleibt gesperrt).\n";
+                      << "  FREIGABE nur im internen/CI-Kontext: COMDARE_DEBUG_FREIGABE=true (genau dieser "
+                      << "Wert, umgebende\n"
+                      << "  Leerzeichen werden ignoriert; jeder andere Inhalt -- auch \"1\" oder \"TRUE\" -- "
+                      << "bleibt gesperrt).\n";
             return 8;
         }
         // SICHTBAR, nicht still: ein unbemerkter Debug-Lauf ist der Weg, auf dem seine Zahl spaeter fuer
