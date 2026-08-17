@@ -50,10 +50,15 @@
 # --build-dir=build-covguard -DCOMDARE_CE_PRUEFLINGE="$PWD/tests/pruefling_fixture");
 # J-1-Muster: erst die beiden Registrierungs-Werkzeuge (comdare_anatomy_codegen_cli,
 # comdare_adhoc_emitter_cli), dann RE-KONFIGURIERT.
-#     avx512f (gemessen, prod1)                                          -> 495
-#     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                -> 491
-#     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0     -> 489
-# danach 'cmake -U' auf BEIDE Variablen; Wiederherstellung nachgewiesen: 495 Tests,
+# -- NACHMESSUNG 2026-08-16 (GOLDEN-FENSTER-LANDUNG, J-1-Rezept live gefahren) --
+# 494/490/488 ersetzt die vorherige Fassung 495/491/489: die 495 war im PRUEFLING-
+# konfigurierten Entwickler-Worktree erhoben (COMDARE_CE_PRUEFLINGE=fixture registriert
+# test_pruefling_fixture_ladung zusaetzlich; comm-Differenz = exakt dieser eine Name).
+# Der CI-Floor-Baum baut OHNE Pruefling -- zur Testzahl gehoert der BAU-ZUSTAND (V6.5).
+#     avx512f (gemessen, prod1)                                          -> 494
+#     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                -> 490
+#     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0     -> 488
+# danach 'cmake -U' auf BEIDE Variablen; Wiederherstellung nachgewiesen: 494 Tests,
 # Namensmenge byte-gleich zur Erstmessung (cmp leer). Namensdiffs mit LC_ALL=C comm in
 # BEIDE Richtungen: avx512f->avx2 verliert exakt die dokumentierten VIER, avx2->basis
 # die ZWEI, Gegenrichtungen leer -- die Sprossenabstaende -4 und -2 stehen.
@@ -463,6 +468,6 @@
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
 
-avx512f 495
-avx2 491
-basis 489
+avx512f 494
+avx2 490
+basis 488
