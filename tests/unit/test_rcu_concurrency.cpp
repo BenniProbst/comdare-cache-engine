@@ -126,6 +126,11 @@ TEST(RcuConcurrency, WriterSyncsWhileReaderThreadsChurnNoUseAfterFree) {
     // durch alle 500 Generationen, BEVOR ein Reader seinen ersten Durchlauf schaffte; danach
     // stand stop=true, alle vier brachen bei k=0 ab, und EXPECT_GT(reads,0) fiel mit
     // "actual: 0 vs 0". REPRODUZIERT: 5 von 30 Laeufen unter 32-Prozess-Last, 0 von 50 ohne.
+    // Die Ursprungs-Lage danach VOLLSTAENDIG nachgestellt (32 Rechen-Prozesse UND zwei
+    // gleichzeitige ctest-Serien, wie sie der Doppelstart erzeugte): 8 von 50 rot, beide Seiten
+    // mit genau dieser Signatur -- danach 50 von 50 gruen. Damit ist auch die Alternativ-Ursache
+    // ausgeschlossen: ein EAGAIN der Thread-Erzeugung braucht ein knappes Prozess-Limit
+    // (kuenstlich erzwungen: 20 von 20 rot), waehrend real 245493 erlaubt und ~1166 belegt sind.
     // Der Assert war dabei im RECHT -- er ist der Waechter dagegen, dass dieser Test seinen
     // Gegenstand (Reader-Churn NEBENLAEUFIG zu synchronize()) still verfehlt. Gefehlt hat das
     // Warten. Hier steht deshalb kein weicheres Erwartungsmass, sondern die Herstellung der
