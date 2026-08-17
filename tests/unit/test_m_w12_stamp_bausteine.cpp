@@ -763,6 +763,50 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     // test_reflect_versions_all17 (dort liegt build_axis_variant_version_table; diese TU bleibt leicht).
 }
 
+// -- VL-2 PROBE: DIE ""-DOKTRIN UND DIE FELDZAHL, VOM KONSUMENTEN AUS ----------------------------------
+//
+// ZWEI ECHTE LUECKEN, vor dem Einbau am Objekt erhoben (17.08.2026) statt vermutet:
+//   (a) Die ""-DOKTRIN des POD ("count==0 -> Sentinel, NIE nullptr"; decl.hpp bei den Array-Feldern) war
+//       DOKUMENTIERT, aber in KEINEM Test geprueft -- Gegenprobe: 0 Treffer fuer eine nullptr-Pruefung
+//       auf organ_line/system_line/measurement_line/sha512_line im ganzen Testbaum. Genau diese Doktrin
+//       bricht der POD-Append STILL (das neue Feld wird wert-initialisiert = nullptr).
+//   (b) kAnatomyVersionLinesFeldZahl hatte NULL Konsumenten -- eine Konstante, die niemand liest, ist
+//       eine Behauptung. Hier liest sie jemand, und zwar von aussen.
+//
+// WAS SIE NICHT KANN, ausdruecklich: ein KUENFTIGES 17. Feld sieht dieser Test nicht (er kennt nur die
+// Felder, die es heute gibt). Diese Haelfte traegt die Feldzahl-Wache in decl.hpp compile-time. Der Test
+// deckt die andere Haelfte: dass die HEUTE gereichten Werte die Doktrin auch wirklich erfuellen.
+TEST(MW12StampBausteine, VL2PodDoktrinUndFeldzahlVomKonsumenten) {
+    namespace abi = ::comdare::cache_engine::abi;
+
+    static_assert(abi::kAnatomyVersionLinesFeldZahl == 16u,
+                  "VL-2: die Feldzahl des POD ist 16. Wer sie bewegt, bewegt auch die vier designierten "
+                  "Aggregat-Initialisierer (decl-Probe, Makro, test_d2 mach_pod, test_m_w12).");
+    static_assert(sizeof(abi::AnatomyVersionLines) == 120, "VL-2: sizeof-Pin, vom Konsumenten aus gesehen.");
+    static_assert(alignof(abi::AnatomyVersionLines) == 8);
+
+    // Die ""-Doktrin am Probe-POD: die vier Zeichen-Zeiger tragen "" (Laenge 0), NIE nullptr. Ein
+    // wert-initialisiertes Feld waere hier nullptr und wuerde diesen Test reissen.
+    constexpr auto p = abi::detail::stamp_pod_layout_probe(abi::kAnatomyVersionLinesLayout);
+    static_assert(p.organ_line != nullptr && p.system_line != nullptr && p.measurement_line != nullptr &&
+                      p.sha512_line != nullptr,
+                  "VL-2: die Leerstring-Doktrin verlangt Zeiger auf \"\", nie nullptr -- ein still "
+                  "wert-initialisiertes Feld faellt genau hier auf.");
+    EXPECT_STREQ(p.organ_line, "");
+    EXPECT_STREQ(p.system_line, "");
+    EXPECT_STREQ(p.measurement_line, "");
+    EXPECT_STREQ(p.sha512_line, "");
+    EXPECT_EQ(p.organ_len, 0u);
+    EXPECT_EQ(p.system_len, 0u);
+    EXPECT_EQ(p.measurement_len, 0u);
+    EXPECT_EQ(p.sha512_len, 0u);
+    // Und die Zuordnung selbst: der Designator .stamp_layout_version traegt den gereichten Wert, nicht
+    // versehentlich das reserved-Feld daneben (beide uint32 -- genau das Paar, das positional still
+    // vertauschbar war).
+    EXPECT_EQ(p.stamp_layout_version, abi::kAnatomyVersionLinesLayout);
+    EXPECT_EQ(p.reserved, 0u);
+}
+
 // -- S-6b CT-NEGATIV-PROBE: DIE TRANSPOSITIONS-SPERRE, VOM KONSUMENTEN AUS GESEHEN --------------------
 //
 // WARUM HIER UND NICHT NUR AM EIGENTUEMER: anatomy_fingerprint.hpp beweist die Disjunktheit der drei
