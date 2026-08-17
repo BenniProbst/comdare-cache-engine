@@ -43,11 +43,10 @@ paths = [
   '''(^|/)cmake-build-[^/]*/''',
   '''(^|/)_archive_code_pre_migration/''',
   '''(^|/)\.citools/''',
-  # MARATHON-SCAN-FALLE (27.07.): der persistente Runner-Checkout traegt untracked Bau-Artefakte --
-  # der ccache-Store sind GB Binaerdaten. Ohne diesen Eintrag scannt gitleaks sie mit (super-Job
-  # 335274 lief 24 min ohne Trace-Ausgabe). Der Eintrag MUSS hier stehen und nicht nur zentral:
-  # die Projekt-toml schlaegt die Basis (siehe Kopf).
-  '''(^|/)\.ccache/''',
+  # ccache-Drop 17.08.: Kausalbefund Job 335274 am 27.07. selbentags widerlegt -- git clean
+  # raeumt vor Scan, das Watchdog-Gewitter war die Wurzel; seit 10.08. deckelt zudem ein
+  # 10-min-Timeout lint:secrets. Der '(^|/)\.ccache/'-Eintrag ist entfernt: .ccache-Pfade
+  # werden MITGESCANNT, ein Fund dort ist ein echter Befund.
 ]
 
 # --- BASIS-DUPLIKAT (gitleaks-base.toml) -------------------------------------------------------
