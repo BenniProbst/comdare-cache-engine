@@ -52,7 +52,16 @@ GREP="/usr/bin/grep"
 #     WANN DIESE ZEILE VERSCHWINDET: sobald das Loader-Verzeichnis physisch aus builder/
 #     herauswandert. Das ist ein eigener Posten (Verzeichnis-Umzug beruehrt 34 CMake-Stellen)
 #     und bewusst NICHT Teil der K2-Extraktion.
-ALLOWLIST="libs/cache_engine/anatomy_drive/search_algorithm_drive.hpp"
+#
+# FORM (2026-08-17, Lens-Fund): jeder Eintrag ist ein PAAR "datei|include-muster", getrennt durch
+# Zeilenumbruch. Die erste Fassung fuehrte nur die DATEI und loeschte bei einem Treffer die
+# gesamte Trefferliste dieser Datei -- eine ZWEITE builder-Kante in derselben Datei waere damit
+# lautlos unter die Ausnahme gerutscht, also genau das, was der Kopf oben ausschliessen will.
+# Erlaubt ist ab jetzt die einzelne ZEILE, nicht die Datei.
+ALLOWLIST='libs/cache_engine/anatomy_drive/search_algorithm_drive.hpp|builder/anatomy_module_loader/'
+# Soll-Zahl der Ausnahmen: muss am Ende EXAKT getroffen sein. Eine Ausnahme ohne Gegenstand ist
+# eine offene Tuer, die niemand mehr sieht -- sie faellt hier auf, statt zu verwesen.
+ALLOWLIST_SOLL=1
 
 for Z in $ZIELE; do
     [ -d "$Z" ] || { echo "lint_layer_includes: ABBRUCH -- $Z fehlt (Pfad verschoben?)"; exit 2; }
@@ -74,18 +83,40 @@ fi
 TREFFER=0
 echo "VERSTOESSE (falls vorhanden):"
 ERLAUBT_GENUTZT=0
+ALT_IFS=$IFS
 for f in $DATEIEN; do
     HIT=$("$GREP" -n '#include.*builder/' "$f" 2>/dev/null || true)
-    # Allowlist: benannte Einzelfaelle. Sie werden GEZAEHLT und unten ausgewiesen -- eine
-    # Ausnahme, die niemand mehr sieht, ist der Anfang der naechsten.
-    for a in $ALLOWLIST; do
-        if [ "$f" = "$a" ] && [ -n "$HIT" ]; then
+    [ -n "$HIT" ] || continue
+    # ZEILENWEISE Pruefung. Erlaubt ist die einzelne Zeile, die zu einem Allowlist-Paar GENAU
+    # DIESER Datei passt; jede weitere builder/-Zeile derselben Datei bleibt ein Verstoss.
+    # Allowlist-Treffer werden GEZAEHLT und unten ausgewiesen -- eine Ausnahme, die niemand mehr
+    # sieht, ist der Anfang der naechsten.
+    REST=""
+    IFS='
+'
+    for zeile in $HIT; do
+        erlaubt=0
+        for paar in $ALLOWLIST; do
+            a_datei=${paar%%|*}
+            a_muster=${paar#*|}
+            [ "$f" = "$a_datei" ] || continue
+            case "$zeile" in
+                *"$a_muster"*)
+                    erlaubt=1
+                    break
+                    ;;
+            esac
+        done
+        if [ "$erlaubt" -eq 1 ]; then
             ERLAUBT_GENUTZT=$((ERLAUBT_GENUTZT + 1))
-            HIT=""
+        else
+            REST="$REST$zeile
+"
         fi
     done
-    if [ -n "$HIT" ]; then
-        printf '%s\n' "$HIT" | sed "s#^#  $f:#"
+    IFS=$ALT_IFS
+    if [ -n "$REST" ]; then
+        printf '%s' "$REST" | sed "s#^#  $f:#"
         TREFFER=$((TREFFER + 1))
     fi
 done
@@ -93,13 +124,24 @@ done
 echo ""
 echo "-----------------------------------------------------------------------------"
 echo "NENNER (nie eine nackte Null):"
-echo "  $ANZ_DATEIEN Header unter [$ZIELE] geprueft, davon $TREFFER mit einer builder/-Include-Zeile."
-echo "  ERLAUBTE Kanten (benannte Allowlist, s. Kopf): $ERLAUBT_GENUTZT genutzt."
+echo "  $ANZ_DATEIEN Header unter [$ZIELE] geprueft, davon $TREFFER mit einer UNERLAUBTEN builder/-Include-Zeile."
+echo "  ERLAUBTE Kanten (benannte Allowlist, s. Kopf): $ERLAUBT_GENUTZT von $ALLOWLIST_SOLL getroffen."
 echo "-----------------------------------------------------------------------------"
 
 if [ "$TREFFER" -gt 0 ]; then
     echo "lint_layer_includes: FAILED -- eine untere Schicht ([$ZIELE]) kennt einen Namen aus builder/ (obere Schicht)."
     exit 1
+fi
+
+# STALE-WACHE: eine deklarierte Ausnahme MUSS einen Gegenstand haben. Trifft sie nichts mehr
+# (Include entfernt, Datei umbenannt, Pfad verschoben), steht hier eine offene Tuer, die keiner
+# mehr sieht -- und der naechste Verstoss desselben Musters rutscht lautlos hindurch. Deshalb
+# EXAKTE Gleichheit statt Untergrenze: auch MEHR Treffer als deklariert sind ein Befund.
+if [ "$ERLAUBT_GENUTZT" -ne "$ALLOWLIST_SOLL" ]; then
+    echo "lint_layer_includes: ABBRUCH -- Allowlist STALE: $ALLOWLIST_SOLL Ausnahme(n) deklariert,"
+    echo "  $ERLAUBT_GENUTZT tatsaechlich getroffen. Eintrag streichen oder ALLOWLIST_SOLL nachziehen"
+    echo "  -- eine Ausnahme ohne Gegenstand ist eine offene Tuer."
+    exit 2
 fi
 echo "lint_layer_includes: OK ($ANZ_DATEIEN Header unter [$ZIELE] geprueft, keine unerlaubte builder/-Kante; $ERLAUBT_GENUTZT erlaubte)."
 exit 0
