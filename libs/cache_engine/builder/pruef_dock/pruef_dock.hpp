@@ -13,10 +13,23 @@
 // (der konsolidierte Observer-POD). Neue Gattung = neues Dock + neues Sub-Interface + neuer flacher POD — NIE eine
 // Mutation von IAnatomyBase oder dem bestehenden Snapshot (vtable-/Layout-Bruch alter DLLs).
 //
+// PRÄZISIERUNG 17.08.2026 (K2, Owner-Entscheid 09.08.) — ADDITIV, der Satz oben bleibt wahr:
+// "IPruefDock lebt nur im Builder-Binary" gilt unverändert für IPruefDock, die Docks, das
+// Konformitäts-Gate, die Registry und den Sequencer. Was NICHT mehr hier lebt, sind die
+// STATUS-CODES und das ANTRIEBS-BÜNDEL: sie sind nach libs/cache_engine/anatomy_drive/ gewandert,
+// weil Owner 09.08. entschieden hat, "der Loader wandert in eine stufen-neutrale Bibliothek, weil
+// das Pruefdock der CEB und das Pruefdock der Hybrid-Tier-Binary jeweils technisch identisch bei
+// Konfiguration sein muessen."
+// Die Trennlinie ist inhaltlich, nicht willkürlich: beschreibt ein Stück die ABI-KANTE zum
+// geladenen Modul (Status, dynamic_cast auf Sub-Interfaces), gehört es in die neutrale Schicht;
+// beschreibt es das VERHALTEN eines Docks (Gattungs-Match, Mess-Vertrag), bleibt es hier.
+// Für Aufrufer ändert sich NICHTS — die Namen werden unten per using re-exportiert.
+//
 // @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md §8.8
 // @related [[anatomie-gattungen]] [[execution-engine-als-wurzel]] [[gattungs-constraint-pruefling-merge]]
 
 #include <anatomy/anatomy_base.hpp>                                // AnatomyGenus, IAnatomyBase::genus()
+#include <anatomy_drive/tier_drive_status.hpp>                    // K2: die Status-Codes, stufen-neutral
 #include <builder/anatomy_module_loader/anatomy_module_loader.hpp> // AnatomyModuleHandle
 #include <builder/anatomy_commands/tier_observe_trace_abi.hpp>     // AbiTierTraceConfig (Mess-Optionen-Reuse)
 
@@ -33,37 +46,23 @@ namespace anatomy_cmds   = ::comdare::cache_engine::builder::anatomy_commands;
 using PruefDockMeasureOptions = anatomy_cmds::AbiTierTraceConfig;
 
 // errno-Stil Status-Codes (0 = ok), analog Loader + Hybrid-Search-Interface ([[hybrid-search-engine-interface]]).
-inline constexpr int dock_status_ok                   = 0;
-inline constexpr int dock_status_no_anatomy           = 1; // Handle ohne IAnatomyBase
-inline constexpr int dock_status_wrong_genus          = 2; // Modul-Gattung != Dock-Gattung
-inline constexpr int dock_status_subinterface_missing = 3; // gattungs-Antrieb (dynamic_cast) == nullptr (alte DLL)
-inline constexpr int dock_status_conformance_failed =
-    4; // V5-I4: std::map-Konformitaets-Gate fehlgeschlagen (vor Messung)
-// NAHT-1 (Owner-KERN 09.08.2026): die zweiseitige Aktivierung braucht ZWEI eigene Zustaende. Bis
-// hierher fielen beide in dock_status_subinterface_missing (3) = "alte DLL, sauber degradieren" --
-// und genau dieses stille Degrade ist der Grund, warum eine Reihe voller ehrlicher Nullen wie eine
-// Messung aussah. Die Trennung ist der Unterschied zwischen "hier wurde bewusst nicht gemessen"
-// und "hier behauptet jemand etwas, das nicht stimmt".
-inline constexpr int dock_status_mess_gate_mismatch =
-    5; // Legende und Mess-Flaeche widersprechen sich -> DEFEKT (JOB hart rot, nie allow_failure)
-inline constexpr int dock_status_mess_deaktiviert =
-    6; // Messeinrichtung EINER Seite bewusst aus -> kein Visitor uebergeben, nicht gemessen
-
-[[nodiscard]] inline std::string_view dock_status_name(int s) noexcept {
-    switch (s) {
-        case dock_status_ok: return "ok";
-        case dock_status_no_anatomy: return "no_anatomy";
-        case dock_status_wrong_genus: return "wrong_genus";
-        case dock_status_subinterface_missing: return "subinterface_missing";
-        case dock_status_conformance_failed: return "conformance_failed";
-        // NAHT-1: die Registrierung IST Teil des Tests (T-7) -- ein Status, den dock_status_name
-        // nicht kennt, faellt in "unknown" und ist damit im Bericht stumm. Ein stummer Zustand ist
-        // schlimmer als gar keiner: er sieht aus wie ein bekannter Fehler.
-        case dock_status_mess_gate_mismatch: return "mess_gate_mismatch";
-        case dock_status_mess_deaktiviert: return "mess_deaktiviert";
-        default: return "unknown";
-    }
-}
+//
+// K2-WANDERUNG 17.08.2026: die Definitionen liegen jetzt in anatomy_drive/tier_drive_status.hpp --
+// stufen-neutral, damit das Ebene-3-Dock der Hybrid-Binary dieselben Codes benutzt wie dieses
+// Ebene-2-Dock (Owner 09.08.: "technisch identisch bei Konfiguration"). Hier stehen nur noch die
+// Re-Exporte: Werte, Namen und Bedeutung sind UNVERAENDERT, und jeder Bestands-Aufrufer sieht
+// weiterhin genau dieselben Bezeichner an derselben Stelle.
+// KEINE ZWEITE WAHRHEIT: die Codes werden hier NICHT noch einmal definiert. Wer einen anhaengt,
+// tut es in der neutralen Datei -- sonst haetten Ebene 2 und Ebene 3 verschiedene Zahlen fuer
+// denselben Zustand, und das faellt erst am Messwert auf.
+using ::comdare::cache_engine::anatomy_drive::dock_status_conformance_failed;
+using ::comdare::cache_engine::anatomy_drive::dock_status_mess_deaktiviert;
+using ::comdare::cache_engine::anatomy_drive::dock_status_mess_gate_mismatch;
+using ::comdare::cache_engine::anatomy_drive::dock_status_name;
+using ::comdare::cache_engine::anatomy_drive::dock_status_no_anatomy;
+using ::comdare::cache_engine::anatomy_drive::dock_status_ok;
+using ::comdare::cache_engine::anatomy_drive::dock_status_subinterface_missing;
+using ::comdare::cache_engine::anatomy_drive::dock_status_wrong_genus;
 
 /// IPruefDock — builder-seitiger per-Gattung Mess-Übergang (uniformer Vertrag über alle Gattungen).
 /// Erweiterung um eine Gattung = eine neue konkrete IPruefDock-Implementierung (+ deren gattungs-eigenes

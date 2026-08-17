@@ -14,11 +14,28 @@ target_include_directories(comdare_ce_pruef_dock INTERFACE
 
 target_compile_features(comdare_ce_pruef_dock INTERFACE cxx_std_23)
 
-# Der Mess-Treiber konstruiert/zerstört AnatomyModuleHandle (unload() lebt im Loader-.cpp) → Loader-Lib linken.
-if(TARGET comdare::anatomy_module_loader)
-    target_link_libraries(comdare_ce_pruef_dock INTERFACE comdare::anatomy_module_loader)
-endif()
-
-if(TARGET Boost::mp11)
-    target_link_libraries(comdare_ce_pruef_dock INTERFACE Boost::mp11)
-endif()
+# ALLE DREI KANTEN HART, KEIN if(TARGET) -- A2.5-Fix F-2 (ce_anatomy_drive) und Fix-Runde 2
+# (Loader + mp11, Lens-Fund: zwei Waechter derselben Bauform standen noch).
+#
+# WARUM: if(TARGET) wird zur PARSE-Zeit ausgewertet. Bei ce_anatomy_drive war das ein TOTER
+# ZWEIG -- libs/cache_engine/CMakeLists.txt bindet builder/ VOR anatomy_drive/ ein, das Target
+# existierte hier also noch nicht, die Bedingung war false, und die Kante entstand nie, lautlos.
+# Bei Loader und mp11 war dieselbe Bauform heute zufaellig wahr; "zufaellig wahr" ist kein
+# Zustand, auf den sich eine PFLICHT-Kante stuetzen darf, und ein Wachposten, der eine Pflicht
+# als Wahlmoeglichkeit schreibt, verschweigt beim naechsten Umbau genau den Bruch, den er
+# melden sollte. target_link_libraries loest Target-Namen zur GENERATE-Zeit auf: reihenfolge-
+# unabhaengig, und ein Tippfehler bricht laut statt still ("ERST LAUTE COMPILE-FEHLER").
+#
+# OPTIONAL IST KEINE DAVON, am Objekt geprueft: die Schwester-Datei anatomy_drive/CMakeLists.txt
+# zieht Loader UND mp11 bereits hart, und der Vollbau laeuft mit ihr auf beiden Compilern durch --
+# beide Targets sind zur Generate-Zeit also zuverlaessig da.
+#
+#   anatomy_module_loader : der Mess-Treiber konstruiert/zerstoert AnatomyModuleHandle,
+#                           dessen unload() im Loader-.cpp liegt.
+#   ce_anatomy_drive      : K2 (Owner 09.08.2026) -- Status-Codes + Antriebs-Buendel liegen
+#                           stufen-neutral.
+#   Boost::mp11           : Meta-Listen der Gattungs-Registry.
+target_link_libraries(comdare_ce_pruef_dock INTERFACE
+    comdare::anatomy_module_loader
+    comdare::ce_anatomy_drive
+    Boost::mp11)

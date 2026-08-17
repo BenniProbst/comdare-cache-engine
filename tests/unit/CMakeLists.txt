@@ -1200,7 +1200,37 @@ endif()
 # Nenner der Abdeckungs-Wache also gar nicht verkleinern. Wer hier spaeter ein
 # comdare_add_test() einfuegt, muss den Block nachtragen; der Protokoll-Aufruf gehoert
 # dann in BEIDE Zweige (siehe R5.I/F15 oben).
-if(COMDARE_PRUEFLING_INCLUDE_DIRS)
+#
+# F-12 (2026-08-17): BEIDE Bloecke setzen den prt-art-Composition-Header voraus, der
+# dokumentierte CI-Pruefling ist aber die Fixture (tests/pruefling_fixture) -- und die
+# traegt ihn bewusst NICHT ("kein Netz, kein Token, kein fremder Klon", .gitlab-ci.yml
+# W0a/S6). Ungeprueft entstanden daraus DLL-Ziele, die erst beim Uebersetzen mit
+# "prt_art/slots/prt_art_composition_demo.hpp: No such file or directory" fielen.
+# Dass CI das nie sah, ist ein REIHENFOLGE-Zufall und kein Beweis von Gesundheit:
+# 'make inventar' baut 'all' VOR dem Reconfigure (da meldet der Block noch SKIPPED,
+# weil das Codegen-Tool fehlt) und danach nur noch 'comdare_tests' -- ein Ziel, das die
+# DLLs nicht enthaelt. Wer die Werkzeuge nach dem J-1-Muster vorbaut und DANN 'all'
+# faehrt, bekommt den Bruch sofort. Ein Pruefling ohne prt-art ist ein GUELTIGER
+# Zustand, keine Fehlkonfiguration -- darum SKIP mit genanntem Grund statt FATAL_ERROR.
+# Der Composition-Deskriptor steht ab hier EINMAL statt zweimal woertlich.
+set(_prtart_comp_header "prt_art/slots/prt_art_composition_demo.hpp")
+set(_prtart_comp_desc
+    "prtart-demo|::comdare::prt_art::slots::PrtArtCompositionDemo|${_prtart_comp_header}")
+set(_prtart_comp_found OFF)
+foreach(_pf_inc IN LISTS COMDARE_PRUEFLING_INCLUDE_DIRS)
+    if(EXISTS "${_pf_inc}/${_prtart_comp_header}")
+        set(_prtart_comp_found ON)
+        break()
+    endif()
+endforeach()
+if(COMDARE_PRUEFLING_INCLUDE_DIRS AND NOT _prtart_comp_found)
+    message(STATUS
+        "F.5 comdare_perms_pa/full_join: SKIPPED -- Pruefling geladen, aber "
+        "'${_prtart_comp_header}' liegt in keiner seiner Include-Wurzeln "
+        "(${COMDARE_PRUEFLING_INCLUDE_DIRS}). Das ist der Fixture-Fall und kein Fehler; "
+        "die Stufe-2/3-DLLs brauchen den echten prt-art-Pruefling.")
+endif()
+if(COMDARE_PRUEFLING_INCLUDE_DIRS AND _prtart_comp_found)
     set(_pa_snippet   "${PROJECT_BINARY_DIR}/generated/comdare_perms_pa_list.cmake")
     set(_pa_pilot_dir "${PROJECT_BINARY_DIR}/generated/comdare_perms_pa_modules")
     comdare_run_anatomy_codegen_tool(
@@ -1208,7 +1238,7 @@ if(COMDARE_PRUEFLING_INCLUDE_DIRS)
         NO_KNOWN
         LIBRARY_TYPE SHARED
         EXTERNAL_COMPOSITIONS
-            "prtart-demo|::comdare::prt_art::slots::PrtArtCompositionDemo|prt_art/slots/prt_art_composition_demo.hpp"
+            "${_prtart_comp_desc}"
         STATUS_OUT   _pa_status)
 
     if(_pa_status STREQUAL "FOUND" AND EXISTS "${_pa_snippet}")
@@ -1240,7 +1270,7 @@ if(COMDARE_PRUEFLING_INCLUDE_DIRS)
         NAMES        "art,hot"
         LIBRARY_TYPE SHARED
         EXTERNAL_COMPOSITIONS
-            "prtart-demo|::comdare::prt_art::slots::PrtArtCompositionDemo|prt_art/slots/prt_art_composition_demo.hpp"
+            "${_prtart_comp_desc}"
         STATUS_OUT   _fj_status)
 
     if(_fj_status STREQUAL "FOUND" AND EXISTS "${_fj_snippet}")
@@ -2150,6 +2180,67 @@ target_include_directories(test_hy_a1_heuristik_adapter_gattung PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/common"
     "${PROJECT_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+
+# HY-A1 (Wellenplan-Definition) -- die DOCK-Schicht der Hybrid-Stufe: Vertrags-Registry, Standard-
+# Pruef-Dock, Abstract Factory, Dock-Array in beiden Policies. Sie liegt UEBER der am 09.08. gebauten
+# Klassifikations-Schicht (Gate/Strategie/Matrix) und ist die Schicht, die der Wellenplan v2:855 unter
+# demselben Namen fuehrt -- die Namensgleichheit ist aktenkundig und meint zwei verschiedene Ebenen.
+# Header-only wie die Klassifikations-Schicht: hybrid/ bleibt eine reine Header-Stufe, kein
+# add_subdirectory. Das ist kein Sparschnitt, sondern der K2-Schnitt: erst der Binary-PROXY braucht
+# AnatomyModuleLoader aus der Builder-Lib, und dessen Schichten-Zuordnung ist die offene Auflage K2
+# (soll_design Abschnitt 7). Solange hier kein Loader vorkommt, ist die Stufe K2-neutral baubar.
+# COMDARE_HY_QUELLVERZEICHNIS speist die Zonen-Wache: sie liest die hybrid/-Quelldateien und belegt,
+# dass std::variant< dort an GENAU EINER Stelle steht (Bauplan HY-A1, "Scope ausdruecklich
+# hybrid/-lokal" -- die system-weite Fassung des Satzes trifft heute nicht zu).
+comdare_add_test(test_hy_a1_dock_contract
+    SOURCES test_hy_a1_dock_contract.cpp)
+# F-10: Include-Wurzeln kommen ab jetzt aus comdare::ce_hybrid statt handgefuehrt.
+target_link_libraries(test_hy_a1_dock_contract PRIVATE comdare::ce_hybrid)
+target_include_directories(test_hy_a1_dock_contract PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_compile_definitions(test_hy_a1_dock_contract PRIVATE
+    "COMDARE_HY_QUELLVERZEICHNIS=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/hybrid\"")
+
+# HY-A3 -- der Parser der <hybrid_tier>-Sektion: der ZWEIWEIG-Schalter (XOR je Kette) und der
+# XML-Override des Dock-Deckels (KON42-01: constexpr-Default im Planer, XML ueberschreibt).
+# Braucht libs/common auf dem Include-Pfad (common-DOM xml_reader) -- dieselbe Machart wie
+# experiment_dock_payload.hpp, keine neue XML-Lib.
+# KEINE XSD-Aenderung: der Typ HybridTierType bleibt Kommentar-Reserve, die Validierung lebt per
+# Haus-Doktrin im C++-Validator. Der validate_profile-Anschluss und der Registry-Eintrag ("22->23")
+# sind NICHT gebaut -- letzterer haengt an der offenen Owner-Frage E-6.
+comdare_add_test(test_hy_a3_hybrid_config_parser
+    SOURCES test_hy_a3_hybrid_config_parser.cpp)
+# F-10: Include-Wurzeln aus comdare::ce_hybrid.
+target_link_libraries(test_hy_a3_hybrid_config_parser PRIVATE comdare::ce_hybrid)
+target_include_directories(test_hy_a3_hybrid_config_parser PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+
+# HY-A1 (Dock-Schicht) -- VIERTE Negativ-Compile-Fixture, nach dem in C1 benannten Muster (a)-(d).
+# Gegenstand: die Vertrags-Registry. Bauplan-Auflage HY-A1 woertlich: "ein Vertrag-Token
+# contract_f0a01c9e, der NICHT in der constexpr-Registry steht, muss compile-time laut brechen
+# (Concept-Fehler), nicht runtime."
+# DREI Diagnosen, drei VERSCHIEDENE Sperren: (1) unbekanntes Token am Detektor, (2) dieselbe Sache
+# an der consteval-Verwendungsstelle (echte Auswertung), (3) gueltiger Vertrag mit verbotenem
+# Klassifikations-Genus als Ziel -- diese dritte scheitert an einer ANDEREN Wache und belegt damit,
+# dass ein Wegfall einer Sperre nicht von einer anderen verdeckt wird.
+# Die Gegenprobe (gueltiges Token, gruen) steht IM SELBEN File ganz oben: ohne sie waere jeder
+# Bruch mehrdeutig -- er koennte auch von einem kaputten Include kommen.
+set(_comdare_negativ_compile_tu_hy_a1_vertrag test_hy_a1_contract_token_negativ)
+add_executable(${_comdare_negativ_compile_tu_hy_a1_vertrag} EXCLUDE_FROM_ALL
+    "${_comdare_negativ_compile_tu_hy_a1_vertrag}.cpp")
+target_compile_features(${_comdare_negativ_compile_tu_hy_a1_vertrag} PRIVATE cxx_std_23)
+# F-10: Include-Wurzeln aus comdare::ce_hybrid; src/ bleibt lokal (nur diese TU braucht es).
+target_include_directories(${_comdare_negativ_compile_tu_hy_a1_vertrag} PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(${_comdare_negativ_compile_tu_hy_a1_vertrag} PRIVATE comdare::ce_hybrid)
+comdare_set_platform_defines(${_comdare_negativ_compile_tu_hy_a1_vertrag})
+add_test(NAME ${_comdare_negativ_compile_tu_hy_a1_vertrag}
+         COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
+                 --target ${_comdare_negativ_compile_tu_hy_a1_vertrag})
+set_tests_properties(${_comdare_negativ_compile_tu_hy_a1_vertrag} PROPERTIES
+    PASS_REGULAR_EXPRESSION "HY-A1-VERTRAG-NEGATIV-PROBE"
+    RESOURCE_LOCK "comdare_nested_build"
+    TIMEOUT 300
+    LABELS "goal_v6;phase_d;negativ_compile")
 
 # E-24 C4 (c/5) -- die vier Container-Docks als IPruefDock-Impls, in-process gefahren.
 # EIGENER BLOCK statt COMDARE_GOALV6_BOOST_DTESTS (am Bau erzwungen, nicht aus Geschmack): diese TU
@@ -7103,3 +7194,19 @@ target_compile_definitions(test_stempel_zulassung_bruecke PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_stempel_zulassung_bruecke PROPERTIES
     LABELS "s7;stempel;zulassung;bruecke;koeder" TIMEOUT 120)
+
+# K2 (Owner-Entscheid 09.08.2026) -- der BEWEIS der stufen-neutralen Schichtung.
+# Diese TU inkludiert AUSSCHLIESSLICH anatomy/, anatomy_drive/ und die Loader-Lib -- KEIN
+# builder/pruef_dock/, KEIN IPruefDock. Dass sie uebersetzt UND linkt, IST die Aussage:
+# eine Hybrid-Stufe kann das Antriebs-Buendel ziehen, ohne den Builder zu linken.
+# Sie linkt die Loader-Lib direkt (AnatomyModuleHandle::unload() lebt im Loader-.cpp) -- daher
+# eigener Block statt des GoalV6-Sammelblocks, aus demselben am Bau erzwungenen Grund wie die
+# E-24-C4/C5-TUs oben.
+comdare_add_test(test_k2_stufen_neutraler_loader
+    SOURCES test_k2_stufen_neutraler_loader.cpp)
+# F-2 (KERN): der Test haengt am STUFEN-NEUTRALEN Target -- nicht mehr am Loader direkt und nicht
+# mehr an handgefuehrten Include-Wurzeln. Damit exerziert er genau den K2-Vertrag, den er beweist:
+# wer comdare::ce_anatomy_drive linkt, bekommt Includes UND Loader-Kante, ohne den Builder zu ziehen.
+# Vorher bewies er nur, dass die HEADER ohne Builder auskommen -- die CMake-Kante blieb unbenutzt.
+target_include_directories(test_k2_stufen_neutraler_loader PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_k2_stufen_neutraler_loader PRIVATE comdare::ce_anatomy_drive)

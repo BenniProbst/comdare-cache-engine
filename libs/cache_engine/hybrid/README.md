@@ -1,4 +1,39 @@
-# hybrid/ -- Hybrid-Tier-Stufe (Klassifikations-Fundament gebaut, Reroute offen)
+# hybrid/ -- Hybrid-Tier-Stufe (Klassifikation + Dock-Schicht + XML-Parser gebaut, Reroute offen)
+
+> **NACHTRAG 17.08.2026 (Paket HY-A, Dock-Schicht + Parser) -- ZWEI ABSAETZE DIESER README SIND AB
+> HIER UEBERHOLT.** Der Text darunter bleibt vollstaendig stehen (Doku wird deprecated, nicht
+> geloescht) und ist in zwei Punkten nicht mehr der Ist-Stand:
+>
+> **1. Die Tabelle "Geplante Dateien" ist nicht mehr vollstaendig unerfuellt.** Fuenf der neun
+> Zeilen sind jetzt gebaut, vier bewusst nicht:
+>
+> | Datei | Stand 17.08.2026 |
+> |---|---|
+> | `hybrid_dock_contract.hpp` | **GEBAUT** -- 4 Vertraege (standard/rollback/scan/resource_control) als constexpr-Registry nach dem Muster `run_methodology_registry.hpp`, POD-Deskriptor, FAIL-CLOSED-Lookup in zwei Formen (consteval fuer CT-Verwendungsstellen, constexpr/optional fuer den Parser), 10 benannte Status-Codes mit ableitbarer Namens-Wache |
+> | `hybrid_pruef_dock.hpp` | **GEBAUT (Minimal)** -- `HybridDockVertrag`-Concept + `StandardHybridDock`. Alternativ-Dock-Typen fuer die uebrigen drei Vertraege: NICHT gebaut (F8-Minimal) |
+> | `hybrid_dock_factory.hpp` | **GEBAUT** -- Abstract Factory nach Paragraf-49-KORREKTUR, einziger Konstruktions-Ort; traegt zugleich die `attach`-Definition, damit es keine zweite Vertrags-Abbildung gibt |
+> | `hybrid_dock_array.hpp` | **GEBAUT** -- `HybridDockVariant` (die EINE erlaubte variant-Stelle), `DockSlot`, beide Policies, `DockArray` mit attach/detach/Antriebs-Bindung |
+> | `hybrid_config_xml.hpp` | **GEBAUT** -- Parser der `<hybrid_tier>`-Sektion gegen die common-DOM. ZWEIWEIG-Schalter (`enabled`, XOR je Kette) + XML-Override von `max_docks` (KON42-01, **Pflichtangabe bei `enabled="true"`** nach W12). Ohne XSD-Aenderung, ohne validate_profile-Anschluss. **Der Override wirkt seit dem A2.5-Fix F-4 wirklich**: `DockArray` nimmt den Wert als Laufzeit-Deckel entgegen (`DockArray{cfg.max_docks}`) und weist das (N+1)-te `attach` mit `array_voll` ab. Bis dahin wurde die Zahl geparst, geprueft -- und von niemandem gelesen; der Satz "XML-Override" war ein Versprechen ohne Gegenstand |
+> | `hybrid_binary_proxy.hpp` | **NICHT gebaut** -- er haelt `AnatomyModuleHandle` + Drive-Buendel aus der Builder-Lib. Das ist die offene Auflage **K2** (Abschnitt 7 des Design-Dokuments, "Entscheid vor HY-B1"). Der Slot nimmt den Antriebs-Zeiger stattdessen ENTGEGEN (`antrieb_binden`) -- die Naht ist genau eine Funktion breit |
+> | `hybrid_tier_module.cpp` | **NICHT gebaut** -- der .so-Export haengt an derselben K2-Frage: eine Hybrid-.so muesste Builder-Code linken |
+> | `hybrid_eviction.hpp` | **NICHT gebaut** -- HY-B2, ausdruecklich ausserhalb des F8-Minimal-DoD |
+> | `hybrid_router.hpp` | **NICHT gebaut** -- HY-B2/HY-C, braucht echte Messkurven |
+>
+> **2. Die Stufe ist damit K2-NEUTRAL baubar, und das ist der tragende Schnitt.** Solange in
+> `hybrid/` kein Loader vorkommt, beruehrt die Stufe die offene Auflage K2 nicht. Sie bleibt
+> header-only (kein `add_subdirectory`), genau wie die Klassifikations-Schicht.
+>
+> **Was den variant-Satz betrifft:** "DockSlot ist die einzige variant-Ausnahme" ist eine
+> ZONEN-Aussage ueber dieses Verzeichnis, KEINE System-Aussage (systemweit gibt es die
+> CEB-Duldung, zwei legitime achsenfremde Nutzungen und einen test-only Cluster). Bewacht wird
+> jetzt die Zone: `test_hy_a1_dock_contract` liest die hybrid/-Quelldateien und belegt, dass
+> `std::variant<` darin an genau einer Stelle steht.
+>
+> **Weiterhin offen:** K1 (Lager-Identitaet), K2 (Loader-/Drive-Schichtung), K5
+> (Snapshot-Aggregations-Semantik) sowie die Owner-Frage E-6 (welche Registry "22->23" meint --
+> heute steht KEINE Achsen-Registry auf 22, der Eintrag ginge in die falsche Datei).
+
+## Stand 09.08.-13.08.2026 (Historie) -- Klassifikations-Fundament
 
 > **NACHTRAG 09.08.2026 (Paket HY-A1) -- DIESE README WAR AB HIER UEBERHOLT.**
 > Der ganze folgende Text beschreibt den Stand bis zum 08.08.2026: einen reinen Namens-Stub
