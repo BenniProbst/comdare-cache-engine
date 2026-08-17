@@ -40,7 +40,42 @@
 # nicht die Commit-Granularitaet -- er erzwingt Floor-Datei und Registrierung
 # im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
-# -- NACHZUG 2026-08-17 (HY-A: Dock-Schicht + K2-Extraktion, VIER NEUE REGISTRIERUNGEN) -------
+# -- NACHZUG 2026-08-17 (SERIELLE WELLEN-LANDUNG A2.1a, VIER STRAENGE, EINE NEUE REGISTRIERUNG) --
+# 500/496/494 loest 499/495/493 ab. Der Zuwachs ist +1 in JEDER Klasse und stammt vollstaendig aus
+# dem VL-3-Strang; die VIER des HY-A-Strangs stecken bereits in der 499 des Blocks darunter und
+# werden hier NICHT erneut addiert.
+#     test_vl3_debug_flag_sperre          (rohes add_test, echte Planer-Binary als Prozess)
+# GEMESSEN, NICHT GERECHNET: die Zahl ist am zusammengesetzten Stand (development nach den vier
+# --no-ff-Merges b334a657/be724cb5/c8d7295e/6a8cdc65) EINMAL LIVE erhoben, nicht aus Strang-Deltas
+# addiert. ZWEI-SEITIGE GEGENPROBE am Objekt: (a) LC_ALL=C comm der gemessenen 500er-Namensliste
+# gegen die 499er-Namensliste des HY-A-Strangs ergibt GENAU EINEN Zugang, test_vl3_debug_flag_sperre,
+# Gegenrichtung LEER -- kein verstecktes -1/+2; (b) der Name steht in ALLEN DREI Klassen-Namensmengen
+# (avx512f/avx2/basis je 1x) und in KEINER comm-Verlustliste, ist also weder ISA- noch
+# Pruefling-gegatet -> +1 auf allen drei Sprossen, Sprossenabstaende -4 und -2 unveraendert.
+# ZAHLEN-FALLE, im VL-3-Bericht ausdruecklich benannt und hier beachtet: die im VL-3-Strang
+# gemessenen 495 sind die PRUEFLING-LOSE Form und NICHT der gleichnamige Anker 'avx512f 495' der
+# Pruefling-Form. Wer beide gegeneinander haelt, schliesst faelschlich "der Anker stimmt schon".
+# MESSHOST prod1, GCC 15.3.0, Ninja, 2026-08-17. Bau-Baum build-covguard KALT angelegt (rm -rf) und
+# in der CI-FORM MIT Pruefling konfiguriert (CC=gcc-15 CXX=g++-15 configure.sh --with-generator=Ninja
+# --enable-build-tests --build-dir=build-covguard
+# -DCOMDARE_CE_PRUEFLINGE="$PWD/tests/pruefling_fixture"), J-1-Muster (erst die fuenf Werkzeuge
+# comdare_anatomy_codegen_cli, comdare_adhoc_emitter_cli, comdare_axis_registry_gen,
+# comdare_system_axis_registry_gen, comdare_measurement_axis_registry_gen, dann RE-KONFIGURIERT).
+# Registrierungs-Protokoll dieses Baums: 6 von 6 bedingten Bloecken AKTIV. Schalter LITERAL aus der
+# CMakeCache.txt DESSELBEN Baums: COMDARE_HOST_RUNS_AVX2:INTERNAL=1, COMDARE_HOST_RUNS_AVX512F:
+# INTERNAL=1, COMDARE_CE_PRUEFLINGE:STRING=<repo>/tests/pruefling_fixture -- die Klasse ist gemessen,
+# nicht angenommen. Beide Klassen per cmake erzwungen, danach 'cmake -U' auf BEIDE Variablen:
+# Wiederherstellung BYTE-GLEICH (cmp ohne Ausgabe, Total wieder 500). MESS-FALLE beachtet: Zaehlbasis
+# war die Schlusszeile "Total Tests: N", jede Namensliste hat die Gegenprobe Listenlaenge == Total
+# bestanden (500/500, 496/496, 494/494). LC_ALL=C comm in BEIDE Richtungen: avx512f->avx2 verliert
+# exakt die dokumentierten VIER, avx2->basis die ZWEI, beide Gegenrichtungen LEER.
+#     avx512f (gemessen, prod1, ctest "Total Tests")                       -> 500
+#     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                  -> 496
+#     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0       -> 494
+#
+# -- NACHZUG 2026-08-17 (HY-A: Dock-Schicht + K2-Extraktion, VIER NEUE REGISTRIERUNGEN;
+#    die WERTE 499/495/493 sind durch den A2.1a-NACHZUG oben abgeloest -- Verfahren und
+#    Konto dieses Abschnitts bleiben unveraendert gueltig) --
 # 499/495/493 loest 495/491/489 ab. Der Zuwachs ist +4 in JEDER Klasse und stammt vollstaendig
 # aus diesem Strang -- keine Klassen-Umverteilung, keine Delta-Addition auf einen Alt-Anker:
 #     test_hy_a1_dock_contract            (comdare_add_test)
@@ -538,6 +573,6 @@
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
 
-avx512f 499
-avx2 495
-basis 493
+avx512f 500
+avx2 496
+basis 494
