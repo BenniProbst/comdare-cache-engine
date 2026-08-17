@@ -263,19 +263,21 @@ int main() {
     // Schoenwetter-Beobachtung, sondern die no-FN-Zusage der Achse auf KOMPOSITIONS-Ebene -- dieselbe
     // Zusage, die Block (6) der Konformitaets-Wache fuer die composable Organe belegt.
     //
-    // BEFUND, VORBESTEHEND UND NICHT VON DIESER SCHEIBE (ehrlich ausgewiesen statt gruen gebuegelt):
-    // XorFilter verletzt die Zusage -- 30 von 256 gespeicherten Keys werden als "definitiv nicht
-    // enthalten" gemeldet (s. Block (3) unten, literal). Das ist die bekannte Eigenschaft eines
-    // Xor-Filters: er wird OFFLINE aus dem VOLLSTAENDIGEN Key-Satz gepeelt; ein inkrementelles
-    // insert_key kann die Xor-Invariante nicht erhalten. Der 02b-Scrub hat axis_filter_xor.hpp NICHT
-    // angefasst (er beruehrt ausschliesslich organ_axes/filter_axis/composable/) -- die Wache pinnt den Befund
-    // hier sichtbar, statt ihn durch eine schwaechere Formulierung verschwinden zu lassen.
+    // BEFUND-HISTORIE (ehrlich stehen gelassen statt geloescht): bis zum 16.08.2026 verletzte XorFilter
+    // die Zusage -- die damalige vereinfachte inkrementelle XOR-Konstruktion (insert_key loeste nur den
+    // dritten Slot, OHNE Offline-Peeling) meldete 30 von 256 gespeicherten Keys als "definitiv nicht
+    // enthalten"; diese Wache pinnte den Befund sichtbar (Zeile "T14 BEFUND GEPINNT", neg > 0). Auf
+    // direkte Owner-Anordnung vom 16.08.2026 ("Bitte direkt (b) bauen, wir machen es gleich richtig";
+    // ueberschreibt P78 "behalten" vom 05.08.) traegt axis_filter_xor.hpp seit dem 17.08.2026 die ECHTE
+    // Offline-Peeling-Konstruktion (Graf+Lemire 2020, aus dem VOLLEN Key-Satz gepeelt) -- die GEPINNT-
+    // Zeile ist damit kontrolliert AUFGELOEST und XorFilter steht MIT in der neg==0-Kompositions-Wache.
     tr("(2) T14 no-FN auf Kompositions-Ebene: der Zustands-Scan probt ausschliesslich GESPEICHERTE Keys, "
-       "ein neg IST ein false negative (neg == 0 bei RangeSurf/Bloom/Cuckoo)",
-       fp_neg == 0 && bloom.axis_stats[kAxisFilter][2] == 0 && cuckoo.axis_stats[kAxisFilter][2] == 0);
-    tr("(2) T14 BEFUND GEPINNT (vorbestehend, NICHT aus 02b): XorFilter meldet false negatives -- faellt "
-       "diese Zeile, ist der Befund geheilt und der Kommentar oben nachzuziehen",
-       xorf.axis_stats[kAxisFilter][2] > 0);
+       "ein neg IST ein false negative (neg == 0 bei RangeSurf/Bloom/Cuckoo/Xor)",
+       fp_neg == 0 && bloom.axis_stats[kAxisFilter][2] == 0 && cuckoo.axis_stats[kAxisFilter][2] == 0 &&
+           xorf.axis_stats[kAxisFilter][2] == 0);
+    tr("(2) T14 BEFUND GEHEILT (17.08.2026, Owner-Anordnung 16.08.): XorFilter (Offline-Peeling) meldet "
+       "KEINE false negatives mehr -- die frueher hier GEPINNTE Zeile (neg > 0) ist kontrolliert aufgeloest",
+       xorf.axis_stats[kAxisFilter][2] == 0);
     tr("(2) T14: der Zustands-Scan hat bei ALLEN vier Strategien denselben Query-Strom gesehen "
        "(pos+neg identisch) -- der Unterschied liegt in der Antwort, nicht in der Last",
        (fp_pos + fp_neg) == (bloom.axis_stats[kAxisFilter][1] + bloom.axis_stats[kAxisFilter][2]) &&
