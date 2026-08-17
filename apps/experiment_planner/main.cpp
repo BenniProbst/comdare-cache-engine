@@ -691,8 +691,7 @@ int main(int argc, char* argv[]) {
         // die Freigabe sonst verschenken wuerde. Das Gate-Idiom ist das des Hauses: exakter Vergleich
         // gegen "true" (wie COMDARE_BESTANDSLOG oben); jeder andere Wert -- "1", "TRUE", leer, nicht
         // gesetzt -- faellt auf gesperrt.
-        auto const zulassung =
-            cem::debug_flag_admission(pln::env_trimmed("COMDARE_DEBUG_FREIGABE") == "true");
+        auto const zulassung = cem::debug_flag_admission(pln::env_trimmed("COMDARE_DEBUG_FREIGABE") == "true");
         if (zulassung != cem::AdmissionStatus::Zugelassen) {
             // WARUM DIE SPERRE EINE INTEGRITAETSREGEL IST, KEIN KOMFORT-GATE (Ledger): debug ist der
             // einzige work_mode, der MISST und dabei PARALLEL laeuft. Parallel gemessene Latenzen sind
@@ -700,8 +699,8 @@ int main(int argc, char* argv[]) {
             // der debug waehlen koennte, bekaeme Zahlen, die wie Messwerte AUSSEHEN und keine sind.
             // Das ist die unheilbare Klasse: kontaminierte Daten."
             std::cerr << "comdare-experiment-planner: FEHLER fehlerklasse=debug_zulassung_gesperrt: "
-                      << "--debug ist fuer Anwender GESPERRT (Zulassung: "
-                      << cem::admission_status_token(zulassung) << ").\n"
+                      << "--debug ist fuer Anwender GESPERRT (Zulassung: " << cem::admission_status_token(zulassung)
+                      << ").\n"
                       << "  GRUND (Integritaetsregel, kein Komfort-Gate): der Debug-Modus misst PARALLEL. "
                       << "Seine Zahlen sehen wie\n"
                       << "  Messwerte aus und sind keine -- sie gehoeren nie ins Messwertlager, nie in "

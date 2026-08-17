@@ -1,25 +1,25 @@
 #pragma once
-// V41.F.6.1.R6 — SearchAlgorithmDock: das Prüf-Dock für die SearchAlgorithm-Gattung (Mammal).
+// V41.F.6.1.R6 -- SearchAlgorithmDock: das Pruef-Dock fuer die SearchAlgorithm-Gattung (Mammal).
 //
-// **KEIN NEUBAU (User 2026-05-30):** Ein dünner, gattungs-typisierter Orchestrierungs-Wrapper, der die DREI
-// bereits existierenden, bereits build-grünen Zahnräder uniform hinter IPruefDock zusammenhält:
-//   (1) anatomy::IObservableTier  — das ABI-stabile SearchAlgorithm-Gattungs-Antriebs-Sub-Interface (CE-Schicht),
-//   (2) anatomy_loader::AnatomyModuleHandle — das geladene Tier-Modul (Loader, CEB-Schicht),
-//   (3) anatomy_cmds::drive_tier_observe_trace_abi + serialize_abi_tier_trace_csv/json — der Füllstands-
+// **KEIN NEUBAU (User 2026-05-30):** Ein duenner, gattungs-typisierter Orchestrierungs-Wrapper, der die DREI
+// bereits existierenden, bereits build-gruenen Zahnraeder uniform hinter IPruefDock zusammenhaelt:
+//   (1) anatomy::IObservableTier  -- das ABI-stabile SearchAlgorithm-Gattungs-Antriebs-Sub-Interface (CE-Schicht),
+//   (2) anatomy_loader::AnatomyModuleHandle -- das geladene Tier-Modul (Loader, CEB-Schicht),
+//   (3) anatomy_cmds::drive_tier_observe_trace_abi + serialize_abi_tier_trace_csv/json -- der Fuellstands-
 //       Mess-/Persistier-Treiber (CEB-Schicht).
 // Erfindet NICHTS neu; der compile-time-Gattungs-Constraint bleibt unangetastet im SearchAlgorithmAbiAdapter<A>
 // in der DLL (static_assert genus==SearchAlgorithm). Das Dock validiert nur runtime-seitig per genus()-Abfrage,
-// dass es das richtige Modul vor sich hat, und zieht den Antrieb per dynamic_cast (bewährtes Pfad-B-Probing).
+// dass es das richtige Modul vor sich hat, und zieht den Antrieb per dynamic_cast (bewaehrtes Pfad-B-Probing).
 //
-// @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md §8.8
+// @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md Par.8.8
 
 #include "pruef_dock.hpp"
 #include <anatomy_drive/search_algorithm_drive.hpp> // K2: Drive + acquire, stufen-neutral
-#include "conformance_gate.hpp"                   // V5-I4: std::map-Konformitäts-Gate vor der Messung
-#include <anatomy/observable_tier.hpp>            // IObservableTier (SearchAlgorithm-Gattungs-Antrieb)
-#include <anatomy/resource_controllable_tier.hpp> // INC-2a: IResourceControllableTier (Prüf-Dock-Settings)
-#include <anatomy/rollbackable_tier.hpp>          // V5-I6/I7: IRollbackableTier (memento_all) für Zwei-Phasen-Messung
-#include <anatomy/scannable_tier.hpp>             // INC-2a: IScannableTier (YCSB-E Range-Scan)
+#include "conformance_gate.hpp"                     // V5-I4: std::map-Konformitaets-Gate vor der Messung
+#include <anatomy/observable_tier.hpp>              // IObservableTier (SearchAlgorithm-Gattungs-Antrieb)
+#include <anatomy/resource_controllable_tier.hpp>   // INC-2a: IResourceControllableTier (Pruef-Dock-Settings)
+#include <anatomy/rollbackable_tier.hpp> // V5-I6/I7: IRollbackableTier (memento_all) fuer Zwei-Phasen-Messung
+#include <anatomy/scannable_tier.hpp>    // INC-2a: IScannableTier (YCSB-E Range-Scan)
 #if COMDARE_MEASUREMENT_ON
 // NAHT-1: die CEB-Haelfte der Mess-Naht. Der Include steht BEWUSST im Gate -- der Header traegt
 // einen #error und kann in einem OFF-Kompilat nicht existieren. Genau das ist die CEB-Seite der
@@ -30,7 +30,7 @@
 
 namespace comdare::cache_engine::builder::pruef_dock {
 
-/// SearchAlgorithmDock — Prüf-Dock der SearchAlgorithm-Gattung. Header-only (verkabelt inline-Funktionen).
+/// SearchAlgorithmDock -- Pruef-Dock der SearchAlgorithm-Gattung. Header-only (verkabelt inline-Funktionen).
 class SearchAlgorithmDock final : public IPruefDock {
 public:
     [[nodiscard]] anatomy::AnatomyGenus dock_genus() const noexcept override {
@@ -59,7 +59,7 @@ public:
         (void)out_json;
         return dock_status_mess_deaktiviert;
 #else
-        // Pfad-B-Probing (bewährtes Muster, vgl. IMeasurableWorkload): das gattungs-eigene Antriebs-
+        // Pfad-B-Probing (bewaehrtes Muster, vgl. IMeasurableWorkload): das gattungs-eigene Antriebs-
         // Sub-Interface aus IAnatomyBase ziehen.
         auto* tier = dynamic_cast<anatomy::IObservableTier*>(base);
         // NAHT-1: DIE WEICHE VOR DER MESSUNG. Bis hierher hiess `tier == nullptr` schlicht
@@ -74,13 +74,13 @@ public:
             case MessGateBefund::Flaeche_fehlt_stumm: return dock_status_subinterface_missing;
             case MessGateBefund::Beidseitig_an: break; // beide Seiten an -> der Visitor darf queren
         }
-        // V5-I4: Konformitäts-Gate gegen std::map VOR der Messung — eine nicht-konforme Hülle wird NICHT gemessen
-        // (Reihenfolge import → GATE → messen). tier IS-A IDriveableTier (Split); das Gate leert den Tier am Ende
-        // → saubere Ausgangslage für die anschließende Füllstands-Messung.
+        // V5-I4: Konformitaets-Gate gegen std::map VOR der Messung -- eine nicht-konforme Huelle wird NICHT gemessen
+        // (Reihenfolge import -> GATE -> messen). tier IS-A IDriveableTier (Split); das Gate leert den Tier am Ende
+        // -> saubere Ausgangslage fuer die anschliessende Fuellstands-Messung.
         if (!run_conformance_gate(*tier).passed()) return dock_status_conformance_failed;
-        // V5-I6/I7: memento_all-Sub-Interface derselben Tier-Instanz ziehen (nullbar). Vorhanden → der Treiber
-        // misst je Op ZWEI-PHASIG (save→warmup→rollback→measure, Mess-Architektur §4 Default); nullptr (altes
-        // Modul / nicht-rollbackbares Organ) → der Treiber fällt intern auf Einphasen-Kalt-Messung zurück =
+        // V5-I6/I7: memento_all-Sub-Interface derselben Tier-Instanz ziehen (nullbar). Vorhanden -> der Treiber
+        // misst je Op ZWEI-PHASIG (save->warmup->rollback->measure, Mess-Architektur Par.4 Default); nullptr (altes
+        // Modul / nicht-rollbackbares Organ) -> der Treiber faellt intern auf Einphasen-Kalt-Messung zurueck =
         // exakt das bisherige Verhalten. Eine RAII-untaugliche Slot-Aliasing-Gefahr besteht nicht (gleiche Instanz).
         auto*      rollback = dynamic_cast<anatomy::IRollbackableTier*>(base);
         auto const trace    = anatomy_cmds::drive_two_phase_tier_trace_abi(*tier, rollback, opts);

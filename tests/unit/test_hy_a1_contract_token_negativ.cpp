@@ -90,8 +90,7 @@ static_assert(hy::hybrid_dock_contract_token_bekannt("contract_f0a01c9e"),
 // genau der Grund, warum Probe 1 daneben steht: haenge man den ctest allein an diese Form, waere
 // das PASS_REGULAR_EXPRESSION rot, obwohl die Fixture das Richtige tut. Ihr Beweiswert liegt
 // woanders -- sie ist die einzige der drei, bei der eine ECHTE Auswertung stattfindet.
-constexpr auto HY_A1_VERTRAG_NEGATIV_PROBE_2_unbekanntes_token =
-    hy::hybrid_dock_contract_of_token("contract_f0a01c9e");
+constexpr auto HY_A1_VERTRAG_NEGATIV_PROBE_2_unbekanntes_token = hy::hybrid_dock_contract_of_token("contract_f0a01c9e");
 
 // --------------------------------------------------------------------------------------------
 // (3) DIE DRITTE SPERRE: ein Deskriptor mit einem Klassifikations-Genus als Ziel
@@ -99,9 +98,9 @@ constexpr auto HY_A1_VERTRAG_NEGATIV_PROBE_2_unbekanntes_token =
 // Andere Sperre, anderer Grund -- damit ein Wegfall EINER Wache nicht von einer anderen verdeckt
 // bleibt. Hier ist der VERTRAG gueltig und das ZIEL falsch: hinter einem Reroute-Genus steht keine
 // plain Tier-Binary (Gate-Schranke S1, "allein nicht ansprechbar").
-static_assert(hy::pruefe_dock_deskriptor(
-                  hy::DockContractDescriptor{static_cast<std::uint8_t>(hy::HybridDockContract::Standard),
-                                             cea::AnatomyGenus::FunctionInterfaceReroute}) == hy::hybrid_status_ok,
+static_assert(hy::pruefe_dock_deskriptor(hy::DockContractDescriptor{
+                  static_cast<std::uint8_t>(hy::HybridDockContract::Standard),
+                  cea::AnatomyGenus::FunctionInterfaceReroute}) == hy::hybrid_status_ok,
               "HY-A1-VERTRAG-NEGATIV-PROBE-3: ein Hybrid-Dock auf ein Klassifikations-Genus ist "
               "verboten -- erwarteter Bruch. Der Vertrag ist hier gueltig; es scheitert allein am "
               "Ziel, und genau das trennt diese Sperre von Probe 1.");

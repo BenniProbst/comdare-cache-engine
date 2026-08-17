@@ -129,8 +129,8 @@ namespace detail {
 struct DockAttrappeOhneAntrieb {
     [[nodiscard]] static constexpr HybridDockContract contract() noexcept { return HybridDockContract::Standard; }
     [[nodiscard]] static constexpr std::string_view   dock_name() noexcept { return "DockAttrappeOhneAntrieb"; }
-    void                                             antrieb_binden(anatomy::IObservableTier*) noexcept {}
-    [[nodiscard]] bool                               ist_bereit() const noexcept { return false; }
+    void                                              antrieb_binden(anatomy::IObservableTier*) noexcept {}
+    [[nodiscard]] bool                                ist_bereit() const noexcept { return false; }
 };
 } // namespace detail
 static_assert(!HybridDockVertrag<detail::DockAttrappeOhneAntrieb>,
