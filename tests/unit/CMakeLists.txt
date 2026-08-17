@@ -7103,3 +7103,24 @@ target_compile_definitions(test_stempel_zulassung_bruecke PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_stempel_zulassung_bruecke PROPERTIES
     LABELS "s7;stempel;zulassung;bruecke;koeder" TIMEOUT 120)
+
+# =============================================================================
+# #17 G-2-SEMANTIK-NACHZUG (KON13-03/KON9-09, 2026-08-17): REDUNDANZ-WACHE der
+# zweiphasigen System-/Organ-Zeilen -- eigener Block am DATEIENDE (Kollisions-
+# schutz gegen die Bloecke anderer Straenge; Namenskonvention test_g2_semantik_*).
+#
+# test_g2_semantik_duplikatverbot: Koeder-Batterie (semantisch ungueltige,
+# syntaktisch gueltige Literale) + Bestands-Gruen je Kategorie in Achsen-
+# Nummerierungs-Ordnung (SYSTEM [0..2] Tabellen-Ordnung, ORGAN-Formen; die VOLLE
+# Organ-Population laeuft compile-time in test_reflect_versions_all_registered).
+# Header-only-Flaeche (algo_semver + system_axis_code_versions) => nur der
+# include-Baum, kein Link-Bedarf ueber gtest hinaus.
+comdare_add_test(test_g2_semantik_duplikatverbot
+    SOURCES test_g2_semantik_duplikatverbot.cpp)
+target_include_directories(test_g2_semantik_duplikatverbot PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_compile_definitions(test_g2_semantik_duplikatverbot PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+set_tests_properties(test_g2_semantik_duplikatverbot PROPERTIES
+    LABELS "g2;semantik;duplikatverbot;wachen;koeder")

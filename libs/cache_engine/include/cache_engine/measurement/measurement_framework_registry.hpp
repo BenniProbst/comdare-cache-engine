@@ -61,11 +61,14 @@ namespace detail {
 }
 } // namespace detail
 static_assert(detail::framework_versionen_wohlgeformt(),
-              "Mess-Framework-Version verletzt die ce-Registry-Politik -- DREI moegliche Gruende: "
+              "Mess-Framework-Version verletzt die ce-Registry-Politik -- FUENF moegliche Gruende: "
               "(a) UNPARSBAR (und nicht der dokumentierte Sentinel \"0.0.0\") -- ein junk-Literal wuerde "
               "still als @0.0.0 stempeln; oder (b) sie traegt Flags, aber 'c' ist nicht darunter (g/f/n sind "
               "reserviert, nicht produziert -- Owner-F-10 07.08.2026); oder (c) ein Flag-Token steht NICHT "
-              "im Katalog oder nicht unter SEINER Basis (S2-Katalog-Wache, flag_grammar_catalog.hpp)");
+              "im Katalog oder nicht unter SEINER Basis (S2-Katalog-Wache, flag_grammar_catalog.hpp); oder "
+              "(d) ein Knoten mit bekannter Voraussetzungs-Kette hat sein Voraussetzungs-Element nicht in "
+              "der Menge (S-3b); oder (e) ein (token,eltern)-Element steht DOPPELT in der Flag-Menge "
+              "(Redundanz-Wache, G-2-Semantik #17)");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
 static_assert(detail::framework_versionen_cpu_pflicht(),
               "Mess-Framework-Version ohne CPU-Flag: im CPU-only-Scope MUSS jede Version 'c' unter ihren "

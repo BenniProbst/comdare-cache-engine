@@ -78,8 +78,8 @@ constexpr void assert_version_grammar() {
                   "Flags und optionalen Komposit-Klammern (\"1.0.0.c{p.e}.x512{f}\") -- KEIN 'v'-Praefix, ein "
                   "Punkt VOR jedem Flag, hinter '{' nie ein fuehrender Punkt (Owner-KERN 07.08.2026), "
                   "A10-X.Y.Z-Disziplin");
-    // WACHE ce_owned_version_is_wellformed -- sie prueft seit S2 (07.08.2026) ZWEI Dinge, und der
-    // Meldungstext nennt beide. Er nannte bis dahin nur das erste; das Literal "1.0.0.c.x512{sse2}" brach
+    // WACHE ce_owned_version_is_wellformed -- sie prueft seit S2 (07.08.2026) mehrere Dinge, und der
+    // Meldungstext nennt alle. Er nannte anfangs nur das erste; das Literal "1.0.0.c.x512{sse2}" brach
     // damit MIT DER FALSCHEN BEGRUENDUNG ("ohne CPU-Basis"), obwohl es 'c' sehr wohl trug. Eine Wache, die
     // richtig anschlaegt und falsch berichtet, schickt den naechsten auf die falsche Faehrte.
     //   (1) "wenn ein Flag da ist, dann ist 'c' darunter" (Owner-F-10). NICHT tautologisch -- eine
@@ -90,12 +90,22 @@ constexpr void assert_version_grammar() {
     //   (2) KATALOG: jedes Flag-Token existiert und steht unter SEINER Basis
     //       (measurement/flag_grammar_catalog.hpp). "1.0.0.c{quatsch}" und "1.0.0.c.x512{sse2}" brechen
     //       hier -- das erste, weil es das Token nicht gibt, das zweite, weil sse2 unter x128 gehoert.
+    //   (3) VORAUSSETZUNGS-KETTE (S-3b, 13.08.2026): ein Knoten mit bekannter Kette hat sein
+    //       Voraussetzungs-Element nicht in der Menge ("1.0.0.c.x512{vl}" ohne 'f'). Dieser Grund
+    //       fehlte in der Meldung seit der S-3b-Einhaengung -- hier nachgefuehrt (#17-Randfund).
+    //   (4) REDUNDANZ (G-2-Semantik #17, 17.08.2026): kein (token,eltern)-Element steht doppelt in der
+    //       Flag-Menge. "1.0.0.c.c" und "1.0.0.c{p.p}" brechen hier -- die ORGAN-Kategorie zieht die
+    //       Semantik damit ueber ihre VOLLE registrierte Population in T00..T17-Ordnung nach
+    //       (KON13-03: "in Reihenfolge der Achsen-Nummerierung").
     static_assert(::comdare::cache_engine::measurement::ce_owned_version_is_wellformed(W::algo_version),
-                  "algo_version nicht wohlgeformt -- ZWEI moegliche Gruende, beide compile-time geprueft: "
+                  "algo_version nicht wohlgeformt -- VIER moegliche Gruende, alle compile-time geprueft: "
                   "(1) die Version traegt Flags, aber 'c' ist nicht darunter (g/f/n sind reserviert und "
                   "werden hier nicht produziert, Owner-F-10 07.08.2026); (2) ein Flag-Token steht NICHT im "
                   "Katalog oder nicht unter SEINER Basis (S2-Katalog-Wache, flag_grammar_catalog.hpp -- "
-                  "z.B. 'x512{sse2}': sse2 gehoert unter x128)");
+                  "z.B. 'x512{sse2}': sse2 gehoert unter x128); (3) ein Knoten mit bekannter "
+                  "Voraussetzungs-Kette hat sein Voraussetzungs-Element nicht in der Menge (S-3b -- z.B. "
+                  "'x512{vl}' ohne 'f'); (4) ein (token,eltern)-Element steht DOPPELT in der Flag-Menge "
+                  "(Redundanz-Wache, G-2-Semantik #17 -- z.B. '1.0.0.c.c')");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
     // SCHARFSCHALTUNG (Owner-Q3: "Wir produzieren nur CPU code", in der v2 als F-10 praezisiert: "ce-eigene
     // Achsen tragen mindestens 'c'"). Die Wachen-LOGIK selbst (ce_owned_version_satisfies_cpu_enforce) ist
