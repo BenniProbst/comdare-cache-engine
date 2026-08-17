@@ -27,7 +27,7 @@
 // bereits in der Anwender-XML und wird bereits geparst:
 //     <machines><machine id cpu_fabrication ram_pair hostname_hint/>
 //     xml_config_parser.cpp:530-550 -> ExperimentMachine (xml_config_parser.hpp:372-384)
-//     Beispiel-Deklaration: tests/unit/thesis_tiere/experiment_golden_kern.xml
+//     Beispiel-Deklaration: tests/unit/thesis_tiere/experiment_kern_seam_fixture.xml (ce-Naht-Fixture)
 //         <machine id="prod1" cpu_fabrication="amd_zen5_avx512" ram_pair="ddr5_2x32" hostname_hint="prod1"/>
 // Die Aufloesung laeuft daher in ZWEI Stufen, jede in ihrer eigenen Welt:
 //     (1) Hostname -> (cpu_fabrication, ram_pair)   : aus der XML, zur Laufzeit (nicht hier)
@@ -208,7 +208,8 @@ inline constexpr MachineCoreCpuId kProd2AlderLakeCore{
 inline constexpr MachineCoreCpuId kUndeclaredCore{};
 
 /// Die Deklarations-Tabelle. Die Tupel-Werte sind NICHT hier erfunden, sondern WOERTLICH aus der
-/// Anwender-XML uebernommen (tests/unit/thesis_tiere/experiment_golden_kern.xml):
+/// Anwender-XML uebernommen (ce tests/unit/thesis_tiere/experiment_kern_seam_fixture.xml; diese
+/// <machines>-Werte sind byte-gleich zur kanonischen super-Instanz Code/test_data_xml/experiment_golden_kern.xml):
 ///     <machine id="prod1" cpu_fabrication="amd_zen5_avx512" ram_pair="ddr5_2x32" hostname_hint="prod1"/>
 ///     <machine id="prod2" cpu_fabrication="intel_avx2"      ram_pair="ddr5_2x32" hostname_hint="prod2"/>
 ///

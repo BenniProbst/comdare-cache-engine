@@ -1,7 +1,7 @@
 # fixture_schema_subset_check.cmake (ce-seitig) -- Rider aus KF-Design Posten #95, gefuehrt im
 # #16-Auftrag ('Werkzeug kommt erst mit dem Golden-Fenster'). Schwester der SUPER-seitigen Wache
 # Code/tests/fixture_schema_subset_check.cmake (B14-NB3+, xmllint-basiert); DIESE Datei bewacht die
-# ce-EIGENE Fixture tests/unit/thesis_tiere/experiment_golden_kern.xml auch dann, wenn ce OHNE den
+# ce-EIGENE Fixture tests/unit/thesis_tiere/experiment_kern_seam_fixture.xml auch dann, wenn ce OHNE den
 # super-Nachbarn gebaut wird (eigene ce-CI) -- bis hierher hatte die ce-Fixture in der ce-CI KEINE
 # Wache (A7-Befund: 'das KANONISCHE File hat im landenden Stand gar keine Wache').
 #

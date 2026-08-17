@@ -17,8 +17,10 @@
 //   (5) T-6 SCHWESTERSTELLEN: ALLE 9 Organ-Klassen, BEIDE Dialekte (Gpp/Clang), BEIDE deklarierten
 //       Maschinen-Klassen (prod1/prod2) plus ein nicht deklarierter Hostname.
 //
-// Die <machines>-Menge kommt aus der ECHTEN golden-XML (experiment_golden_kern.xml, NUR GELESEN) --
-// kein nachgebautes Fixture, dieselbe Quelle wie der Produktions-Lauf.
+// Die <machines>-Menge kommt aus der ce-Naht-Fixture experiment_kern_seam_fixture.xml (NUR GELESEN) --
+// kein nachgebautes Fixture, dieselbe Quelle wie test_experiment_kern_seam. Ihre <machines>-Werte sind
+// byte-gleich zur kanonischen super-Instanz Code/test_data_xml/experiment_golden_kern.xml; die Fixture
+// hiess bis zur Weg-a-Umbenennung am 17.08.2026 genauso wie diese.
 //
 // ASCII-only (Leitplanke). Zeilen <= 120 (Diff-Hygiene-Wache).
 
@@ -39,8 +41,8 @@
 #include <string_view>
 #include <vector>
 
-#ifndef COMDARE_EXPERIMENT_GOLDEN_KERN
-#error "COMDARE_EXPERIMENT_GOLDEN_KERN must point to tests/unit/thesis_tiere/experiment_golden_kern.xml"
+#ifndef COMDARE_EXPERIMENT_KERN_SEAM_FIXTURE
+#error "COMDARE_EXPERIMENT_KERN_SEAM_FIXTURE must point to tests/unit/thesis_tiere/experiment_kern_seam_fixture.xml"
 #endif
 
 namespace {
@@ -49,9 +51,9 @@ namespace cx   = ::comdare::builder::xml;
 namespace meas = ::comdare::cache_engine::measurement;
 namespace pf   = ::comdare::cache_engine::profile_facade;
 
-[[nodiscard]] std::vector<cx::ExperimentMachine> golden_machines() {
+[[nodiscard]] std::vector<cx::ExperimentMachine> kern_seam_machines() {
     cx::XmlConfigParser const parser;
-    auto const ep = parser.parse_experiment_profile(std::filesystem::path{COMDARE_EXPERIMENT_GOLDEN_KERN});
+    auto const ep = parser.parse_experiment_profile(std::filesystem::path{COMDARE_EXPERIMENT_KERN_SEAM_FIXTURE});
     if (!ep) return {};
     return ep->machines;
 }
@@ -79,18 +81,19 @@ constexpr RouteFall         kRouten[]{{"no_extension", ""}, {"avx2", "-mavx2"}, 
 constexpr meas::SimdDialect kDialekte[]{meas::SimdDialect::Gpp, meas::SimdDialect::Clang};
 
 // =================================================================================================
-// (1)+(2) Treffer und Kill-Switch -- an der ECHTEN golden-Maschinen-Menge
+// (1)+(2) Treffer und Kill-Switch -- an der Maschinen-Menge der ce-Naht-Fixture (absichtlich divergent
+// zum super-Master, s. Divergenz-Tabelle im Fixture-Kopf)
 // =================================================================================================
 
-TEST(S3OrdnungFreigabe, GoldenXmlTraegtDieZweiDeklariertenMaschinen) {
-    auto const machines = golden_machines();
-    ASSERT_EQ(machines.size(), 2u) << "experiment_golden_kern.xml fuehrt prod1 und prod2.";
+TEST(S3OrdnungFreigabe, FixtureTraegtDieZweiDeklariertenMaschinen) {
+    auto const machines = kern_seam_machines();
+    ASSERT_EQ(machines.size(), 2u) << "experiment_kern_seam_fixture.xml fuehrt prod1 und prod2.";
     EXPECT_EQ(machines[0].hostname_hint, "prod1");
     EXPECT_EQ(machines[1].hostname_hint, "prod2");
 }
 
 TEST(S3OrdnungFreigabe, TrefferBelegtGenauEinmalUndVerdictFolgtDerEchtenCpu) {
-    auto const machines = golden_machines();
+    auto const machines = kern_seam_machines();
     ASSERT_FALSE(machines.empty());
     for (auto const& mc : machines) {
         meas::reset_active_machine_declaration_for_test();
@@ -115,7 +118,7 @@ TEST(S3OrdnungFreigabe, TrefferBelegtGenauEinmalUndVerdictFolgtDerEchtenCpu) {
 }
 
 TEST(S3OrdnungFreigabe, KeinTrefferKeineMengeLeererHostnameBelegenNichts) {
-    auto const machines = golden_machines();
+    auto const machines = kern_seam_machines();
     ASSERT_FALSE(machines.empty());
     // (a) nicht deklarierter Hostname -- der T-6-Pflichtfall.
     meas::reset_active_machine_declaration_for_test();
@@ -145,7 +148,7 @@ TEST(S3OrdnungFreigabe, KeinTrefferKeineMengeLeererHostnameBelegenNichts) {
 
 TEST(S3OrdnungFreigabe, AbweichenderZweittrefferWirdKlassifiziertAbgelehnt) {
     meas::reset_active_machine_declaration_for_test();
-    std::vector<cx::ExperimentMachine> machines = golden_machines();
+    std::vector<cx::ExperimentMachine> machines = kern_seam_machines();
     ASSERT_EQ(machines.size(), 2u);
     // Zwei <machine> mit DEMSELBEN hint, aber verschiedenem Tupel: der zweite MUSS abgelehnt werden
     // (Einmal-Belegung, Determinismus-Schutz von set_active_machine_declaration).
@@ -172,7 +175,7 @@ TEST(S3OrdnungFreigabe, AbweichenderZweittrefferWirdKlassifiziertAbgelehnt) {
 // =================================================================================================
 
 TEST(S3OrdnungFreigabe, RspZeilenBleibenByteGleichUeberAlleKlassenRoutenDialekte) {
-    auto const machines = golden_machines();
+    auto const machines = kern_seam_machines();
     ASSERT_FALSE(machines.empty());
     // VORHER: ohne Belegung, je Route x Dialekt.
     meas::reset_active_machine_declaration_for_test();
@@ -203,7 +206,7 @@ TEST(S3OrdnungFreigabe, RspZeilenBleibenByteGleichUeberAlleKlassenRoutenDialekte
 }
 
 TEST(S3OrdnungFreigabe, Alle9OrganKlassenBleibenNotApplicableAufBeidenDialekten) {
-    auto const machines = golden_machines();
+    auto const machines = kern_seam_machines();
     ASSERT_FALSE(machines.empty());
     // Mit prod1-Belegung UND mit prod2-Belegung: das Gate bleibt je Organ-Klasse NotApplicable,
     // weil die required-Menge leer ist (C-3a-Tripwire haelt sie compile-hart leer).
