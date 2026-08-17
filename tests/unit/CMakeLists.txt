@@ -2151,6 +2151,60 @@ target_include_directories(test_hy_a1_heuristik_adapter_gattung PRIVATE
     "${PROJECT_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 
+# HY-A1 (Wellenplan-Definition) -- die DOCK-Schicht der Hybrid-Stufe: Vertrags-Registry, Standard-
+# Pruef-Dock, Abstract Factory, Dock-Array in beiden Policies. Sie liegt UEBER der am 09.08. gebauten
+# Klassifikations-Schicht (Gate/Strategie/Matrix) und ist die Schicht, die der Wellenplan v2:855 unter
+# demselben Namen fuehrt -- die Namensgleichheit ist aktenkundig und meint zwei verschiedene Ebenen.
+# Header-only wie die Klassifikations-Schicht: hybrid/ bleibt eine reine Header-Stufe, kein
+# add_subdirectory. Das ist kein Sparschnitt, sondern der K2-Schnitt: erst der Binary-PROXY braucht
+# AnatomyModuleLoader aus der Builder-Lib, und dessen Schichten-Zuordnung ist die offene Auflage K2
+# (soll_design Abschnitt 7). Solange hier kein Loader vorkommt, ist die Stufe K2-neutral baubar.
+# COMDARE_HY_QUELLVERZEICHNIS speist die Zonen-Wache: sie liest die hybrid/-Quelldateien und belegt,
+# dass std::variant< dort an GENAU EINER Stelle steht (Bauplan HY-A1, "Scope ausdruecklich
+# hybrid/-lokal" -- die system-weite Fassung des Satzes trifft heute nicht zu).
+comdare_add_test(test_hy_a1_dock_contract
+    SOURCES test_hy_a1_dock_contract.cpp)
+target_include_directories(test_hy_a1_dock_contract PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_compile_definitions(test_hy_a1_dock_contract PRIVATE
+    "COMDARE_HY_QUELLVERZEICHNIS=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/hybrid\"")
+
+# HY-A1 (Dock-Schicht) -- VIERTE Negativ-Compile-Fixture, nach dem in C1 benannten Muster (a)-(d).
+# Gegenstand: die Vertrags-Registry. Bauplan-Auflage HY-A1 woertlich: "ein Vertrag-Token
+# contract_f0a01c9e, der NICHT in der constexpr-Registry steht, muss compile-time laut brechen
+# (Concept-Fehler), nicht runtime."
+# DREI Diagnosen, drei VERSCHIEDENE Sperren: (1) unbekanntes Token am Detektor, (2) dieselbe Sache
+# an der consteval-Verwendungsstelle (echte Auswertung), (3) gueltiger Vertrag mit verbotenem
+# Klassifikations-Genus als Ziel -- diese dritte scheitert an einer ANDEREN Wache und belegt damit,
+# dass ein Wegfall einer Sperre nicht von einer anderen verdeckt wird.
+# Die Gegenprobe (gueltiges Token, gruen) steht IM SELBEN File ganz oben: ohne sie waere jeder
+# Bruch mehrdeutig -- er koennte auch von einem kaputten Include kommen.
+set(_comdare_negativ_compile_tu_hy_a1_vertrag test_hy_a1_contract_token_negativ)
+add_executable(${_comdare_negativ_compile_tu_hy_a1_vertrag} EXCLUDE_FROM_ALL
+    "${_comdare_negativ_compile_tu_hy_a1_vertrag}.cpp")
+target_compile_features(${_comdare_negativ_compile_tu_hy_a1_vertrag} PRIVATE cxx_std_23)
+target_include_directories(${_comdare_negativ_compile_tu_hy_a1_vertrag} PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(${_comdare_negativ_compile_tu_hy_a1_vertrag} PRIVATE Boost::mp11)
+comdare_set_platform_defines(${_comdare_negativ_compile_tu_hy_a1_vertrag})
+add_test(NAME ${_comdare_negativ_compile_tu_hy_a1_vertrag}
+         COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
+                 --target ${_comdare_negativ_compile_tu_hy_a1_vertrag})
+set_tests_properties(${_comdare_negativ_compile_tu_hy_a1_vertrag} PROPERTIES
+    PASS_REGULAR_EXPRESSION "HY-A1-VERTRAG-NEGATIV-PROBE"
+    RESOURCE_LOCK "comdare_nested_build"
+    TIMEOUT 300
+    LABELS "goal_v6;phase_d;negativ_compile")
+
 # E-24 C4 (c/5) -- die vier Container-Docks als IPruefDock-Impls, in-process gefahren.
 # EIGENER BLOCK statt COMDARE_GOALV6_BOOST_DTESTS (am Bau erzwungen, nicht aus Geschmack): diese TU
 # konstruiert/zerstoert AnatomyModuleHandle, und AnatomyModuleHandle::unload() lebt im Loader-.cpp
