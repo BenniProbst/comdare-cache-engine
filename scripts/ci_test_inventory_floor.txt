@@ -50,7 +50,35 @@
 # --build-dir=build-covguard -DCOMDARE_CE_PRUEFLINGE="$PWD/tests/pruefling_fixture");
 # J-1-Muster: erst die beiden Registrierungs-Werkzeuge (comdare_anatomy_codegen_cli,
 # comdare_adhoc_emitter_cli), dann RE-KONFIGURIERT.
-# -- NACHMESSUNG 2026-08-16 (GOLDEN-FENSTER-LANDUNG, J-1-Rezept live gefahren) --
+# -- KORREKTUR 2026-08-17 (CI-LIVE-BEFUND PIPELINE 15936 + NACHMESSUNG AM GELANDETEN STAND) --
+# 495/491/489 ersetzt die 16.08.-Fassung 494/490/488. Der tragende Satz der 16.08.-Nachmessung
+# ("Der CI-Floor-Baum baut OHNE Pruefling") ist FALSCH: der coverage-guard-Job konfiguriert
+# build-covguard ausdruecklich MIT Pruefling (.gitlab-ci.yml: _pf="$CI_PROJECT_DIR/tests/
+# pruefling_fixture", -DCOMDARE_CE_PRUEFLINGE="$_pf"; T-4-Doku ebd.: test:unit faehrt die
+# Gegenrichtung OHNE), wie es auch BEIDE 15.08.-Messrezepte dieser Datei ausdruecklich tun
+# ("einschliesslich Pruefling-Schalter"). Die 494 vom 16.08. war die richtige Zahl der FALSCHEN
+# Bau-Form (nach 'cmake -U COMDARE_CE_PRUEFLINGE' fuer die test:unit-Diagnose erhoben).
+# LIVE-BELEGE: CI-Job 380164 (test:coverage-guard, prod2, Klasse avx2, Pruefling-Block
+# pruefling_slots_v1 GELAUFEN) zaehlt Inventur 491 gegen Anker 490 -> ROT "FLOOR-NACHZUG FEHLT".
+# CI-Job 380159 (test:unit, prod1, avx512f, OHNE Pruefling): 494 = 495 - 1 (SOLL-DELTA
+# pruefling_slots_v1, dritte Achse der Wache). NACHMESSUNG 2026-08-17 am Stand 90ee6809 nach dem
+# Rezept des Datei-Kopfs (build-covguard KALT, CI-Form MIT Pruefling, make inventar,
+# cmake-Erzwingen beider Klassen, 'cmake -U' auf beide Variablen, Wiederherstellung byte-gleich,
+# LC_ALL=C comm in BEIDE Richtungen: avx512f->avx2 verliert exakt die dokumentierten VIER,
+# avx2->basis die ZWEI, Gegenrichtungen leer):
+#     avx512f (gemessen, prod1, ctest "Total Tests")                       -> 495
+#     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                  -> 491
+#     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0       -> 489
+# MESS-FALLE (dokumentiert, damit sie nicht wiederkehrt): ctest -N richtet die Test-Nummern
+# rechtsbuendig aus -- bei Nummern < 100 stehen MEHRERE Spaces zwischen 'Test' und '#'
+# ('Test   #1:'). Ein Namens-Extrakt mit dem Muster '^ *Test #[0-9]*: ' verliert damit still
+# die Tests #1..#99 (hier: 396 statt 495). Zaehlbasis ist die ctest-Schlusszeile
+# "Total Tests: N"; jede gefilterte Namensliste braucht die Gegenprobe Listenlaenge == Total.
+# Die LANDE-AUFLAGE unten ("nach Doppel-Landung sind 495/491/489 zu ERWARTEN") ist damit durch
+# Messung EINGELOEST; uebernommen ist die MESSUNG, keine Prognose und keine Delta-Addition.
+#
+# -- HISTORIE (NACHMESSUNG 2026-08-16, GOLDEN-FENSTER-LANDUNG, J-1-Rezept live gefahren;
+#    FEHLKALIBRIERT, siehe KORREKTUR 2026-08-17 direkt darueber) --
 # 494/490/488 ersetzt die vorherige Fassung 495/491/489: die 495 war im PRUEFLING-
 # konfigurierten Entwickler-Worktree erhoben (COMDARE_CE_PRUEFLINGE=fixture registriert
 # test_pruefling_fixture_ladung zusaetzlich; comm-Differenz = exakt dieser eine Name).
@@ -468,6 +496,6 @@
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
 
-avx512f 494
-avx2 490
-basis 488
+avx512f 495
+avx2 491
+basis 489
