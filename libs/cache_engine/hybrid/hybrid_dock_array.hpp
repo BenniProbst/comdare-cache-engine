@@ -167,10 +167,14 @@ public:
     /// (KON28-03) ist die harte Grenze, der Laufzeit-Wert darf sie nur unterschreiten. Der Parser
     /// weist groessere Werte ohnehin ab (hybrid_status_max_docks_ungueltig) -- die Klemme hier ist
     /// die zweite Sperre fuer den Weg am Parser vorbei (Struct-Injektion).
+    /// DIE NULL WIRD DURCHGELASSEN (2026-08-17, Lens-Fund). Die erste Fassung hob einen Deckel
+    /// von 0 still auf 1 -- die PERMISSIVE Richtung, und damit ein Widerspruch zum Parser, der
+    /// max_docks="0" hart abweist. Eine Sperre, die im Zweifel MEHR erlaubt als verlangt, ist
+    /// keine; ein Deckel 0 heisst "diese Kette traegt kein Dock", und genau das passiert jetzt:
+    /// erster_freier_platz findet nichts, das erste attach liefert -hybrid_status_array_voll.
+    /// Der Fehler ist damit laut und an der richtigen Stelle statt in eine stumme 1 verwandelt.
     explicit DockArray(std::size_t laufzeit_deckel) noexcept(Policy::statisch)
-        : deckel_{laufzeit_deckel == 0 ? std::size_t{1}
-                                       : (laufzeit_deckel > Policy::kapazitaet ? Policy::kapazitaet
-                                                                              : laufzeit_deckel)} {
+        : deckel_{laufzeit_deckel > Policy::kapazitaet ? Policy::kapazitaet : laufzeit_deckel} {
         if constexpr (!Policy::statisch) { speicher_.reserve(4); }
     }
 

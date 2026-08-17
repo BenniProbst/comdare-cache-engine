@@ -300,9 +300,13 @@ TEST(HyA1DockContract, F4LaufzeitDeckelAusDerXmlGreiftWirklich) {
     // (Der Parser weist ihn ohnehin ab; das hier ist die zweite Sperre fuer den Weg an ihm vorbei.)
     hy::DockArray<hy::RuntimeDockArrayPolicy> zu_gross{9999};
     EXPECT_EQ(zu_gross.kapazitaet(), hy::kHybridNodeObergrenzeDefault);
-    // Und 0 waere ein Array ohne Platz -- es wird auf 1 gehoben statt unbrauchbar zu bleiben.
+    // Und 0 BLEIBT 0 -- "diese Kette traegt kein Dock". Die erste Fassung hob den Wert still auf
+    // 1: die permissive Richtung, und ein Widerspruch zum Parser, der max_docks="0" hart abweist.
+    // Eine Sperre, die im Zweifel MEHR erlaubt als verlangt, ist keine. Geprueft wird deshalb
+    // beides: die Kapazitaet UND dass das erste attach an ihr scheitert.
     hy::DockArray<hy::RuntimeDockArrayPolicy> null_deckel{0};
-    EXPECT_EQ(null_deckel.kapazitaet(), std::size_t{1});
+    EXPECT_EQ(null_deckel.kapazitaet(), std::size_t{0});
+    EXPECT_EQ(null_deckel.attach(d), -hy::hybrid_status_array_voll);
 
     // Auch die STATISCHE Policy respektiert den Laufzeit-Deckel (Kapazitaet 4, Deckel 1).
     hy::DockArray<hy::StatischeDockArrayPolicy<4>> statisch{1};
