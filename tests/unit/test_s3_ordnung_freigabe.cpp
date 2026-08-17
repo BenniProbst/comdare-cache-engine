@@ -17,8 +17,10 @@
 //   (5) T-6 SCHWESTERSTELLEN: ALLE 9 Organ-Klassen, BEIDE Dialekte (Gpp/Clang), BEIDE deklarierten
 //       Maschinen-Klassen (prod1/prod2) plus ein nicht deklarierter Hostname.
 //
-// Die <machines>-Menge kommt aus der ECHTEN golden-XML (experiment_golden_kern.xml, NUR GELESEN) --
-// kein nachgebautes Fixture, dieselbe Quelle wie der Produktions-Lauf.
+// Die <machines>-Menge kommt aus der ce-Naht-Fixture experiment_kern_seam_fixture.xml (NUR GELESEN) --
+// kein nachgebautes Fixture, dieselbe Quelle wie test_experiment_kern_seam. Ihre <machines>-Werte sind
+// byte-gleich zur kanonischen super-Instanz Code/test_data_xml/experiment_golden_kern.xml; die Fixture
+// hiess bis zur Weg-a-Umbenennung am 17.08.2026 genauso wie diese.
 //
 // ASCII-only (Leitplanke). Zeilen <= 120 (Diff-Hygiene-Wache).
 
@@ -39,8 +41,8 @@
 #include <string_view>
 #include <vector>
 
-#ifndef COMDARE_EXPERIMENT_GOLDEN_KERN
-#error "COMDARE_EXPERIMENT_GOLDEN_KERN must point to tests/unit/thesis_tiere/experiment_golden_kern.xml"
+#ifndef COMDARE_EXPERIMENT_KERN_SEAM_FIXTURE
+#error "COMDARE_EXPERIMENT_KERN_SEAM_FIXTURE must point to tests/unit/thesis_tiere/experiment_kern_seam_fixture.xml"
 #endif
 
 namespace {
@@ -51,7 +53,7 @@ namespace pf   = ::comdare::cache_engine::profile_facade;
 
 [[nodiscard]] std::vector<cx::ExperimentMachine> golden_machines() {
     cx::XmlConfigParser const parser;
-    auto const ep = parser.parse_experiment_profile(std::filesystem::path{COMDARE_EXPERIMENT_GOLDEN_KERN});
+    auto const ep = parser.parse_experiment_profile(std::filesystem::path{COMDARE_EXPERIMENT_KERN_SEAM_FIXTURE});
     if (!ep) return {};
     return ep->machines;
 }
@@ -84,7 +86,7 @@ constexpr meas::SimdDialect kDialekte[]{meas::SimdDialect::Gpp, meas::SimdDialec
 
 TEST(S3OrdnungFreigabe, GoldenXmlTraegtDieZweiDeklariertenMaschinen) {
     auto const machines = golden_machines();
-    ASSERT_EQ(machines.size(), 2u) << "experiment_golden_kern.xml fuehrt prod1 und prod2.";
+    ASSERT_EQ(machines.size(), 2u) << "experiment_kern_seam_fixture.xml fuehrt prod1 und prod2.";
     EXPECT_EQ(machines[0].hostname_hint, "prod1");
     EXPECT_EQ(machines[1].hostname_hint, "prod2");
 }

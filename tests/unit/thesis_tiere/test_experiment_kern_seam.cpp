@@ -1,6 +1,7 @@
 // test_experiment_kern_seam -- KERN #48-S4 (2026-07-22): ctest-Gate fuer die Minimal-Parser-/Validator-Naht der
 // vier neuen comdare_experiment-v2-Elemente (Section 59/62). ADDITIV: beruehrt KEINEN bestehenden Parser-/
-// Projection-/Director-Test-Pin. Fixture = tests/unit/thesis_tiere/experiment_golden_kern.xml (ce-lokal, valide).
+// Projection-/Director-Test-Pin. Fixture = tests/unit/thesis_tiere/experiment_kern_seam_fixture.xml (ce-lokal,
+// valide; bis zur Weg-a-Umbenennung am 17.08.2026 hiess sie experiment_golden_kern.xml wie die super-Instanz).
 //
 // BEWEIST LITERAL (R4: kein Element ohne Test-Beleg):
 //   (a) PARSE   -- <machines> (Kern-Identitaet), <axis pruefling=..>, merge="fulljoin", <output><storage ..> parsen
@@ -26,8 +27,8 @@
 #include <string>
 #include <vector>
 
-#ifndef COMDARE_EXPERIMENT_GOLDEN_KERN
-#error "COMDARE_EXPERIMENT_GOLDEN_KERN must point to tests/unit/thesis_tiere/experiment_golden_kern.xml"
+#ifndef COMDARE_EXPERIMENT_KERN_SEAM_FIXTURE
+#error "COMDARE_EXPERIMENT_KERN_SEAM_FIXTURE must point to tests/unit/thesis_tiere/experiment_kern_seam_fixture.xml"
 #endif
 
 namespace {
@@ -38,7 +39,7 @@ namespace fs  = std::filesystem;
 
 std::optional<cx::ExperimentProfile> parse_kern() {
     cx::XmlConfigParser const parser;
-    return parser.parse_experiment_profile(fs::path{COMDARE_EXPERIMENT_GOLDEN_KERN});
+    return parser.parse_experiment_profile(fs::path{COMDARE_EXPERIMENT_KERN_SEAM_FIXTURE});
 }
 
 // Ein minimal-valides ExperimentProfile (2 engines + op_types + Stufe1-Phase): die Basis fuer die negativen

@@ -1954,14 +1954,15 @@ set_tests_properties(test_s14_axis_version_lock_tripwire PROPERTIES
     LABELS "s14;axis_lock;tripwire")
 
 # S-18/#16 RIDER #95 (KF-Design; Codex-Auflagen Nichtleer/CDATA-Kante/Skip-bei-fehlend=rot): die
-# ce-SEITIGE Wache der ce-eigenen Fixture experiment_golden_kern.xml -- bis hierher hatte sie in
+# ce-SEITIGE Wache der ce-eigenen Fixture experiment_kern_seam_fixture.xml (Weg a 2026-08-17: frueher
+# gleichnamig mit der super-Instanz experiment_golden_kern.xml) -- bis hierher hatte sie in
 # der ce-CI KEINE Wache (A7-Befund). Script-Test (cmake -P, Vorbild f15_compare_cli_smoke);
 # xmllint ist PFLICHT im Script (FATAL statt Skip). Das SCHEMA-Bein sucht die Single-Source-XSD
 # des super-Nachbarn (Submodul-Layout ../../test_data_xml/) und meldet ohne Nachbarn einen
 # BENANNTEN Halb-Skip -- eine XSD-Kopie in ce waere eine zweite Quelle (Begruendung im Script).
 add_test(NAME fixture_schema_subset_check_ce
     COMMAND "${CMAKE_COMMAND}"
-        "-DFIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere/experiment_golden_kern.xml"
+        "-DFIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere/experiment_kern_seam_fixture.xml"
         "-DCE_ROOT=${PROJECT_SOURCE_DIR}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/fixture_schema_subset_check.cmake")
 set_tests_properties(fixture_schema_subset_check_ce PROPERTIES
@@ -3892,8 +3893,10 @@ target_compile_definitions(test_experiment_parser PRIVATE
 set_tests_properties(test_experiment_parser PROPERTIES LABELS "contract;profiles;e4;incd")
 
 # KERN #48-S4 (2026-07-22) -- ctest-Gate der Minimal-Parser-/Validator-Naht der vier neuen comdare_experiment-v2-
-# Elemente (machines / axis@pruefling / merge=fulljoin / storage). ADDITIV: eigene Fixture experiment_golden_kern.xml
-# + eigenes Source-File; beruehrt KEINEN bestehenden Parser-/Projection-/Director-Pin. Fixture wird NUR GELESEN.
+# Elemente (machines / axis@pruefling / merge=fulljoin / storage). ADDITIV: eigene Fixture
+# experiment_kern_seam_fixture.xml (Weg a 2026-08-17: frueher gleichnamig mit der kanonischen super-Instanz
+# experiment_golden_kern.xml) + eigenes Source-File; beruehrt KEINEN bestehenden Parser-/Projection-/
+# Director-Pin. Fixture wird NUR GELESEN.
 comdare_add_test(test_experiment_kern_seam
     SOURCES thesis_tiere/test_experiment_kern_seam.cpp
     LIBRARIES comdare_builder_xml_config_parser)
@@ -3909,9 +3912,12 @@ target_include_directories(test_experiment_kern_seam PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_experiment_kern_seam PRIVATE Boost::mp11)
+# Pfad in einer lokalen Variablen, weil die Define-Zeile mit dem laengeren Namen sonst die
+# 120-Spalten-Wache (ci_diff_ascii_width_guard.sh) reisst.
+set(_kern_seam_fixture "${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_kern_seam_fixture.xml")
 target_compile_definitions(test_experiment_kern_seam PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
-    "COMDARE_EXPERIMENT_GOLDEN_KERN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_golden_kern.xml\"")
+    "COMDARE_EXPERIMENT_KERN_SEAM_FIXTURE=\"${_kern_seam_fixture}\"")
 set_tests_properties(test_experiment_kern_seam PROPERTIES LABELS "contract;profiles;e4;incd")
 
 # BRÜCKE I3 (2026-07-16) — ctest-Gate der Projektion ExperimentProfile → (merge×lebewesen)-Pässe/Quellen-Map
@@ -7046,7 +7052,7 @@ set_tests_properties(test_s3_ordnung_relation PROPERTIES
 
 # (2) test_s3_ordnung_freigabe: die FREIGEBENDE SEITE (S-3c) -- belege_aktive_maschinen_deklaration
 #     (profile_facade/maschinen_deklarations_naht.hpp) gegen die ECHTE golden-Maschinen-Menge
-#     (experiment_golden_kern.xml, NUR GELESEN), C-3a-rsp-Spiegel, T-6 (9 Organ-Klassen x 2 Dialekte
+#     (experiment_kern_seam_fixture.xml, NUR GELESEN), C-3a-rsp-Spiegel, T-6 (9 Organ-Klassen x 2 Dialekte
 #     x 2 Maschinen-Klassen + nicht deklarierter Hostname). Wiring-Muster = test_experiment_kern_seam
 #     (dieselbe Parser-Flaeche).
 comdare_add_test(test_s3_ordnung_freigabe
@@ -7058,9 +7064,12 @@ target_include_directories(test_s3_ordnung_freigabe PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/common"
     "${PROJECT_SOURCE_DIR}/libs/common/serialization"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade")
+# Pfad in einer lokalen Variablen: gleiche Begruendung wie beim Geschwister-Block
+# test_experiment_kern_seam (120-Spalten-Wache).
+set(_s3_freigabe_fixture "${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_kern_seam_fixture.xml")
 target_compile_definitions(test_s3_ordnung_freigabe PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1
-    "COMDARE_EXPERIMENT_GOLDEN_KERN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_golden_kern.xml\"")
+    "COMDARE_EXPERIMENT_KERN_SEAM_FIXTURE=\"${_s3_freigabe_fixture}\"")
 set_tests_properties(test_s3_ordnung_freigabe PROPERTIES
     LABELS "s3;ordnung;freigabe;maschinen;c3a;koeder")
 

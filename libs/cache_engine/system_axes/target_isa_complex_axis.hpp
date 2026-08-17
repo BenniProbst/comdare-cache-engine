@@ -121,7 +121,8 @@ concept TargetIsaComplexAxisConcept =
     };
 
 // -- Die benannten Rekombinationen. Je deklarierter Maschinen-KLASSE eine; der Schluessel steht
-//    woertlich so in <machines> (experiment_golden_kern.xml). Eine neue Maschine tritt hier als
+//    woertlich so in <machines> -- kanonisch in super Code/test_data_xml/experiment_golden_kern.xml, ce-seitig
+//    byte-gleich in tests/unit/thesis_tiere/experiment_kern_seam_fixture.xml. Eine neue Maschine tritt hier als
 //    dritte Auspraegung ein, NACHDEM sie in kDeclaredMachines und in der XML steht. --
 
 /// prod1-Klasse: x86_64 + Zen5-Fabrikation. RAM-Glieder heute nicht deklariert (siehe kDeclaredMachines).
