@@ -70,8 +70,10 @@ static void test_strategy_direct(std::string_view name, double max_fp_rate) {
     std::uint64_t pos_hits = 0;
     for (std::uint64_t i = 0; i < N; ++i)
         if (f.probe_key(ins_key(i))) ++pos_hits;
-    // Bloom/Cuckoo/SuRF: 100% positiv (kein FN). Xor (vereinfachte Konstruktion ohne Peeling): toleriere wenige FN.
-    bool const all_pos = (name == "Xor") ? (pos_hits >= (N * 90) / 100) : (pos_hits == N);
+    // Bloom/Cuckoo/SuRF/Xor: 100% positiv (kein FN). Xor traegt seit 17.08.2026 die echte Offline-
+    // Peeling-Konstruktion (Graf+Lemire, Owner-Anordnung 16.08.) -- die alte FN-Toleranz (>= 90% bei der
+    // vereinfachten Konstruktion ohne Peeling) ist kontrolliert aufgeloest, es gilt dieselbe no-FN-Schranke.
+    bool const all_pos = (pos_hits == N);
     std::cout << "     eingefuegt positiv: " << pos_hits << "/" << N << "\n";
     tr(std::string{name} + ": (a) eingefuegte Keys proben positiv (REAL aus Keys gebaut)", all_pos);
 
@@ -112,7 +114,7 @@ int main() {
     // ─────────────────────────────────────────────────────────────────────────────────────────────────────────
     test_strategy_direct<flt::BloomFilter>("Bloom", 0.50); // N=256, m=65536 → FP-Rate weit < 50%
     test_strategy_direct<flt::CuckooFilter>("Cuckoo", 0.50);
-    test_strategy_direct<flt::XorFilter>("Xor", 0.60);        // vereinfachte XOR-Konstruktion → etwas hoehere FP
+    test_strategy_direct<flt::XorFilter>("Xor", 0.50);        // Offline-Peeling seit 17.08.2026 -> FP-Rate plausibel
     test_strategy_direct<flt::RangeSurfFilter>("SuRF", 0.60); // Prefix-Trie
 
     // ─────────────────────────────────────────────────────────────────────────────────────────────────────────
