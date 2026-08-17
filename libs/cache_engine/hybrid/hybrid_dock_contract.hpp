@@ -89,12 +89,16 @@ inline constexpr int hybrid_status_xml_nicht_wohlgeformt = 6; ///< kein DOM / fa
 inline constexpr int hybrid_status_unbekanntes_token     = 7; ///< enabled/storage/genus ausserhalb der Wire-Form
 inline constexpr int hybrid_status_max_docks_ungueltig   = 8; ///< 0, nicht-numerisch oder ueber dem Programm-Deckel
 inline constexpr int hybrid_status_mehr_docks_als_deckel = 9; ///< Bestueckung sprengt das selbst gesetzte max_docks
+// W12 (Owner-Linie, Dock-Deckel 32 MIT XML-Pflichtangabe): wer den Hybrid-Zweig anfordert,
+// deklariert seine Dock-Zahl. Eigener Code, NICHT max_docks_ungueltig -- "fehlt" und "falscher
+// Wert" sind verschiedene Fehler des Anwenders und schicken ihn an verschiedene Stellen.
+inline constexpr int hybrid_status_max_docks_fehlt = 10; ///< enabled="true" ohne max_docks-Angabe
 
 /// Die EINZELQUELLE aller Status-Codes. Wer einen anhaengt, traegt ihn HIER ein -- die
 /// Namens-Totalitaets-Wache unten faengt sonst den Vergessenen. Handgefuehrte Listen IM TEST sind
 /// genau die Bauart, an der die alten Vollstaendigkeits-Wachen gescheitert sind
 /// (nachgemessen, heuristik_adapter_klassifikation.hpp:20-30).
-inline constexpr std::array<int, 10> kAlleHybridStatus{
+inline constexpr std::array<int, 11> kAlleHybridStatus{
     hybrid_status_ok,
     hybrid_status_unbekannter_vertrag,
     hybrid_status_contract_ohne_dock_typ,
@@ -104,7 +108,8 @@ inline constexpr std::array<int, 10> kAlleHybridStatus{
     hybrid_status_xml_nicht_wohlgeformt,
     hybrid_status_unbekanntes_token,
     hybrid_status_max_docks_ungueltig,
-    hybrid_status_mehr_docks_als_deckel};
+    hybrid_status_mehr_docks_als_deckel,
+    hybrid_status_max_docks_fehlt};
 
 [[nodiscard]] constexpr std::string_view hybrid_status_name(int s) noexcept {
     switch (s) {
@@ -118,6 +123,7 @@ inline constexpr std::array<int, 10> kAlleHybridStatus{
         case hybrid_status_unbekanntes_token: return "unbekanntes_token";
         case hybrid_status_max_docks_ungueltig: return "max_docks_ungueltig";
         case hybrid_status_mehr_docks_als_deckel: return "mehr_docks_als_deckel";
+        case hybrid_status_max_docks_fehlt: return "max_docks_fehlt";
         default: return "unknown";
     }
 }

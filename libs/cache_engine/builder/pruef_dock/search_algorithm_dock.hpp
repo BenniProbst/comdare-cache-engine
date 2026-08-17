@@ -14,6 +14,7 @@
 // @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md §8.8
 
 #include "pruef_dock.hpp"
+#include <anatomy_drive/search_algorithm_drive.hpp> // K2: Drive + acquire, stufen-neutral
 #include "conformance_gate.hpp"                   // V5-I4: std::map-Konformitäts-Gate vor der Messung
 #include <anatomy/observable_tier.hpp>            // IObservableTier (SearchAlgorithm-Gattungs-Antrieb)
 #include <anatomy/resource_controllable_tier.hpp> // INC-2a: IResourceControllableTier (Prüf-Dock-Settings)
@@ -90,29 +91,16 @@ public:
     }
 };
 
-/// INC-2a (Q4, Prüf-Dock scharf): das dock-vertragliche Antriebs-Bündel der SearchAlgorithm-Gattung.
-/// obs = Mess-Antrieb (Pflicht fuer Messung), ctrl/rbk/scn = optionale Sub-Antriebe (alte DLLs → nullptr).
-struct SearchAlgorithmDrive {
-    anatomy::IObservableTier*           obs  = nullptr;
-    anatomy::IResourceControllableTier* ctrl = nullptr;
-    anatomy::IRollbackableTier*         rbk  = nullptr;
-    anatomy::IScannableTier*            scn  = nullptr;
-};
-
-/// INC-2a (Q4): die EINE dock-vertragliche Antriebs-Beschaffung — ersetzt die rohen dynamic_cast-
-/// Bypaesse des Lazy-Iterators (cache_engine_builder_iterator). Semantik BEWUSST identisch zum
-/// bisherigen Iterator-Verhalten (kein Gattungs-Reject hier — der scharfe Gattungs-Match kommt mit
-/// den Multi-Gattungs-Docks in INC-2d/2e ueber accepts()): base fehlt → no_anatomy; Mess-Antrieb
-/// fehlt → subinterface_missing; sonst ok mit vollem Buendel.
-[[nodiscard]] inline int acquire_search_algorithm_drive(anatomy_loader::AnatomyModuleHandle& h,
-                                                        SearchAlgorithmDrive&                out) noexcept {
-    anatomy::IAnatomyBase* base = h.anatomy();
-    if (base == nullptr) return dock_status_no_anatomy;
-    out.obs  = dynamic_cast<anatomy::IObservableTier*>(base);
-    out.ctrl = dynamic_cast<anatomy::IResourceControllableTier*>(base);
-    out.rbk  = dynamic_cast<anatomy::IRollbackableTier*>(base);
-    out.scn  = dynamic_cast<anatomy::IScannableTier*>(base);
-    return (out.obs == nullptr) ? dock_status_subinterface_missing : dock_status_ok;
-}
+// K2-WANDERUNG 17.08.2026 (Owner-Entscheid 09.08.): SearchAlgorithmDrive und
+// acquire_search_algorithm_drive liegen jetzt in anatomy_drive/search_algorithm_drive.hpp --
+// stufen-neutral, damit die Hybrid-Stufe ihr Ziel auf DIESELBE Art anfasst wie dieses Dock
+// (Owner: "technisch identisch bei Konfiguration"). Die Alternative waere eine zweite,
+// eigene Antriebs-Beschaffung in der Hybrid-Stufe gewesen -- zwei Wege zum selben Ziel, die
+// still auseinanderlaufen.
+// Hier bleibt der Re-Export: Signatur, Semantik und Fehlerpfade sind UNVERAENDERT, und die
+// drei Bestands-Aufrufer (pruef_only.hpp, cache_engine_builder_iterator.hpp und dieses Dock)
+// sind nicht angefasst worden.
+using ::comdare::cache_engine::anatomy_drive::acquire_search_algorithm_drive;
+using ::comdare::cache_engine::anatomy_drive::SearchAlgorithmDrive;
 
 } // namespace comdare::cache_engine::builder::pruef_dock

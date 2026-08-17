@@ -7173,3 +7173,20 @@ target_compile_definitions(test_stempel_zulassung_bruecke PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_stempel_zulassung_bruecke PROPERTIES
     LABELS "s7;stempel;zulassung;bruecke;koeder" TIMEOUT 120)
+
+# K2 (Owner-Entscheid 09.08.2026) -- der BEWEIS der stufen-neutralen Schichtung.
+# Diese TU inkludiert AUSSCHLIESSLICH anatomy/, anatomy_drive/ und die Loader-Lib -- KEIN
+# builder/pruef_dock/, KEIN IPruefDock. Dass sie uebersetzt UND linkt, IST die Aussage:
+# eine Hybrid-Stufe kann das Antriebs-Buendel ziehen, ohne den Builder zu linken.
+# Sie linkt die Loader-Lib direkt (AnatomyModuleHandle::unload() lebt im Loader-.cpp) -- daher
+# eigener Block statt des GoalV6-Sammelblocks, aus demselben am Bau erzwungenen Grund wie die
+# E-24-C4/C5-TUs oben.
+comdare_add_test(test_k2_stufen_neutraler_loader
+    SOURCES test_k2_stufen_neutraler_loader.cpp)
+target_include_directories(test_k2_stufen_neutraler_loader PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_k2_stufen_neutraler_loader PRIVATE comdare::anatomy_module_loader)

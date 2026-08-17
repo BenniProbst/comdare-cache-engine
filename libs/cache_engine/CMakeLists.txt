@@ -2,6 +2,9 @@
 # CacheEngineBuilder + CacheEngine-Singleton (Heap, im Builder)
 
 add_subdirectory(builder)
+# K2 (Owner 09.08.2026): die stufen-neutrale Antriebs-Schicht. NACH builder/, weil sie dessen
+# Loader-Lib linkt -- der Loader ist builder-unabhaengig und liegt dort nur physisch.
+add_subdirectory(anatomy_drive)
 add_subdirectory(profile_facade)
 add_subdirectory(concurrency_manager)
 add_subdirectory(subsystems)

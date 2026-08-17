@@ -105,11 +105,11 @@ TEST(HyA3HybridConfigParser, UnbekanntesEnabledTokenIstHartUndFaelltNichtStillZu
     // stiller Rueckfall auf false waere die schlimmere Haelfte: der Anwender fordert den Hybrid-Zweig
     // an und bekommt schweigend den direkten.
     for (auto const* token : {"yes", "1", "True", "TRUE", "on", ""}) {
-        std::string const xml = std::string{R"(<hybrid_tier enabled=")"} + token + R"(" genus="SearchAlgorithm"/>)";
+        std::string const xml = std::string{R"(<hybrid_tier enabled=")"} + token + R"(" genus="SearchAlgorithm"><dock_array max_docks="8"/></hybrid_tier>)";
         EXPECT_FALSE(hy::parse_hybrid_tier_xml(xml).has_value()) << "Token \"" << token << "\" darf nicht durchgehen";
     }
     // Gegenprobe im selben Test: die beiden gueltigen Tokens gehen durch.
-    EXPECT_TRUE(hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true" genus="Set"/>)").has_value());
+    EXPECT_TRUE(hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true" genus="Set"><dock_array max_docks="8"/></hybrid_tier>)").has_value());
     EXPECT_TRUE(hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="false" genus="Set"/>)").has_value());
 }
 
@@ -117,13 +117,43 @@ TEST(HyA3HybridConfigParser, UnbekanntesEnabledTokenIstHartUndFaelltNichtStillZu
 // (B) DER XML-OVERRIDE DES DECKELS (KON42-01) -- und seine Grenze (KON28-03)
 // ============================================================================================
 
-TEST(HyA3HybridConfigParser, MaxDocksDefaultKommtAusDerEinzelquelle) {
-    // Ohne <dock_array> gilt der constexpr-Default -- und zwar DERSELBE wie in der Synthese-Matrix
-    // und im Dock-Array. Drei Stellen, eine Zahl.
-    auto const cfg = hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true" genus="Set"/>)");
+TEST(HyA3HybridConfigParser, MaxDocksDefaultGiltNurFuerDenABGESCHALTETENZweig) {
+    // W12: bei enabled="true" ist max_docks PFLICHT -- der Default traegt nur den Fall, in dem
+    // gar kein Hybrid gebaut wird. Genau das wird hier geprueft: abgeschaltet, kein <dock_array>,
+    // und trotzdem eine definierte Zahl -- DIESELBE wie in der Synthese-Matrix und im Dock-Array.
+    // Drei Stellen, eine Zahl.
+    auto const cfg = hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="false" genus="Set"/>)");
     ASSERT_TRUE(cfg.has_value());
     EXPECT_EQ(cfg->max_docks, hy::kHybridNodeObergrenzeDefault);
     EXPECT_EQ(cfg->max_docks, std::size_t{32});
+}
+
+TEST(HyA3HybridConfigParser, W12MaxDocksIstBeiHybridAnforderungPFLICHT) {
+    // Die Owner-Linie: Dock-Deckel 32 MIT XML-Pflichtangabe. Wer den Zweig anfordert, deklariert
+    // seine Dock-Zahl -- weil sie der Faktor auf die Binary-Menge ist. Ein stilles 32 waere die
+    // teuerste Voreinstellung des Hauses, getroffen von niemandem.
+    auto const ohne = hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true" genus="Set"/>)");
+    EXPECT_FALSE(ohne.has_value());
+    EXPECT_EQ(hy::letzter_parse_status(ohne), hy::hybrid_status_max_docks_fehlt);
+
+    // Auch ein <dock_array> OHNE das Attribut genuegt nicht -- die Sektion allein ist keine Angabe.
+    auto const leer = hy::parse_hybrid_tier_xml(
+        R"(<hybrid_tier enabled="true" genus="Set"><dock_array storage="runtime"/></hybrid_tier>)");
+    EXPECT_FALSE(leer.has_value());
+    EXPECT_EQ(hy::letzter_parse_status(leer), hy::hybrid_status_max_docks_fehlt);
+
+    // GEGENPROBEN, damit der Rot wirklich von der fehlenden Angabe kommt:
+    // (a) mit Angabe ist derselbe Zweig gruen,
+    auto const mit = hy::parse_hybrid_tier_xml(
+        R"(<hybrid_tier enabled="true" genus="Set"><dock_array max_docks="4"/></hybrid_tier>)");
+    ASSERT_TRUE(mit.has_value());
+    EXPECT_EQ(mit->max_docks, std::size_t{4});
+    // (b) und der ABGESCHALTETE Zweig braucht sie weiterhin nicht.
+    EXPECT_TRUE(hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="false" genus="Set"/>)").has_value());
+
+    // Der Status ist von "falscher Wert" UNTERSCHIEDEN -- zwei verschiedene Anwenderfehler.
+    EXPECT_NE(hy::hybrid_status_max_docks_fehlt, hy::hybrid_status_max_docks_ungueltig);
+    EXPECT_EQ(hy::hybrid_status_name(hy::hybrid_status_max_docks_fehlt), std::string_view{"max_docks_fehlt"});
 }
 
 TEST(HyA3HybridConfigParser, XmlUeberschreibtDenDefaultWirklich) {
@@ -214,13 +244,13 @@ TEST(HyA3HybridConfigParser, KlassifikationsGenusIstKeinZielUndDasGateGreiftAuch
 }
 
 TEST(HyA3HybridConfigParser, UnbekanntesGenusTokenIstHart) {
-    EXPECT_FALSE(hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true" genus="Baum"/>)").has_value());
-    EXPECT_FALSE(hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true"/>)").has_value())
+    EXPECT_FALSE(hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true" genus="Baum"><dock_array max_docks="8"/></hybrid_tier>)").has_value());
+    EXPECT_FALSE(hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true"><dock_array max_docks="8"/></hybrid_tier>)").has_value())
         << "genus ist Pflicht -- ein Hybrid ohne Gattung waere ein Gehaeuse ohne Ziel";
     // Gegenprobe: alle fuenf ABI-sichtbaren Genera gehen durch (ein Gate, das nur ablehnt, waere
     // genauso falsch wie eines, das alles zulaesst).
     for (auto const* g : {"SearchAlgorithm", "Set", "Sequence", "Adapter", "View"}) {
-        std::string const xml = std::string{R"(<hybrid_tier enabled="true" genus=")"} + g + R"("/>)";
+        std::string const xml = std::string{R"(<hybrid_tier enabled="true" genus=")"} + g + R"("><dock_array max_docks="8"/></hybrid_tier>)";
         EXPECT_TRUE(hy::parse_hybrid_tier_xml(xml).has_value()) << g;
     }
 }
@@ -250,7 +280,7 @@ TEST(HyA3HybridConfigParser, NichtWohlgeformtesXmlIstEinBenannterFehler) {
     EXPECT_FALSE(hy::parse_hybrid_tier_xml("<hybrid_tier enabled=").has_value());
     EXPECT_FALSE(hy::parse_hybrid_tier_xml("").has_value());
     // Falscher Wurzel-Tag: das ist KEINE Hybrid-Sektion, auch wenn es wohlgeformt ist.
-    EXPECT_FALSE(hy::parse_hybrid_tier_xml(R"(<hybrid enabled="true" genus="Set"/>)").has_value());
+    EXPECT_FALSE(hy::parse_hybrid_tier_xml(R"(<hybrid enabled="true" genus="Set"><dock_array max_docks="8"/></hybrid>)").has_value());
 }
 
 TEST(HyA3HybridConfigParser, MehrDocksAlsMaxDocksIstEinBenannterFehler) {

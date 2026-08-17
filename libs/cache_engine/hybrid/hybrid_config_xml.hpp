@@ -179,7 +179,21 @@ namespace detail {
     // plain Tier-Binary. Die Sperre darf nicht davon abhaengen, auf welchem Weg der Wert entsteht.
     if (!ist_abi_sichtbares_genus(cfg.genus)) return {std::nullopt, hybrid_status_kein_zielfaehiges_genus};
 
-    // (c) <dock_array> -- optional; ohne sie gilt der constexpr-Default (KON42-01).
+    // (c) <dock_array> -- optional, SOLANGE der Hybrid-Zweig nicht angefordert ist.
+    //
+    // W12-PFLICHTANGABE: wer den Hybrid-Zweig ANFORDERT (enabled="true"), MUSS max_docks
+    // deklarieren. Das ist kein Widerspruch zu KON42-01 ("constexpr-Default im Planer, jede
+    // XML-Eingabe ueberschreibt"), sondern dessen zweite Haelfte: der Default lebt im PLANER und
+    // traegt den abgeschalteten Fall; wer den Zweig anfordert, sagt AUCH, wie breit er ihn haben
+    // will. Der Grund ist die Mengenwirkung -- der Hybrid-Zweig multipliziert die Binary-Menge,
+    // und die Dock-Zahl ist der Faktor. Ein stillschweigendes 32 waere hier die teuerste
+    // Voreinstellung des Hauses, getroffen von niemandem.
+    // Bei enabled="false" bleibt der Deckel schlicht der Default: es wird nichts gebaut, also
+    // gibt es auch nichts zu deklarieren.
+    if (cfg.enabled) {
+        auto const* da = knoten.child("dock_array");
+        if (da == nullptr || !da->has_attr("max_docks")) return {std::nullopt, hybrid_status_max_docks_fehlt};
+    }
     if (auto const* da = knoten.child("dock_array"); da != nullptr) {
         if (da->has_attr("storage")) {
             std::string const s = da->attr("storage");

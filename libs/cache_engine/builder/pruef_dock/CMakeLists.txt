@@ -19,6 +19,11 @@ if(TARGET comdare::anatomy_module_loader)
     target_link_libraries(comdare_ce_pruef_dock INTERFACE comdare::anatomy_module_loader)
 endif()
 
+# K2 (Owner 09.08.2026): Status-Codes + Antriebs-Buendel liegen stufen-neutral.
+if(TARGET comdare::ce_anatomy_drive)
+    target_link_libraries(comdare_ce_pruef_dock INTERFACE comdare::ce_anatomy_drive)
+endif()
+
 if(TARGET Boost::mp11)
     target_link_libraries(comdare_ce_pruef_dock INTERFACE Boost::mp11)
 endif()

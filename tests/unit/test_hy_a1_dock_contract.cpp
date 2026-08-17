@@ -367,3 +367,63 @@ TEST(HyA1DockContract, StdVariantStehtNurInDerEinenErlaubtenDatei) {
         << "std::variant< darf im hybrid/-Baum NUR im DockSlot des Dock-Arrays stehen "
            "(Owner-E1 + Paragraf-49-KORREKTUR). Gefunden in: " << traeger.front();
 }
+
+// ============================================================================================
+// (F) KON45-01(6): DIE KEY-GRAMMATIK -- alle Literale dieser Stufe sind stempel-faehig
+// ============================================================================================
+
+TEST(HyA1DockContract, AlleLiteraleDieserStufeHaltenDenFingerprintZeichenvorrat) {
+    // DIE AUFLAGE: der Fingerprint-Zeichenvorrat (anatomy_fingerprint.hpp,
+    // anatomy_glied_zeichen_erlaubt) laesst alnum und '= @ ; . , + - _ : / [ ] { }' zu --
+    // KEIN '<', KEIN '>', KEIN Whitespace. Ein Literal, das dagegen verstoesst, reisst die
+    // Format-Wache in dem Moment, in dem es je in ein Preimage-Glied geraet.
+    //
+    // WARUM DAS HIER GEPRUEFT WIRD, OBWOHL HEUTE KEIN LITERAL DIESER STUFE IN EINEN STEMPEL GEHT:
+    // weil es billig ist und weil der Weg dorthin kurz ist. Die Dock-Bestueckung gehoert per
+    // Design ins Sidecar-Manifest -- und das Sidecar-Format wird NACH der A13-Stempel-Regression
+    // fixiert. Wer dort spaeter Vertrags-Tokens oder Dock-Namen einsetzt, soll nicht erst am
+    // fertigen Manifest merken, dass sie nicht hineinpassen.
+    //
+    // BESTANDS-BEFUND, ausdruecklich NICHT hier behoben: die Strategie-Namen der
+    // Klassifikations-Schicht ("Reroute<SearchAlgorithm>", "Reroute<View>", ...) tragen '<' und
+    // '>' und sind damit NICHT stempel-faehig. Das ist heute folgenlos -- sie sind reine
+    // Anzeige-Namen und gehen in kein Glied -- und es bleibt es, solange die Adressierung nicht
+    // literal-basiert wird. Die Umstellung auf eine adressbasierte Form gehoert zu HY-A2 und wird
+    // hier bewusst NICHT vorgezogen: sie beruehrt die Stempel-Flaeche und damit ein anderes
+    // Buendel. Diese Wache deckt deshalb genau die Literale DIESER Stufe -- Scope benannt.
+    auto zeichen_ok = [](char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '=' || c == '@' ||
+               c == ';' || c == '.' || c == ',' || c == '+' || c == '-' || c == '_' || c == ':' || c == '/' ||
+               c == '[' || c == ']' || c == '{' || c == '}';
+    };
+    auto pruefe = [&](std::string_view was, std::string_view wert) {
+        EXPECT_FALSE(wert.empty()) << was;
+        for (char const c : wert) {
+            EXPECT_TRUE(zeichen_ok(c)) << was << ": Zeichen '" << c << "' ist nicht stempel-faehig (Wert: " << wert
+                                       << ")";
+        }
+    };
+
+    std::size_t geprueft = 0;
+    for (auto const& info : hy::kHybridDockContractRegistry) {
+        pruefe("Vertrags-Token", info.id);
+        pruefe("Vertrags-Name", info.name);
+        geprueft += 2;
+    }
+    pruefe("Dock-Name", hy::StandardHybridDock::dock_name());
+    ++geprueft;
+    for (int const s : hy::kAlleHybridStatus) {
+        pruefe("Status-Name", hy::hybrid_status_name(s));
+        ++geprueft;
+    }
+    // Nenner mitdrucken -- eine Wache ueber 0 Literale waere gruen und wertlos.
+    EXPECT_EQ(geprueft, 2 * hy::kHybridDockContractCount + 1 + hy::kAlleHybridStatus.size());
+    EXPECT_GE(geprueft, std::size_t{15});
+
+    // GEGENPROBE: das Praedikat ist nicht auf immer-wahr degeneriert -- es faengt genau die
+    // Zeichen, an denen die Bestands-Strategie-Namen scheitern wuerden.
+    EXPECT_FALSE(zeichen_ok('<'));
+    EXPECT_FALSE(zeichen_ok('>'));
+    EXPECT_FALSE(zeichen_ok(' '));
+    EXPECT_TRUE(zeichen_ok('_'));
+}
