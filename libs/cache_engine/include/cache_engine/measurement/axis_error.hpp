@@ -177,6 +177,33 @@ inline constexpr std::size_t kBuildCellStatusCount = 2;
     return "gesperrt";
 }
 
+// -- A-05/VL-3: DIE ZWEITE ANWENDUNG DERSELBEN FORM -- die Zulassung des --debug-FLAGS -------------
+// Ledger 09.08.2026 (geltende work_mode-Fassung, Bauliste Punkt 4b), verbatim: "Die Zulassung haengt
+// am FLAG, nicht am State. AdmissionStatus {Zugelassen, Gesperrt} bleibt die Form, aber sie bewertet,
+// OB --debug gesetzt werden DARF -- nicht, ob ein Zustand zulaessig ist. Der fail-closed-Default
+// ('Unbekannt -> gesperrt') traegt unveraendert."
+//
+// WARUM DIESELBE FORM UND KEINE VIERTE TAXONOMIE: die W-4-Doktrin verlangt eine eigene Taxonomie, wenn
+// eine AUSSAGE eine andere ist (failed / gesperrt / nicht_gebaut sind drei Aussagen). Hier ist die
+// Aussage DIESELBE -- "etwas ist auf dieser Maschine nicht zugelassen, also findet es nicht statt" --
+// nur der Gegenstand wechselt von der Permutation zum Flag. Ein zweites Enum haette zwei Vokabeln
+// fuer eine Aussage erzeugt; genau davor warnt der Kopf dieser Datei.
+//
+// WARUM ES DIESE FUNKTION BRAUCHT UND NICHT DEN ENUM-DEFAULT (die Falle, gemessen): Zugelassen ist
+// Ordinal 0, ein wertinitialisiertes AdmissionStatus-Feld faellt also auf ZUGELASSEN. Fuer die
+// Perm-Zulassung ist das richtig (RF-2: gemessen wird per Default, s. cache_engine_builder_iterator).
+// Fuer die Debug-Freigabe ist es GENAU FALSCH HERUM: wer das Feld vergisst, bekaeme debug geschenkt --
+// und mit ihm parallel gemessene Zahlen, die wie Messwerte aussehen und keine sind. Deshalb entsteht
+// die Debug-Zulassung NIE aus einer Default-Initialisierung, sondern ausschliesslich hier, und hier
+// ist der Default gesperrt: alles ausser einer ausdruecklichen Freigabe faellt auf Gesperrt.
+//
+// Der Aufrufer ermittelt den Freigabe-Kontext (die Planer-Shell liest COMDARE_DEBUG_FREIGABE=="true",
+// Haus-Idiom wie COMDARE_BESTANDSLOG); diese Datei bleibt frei von Umgebungs-Zugriffen -- sie traegt
+// AUSSCHLIESSLICH die Taxonomie (Datei-Kopf: "KEIN Aufrufer, KEINE Verhaltensaenderung").
+[[nodiscard]] constexpr AdmissionStatus debug_flag_admission(bool freigabe_kontext) noexcept {
+    return freigabe_kontext ? AdmissionStatus::Zugelassen : AdmissionStatus::Gesperrt;
+}
+
 /// CSV-Zell-Token je Bau-Status (A15/FK-1). "nicht_gebaut" = fuer diese Permutation existiert keine
 /// Binary; es wurde weder zugelassen noch gemessen. Unbekannt -> "nicht_gebaut" (sicherer Default in
 /// dieselbe Richtung wie die beiden Nachbarn: lieber sichtbar-nicht-vorhanden als eine stille Zahl).
@@ -553,6 +580,17 @@ static_assert(admission_status_token(AdmissionStatus::Zugelassen) !=
               sample_status_token(SampleStatus::SourceUnavailable));
 // Das Token ist zementiert: der Auswerte-Reader fuehrt es in seiner Verwerf-Liste (measurement_curve_loader).
 static_assert(admission_status_token(AdmissionStatus::Gesperrt) == std::string_view{"gesperrt"});
+// A-05/VL-3: die RICHTUNG der Debug-Umhaengung ist zementiert, nicht bloss kommentiert. Wer sie dreht,
+// verschenkt debug an jeden Anwender -- und damit parallel gemessene Zahlen in eine Auswertung, die sie
+// fuer Messwerte haelt. Beide Richtungen stehen hier: eine Wache, die nur die Sperre prueft, waere von
+// einer konstant sperrenden Mutation nicht zu unterscheiden (V-2).
+static_assert(debug_flag_admission(false) == AdmissionStatus::Gesperrt,
+              "fail-closed: ohne ausdrueckliche Freigabe ist --debug GESPERRT");
+static_assert(debug_flag_admission(true) == AdmissionStatus::Zugelassen,
+              "mit Freigabe zugelassen -- sonst ist die Wache konstant rot und damit wertlos");
+// Und die Umhaengung bleibt an DIESEM Etikettensatz: sie erfindet kein zweites Vokabular fuer dieselbe
+// Aussage (W-4-Doktrin, s. Kommentar an der Funktion).
+static_assert(admission_status_token(debug_flag_admission(false)) == std::string_view{"gesperrt"});
 // Token-Kontrakt (D2/OD-1): die entscheidenden Zell-Vokabeln sind zementiert.
 static_assert(sample_status_token(SampleStatus::Failed) == std::string_view{"failed"});
 static_assert(sample_status_token(SampleStatus::NotApplicable) == std::string_view{"n/a"});
