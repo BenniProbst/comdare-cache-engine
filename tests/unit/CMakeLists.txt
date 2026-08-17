@@ -1200,7 +1200,37 @@ endif()
 # Nenner der Abdeckungs-Wache also gar nicht verkleinern. Wer hier spaeter ein
 # comdare_add_test() einfuegt, muss den Block nachtragen; der Protokoll-Aufruf gehoert
 # dann in BEIDE Zweige (siehe R5.I/F15 oben).
-if(COMDARE_PRUEFLING_INCLUDE_DIRS)
+#
+# F-12 (2026-08-17): BEIDE Bloecke setzen den prt-art-Composition-Header voraus, der
+# dokumentierte CI-Pruefling ist aber die Fixture (tests/pruefling_fixture) -- und die
+# traegt ihn bewusst NICHT ("kein Netz, kein Token, kein fremder Klon", .gitlab-ci.yml
+# W0a/S6). Ungeprueft entstanden daraus DLL-Ziele, die erst beim Uebersetzen mit
+# "prt_art/slots/prt_art_composition_demo.hpp: No such file or directory" fielen.
+# Dass CI das nie sah, ist ein REIHENFOLGE-Zufall und kein Beweis von Gesundheit:
+# 'make inventar' baut 'all' VOR dem Reconfigure (da meldet der Block noch SKIPPED,
+# weil das Codegen-Tool fehlt) und danach nur noch 'comdare_tests' -- ein Ziel, das die
+# DLLs nicht enthaelt. Wer die Werkzeuge nach dem J-1-Muster vorbaut und DANN 'all'
+# faehrt, bekommt den Bruch sofort. Ein Pruefling ohne prt-art ist ein GUELTIGER
+# Zustand, keine Fehlkonfiguration -- darum SKIP mit genanntem Grund statt FATAL_ERROR.
+# Der Composition-Deskriptor steht ab hier EINMAL statt zweimal woertlich.
+set(_prtart_comp_header "prt_art/slots/prt_art_composition_demo.hpp")
+set(_prtart_comp_desc
+    "prtart-demo|::comdare::prt_art::slots::PrtArtCompositionDemo|${_prtart_comp_header}")
+set(_prtart_comp_found OFF)
+foreach(_pf_inc IN LISTS COMDARE_PRUEFLING_INCLUDE_DIRS)
+    if(EXISTS "${_pf_inc}/${_prtart_comp_header}")
+        set(_prtart_comp_found ON)
+        break()
+    endif()
+endforeach()
+if(COMDARE_PRUEFLING_INCLUDE_DIRS AND NOT _prtart_comp_found)
+    message(STATUS
+        "F.5 comdare_perms_pa/full_join: SKIPPED -- Pruefling geladen, aber "
+        "'${_prtart_comp_header}' liegt in keiner seiner Include-Wurzeln "
+        "(${COMDARE_PRUEFLING_INCLUDE_DIRS}). Das ist der Fixture-Fall und kein Fehler; "
+        "die Stufe-2/3-DLLs brauchen den echten prt-art-Pruefling.")
+endif()
+if(COMDARE_PRUEFLING_INCLUDE_DIRS AND _prtart_comp_found)
     set(_pa_snippet   "${PROJECT_BINARY_DIR}/generated/comdare_perms_pa_list.cmake")
     set(_pa_pilot_dir "${PROJECT_BINARY_DIR}/generated/comdare_perms_pa_modules")
     comdare_run_anatomy_codegen_tool(
@@ -1208,7 +1238,7 @@ if(COMDARE_PRUEFLING_INCLUDE_DIRS)
         NO_KNOWN
         LIBRARY_TYPE SHARED
         EXTERNAL_COMPOSITIONS
-            "prtart-demo|::comdare::prt_art::slots::PrtArtCompositionDemo|prt_art/slots/prt_art_composition_demo.hpp"
+            "${_prtart_comp_desc}"
         STATUS_OUT   _pa_status)
 
     if(_pa_status STREQUAL "FOUND" AND EXISTS "${_pa_snippet}")
@@ -1240,7 +1270,7 @@ if(COMDARE_PRUEFLING_INCLUDE_DIRS)
         NAMES        "art,hot"
         LIBRARY_TYPE SHARED
         EXTERNAL_COMPOSITIONS
-            "prtart-demo|::comdare::prt_art::slots::PrtArtCompositionDemo|prt_art/slots/prt_art_composition_demo.hpp"
+            "${_prtart_comp_desc}"
         STATUS_OUT   _fj_status)
 
     if(_fj_status STREQUAL "FOUND" AND EXISTS "${_fj_snippet}")
