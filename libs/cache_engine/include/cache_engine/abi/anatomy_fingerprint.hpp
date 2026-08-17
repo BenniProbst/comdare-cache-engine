@@ -424,8 +424,25 @@ private:
 ///
 /// DREI DISJUNKTE TYPEN schliessen sie. Ein string_view konvertiert nicht implizit in einen von ihnen
 /// (explicit), und untereinander konvertieren sie gar nicht -- die Sperre laesst sich weder unterlaufen
-/// noch versehentlich befriedigen. Sie greift AN JEDER der Aufrufstellen zugleich, weil sie in der
-/// Signatur wohnt und nicht in einer Wache, die jemand aufrufen muesste.
+/// noch versehentlich befriedigen. Sie greift an jeder Aufrufstelle DIESER BEIDEN FUNKTIONEN zugleich,
+/// weil sie in der Signatur wohnt und nicht in einer Wache, die jemand aufrufen muesste.
+///
+/// NICHT GEDECKT, damit aus dem Satz oben niemand die Vollstaendigkeit ableitet: der span-Eingang
+/// derive_key_from_lines (builder/bestandslog/bestandslog_index.hpp) fuehrt die Glieder weiter POSITIONS-
+/// gebunden in dasselbe Preimage. Er hat heute keinen Produktions-Aufrufer (die Aufrufer liegen samtlich
+/// in tests/), und BinaryKeyPolicy wirft immerhin bei falscher Glied-ZAHL -- gegen eine Vertauschung bei
+/// richtiger Zahl hilft das nicht. Die Signatur-Sperre erreicht ihn nicht, weil er bewusst generisch ist
+/// (er bedient auch den MESSWERT-Genus). Bekommt der Lager-Weg Produktions-Aufrufer (#57), gehoert die
+/// Typisierung dort in denselben Bruch.
+///
+/// WIE DIE SPERRE SICH MELDET -- und wo nicht mit ihrem Text: rein ROHE Aufrufe (drei Zeichenketten, auch
+/// mit viertem Argument im alten merge-Slot) treffen die Roh-Sperre unten und bekommen deren benannte
+/// Anleitung. MISCH-Aufrufe (ein Argument schon typisiert, ein anderes noch roh) fallen aus BEIDEN
+/// Ueberladungen und melden sich generisch mit "no matching function" -- der Aufruf bricht also, aber ohne
+/// die Anleitung. Dasselbe gilt fuer die VERTAUSCHUNG typisierter Argumente, und dort ist es Absicht: der
+/// Typ-Name steht in der Diagnose ("...(SystemZeile, OrganZeile, MessZeile)") und sagt das Noetige. Eine
+/// zweite variadische Sperre mit gemischtem Praefix waere KEIN Ausweg -- sie wuerde mit der Roh-Sperre
+/// mehrdeutig und ersetzte die generische Meldung durch eine Ambiguitaets-Meldung.
 ///
 /// WARUM SIE KEINE FORMAT-WACHE TRAGEN (ehrlich benannt statt stillschweigend weggelassen): die vier
 /// Schwanz-Traeger rufen require_injizierter_glied_wert im Konstruktor, diese drei NICHT. Der Grund steht

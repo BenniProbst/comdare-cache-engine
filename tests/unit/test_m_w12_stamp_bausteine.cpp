@@ -779,9 +779,15 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
 TEST(MW12StampBausteine, VL2PodDoktrinUndFeldzahlVomKonsumenten) {
     namespace abi = ::comdare::cache_engine::abi;
 
-    static_assert(abi::kAnatomyVersionLinesFeldZahl == 16u,
-                  "VL-2: die Feldzahl des POD ist 16. Wer sie bewegt, bewegt auch die vier designierten "
-                  "Aggregat-Initialisierer (decl-Probe, Makro, test_d2 mach_pod, test_m_w12).");
+    // Die Konstante gegen den ECHTEN POD, nicht gegen ein Literal. Hier stand "kAnatomyVersionLinesFeldZahl
+    // == 16u" -- eine Tautologie, die per Konstruktion nie feuern konnte (16 gegen 16, ohne jeden Bezug auf
+    // AnatomyVersionLines). Die Zaehl-Sonde misst statt dessen, ob der POD wirklich so viele Elemente nimmt
+    // wie die Konstante behauptet, und zwar TYP-AGNOSTISCH -- ein 17. Feld reisst sie, gleich welchen Typs.
+    static_assert(abi::detail::kNimmtFelder<abi::AnatomyVersionLines, abi::kAnatomyVersionLinesFeldZahl> &&
+                      !abi::detail::kNimmtFelder<abi::AnatomyVersionLines, abi::kAnatomyVersionLinesFeldZahl + 1>,
+                  "VL-2: die Feldzahl des POD stimmt nicht mehr mit kAnatomyVersionLinesFeldZahl ueberein. Wer "
+                  "sie bewegt, bewegt auch die vier designierten Aggregat-Initialisierer (decl-Probe, Makro, "
+                  "test_d2 mach_pod, test_m_w12).");
     static_assert(sizeof(abi::AnatomyVersionLines) == 120, "VL-2: sizeof-Pin, vom Konsumenten aus gesehen.");
     static_assert(alignof(abi::AnatomyVersionLines) == 8);
 
@@ -812,8 +818,10 @@ TEST(MW12StampBausteine, VL2PodDoktrinUndFeldzahlVomKonsumenten) {
 // WARUM HIER UND NICHT NUR AM EIGENTUEMER: anatomy_fingerprint.hpp beweist die Disjunktheit der drei
 // Zeilen-Traeger bei sich selbst. Was es dort NICHT beweisen kann, ist die Wirkung an der Naht, an der
 // die Falle real zuschlaegt -- in einer fremden TU, die die Funktion RUFT. Genau dort stand der Fehler:
-// 42 Aufrufstellen reichten drei gleichartige string_view, und keine einzige konnte eine Vertauschung
-// bemerken.
+// JEDE Aufrufstelle reichte drei gleichartige string_view, und keine einzige konnte eine Vertauschung
+// bemerken. (Hier stand eine Aufrufstellen-ZAHL. Sie ist raus: sie haengt an der Zaehlweise -- Aufruf-
+// ZEILEN gegen Aufruf-AUSDRUECKE ergeben verschiedene Werte, und sie wandert mit jedem neuen Test. Fuer
+// die Zusage traegt sie nichts; die Sperre wirkt ueber die Signatur, also ueber ALLE Stellen zugleich.)
 //
 // DER BELEGTE VORHER-ZUSTAND (17.08.2026, am Objekt gemessen, nicht behauptet): die Vertauschung zweier
 // Zeilen-Argumente an einer gewuerfelten Aufrufstelle (test_e24_c10_g6_identitaets_bilanz.cpp:217,
@@ -1368,8 +1376,10 @@ TEST(MW12StampBausteine, StampEntryTraegtFlagHashUndToleranteNamen) {
 }
 
 // A4 (G2-1b): die Array-Form reist durch das AnatomyVersionLines-POD. Der POD wird hier MANUELL exakt wie im
-// COMDARE_ANATOMY_VERSION_STAMP_M-Makro konstruiert (dieselbe Feld-Reihenfolge; die Aggregat-Init ist positions-
-// UND typgeprueft -> eine Feld-Vertauschung Zeiger<->uint64 waere ein Compile-Fehler). Der REALE Makro-POD wird
+// COMDARE_ANATOMY_VERSION_STAMP_M-Makro konstruiert (dieselbe Feld-Reihenfolge; die Aggregat-Init ist DESIGNIERT
+// (VL-2) -> eine Feld-Vertauschung bricht als "designator order does not match declaration order", AUCH bei
+// gleichem Typ. Die frueher hier behauptete Positions-/Typ-Pruefung tat das NICHT: gleichtypige Felder liessen
+// sich still tauschen -- Falle (ii) in anatomy_module_abi_v1_decl.hpp, am Objekt belegt). Der REALE Makro-POD wird
 // zusaetzlich vom Struktur-Smoke ueber echte DLL-Builds kompiliert. Beweis: entry_counts {18,3,4} + join(entries)==Zeile.
 //
 // O-8 Schritt 12: die drei Fixture-Zeilen sind SYNTHETISCH (Kurz-Algo-Namen "t"/"m"/"p") -- der Test prueft die
