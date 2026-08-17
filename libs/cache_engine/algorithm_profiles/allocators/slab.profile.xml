@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- DOKU-AKTE (#48 Scheibe 2, 2026-07-22): kein Code-Leser; Allocator-Wahl = CT-Adapter (Statischer-Dispatch-Doktrin). -->
 <comdare_allocator_profile id="slab" family_ref="A02">
-  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:13; axes source: axis_06_allocator_slab.hpp:7,40,43,66-72 -->
+  <!-- metadata source: libs/cache_engine/organ_axes/alloc/PAPER_REFERENCES.md:13; axes source: axis_06_allocator_slab.hpp:7,40,43,66-72 -->
   <metadata>
     <name>Slab Allocator (Object-Caching Kernel Allocator)</name>
     <year>1994</year>

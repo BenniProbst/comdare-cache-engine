@@ -17,23 +17,23 @@
 // SUPERSEDED 2026-07-11: obiges .ps1-Skript entfernt (Behelfsweg-Bereinigung); Test jetzt registriertes
 //   ctest-Target (tests/unit/CMakeLists.txt, M-CE-24-Block COMDARE_MCE24_PLAIN_TESTS).
 
-#include <axes/lookup/axis_03a_search_algo_array65535.hpp>
-#include <axes/lookup/axis_03a_search_algo_array256.hpp>
-#include <axes/lookup/axis_03a_search_algo_bst.hpp>
-#include <axes/lookup/axis_03a_search_algo_btree.hpp>
-#include <axes/lookup/axis_03a_search_algo_eytzinger.hpp>
-#include <axes/lookup/axis_03a_search_algo_hash_search.hpp>
-#include <axes/lookup/axis_03a_search_algo_interpolation.hpp>
-#include <axes/lookup/axis_03a_search_algo_k_ary.hpp>
-#include <axes/lookup/axis_03a_search_algo_linear_scan.hpp>
-#include <axes/lookup/axis_03a_search_algo_original_art.hpp>
-#include <axes/lookup/axis_03a_search_algo_original_hot.hpp>
-#include <axes/lookup/axis_03a_search_algo_original_start.hpp>
-#include <axes/lookup/axis_03a_search_algo_original_surf.hpp>
-#include <axes/lookup/axis_03a_search_algo_original_wormhole.hpp>
-#include <axes/lookup/axis_03a_search_algo_skip_list.hpp>
-#include <axes/lookup/axis_03a_search_algo_vector_u16u16.hpp>
-#include <axes/lookup/axis_03a_search_algo_vector_u8u8.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_array65535.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_array256.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_bst.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_btree.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_eytzinger.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_hash_search.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_interpolation.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_k_ary.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_linear_scan.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_original_art.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_original_hot.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_original_start.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_original_surf.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_original_wormhole.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_skip_list.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_vector_u16u16.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_vector_u8u8.hpp>
 
 #include <iostream>
 #include <type_traits>

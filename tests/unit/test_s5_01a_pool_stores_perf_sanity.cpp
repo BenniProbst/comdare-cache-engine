@@ -43,11 +43,11 @@
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
 
-#include <builder/codegen/all_axes_umbrella.hpp>                           // volle Definitionen aller Achsen-Wrapper
-#include <builder/experiment_tree/axis_path_serialization.hpp>             // kCompositionAxisNames (NUR gelesen)
-#include <compositions/art_reference.hpp>                                  // Basis fuer die 17 Nicht-search-Achsen
-#include <axes/lookup/composable/tier_to_organ_mapping.hpp>                // die Organ-Aliase der Familie
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <builder/codegen/all_axes_umbrella.hpp>                  // volle Definitionen aller Achsen-Wrapper
+#include <builder/experiment_tree/axis_path_serialization.hpp>    // kCompositionAxisNames (NUR gelesen)
+#include <compositions/art_reference.hpp>                         // Basis fuer die 17 Nicht-search-Achsen
+#include <organ_axes/lookup/composable/tier_to_organ_mapping.hpp> // die Organ-Aliase der Familie
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 #include <cstddef>
 #include <cstdint>

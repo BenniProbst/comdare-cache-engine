@@ -16,11 +16,11 @@ foreach(_ggf_d ${_ggf_axis_src_dirs})
     endif()
 endforeach()
 file(GLOB _ggf_axes_dirs LIST_DIRECTORIES true
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/axes/*")
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/organ_axes/*")
 foreach(_ggf_d ${_ggf_axes_dirs})
     if(IS_DIRECTORY "${_ggf_d}")
         get_filename_component(_ggf_name "${_ggf_d}" NAME)
-        list(APPEND _ggf_axis_gen_dirs "${_ggf_generated_root}/axes/${_ggf_name}")
+        list(APPEND _ggf_axis_gen_dirs "${_ggf_generated_root}/organ_axes/${_ggf_name}")
     endif()
 endforeach()
 

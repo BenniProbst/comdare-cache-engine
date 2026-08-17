@@ -19,7 +19,7 @@
 //   (3) die INNEREN Tracker-Organe          -- PathOrientedImpl (das Organ, das der Scrub angefasst hat)
 //
 // FAMILIE 05 (io_dispatch + persistence_target) -- NACHWEIS-FAMILIE, KEIN CODE (Beifracht dieser Scheibe):
-//   grep -rlE "std::(vector|map|unordered_map)" axes/io_dispatch/ axes/persistence_target/ --include=*.hpp
+//   grep -rlE "std::(vector|map|unordered_map)" organ_axes/io_dispatch/ organ_axes/persistence_target/ --include=*.hpp
 //   Ergebnis am Ist 2026-08-04: LEER (0 Dateien, Exit 1). Familie 05 traegt also keinen einzigen
 //   Default-Allokator-Container und braucht keinen Scrub-Commit -- der Nachweis IST die Arbeit.
 //   Wird die Familie spaeter doch bebaut, ist die Wache hier das Muster: Registry-Liste eintragen, fertig.
@@ -28,17 +28,17 @@
 
 #include "s5_family_alloc_conformance.hpp"
 
-#include <axes/concurrency_axis/axis_08_concurrency_observable.hpp>
-#include <axes/concurrency_axis/axis_08_concurrency_registry.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_observable.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_path_oriented_impl.hpp>
-#include <axes/prefetch_axis/axis_07_prefetch_registry.hpp>
+#include <organ_axes/concurrency_axis/axis_08_concurrency_observable.hpp>
+#include <organ_axes/concurrency_axis/axis_08_concurrency_registry.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_observable.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_path_oriented_impl.hpp>
+#include <organ_axes/prefetch_axis/axis_07_prefetch_registry.hpp>
 
 // Form-(B)-REFERENZ am realen Repo-Typ (nicht nur an einer Probe): der B-Baum-Knoten-Pool fuehrt seinen
 // unbounded Knoten-Speicher ueber die Allokator-Achse (StdAllocatorAdapter-Rebind + COW-Memento). Er
 // gehoert NICHT zu dieser Familie und wird hier nur GELESEN -- er belegt, dass der zweite Zweig des
 // Praedikats an echtem Bestand traegt und nicht toter Code ist.
-#include <axes/lookup/composable/btree_node_pool_store.hpp>
+#include <organ_axes/lookup/composable/btree_node_pool_store.hpp>
 
 #include <boost/mp11.hpp>
 

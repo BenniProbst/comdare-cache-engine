@@ -30,7 +30,7 @@
 //
 // Standalone (plain int main, KEIN gtest).
 
-#include <axes/lookup/composable/tier_to_organ_mapping.hpp>
+#include <organ_axes/lookup/composable/tier_to_organ_mapping.hpp>
 
 #include <chrono>
 #include <cstddef>

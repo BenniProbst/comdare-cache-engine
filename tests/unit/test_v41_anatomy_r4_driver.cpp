@@ -38,15 +38,15 @@
 #include <topics/migration/axis_migration/axis_migration_none.hpp>
 #include <topics/filter/axis_filter/axis_filter_bloom.hpp>
 // Doc 30 §8.0: queuing q1/q2 als reguläre SA-Achsen T17/T18 (Durchreich-Defaults NoBuffer/LazyFlush)
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
+#include <organ_axes/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
 
 #include <boost/mp11.hpp>
 
 #include <cstddef>
 #include <string_view>
 #include <vector>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace ana = ::comdare::cache_engine::anatomy;
 namespace pe  = ::comdare::cache_engine::permutations;

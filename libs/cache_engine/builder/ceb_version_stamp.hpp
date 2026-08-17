@@ -214,7 +214,7 @@
 #include <cache_engine/abi/stempel_basis.hpp>          // S-1: StempelBasis/StempelVertrag + ist_stempel_baustein
 #include <cache_engine/measurement/algo_semver.hpp>    // parse_algo_semver + render_algo_semver (die EINE Grammatik)
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // O-8 Schritt 12: load_framework-Segment
-#include <cache_engine/measurement/measurement_tooling_registry.hpp>   // kMeasurementToolingRegistry (Single-Source)
+#include <mess_axes/measurement_tooling_registry.hpp>                  // kMeasurementToolingRegistry (Single-Source)
 #include <cache_engine/measurement/pmc_vendor_registry.hpp>            // 10.08.2026: die ZWEI PMC-Hardware-Komponenten
 
 #include <array>

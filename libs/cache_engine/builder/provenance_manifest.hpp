@@ -1,6 +1,6 @@
 #pragma once
 
-#include <axes/alloc/axis_06_allocator_flags.hpp>
+#include <organ_axes/alloc/axis_06_allocator_flags.hpp>
 #include <cache_engine/platform_probe/cpuid_probe.hpp>
 #include <provenance/build_provenance.hpp>
 

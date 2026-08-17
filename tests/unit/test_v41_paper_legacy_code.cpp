@@ -310,10 +310,10 @@ TEST(AxisBase, EmptyClassNotAxisBaseConform) {
 
 #include <topics/allocator/axis_06_allocator/concepts/axis_06_allocator_original_code_mixin.hpp>
 #include <topics/allocator/axis_06_allocator/concepts/axis_06_allocator_interface_functions.hpp>
-#include <topics/queuing/axis_q1_queuing/concepts/axis_q1_queuing_original_code_mixin.hpp>
-#include <topics/queuing/axis_q1_queuing/concepts/axis_q1_queuing_interface_functions.hpp>
-#include <topics/queuing/axis_q2_queuing/concepts/axis_q2_queuing_original_code_mixin.hpp>
-#include <topics/queuing/axis_q2_queuing/concepts/axis_q2_queuing_interface_functions.hpp>
+#include <organ_axes/axis_q1_queuing/concepts/axis_q1_queuing_original_code_mixin.hpp>
+#include <organ_axes/axis_q1_queuing/concepts/axis_q1_queuing_interface_functions.hpp>
+#include <organ_axes/axis_q2_queuing/concepts/axis_q2_queuing_original_code_mixin.hpp>
+#include <organ_axes/axis_q2_queuing/concepts/axis_q2_queuing_interface_functions.hpp>
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_original_code_mixin.hpp>
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_interface_functions.hpp>
 #include <topics/traversal/axis_03b_cache_traversal/concepts/axis_03b_cache_traversal_original_code_mixin.hpp>
@@ -758,7 +758,7 @@ TYPED_TEST(FlexibleOriginalSearchAlgoConformance, LookupAlwaysOriginal) {
 // Pattern analog (11b) Partial-Original SearchAlgo, aber Q1 hat 6 Functions
 // (put/get/emplace/peek_front/peek_back/clear) statt 4.
 
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_original_concurrentqueue.hpp>
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_original_concurrentqueue.hpp>
 
 namespace original_buffer {
 using OrigConcurrentQueue = ::comdare::cache_engine::queuing::axis_q1_queuing::OriginalLockFreeMpmcConcurrentQueue;
@@ -836,8 +836,8 @@ TYPED_TEST(PartialOriginalBufferConformance, LueckenFunctionsNotOriginal) {
 // Defaults kommen via AxisBase generisch — Test prueft Default-Konsistenz.
 
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_std_malloc.hpp>
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_fifo.hpp>
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_eager.hpp>
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_fifo.hpp>
+#include <organ_axes/axis_q2_queuing/axis_q2_queuing_eager.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 #include <topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp>
 #include <topics/traversal/axis_03m_mapping/axis_03m_mapping_direct_placement.hpp>

@@ -84,7 +84,7 @@ prt-art entfernt.
 | `prefetch/path_oriented_prefetch.hpp` | Pfad-orientierte Prefetch-Heuristik (Path-Tracking, Extrapolation, Hot-Path-Hints) | `libs/cache_engine/topics/prefetch/axis_07_prefetch/axis_07_prefetch_path_oriented_impl.hpp` | CE hat Wrapper `PathOrientedPrefetch`; Algorithmus (`suggest_next()`, Hot-Path-Hints V11.1) ist Diplomarbeit-Kern → native Integration als StrategyImpl + HotPathMixin. |
 | `serialization/signaling_bits.hpp` | Varlen-Kodierung mit Signalisierungs-Bits: VarLenEncoder (LEB128) + SignalingStream | `libs/cache_engine/topics/serialization/axis_10_serialization/axis_10_serialization_primitives.hpp` (neue Low-Level-Primitiven) | CE hat nur Wrapper-Strategien (VarLenSerialization etc.), nicht die Low-Level Encoder/Decoder. Namespace: `comdare::prt_art::serialization` → `comdare::cache_engine::serialization::axis_10_serialization::primitives`. |
 | `telemetry/leaf_only_counter.hpp` | LeafOnlyCounter (Haupt-Strategie) + PerNodeCounter (Anti-Pattern-Vergleich), Cache-Line-Padding | **TEILEN:** LeafOnlyCounter → bereits via `axis_11_telemetry_leaf_only.hpp`; PerNodeCounter + NodeAccessCount → BLEIBT als optional_prt_art_impl | CE hat Strategy-Skelett ohne Datenstruktur-Impl. `NodeAccessCount` (alignas(64)) + `PerNodeCounter` = prt-art F15-Validierungsinstrument (Mail Kuehn 2026-05-08). Empf.: CE auf ConcreteImpl erweitern ODER prt-art als Referenz behalten. |
-| `value_buffer/linear_value_buffer.hpp` | Append-only Linear-Buffer mit Lazy-Deletion (Tombstone) + periodische GC mit Slot-Remapping | **HYBRID:** neue Strategie `AppendOnlyTombstoneBuffer` als Q-Hybrid (family Q10+) in `topics/queuing/axis_q1_queuing` ODER als prt-art-spezialisierter Adapter behalten | CE Q02 (AppendOnly) + Q09 (Tombstone) decken Teile ab, NICHT die Kombination mit `explicitCompact(→mapping)`. Domain-spezifisches Optimierungs-Pattern (ART-Blatt mit Lazy-GC). Bei R8-Pruefling-Integration: spezifisch+adapter behalten. |
+| `value_buffer/linear_value_buffer.hpp` | Append-only Linear-Buffer mit Lazy-Deletion (Tombstone) + periodische GC mit Slot-Remapping | **HYBRID:** neue Strategie `AppendOnlyTombstoneBuffer` als Q-Hybrid (family Q10+) in `organ_axes/axis_q1_queuing` ODER als prt-art-spezialisierter Adapter behalten | CE Q02 (AppendOnly) + Q09 (Tombstone) decken Teile ab, NICHT die Kombination mit `explicitCompact(→mapping)`. Domain-spezifisches Optimierungs-Pattern (ART-Blatt mit Lazy-GC). Bei R8-Pruefling-Integration: spezifisch+adapter behalten. |
 | `value_handle/chain_ref_handle.hpp` | Handle für verkettete Multi-Value-Einträge (Linked-List-Heads, chain_length) | `axis_14_value_handle` (neue Subklasse / VH-Subaxis, „VH4") | Nicht in CE vorhanden. `chain_head_offset` + `chain_length` → MUSS als VH4-Strategie/Subaxis hinzugefügt werden (Linked-List-Verwaltung). |
 
 > Migrations-Hinweis zu `virtual_offset_address.hpp` / `byte_path.hpp`: Die JSON klassifiziert diese
@@ -230,7 +230,7 @@ liegen — dort kann eine Datei mit der achsenlokalen Klassifikation erneut ersc
 | `search_algo_traversal.hpp` | already_covered | LÖSCHEN | nur V32-Skelett; CE axis_03a = Goldstandard (S01–S04); keine Migration nötig |
 | `traversal_mapping.hpp` | already_covered | LÖSCHEN | nur V32-Skelett; CE axis_03m (MP01 DirectPlacement, MP02 PoolRelative); VirtualOffsetCalculator vollständig erfasst |
 
-### 3.13 `value_buffer` → CE: `topics/queuing/axis_q1_queuing (Q1) bzw. topics/value_handle/axis_14_value_handle (VH1–VH3)`
+### 3.13 `value_buffer` → CE: `organ_axes/axis_q1_queuing (Q1) bzw. topics/value_handle/axis_14_value_handle (VH1–VH3)`
 
 | Datei | Klassifikation | Aktion | Notiz |
 |-------|----------------|--------|-------|
@@ -330,7 +330,7 @@ nodes/redirect_node.hpp                     → topics/nodes/axis_04_node_type/a
 value_handle/chain_ref_handle.hpp           → axis_14_value_handle  (NEU: VH4-Subaxis)
 nodes/traversal/search_algo_traversal.hpp   → topics/nodes/axis_02_path_compression/concepts/  (Density-Dispatch-Concept)
 identity/prt_art_identity.hpp               → cache_engine/anatomy/identity.hpp
-value_buffer/linear_value_buffer.hpp        → topics/queuing/axis_q1_queuing  (AppendOnlyTombstoneBuffer Q10+)  [Entscheidung]
+value_buffer/linear_value_buffer.hpp        → organ_axes/axis_q1_queuing  (AppendOnlyTombstoneBuffer Q10+)  [Entscheidung]
 ```
 
 ### Phase B — prt-art-spezifische Header auf Vererbung / `optional_prt_art_impl` umstellen

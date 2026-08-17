@@ -163,7 +163,7 @@ endfunction()
 
 # ── comdare_apply_optimization_level_flags(target level) — Bau-INC-2c.opt Naht #2 ────────────────────
 # Wendet die Optimierungsstufe der Compiler-System-Achse (opt_level-Unterachse, siehe
-# include/cache_engine/measurement/optimization_level_sub_axis.hpp) auf ein Target an. Vorbild:
+# system_axes/optimization_level_sub_axis.hpp) auf ein Target an. Vorbild:
 # comdare_apply_simd_extension_flags (oben). Zweck HIER: mess-charakteristische Verifikations-Test-Targets
 # (Cache-Line-/Layout-Effekte sind nur UNTER Optimierung sichtbar; im unoptimierten Default-Build maskiert der
 # Instrumentierungs-Overhead den Effekt → Layout-Sensitivitaets-Check faellt physikalisch unter die 5%-Schwelle).

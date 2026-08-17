@@ -12,9 +12,9 @@
 
 #include <gtest/gtest.h>
 
-#include <axes/io_dispatch/axis_io_dispatch_observable.hpp>
-#include <axes/persistence_target/axis_persistence_target_observable.hpp>
-#include <axes/persistence_target/axis_persistence_target_registry.hpp>
+#include <organ_axes/io_dispatch/axis_io_dispatch_observable.hpp>
+#include <organ_axes/persistence_target/axis_persistence_target_observable.hpp>
+#include <organ_axes/persistence_target/axis_persistence_target_registry.hpp>
 #include <builder/experiment_tree/axis_path_serialization.hpp>
 #include <builder/experiment_tree/result_ingest.hpp>
 #include <profile_facade/source_catalog.hpp>

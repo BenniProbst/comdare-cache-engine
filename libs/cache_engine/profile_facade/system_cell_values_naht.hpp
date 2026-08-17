@@ -29,9 +29,9 @@
 //
 // header-only, keine Bau-Abhaengigkeit; die Achsen-Ids kommen aus den Achsen-Single-Sources, nie als Literal.
 
-#include <cache_engine/abi/system_cell_values.hpp>             // C1: Token-Grammatik, na-Sentinel, Schluessel-Ordnung
-#include <cache_engine/measurement/operating_system_axis.hpp>  // os_family_id(): linux/windows/macos
-#include <cache_engine/measurement/target_isa_system_axis.hpp> // target_isa_id(): x86_64/aarch64 + kAllTargetIsaIds
+#include <cache_engine/abi/system_cell_values.hpp> // C1: Token-Grammatik, na-Sentinel, Schluessel-Ordnung
+#include <system_axes/operating_system_axis.hpp>   // os_family_id(): linux/windows/macos
+#include <system_axes/target_isa_system_axis.hpp>  // target_isa_id(): x86_64/aarch64 + kAllTargetIsaIds
 
 #include <string>
 #include <string_view>

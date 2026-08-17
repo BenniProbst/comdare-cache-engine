@@ -2,7 +2,7 @@
 <comdare_algorithm_profile id="olc" paper_ref="P08" pruefling_type="abstract">
   <!-- abstract Pruefling marker -> axis_08 OlcOptimisticConcurrency (code present);
        metadata source: docs/architecture/18_achsen_algorithmus_paper_code_map.md:66,
-       wrapper source: libs/cache_engine/axes/concurrency_axis/axis_08_concurrency_olc.hpp:17-34.
+       wrapper source: libs/cache_engine/organ_axes/concurrency_axis/axis_08_concurrency_olc.hpp:17-34.
        Original paper: DaMoN 2016 / DEBULL 2019. -->
   <metadata>
     <name>Optimistic Lock Coupling (OLC)</name>

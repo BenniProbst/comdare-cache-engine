@@ -1,6 +1,6 @@
 #pragma once
-// V41.F.2 Forwarding-Header: Achse nach axes/prefetch_axis/ migriert.
-#include <axes/prefetch_axis/axis_07_prefetch_path_oriented_impl.hpp>
+// V41.F.2 Forwarding-Header: Achse nach organ_axes/prefetch_axis/ migriert.
+#include <organ_axes/prefetch_axis/axis_07_prefetch_path_oriented_impl.hpp>
 namespace comdare::cache_engine::prefetch::axis_07_prefetch {
 using namespace comdare::cache_engine::prefetch_axis;
 }

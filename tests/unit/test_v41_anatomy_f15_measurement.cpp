@@ -71,7 +71,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace loader = ::comdare::cache_engine::builder::anatomy_loader;
 namespace stats  = ::comdare::cache_engine::builder::commands::stats;

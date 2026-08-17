@@ -14,12 +14,12 @@
 #include "planner/planner_mengen_types.hpp"     // check-size: MengenEingang (die flache POD-Naht)
 #include <harness/drift_gated_cell.hpp>         // check-size: DriftGateConfig -- die PRODUKTIVEN Drift-Defaults
 
-#include <cache_engine/measurement/compiler_system_axis.hpp> // INC-1h: Compiler-System-Achse (gcc|clang)
-#include <cache_engine/measurement/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=external_utils
-#include <cache_engine/measurement/external_utils_family_axis.hpp>  // GN-1: aktiver external_utils-Familien-Knoten
-#include <cache_engine/measurement/optimization_level_sub_axis.hpp> // INC-2c.opt-c: opt_level-Unter-Achse (Flag-Quelle)
-#include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>    // INC-0: atomic128-Unter-Achse (Cx16Option, -mcx16)
-#include <cache_engine/measurement/target_isa_system_axis.hpp>      // INC-2d: target_isa-System-Achse (Cross-Compile)
+#include <system_axes/compiler_system_axis.hpp>        // INC-1h: Compiler-System-Achse (gcc|clang)
+#include <system_axes/simd_sub_axis.hpp>               // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=external_utils
+#include <system_axes/external_utils_family_axis.hpp>  // GN-1: aktiver external_utils-Familien-Knoten
+#include <system_axes/optimization_level_sub_axis.hpp> // INC-2c.opt-c: opt_level-Unter-Achse (Flag-Quelle)
+#include <system_axes/compiler_atomic_sub_axis.hpp>    // INC-0: atomic128-Unter-Achse (Cx16Option, -mcx16)
+#include <system_axes/target_isa_system_axis.hpp>      // INC-2d: target_isa-System-Achse (Cross-Compile)
 #include <cache_engine/measurement/simd_build_gate.hpp> // Section 40.a-E4: flag-genaues Bau-Gate (Pruef-Dock, default-permissiv)
 
 #include "system_version_suffix.hpp"       // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
@@ -29,8 +29,9 @@
 #include "system_axes_entscheidung.hpp"    // T-1: die EINE <system_axes>-Entscheidung + ihre Zwei-Parse-Wache
 #include "toolchain_stamp_naht.hpp"        // NB/CX-4: die LIVE-Werte der Preimage-Glieder [5]/[6] + ihre Define-Args
 #include "mess_achsen_naht.hpp"            // M-1/D-1: die Mess-Achse -> Tier-Defines (Stufe-2->Stufe-3-Naht)
-#include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
-#include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
+// INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
+#include <organ_axes/alloc/axis_06_allocator_snmalloc.hpp>
+#include <organ_axes/alloc/axis_06_allocator_flags.hpp> // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp>  // Bauplan §4: ceb_contract_version (+ceb= in build_version)
 #include <builder/bestandslog/artifact_cache_transport.hpp> // G4b-1 (#46b I1): make_bestand_transport -- NUR hier, die

@@ -84,8 +84,8 @@
 //      (EIN Schnitt, keine Zweitliste im Test). G/I/J/T5 arbeiten auf dem v3-DREIZEILEN-Record
 //      (D6: Pfad-Split dirname/basename wegen der 120-Spalten-Diff-Hygiene); S weist auch v2 ab.
 //
-// HERMETIK: der Test kopiert die Traeger-Baeume der Overlay-Grundgesamtheit (heuristik/, axes/,
-// topics/ GANZ, anatomy/, include/cache_engine/measurement/) in ein Temp-Verzeichnis
+// HERMETIK: der Test kopiert die Traeger-Baeume der Overlay-Grundgesamtheit (heuristik/, organ_axes/,
+// topics/ GANZ, anatomy/, system_axes/, mess_axes/ -- S-18/#16-Homes) in ein Temp-Verzeichnis
 // (comdare_test_tmp.hpp, worktree-getrennt) und faehrt das Tool per --root NUR auf den Kopien.
 // Der Quellbaum wird ausschliesslich GELESEN; golden-/TABU-Fixtures werden nicht beruehrt.
 //
@@ -260,16 +260,16 @@ int fehler(int schritt, std::string const& text, ToolRun const& r) {
 }
 
 // Der synthetische Traeger: ein echtes algo_version-String-Literal, sonst inert. Er lebt NUR in der
-// Temp-Kopie, nie im Quellbaum -- seit Fixup 3 unter axes/lookup/ (einem VERZEICHNIS-Eintrag des
-// Overlay-Schnitts; das alte axes/s14_synth/ liegt AUSSERHALB des Schnitts und wuerde nicht mehr
+// Temp-Kopie, nie im Quellbaum -- seit Fixup 3 unter organ_axes/lookup/ (einem VERZEICHNIS-Eintrag des
+// Overlay-Schnitts; das alte organ_axes/s14_synth/ liegt AUSSERHALB des Schnitts und wuerde nicht mehr
 // discovered).
-constexpr char const* kSynthRel = "libs/cache_engine/axes/lookup/s14_synth/axis_s14_synth_koeder.hpp";
+constexpr char const* kSynthRel = "libs/cache_engine/organ_axes/lookup/s14_synth/axis_s14_synth_koeder.hpp";
 // v3-Split desselben Records (Fixup 3, D6): Kopfzeile traegt dirname, die erste Folgezeile den
 // basename -- die Lock-Chirurgie der Koeder G/I/J/T5 arbeitet auf diesen beiden Formen.
-constexpr char const* kSynthDir  = "libs/cache_engine/axes/lookup/s14_synth/";
+constexpr char const* kSynthDir  = "libs/cache_engine/organ_axes/lookup/s14_synth/";
 constexpr char const* kSynthBase = "axis_s14_synth_koeder.hpp";
 // Koeder F: der unlesbare Neuzugang -- gleicher Inhalt wie der synthetische Traeger, eigener Pfad.
-constexpr char const* kKoederFRel = "libs/cache_engine/axes/lookup/s14_synth/axis_s14_synth_unlesbar.hpp";
+constexpr char const* kKoederFRel = "libs/cache_engine/organ_axes/lookup/s14_synth/axis_s14_synth_unlesbar.hpp";
 constexpr char const* kSynthBasis = "// s14 synthetischer traeger -- nur fuer den tripwire-test\n"
                                     "#pragma once\n"
                                     "#include <string_view>\n"
@@ -298,9 +298,12 @@ int main(int argc, char** argv) {
 
     // Schritt 2: die Traeger-Baeume der Overlay-Grundgesamtheit KOPIEREN (Quellbaum nur lesen).
     // Fixup 3: topics/ GANZ (die Schnitt-Eintraege liegen unter topics/*/axis_*), dazu anatomy/
-    // (tier_substanz) und include/cache_engine/measurement/ (system- + mess-Praefix-Familien).
-    for (char const* sub : {"libs/cache_engine/heuristik", "libs/cache_engine/axes", "libs/cache_engine/topics",
-                            "libs/cache_engine/anatomy", "libs/cache_engine/include/cache_engine/measurement"}) {
+    // (tier_substanz). S-18/#16 (15.08.2026): die system-/mess-Praefix-Familien wohnen seither in
+    // den Kategorie-Homes system_axes/ und mess_axes/ (KON27-01) -- include/cache_engine/
+    // measurement/ ist aus dem Schnitt und damit aus dieser Kopierliste ausgetreten.
+    for (char const* sub :
+         {"libs/cache_engine/heuristik", "libs/cache_engine/organ_axes", "libs/cache_engine/topics",
+          "libs/cache_engine/anatomy", "libs/cache_engine/system_axes", "libs/cache_engine/mess_axes"}) {
         fs::path const from = source_root / sub;
         if (!fs::exists(from)) {
             std::printf("FEHLER Schritt 2: Quellbaum fehlt: %s\n", from.string().c_str());
@@ -409,7 +412,7 @@ int main(int argc, char** argv) {
     spew(synth, kSynthBasis);
 
     // Schritt 9 -- KOEDER C: Traeger-Datei, die NICHT im Lock steht -> 'unlocked' ROT.
-    fs::path const unlocked = g_tmp_root / "libs/cache_engine/axes/lookup/s14_synth/axis_s14_synth_unlocked.hpp";
+    fs::path const unlocked = g_tmp_root / "libs/cache_engine/organ_axes/lookup/s14_synth/axis_s14_synth_unlocked.hpp";
     spew(unlocked, std::string(kSynthBasis));
     ToolRun c_rot = run_tool("--check");
     protokoll("KOEDER C (Datei nicht im Lock)", c_rot);
@@ -468,7 +471,7 @@ int main(int argc, char** argv) {
             return fehler(13, "Umgebung unterlaeuft chmod 000 (root/CAP_DAC_OVERRIDE?) -- Koeder F beisst nicht", leer);
     }
     ToolRun f_rot = run_tool("--check");
-    protokoll("KOEDER F (unlesbarer Neuzugang unter axes/, organ-Discovery)", f_rot);
+    protokoll("KOEDER F (unlesbarer Neuzugang unter organ_axes/, organ-Discovery)", f_rot);
     if (f_rot.exit_code != 2) return fehler(13, "Koeder F muss Exit 2 liefern (fail-closed)", f_rot);
     if (!contains(f_rot.output, kKoederFRel)) return fehler(13, "Koeder F muss die Datei nennen", f_rot);
     if (!contains(f_rot.output, "nicht lesbar")) return fehler(13, "Koeder F muss 'nicht lesbar' melden", f_rot);
@@ -702,12 +705,12 @@ int main(int argc, char** argv) {
         s += "\";\n};\n} // namespace comdare::s14_synth\n";
         return s;
     };
-    fs::path const synth2 = g_tmp_root / "libs/cache_engine/axes/lookup/s14_synth/axis_s14_synth_zweifach.hpp";
+    fs::path const synth2 = g_tmp_root / "libs/cache_engine/organ_axes/lookup/s14_synth/axis_s14_synth_zweifach.hpp";
     spew(synth2, k_inhalt("2.0.0.c", "2.0.0.c"));
     ToolRun k1 = run_tool("--write");
     protokoll("KOEDER K --write mit Zweifach-Traeger (gleiche Literale)", k1);
     if (k1.exit_code != 0) return fehler(18, "Koeder K --write muss Exit 0 liefern", k1);
-    std::string const k_rel = "libs/cache_engine/axes/lookup/s14_synth/axis_s14_synth_zweifach.hpp";
+    std::string const k_rel = "libs/cache_engine/organ_axes/lookup/s14_synth/axis_s14_synth_zweifach.hpp";
     if (lock_version_von(g_lockfile, k_rel) != "2.0.0.c")
         return fehler(18, "Koeder K: gleiche Literale muessen KOMPRIMIERT im Register stehen (2.0.0.c)", k1);
     long const k_multi = parse_counter(k1.output, "BESTAND organ", "multi");
@@ -828,7 +831,7 @@ int main(int argc, char** argv) {
     // Schritt 21 -- KOEDER N (G5b): unlesbares UNTERverzeichnis. ROT-ZUERST 13.08.2026 literal:
     // recursive_directory_iterator warf filesystem_error => std::terminate/SIGABRT (Shell: 134),
     // nicht der deklarierte Exit 2. NACHHER: gefangen, benannt, Exit 2.
-    fs::path const n_dir = g_tmp_root / "libs/cache_engine/axes/lookup/s14_koeder_dir_unlesbar";
+    fs::path const n_dir = g_tmp_root / "libs/cache_engine/organ_axes/lookup/s14_koeder_dir_unlesbar";
     fs::create_directories(n_dir);
     if (::chmod(n_dir.c_str(), 0) != 0) return fehler(21, "chmod 000 (N) fehlgeschlagen", leer);
     {
@@ -864,7 +867,7 @@ int main(int argc, char** argv) {
     //      Entscheidung, die der Fingerprint-Codegen fail-loud erzwingt).
     //   O3 .md ist NICHT-Quell-Endung: bewusst ausserhalb der Identitaet (der Fingerprint sieht
     //      sie nicht) -- ein Literal-Zitat dort bleibt GRUEN.
-    fs::path const o_pfad = g_tmp_root / "libs/cache_engine/axes/lookup/s14_synth/axis_s14_quell_endung.h";
+    fs::path const o_pfad = g_tmp_root / "libs/cache_engine/organ_axes/lookup/s14_synth/axis_s14_quell_endung.h";
     spew(o_pfad, std::string(kSynthBasis));
     ToolRun o1 = run_tool("--check");
     protokoll("KOEDER O1 (.h-Traeger -- vorher unsichtbar, jetzt Quell-Endung => unlocked)", o1);
@@ -872,7 +875,7 @@ int main(int argc, char** argv) {
     if (!contains(o1.output, "unlocked")) return fehler(22, "Koeder O1 muss 'unlocked' melden", o1);
     if (!contains(o1.output, "axis_s14_quell_endung.h")) return fehler(22, "Koeder O1 muss die Datei nennen", o1);
     fs::remove(o_pfad);
-    fs::path const o2_pfad = g_tmp_root / "libs/cache_engine/axes/lookup/s14_synth/axis_s14_fremde_endung.hxx";
+    fs::path const o2_pfad = g_tmp_root / "libs/cache_engine/organ_axes/lookup/s14_synth/axis_s14_fremde_endung.hxx";
     spew(o2_pfad, std::string(kSynthBasis));
     ToolRun o2 = run_tool("--check");
     protokoll("KOEDER O2 (.hxx in KEINER Endungs-Liste -- Entscheidung erzwungen)", o2);
@@ -880,7 +883,7 @@ int main(int argc, char** argv) {
     if (!contains(o2.output, "Endung")) return fehler(22, "Koeder O2 muss die Endungs-Grenze benennen", o2);
     if (!contains(o2.output, "axis_s14_fremde_endung.hxx")) return fehler(22, "Koeder O2 muss die Datei nennen", o2);
     fs::remove(o2_pfad);
-    fs::path const o3_pfad = g_tmp_root / "libs/cache_engine/axes/lookup/s14_synth/s14_doku.md";
+    fs::path const o3_pfad = g_tmp_root / "libs/cache_engine/organ_axes/lookup/s14_synth/s14_doku.md";
     spew(o3_pfad, "Doku-Zitat: algo_version = \"9.9.9.c\" aendert kein Kompilat.\n");
     ToolRun o3 = run_tool("--check");
     protokoll("KOEDER O3 (.md bewusst ausserhalb der Identitaet)", o3);
@@ -896,11 +899,11 @@ int main(int argc, char** argv) {
     fs::path const p_extern = g_tmp_root / "s14_extern_home";
     fs::create_directories(p_extern);
     spew(p_extern / "axis_s14_link_traeger.hpp", std::string(kSynthBasis));
-    fs::path const p_link = g_tmp_root / "libs/cache_engine/axes/lookup/s14_link";
+    fs::path const p_link = g_tmp_root / "libs/cache_engine/organ_axes/lookup/s14_link";
     fs::create_directory_symlink(p_extern, p_link, ec);
     if (ec) return fehler(23, "Symlink-Anlage (P) fehlgeschlagen", leer);
     ToolRun p1 = run_tool("--check");
-    protokoll("KOEDER P (Verzeichnis-Symlink unter axes/ -- vorher still uebersprungen)", p1);
+    protokoll("KOEDER P (Verzeichnis-Symlink unter organ_axes/ -- vorher still uebersprungen)", p1);
     if (p1.exit_code != 2) return fehler(23, "Koeder P muss Exit 2 liefern (vorher 0)", p1);
     if (!contains(p1.output, "Symlink")) return fehler(23, "Koeder P muss den Symlink benennen", p1);
     if (!contains(p1.output, "s14_link")) return fehler(23, "Koeder P muss den Ort des Links nennen", p1);
@@ -917,8 +920,8 @@ int main(int argc, char** argv) {
     // wurde still als '-' (digest-only) gelockt, sein Literal war weg. Der Bestand uebt den
     // Stil bereits (axis_q2_queuing_adaptive_lsm.hpp:105, heute NACH dem Literal). NACHHER wird
     // das Literal korrekt erfasst.
-    fs::path const    q_pfad = g_tmp_root / "libs/cache_engine/axes/lookup/s14_synth/axis_s14_separator.hpp";
-    std::string const q_rel  = "libs/cache_engine/axes/lookup/s14_synth/axis_s14_separator.hpp";
+    fs::path const    q_pfad = g_tmp_root / "libs/cache_engine/organ_axes/lookup/s14_synth/axis_s14_separator.hpp";
+    std::string const q_rel  = "libs/cache_engine/organ_axes/lookup/s14_synth/axis_s14_separator.hpp";
     spew(q_pfad, "// s14 separator-koeder\n#pragma once\n#include <string_view>\nstruct Sep {\n"
                  "    static constexpr double kBudget = 1'000.0;\n"
                  "    static constexpr std::string_view algo_version = \"1.0.0.c\";\n"
@@ -936,7 +939,7 @@ int main(int argc, char** argv) {
     // einem '#if 0'-Block stellte die Version (9.9.9.c gewann gegen das aktive 1.0.0.c). Der
     // Bestand hat 0 Literale unter #if/#ifdef/#ifndef (gemessen 13.08.2026) -- deshalb ist die
     // strengste Form bestandsneutral: nicht entscheidbar => ROT.
-    fs::path const r_pfad = g_tmp_root / "libs/cache_engine/axes/lookup/s14_synth/axis_s14_praep.hpp";
+    fs::path const r_pfad = g_tmp_root / "libs/cache_engine/organ_axes/lookup/s14_synth/axis_s14_praep.hpp";
     spew(r_pfad, "#pragma once\n#include <string_view>\n#if 0\n"
                  "struct Alt { static constexpr std::string_view algo_version = \"9.9.9.c\"; };\n"
                  "#endif\n"
@@ -974,14 +977,14 @@ int main(int argc, char** argv) {
     if (s3.exit_code != 0) return fehler(26, "Koeder-S-Ruecknahme muss Exit 0 liefern", s3);
 
     // Schritt 27 -- KOEDER T1 (Fixup 3, D1 -- der KERN-DEFEKT): DECKUNGSLUECKE. ROT-ZUERST
-    // 13.08.2026 literal: eine neue *.hpp OHNE Literal unter axes/lookup => 'GRUEN bestand
+    // 13.08.2026 literal: eine neue *.hpp OHNE Literal unter organ_axes/lookup => 'GRUEN bestand
     // konsistent -- 158 Dateien', Exit 0 (der Substring-Filter warf sie aus der Discovery;
     // 235 von 387 Dateien der alten Homes unbewacht). NACHHER: 'unlocked' => Exit 1 -- die
     // Grundgesamtheit ist der Overlay-Schnitt, nicht die Literal-Zitierer.
-    fs::path const t1a = g_tmp_root / "libs/cache_engine/axes/lookup/s14_synth/axis_s14_deckung_ohne_literal.hpp";
+    fs::path const t1a = g_tmp_root / "libs/cache_engine/organ_axes/lookup/s14_synth/axis_s14_deckung_ohne_literal.hpp";
     spew(t1a, "// s14 koeder T1: KEIN literal, KEIN zitat\n#pragma once\nstruct T1Deckung { int x = 1; };\n");
     ToolRun t1 = run_tool("--check");
-    protokoll("KOEDER T1a (neue *.hpp ohne Literal unter axes/lookup -- vorher GRUEN)", t1);
+    protokoll("KOEDER T1a (neue *.hpp ohne Literal unter organ_axes/lookup -- vorher GRUEN)", t1);
     if (t1.exit_code != 1) return fehler(27, "Koeder T1a muss Exit 1 liefern (vorher 0)", t1);
     if (!contains(t1.output, "unlocked")) return fehler(27, "Koeder T1a muss 'unlocked' melden", t1);
     if (!contains(t1.output, "axis_s14_deckung_ohne_literal.hpp"))
@@ -1051,8 +1054,8 @@ int main(int argc, char** argv) {
     // Schritt 30 -- KOEDER T4 (Fixup 3, D3): AUFWERTUNG digest-only -> traeger ist LEGITIM:
     // Exit 3 (Regen erforderlich), NICHT Exit 1. ROT-ZUERST 13.08.2026 literal: 'ROT Digest
     // geaendert OHNE gueltigen Version-Bump (- -> 1.0.0.c)' -- die falsche Klasse.
-    fs::path const    t4_pfad = g_tmp_root / "libs/cache_engine/axes/lookup/s14_synth/axis_s14_aufwertung.hpp";
-    std::string const t4_rel  = "libs/cache_engine/axes/lookup/s14_synth/axis_s14_aufwertung.hpp";
+    fs::path const    t4_pfad = g_tmp_root / "libs/cache_engine/organ_axes/lookup/s14_synth/axis_s14_aufwertung.hpp";
+    std::string const t4_rel  = "libs/cache_engine/organ_axes/lookup/s14_synth/axis_s14_aufwertung.hpp";
     spew(t4_pfad, "// s14 koeder T4: erst ohne literal\n#pragma once\nstruct T4Basis { int x = 3; };\n");
     ToolRun t4w = run_tool("--write");
     if (t4w.exit_code != 0) return fehler(30, "Koeder T4 Vorbereitungs-Regen muss Exit 0 liefern", t4w);
@@ -1096,8 +1099,45 @@ int main(int argc, char** argv) {
     ToolRun t5g = run_tool("--check");
     if (t5g.exit_code != 0) return fehler(31, "Koeder-T5-Ruecknahme muss Exit 0 liefern", t5g);
 
+    // Schritt 32 -- KOEDER U (S-18/#16, KON27-01 Detail-Split): die Phasigkeits-Pruefsyntax wird
+    // DIFFERENTIAL gefahren, nie behauptet -- DASSELBE Literal '1.0.0.c.m' (m = Mess-Vokabular,
+    // parst FORM-sauber, steht NICHT im Hardware-Katalog) faellt unter system (ZWEIPHASIG
+    // hardware-only => ROT) und traegt unter mess (DREIPHASIG, G-1-Formwache = benannte
+    // Leerstelle => Regen-Weg, Literal landet im Register). Genau diese Asymmetrie IST der
+    // Detail-Klassen-Split; verschwindet sie, ist der Split zur Behauptung verkommen.
+    std::string const u_inhalt = "// s18 koeder U -- nur fuer den tripwire-test\n#pragma once\n"
+                                 "#include <string_view>\n"
+                                 "struct S18KoederU {\n"
+                                 "    static constexpr std::string_view algo_version = \"1.0.0.c.m\";\n"
+                                 "};\n";
+    fs::path const    u1_pfad  = g_tmp_root / "libs/cache_engine/system_axes/target_isa_s18_koeder_u.hpp";
+    spew(u1_pfad, u_inhalt);
+    ToolRun u1 = run_tool("--write");
+    protokoll("KOEDER U1 (system-Literal mit m-Vokabular -- ZWEIPHASIG muss ROT sein)", u1);
+    if (u1.exit_code != 1) return fehler(32, "Koeder U1 muss Exit 1 liefern (zweiphasig verletzt)", u1);
+    if (!contains(u1.output, "Phasigkeits-Syntax verletzt"))
+        return fehler(32, "Koeder U1 muss die Phasigkeits-Diagnose tragen", u1);
+    if (!contains(u1.output, "target_isa_s18_koeder_u.hpp")) return fehler(32, "Koeder U1 muss die Datei nennen", u1);
+    fs::remove(u1_pfad);
+    ToolRun u1g = run_tool("--check");
+    if (u1g.exit_code != 0) return fehler(32, "Koeder-U1-Ruecknahme muss Exit 0 liefern", u1g);
+
+    fs::path const    u2_pfad = g_tmp_root / "libs/cache_engine/mess_axes/measurement_tooling_s18_koeder_u.hpp";
+    std::string const u2_rel  = "libs/cache_engine/mess_axes/measurement_tooling_s18_koeder_u.hpp";
+    spew(u2_pfad, u_inhalt);
+    ToolRun u2 = run_tool("--write");
+    protokoll("KOEDER U2 (mess-Literal mit m-Vokabular -- DREIPHASIG-Leerstelle, Regen-Weg traegt)", u2);
+    if (u2.exit_code != 0) return fehler(32, "Koeder U2 muss Exit 0 liefern (mess ist nicht hardware-gegated)", u2);
+    if (lock_version_von(g_lockfile, u2_rel) != "1.0.0.c.m")
+        return fehler(32, "Koeder U2: das m-Literal muss im mess-Register stehen (1.0.0.c.m)", u2);
+    fs::remove(u2_pfad);
+    ToolRun u2w = run_tool("--write");
+    if (u2w.exit_code != 0) return fehler(32, "Koeder U2 Aufraeum-Regen muss Exit 0 liefern", u2w);
+    ToolRun u2g = run_tool("--check");
+    if (u2g.exit_code != 0) return fehler(32, "Koeder-U2-Ruecknahme muss Exit 0 liefern", u2g);
+
     fs::remove_all(g_tmp_root, ec);
-    std::printf("test_s14_axis_version_lock_tripwire: GRUEN (Koeder A-T gefahren, Anker 6/%ld/%ld gehalten)\n", o_disc,
+    std::printf("test_s14_axis_version_lock_tripwire: GRUEN (Koeder A-U gefahren, Anker 6/%ld/%ld gehalten)\n", o_disc,
                 o_trae);
     return 0;
 }

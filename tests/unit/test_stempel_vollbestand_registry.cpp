@@ -16,7 +16,7 @@
 // NENNER GEMESSEN, NICHT GEPINNT: kAllRegisteredOrganVariantCount via mp_size; ASSERT >= 100 VOR
 // der Schleife. T-3 FREMDER NENNER: build_axis_variant_version_table().size() (andere Ableitung:
 // Enabled-Emit statt Roh-Registrierung) mit EXPECT_GT(registriert, enabled). Quelltext-grep-Beleg
-// zum Stand 5f3f26a5 (dokumentiert, nicht gepinnt): 123 algo_version-Literale unter axes/+topics/
+// zum Stand 5f3f26a5 (dokumentiert, nicht gepinnt): 123 algo_version-Literale unter organ_axes/+topics/
 // (97x "1.0.0.c" + 2x "1.0.1.c" + 24x "1.0.2.c"), getragen von 122 registrierten Varianten mit
 // eigenem Literal (k_ary traegt ZWEI Literale, KON58-07 G3; weitere Varianten erben ihr Literal
 // aus einer gemeinsamen Basis und zaehlen im mp_size-Nenner mit).

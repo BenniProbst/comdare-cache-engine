@@ -119,10 +119,10 @@
 #include "s5_family_alloc_conformance.hpp"
 
 #include <anatomy/organ_location.hpp>
-#include <axes/alloc/axis_06_allocator_exgen.hpp>
-#include <axes/lookup/axis_03a_search_algo_registry.hpp>
-#include <axes/lookup/composable/search_algo_rebind.hpp>
-#include <axes/lookup/composable/traversal_for_search_algo.hpp>
+#include <organ_axes/alloc/axis_06_allocator_exgen.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_registry.hpp>
+#include <organ_axes/lookup/composable/search_algo_rebind.hpp>
+#include <organ_axes/lookup/composable/traversal_for_search_algo.hpp>
 #include <builder/codegen/type_name.hpp> // die F30-Relation am TYP pruefen (nur <string_view>, keine Link-Kante)
 #include <compositions/art_paper_binding_reference.hpp>
 
@@ -364,7 +364,7 @@ struct FassadenVertrag {
     static_assert(std::is_same_v<comp::traversal_for_search_algo_t<Rebound>, comp::traversal_for_search_algo_t<S>>,
                   "01c/PHASE B TRAVERSAL-ASYMMETRIE: die kompositions-gebundene Form dieses Organs traegt ein "
                   "ANDERES Traversal-Organ als ihre Fassade. Eine fehlende Mapping-Zeile in "
-                  "axes/lookup/composable/traversal_for_search_algo.hpp laesst den Rebound-Leaf auf den "
+                  "organ_axes/lookup/composable/traversal_for_search_algo.hpp laesst den Rebound-Leaf auf den "
                   "void-Primaerfall fallen -- dann suchte dasselbe Registry-Organ je nach Allokator-Strategie "
                   "der Komposition ueber einen anderen Pfad (und maesse etwas anderes).");
 

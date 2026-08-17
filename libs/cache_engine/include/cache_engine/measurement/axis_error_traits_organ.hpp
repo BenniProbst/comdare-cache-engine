@@ -21,8 +21,8 @@
 //
 // -- WARUM DER SCHLUESSEL EIN EIGENER TAG IST UND NICHT DIE CRTP-BASIS (Layering, am Ist erhoben) -----
 // Der naheliegende Schluessel waere die Organ-CRTP-Basis selbst (K5-Vorschlag des Designs: "die 18
-// per-Achse-Registry-Tags aus axes/*/axis_*_registry.hpp"). Das geht hier NICHT, und zwar aus genau dem
-// Grund, aus dem FK-5 seinen Header ins topics/-Dach gelegt hat: measurement/ zieht am Ist WEDER axes/
+// per-Achse-Registry-Tags aus organ_axes/*/axis_*_registry.hpp"). Das geht hier NICHT, und zwar aus genau dem
+// Grund, aus dem FK-5 seinen Header ins topics/-Dach gelegt hat: measurement/ zieht am Ist WEDER organ_axes/
 // NOCH abi/ -- eigene, vollstaendige Erhebung ueber alle #include-Zeilen in
 // include/cache_engine/measurement/*.hpp (nicht nur die <>-Schreibweise: die relativen "../../../"-
 // Includes sind mitgezaehlt, sonst haette man topics/axis.hpp uebersehen). Die 18 Basen hier

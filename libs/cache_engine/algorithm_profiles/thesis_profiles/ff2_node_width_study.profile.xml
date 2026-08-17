@@ -32,7 +32,7 @@
 
     <!-- NEUE FF2-Unterachse (C2): Knoten-Breite in Cache-Lines. Werteset {1,2,4,8,16}:
          1 = CSS/CSB+ (eine Cache-Line pro Knoten), 16 = Hankins/Patel; Zweierpotenzen dazwischen.
-         Konsum: NodeWidthAware (axes/cacheline/node_width_config.hpp) -> LayoutAwareChunkedStore
+         Konsum: NodeWidthAware (organ_axes/cacheline/node_width_config.hpp) -> LayoutAwareChunkedStore
          macht das Chunk-/Knoten-Backing W Cache-Lines breit (Kapazitaet aus dem Record-Layout). -->
     <axis ref="node_width">
       <width_in_lines>1</width_in_lines>

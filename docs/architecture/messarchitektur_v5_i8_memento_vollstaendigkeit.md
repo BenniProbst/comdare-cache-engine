@@ -15,9 +15,9 @@ Das V5-Design (§3) nennt drei „Disk-residente" stateful Achsen — `io_dispat
 
 **1. Kein echtes Disk-I/O im gesamten Achsen-Code.** Grep nach `fstream|ofstream|ifstream|fopen|fwrite|
 std::filesystem|::write(|::read(|FILE*|mmap|munmap|CreateFile|MapViewOfFile|VirtualAlloc|pwrite` über
-`libs/cache_engine/topics/**/{io,serialization,migration}/**` und `libs/cache_engine/axes/**/
+`libs/cache_engine/topics/**/{io,serialization,migration}/**` und `libs/cache_engine/organ_axes/**/
 {io_dispatch,serialization_axis,migration_policy}/**`:
-- Einziger Treffer = `axes/io_dispatch/axis_io_mmap.hpp` — und dort matcht nur das **Wort „mmap" in
+- Einziger Treffer = `organ_axes/io_dispatch/axis_io_mmap.hpp` — und dort matcht nur das **Wort „mmap" in
   `family_name()`** (`"MmapIo (mmap file-backed, Persistent Memory, read-heavy)"`) bzw. der Include-Pfad.
   KEIN echter `mmap()`/`CreateFileMapping`-Aufruf, KEIN File-Handle.
 

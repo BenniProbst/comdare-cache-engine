@@ -52,12 +52,12 @@
 #include <anatomy/abi_adapter.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
-#include <axes/alloc/axis_06_allocator_exgen.hpp>
-#include <axes/alloc/axis_06_allocator_strategy_base.hpp>
-#include <axes/alloc/axis_06_allocator_subaxes_aa1_to_aa7.hpp>
-#include <axes/alloc/concepts/axis_06_allocator_cache_engine_permutation_concept.hpp>
-#include <axes/alloc/concepts/axis_06_allocator_concept.hpp>
-#include <axes/lookup/composable/search_algo_rebind.hpp>
+#include <organ_axes/alloc/axis_06_allocator_exgen.hpp>
+#include <organ_axes/alloc/axis_06_allocator_strategy_base.hpp>
+#include <organ_axes/alloc/axis_06_allocator_subaxes_aa1_to_aa7.hpp>
+#include <organ_axes/alloc/concepts/axis_06_allocator_cache_engine_permutation_concept.hpp>
+#include <organ_axes/alloc/concepts/axis_06_allocator_concept.hpp>
+#include <organ_axes/lookup/composable/search_algo_rebind.hpp>
 #include <builder/codegen/all_axes_umbrella.hpp>
 #include <compositions/art_reference.hpp>
 #include <topics/allocator/concepts/topic_allocator_concept.hpp>
@@ -69,7 +69,7 @@
 #include <string_view>
 #include <type_traits>
 
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace acpts  = ::comdare::cache_engine::alloc::concepts;
 namespace alloc_ = ::comdare::cache_engine::alloc;

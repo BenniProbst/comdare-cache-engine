@@ -2,7 +2,7 @@
 // ---------------------------------------------------------------------------
 // DEPRECATED (2026-07-16): HISTORISCHER V32.EE.5-ALGORITHMUS-ACHSEN-ENTWURF
 // (vtable) -- 0 Konsumenten. Gattungs-Substanz lebt als CRTP:
-//   axis_06/T06 allocator -- axes/alloc/ (AA5 allocation_policy-Tag in
+//   axis_06/T06 allocator -- organ_axes/alloc/ (AA5 allocation_policy-Tag in
 //   axis_06_allocator_subaxes_aa1_to_aa7.hpp + NUMA/Page-Kante
 //   alloc_hw_config.hpp::AllocNumaNode{Auto,Node0,Node1}, compile-time
 //   Unterachse, if-constexpr ueber numa_capable gegatet).

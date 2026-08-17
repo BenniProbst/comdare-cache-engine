@@ -26,6 +26,20 @@
 // nur keinen Observer. Ein zeilenweiter Ersatz (zell_ersatz) waere deshalb falsch -- die Ehrlichkeit
 // muss zellgenau sein, und genau das wird hier nachgewiesen.
 //
+// B2-ERWEITERUNG (15.08.2026), Abschnitt (h): DIESELBE EHRLICHKEIT EINE SCHICHT HOEHER. Seit der
+// Gate-Trennung G2(macro)/G3(micro) ist eine [wallclock,macro]-Binary baubar: Observer AN,
+// Segment-Timer NICHT einkompiliert -- ihre seg_ns waeren durchgehend 0 bei batches_measured == 0,
+// von einer echten Messung mit Ergebnis 0 nicht unterscheidbar. Die seg_*-Zellen haengen deshalb ab
+// B2 zusaetzlich an row.seg_real (cfg.mess_feinkorn_ausstattung, Quelle
+// live_mess_feinkorn_ausstattung); die 13 Observer-Zellen bleiben real. Der (h)-Block ist die
+// Koeder-Haelfte der B2-Scheibe auf der CSV-Seite: am Vor-B2-Stand existiert row.seg_real nicht --
+// diese Datei kompiliert dort NICHT (lauter Rot-Nachweis), die Haelften (a)-(g) sind unveraendert.
+//
+// A2.5-ERWEITERUNG (15.08.2026), Abschnitt (i): T17-SCHLIESSUNG DERSELBEN KLASSE. Die 5
+// stat_persistence_target-Zellen (T17) und der T17-Beitrag zu v3_filled_axes entstehen ausschliesslich
+// im Segment-Lauf (fill_observer_pathb_driven_v3, seit B2 unter G3) -- sie haengen im Renderer deshalb
+// am selben seg_echt wie die seg_*-Zellen; alle uebrigen stat_*-Zellen bleiben zellgenau am Observer.
+//
 // Build: Standalone int main() (kein gtest), reiner Host-Pfad -- kein Tier, keine Achsen-Instanz.
 
 #include <builder/experiment_tree/cache_engine_builder_iterator.hpp>
@@ -34,6 +48,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -91,14 +106,18 @@ constexpr char const* kObserverSpalten[] = {"search_lookup", "hit",         "mis
 /// seinen Rumpf unter dem STATISTICS-Gate und schreibt dann NUR `*out = ComdareTierObserverSnapshot{}`
 /// -- der Snapshot ist durchgehend GENULLT. Genau in dieser Form ist die Luege sichtbar (0 statt n/a);
 /// mit einem nicht-genullten Probe-Snapshot koennte man sie nicht von einer echten Messung trennen.
-[[nodiscard]] ex::LazyMeasuredRow probe_row(bool observer_ausstattung, bool snapshot_gefuellt) {
+[[nodiscard]] ex::LazyMeasuredRow probe_row(bool observer_ausstattung, bool snapshot_gefuellt,
+                                            bool feinkorn_ausstattung = true) {
     ex::LazyMeasuredRow row;
     row.binary_id    = "m1hb_probe";
     row.setting_id   = row.binary_id;
     row.unified_real = observer_ausstattung;
-    row.total_ns     = 1'000'000; // WALL-CLOCK: in BEIDEN Faellen gueltig, muss unberuehrt bleiben
-    row.n_ops        = 1000;
-    row.timed_ops    = 2000;
+    // B2: das FEINKORN (G3) dieser Zeile. Default true == Identitaet (jede Bestands-Zeile wie vor B2);
+    // false bildet die [wallclock,macro]-Form nach: Observer real, seg_* ehrlich n/a.
+    row.seg_real  = feinkorn_ausstattung;
+    row.total_ns  = 1'000'000; // WALL-CLOCK: in BEIDEN Faellen gueltig, muss unberuehrt bleiben
+    row.n_ops     = 1000;
+    row.timed_ops = 2000;
     for (std::size_t k = 0; k < row.op_lat.size(); ++k) {
         row.op_lat[k].n       = 1000 + k;
         row.op_lat[k].p50_ns  = 100 + static_cast<std::int64_t>(k);
@@ -107,6 +126,20 @@ constexpr char const* kObserverSpalten[] = {"search_lookup", "hit",         "mis
     }
     // Der Observer-Snapshot, wie ihn eine STATISTICS-Binary liefert -- alle 13 Groessen nicht-null.
     if (!snapshot_gefuellt) return row; // genullt == die reale [wallclock]-Form
+    // B2: die seg-Quellen des EINEN konsolidierten PODs, nicht-null (mit Nullen koennte (h) die
+    // 0-vs-n/a-Luege nicht sehen -- dieselbe Begruendung wie bei den 13 Observer-Groessen).
+    for (std::size_t t = 0; t < std::size(row.unified.seg_ns); ++t)
+        row.unified.seg_ns[t] = 1000 + static_cast<std::int64_t>(t);
+    row.unified.seg_framework_ns = 555;
+    row.unified.seg_run_total_ns = 44444;
+    // B2-A2.5/F1: die per-Achsen-Observer-Quellen des EINEN PODs, nicht-null -- inklusive der NUR-
+    // Pfad-B-getriebenen T17-Zeile UND einer filled_axes-Zahl, die T17 mitzaehlt (18). Mit Nullen
+    // koennte (i) die 0-vs-n/a-Luege der stat_*-Zellen nicht sehen (dieselbe Begruendung wie oben);
+    // die 18 im MACRO-Fall ist der adversariale Koeder fuer den deklarationsgetriebenen Deckel.
+    for (std::size_t t = 0; t < std::size(row.unified.axis_stats); ++t)
+        for (std::size_t f = 0; f < std::size(row.unified.axis_stats[t]); ++f)
+            row.unified.axis_stats[t][f] = 100 * (t + 1) + f + 1;
+    row.unified.filled_axis_count         = std::size(row.unified.axis_stats); // 18: behauptet ALLE inkl. T17
     row.observer.search_lookup_count      = 4711;
     row.observer.search_hit_count         = 4001;
     row.observer.search_miss_count        = 710;
@@ -212,6 +245,148 @@ int main() {
     tr("(g) auch mit gefuelltem Snapshot rendert eine Zeile ohne Ausstattung n/a (die Wache haengt an "
        "der Deklaration, nicht an den Zahlen)",
        na_gefuellt == 13);
+
+    // ---- (h) B2 (15.08.2026): DIESELBE EHRLICHKEIT EINE SCHICHT HOEHER -- die seg_*-Zellen haengen am
+    //          FEINKORN (G3), nicht nur am Observer (G2). Die MACRO-Zeile bildet die seit B2 baubare
+    //          [wallclock,macro]-Binary nach: Observer real, Segment-Timer nicht einkompiliert.
+    {
+        std::vector<std::string> seg_spalten;
+        for (auto const& name : header)
+            if (name.rfind("seg_", 0) == 0) seg_spalten.push_back(name);
+        std::size_t const seg_soll = ex::kCompositionAxisNames.size() + 3; // 18 seg_<achse>_ns + fw/total/coverage
+        std::cout << "  (h) seg-Spalten im Header gefunden: " << seg_spalten.size() << " von " << seg_soll << "\n";
+        tr("(h) NENNER: alle seg-Spalten existieren im Header (18 Achsen + framework/run_total/coverage)",
+           seg_spalten.size() == seg_soll);
+
+        std::vector<std::string> const macro = split_semicolon(ex::format_csv_row(probe_row(true, true, false)));
+        tr("(h) STRUKTUR: die MACRO-Zeile hat dieselbe Zellenzahl wie der Header", header.size() == macro.size());
+
+        // GEGENPROBE ZUERST: die MIT-Zeile (Feinkorn da, default true) traegt in JEDER seg-Zelle eine echte
+        // Zahl -- ein Renderer, der seg immer n/a schriebe, waere sonst gruen.
+        std::size_t seg_zahlen = 0;
+        for (auto const& name : seg_spalten) {
+            std::string const v = cell(header, mit, name);
+            if (!v.empty() && v != na && v != "0") ++seg_zahlen;
+        }
+        std::cout << "  (h) MIT Feinkorn: seg-Zellen mit echter Zahl (!= n/a, != 0): " << seg_zahlen << " von "
+                  << seg_spalten.size() << "\n";
+        tr("(h) GEGENPROBE: MIT Feinkorn tragen alle seg-Zellen ihre Zahlen", seg_zahlen == seg_spalten.size());
+
+        // KERN: OHNE Feinkorn ist JEDE seg-Zelle n/a und KEINE "0" -- obwohl der Snapshot gefuellt ist
+        // (die Wache haengt an der Deklaration, nicht an den Zahlen; wie (g) eine Schicht tiefer).
+        std::size_t seg_na = 0, seg_null_luege = 0;
+        for (auto const& name : seg_spalten) {
+            std::string const v = cell(header, macro, name);
+            if (v == na) ++seg_na;
+            if (v == "0") {
+                std::cout << "  [ERR] LUEGE: seg-Spalte '" << name << "' schreibt 0 statt " << na << "\n";
+                ++seg_null_luege;
+            }
+        }
+        std::cout << "  (h) OHNE Feinkorn (MACRO-Zeile): n/a-Zellen = " << seg_na << " von " << seg_spalten.size()
+                  << ", Null-Luegen = " << seg_null_luege << "\n";
+        tr("(h) KERN: OHNE Feinkorn sind ALLE seg-Zellen n/a", seg_na == seg_spalten.size());
+        tr("(h) KEINE seg-Zelle schreibt eine stille 0", seg_null_luege == 0);
+
+        // ZELLGENAUIGKEIT eine Schicht hoeher: die 13 Observer-Zellen der MACRO-Zeile bleiben ECHT und
+        // byte-gleich zur MIT-Zeile -- der Feinkorn-Entzug darf den Observer-Block nicht abwerten.
+        std::size_t obs_gleich = 0;
+        for (char const* name : kObserverSpalten)
+            if (!cell(header, macro, name).empty() && cell(header, macro, name) == cell(header, mit, name))
+                ++obs_gleich;
+        std::cout << "  (h) Observer-Zellen MACRO == MIT: " << obs_gleich << " von 13\n";
+        tr("(h) ZELLGENAU: alle 13 Observer-Zellen der MACRO-Zeile bleiben echte Zahlen (== MIT-Zeile)",
+           obs_gleich == 13);
+        // NIE AUFWERTEND: Feinkorn true ohne Observer-Ausstattung rendert seg weiterhin n/a (Konjunktion).
+        std::vector<std::string> const ohne_obs = split_semicolon(ex::format_csv_row(probe_row(false, true, true)));
+        std::size_t                    seg_na_ohne_obs = 0;
+        for (auto const& name : seg_spalten)
+            if (cell(header, ohne_obs, name) == na) ++seg_na_ohne_obs;
+        std::cout << "  (h) OHNE Observer, Feinkorn true: seg-n/a = " << seg_na_ohne_obs << " von "
+                  << seg_spalten.size() << "\n";
+        tr("(h) seg_real kann NIE aufwerten: ohne Observer bleiben alle seg-Zellen n/a",
+           seg_na_ohne_obs == seg_spalten.size());
+    }
+
+    // ---- (i) B2-A2.5/F1 (15.08.2026): T17-EHRLICHKEIT AUCH IN DEN stat_*-ZELLEN. Die T17-Zaehler
+    //          (persistence_target) ENTSTEHEN ausschliesslich im Segment-Lauf (fill_observer_pathb_driven_v3,
+    //          seit B2 unter G3) -- die MACRO-Zeile ([wallclock,macro]) muss ihre 5 stat_persistence_target-
+    //          Zellen deshalb als n/a rendern, NIE als 0, und v3_filled_axes darf T17 nicht ausweisen.
+    //          Alle uebrigen stat_*-Zellen bleiben zellgenau echt (Feinkorn-Entzug wertet nur T17 ab).
+    {
+        constexpr char const* kT17Spalten[] = {"stat_persistence_target_rounds", "stat_persistence_target_bytes_staged",
+                                               "stat_persistence_target_records_staged",
+                                               "stat_persistence_target_device_flushes",
+                                               "stat_persistence_target_checksum"};
+        std::vector<std::string> const macro = split_semicolon(ex::format_csv_row(probe_row(true, true, false)));
+
+        // NENNER: die 5 T17-Spalten existieren im Header (sonst liefe jede Aussage an der falschen Zelle).
+        std::size_t t17_gefunden = 0;
+        for (char const* name : kT17Spalten)
+            if (column_index(header, name) < header.size()) ++t17_gefunden;
+        std::cout << "  (i) T17-stat-Spalten im Header gefunden: " << t17_gefunden << " von 5\n";
+        tr("(i) NENNER: alle 5 stat_persistence_target-Spalten existieren im Header", t17_gefunden == 5);
+
+        // GEGENPROBE ZUERST: MIT Feinkorn tragen die 5 T17-Zellen echte Zahlen -- ein Renderer, der T17
+        // immer n/a schriebe, waere sonst gruen (und jede [all]-Bestandsmessung entwertet).
+        std::size_t t17_zahlen = 0;
+        for (char const* name : kT17Spalten) {
+            std::string const v = cell(header, mit, name);
+            if (!v.empty() && v != na && v != "0") ++t17_zahlen;
+        }
+        std::cout << "  (i) MIT Feinkorn: T17-Zellen mit echter Zahl (!= n/a, != 0): " << t17_zahlen << " von 5\n";
+        tr("(i) GEGENPROBE: MIT Feinkorn tragen alle 5 T17-Zellen ihre Zahlen", t17_zahlen == 5);
+
+        // KERN: OHNE Feinkorn (MACRO) ist JEDE der 5 T17-Zellen n/a und KEINE "0" -- obwohl der Snapshot
+        // Zahlen traegt (die Wache haengt an der Deklaration, nicht an den Zahlen; wie (g)/(h)).
+        std::size_t t17_na = 0, t17_null_luege = 0;
+        for (char const* name : kT17Spalten) {
+            std::string const v = cell(header, macro, name);
+            if (v == na) ++t17_na;
+            if (v == "0") {
+                std::cout << "  [ERR] LUEGE: T17-Spalte '" << name << "' schreibt 0 statt " << na << "\n";
+                ++t17_null_luege;
+            }
+        }
+        std::cout << "  (i) OHNE Feinkorn (MACRO): T17-n/a = " << t17_na << " von 5, Null-Luegen = " << t17_null_luege
+                  << "\n";
+        tr("(i) KERN: OHNE Feinkorn sind ALLE 5 T17-stat-Zellen n/a", t17_na == 5);
+        tr("(i) KEINE T17-stat-Zelle schreibt eine stille 0", t17_null_luege == 0);
+
+        // ZELLGENAU: die stat_*-Zellen ALLER Nicht-T17-Achsen der MACRO-Zeile bleiben echte Zahlen
+        // (byte-gleich zur MIT-Zeile) -- der Feinkorn-Entzug darf nur T17 abwerten.
+        std::size_t stat_spalten = 0, stat_gleich = 0;
+        for (auto const& name : header) {
+            if (name.rfind("stat_", 0) != 0) continue;
+            bool ist_t17 = false;
+            for (char const* t17name : kT17Spalten)
+                if (name == t17name) ist_t17 = true;
+            if (ist_t17) continue;
+            ++stat_spalten;
+            if (!cell(header, macro, name).empty() && cell(header, macro, name) == cell(header, mit, name))
+                ++stat_gleich;
+        }
+        std::cout << "  (i) Nicht-T17-stat-Zellen MACRO == MIT: " << stat_gleich << " von " << stat_spalten << "\n";
+        tr("(i) ZELLGENAU: alle Nicht-T17-stat-Zellen der MACRO-Zeile bleiben echte Zahlen (== MIT-Zeile)",
+           stat_spalten > 0 && stat_gleich == stat_spalten);
+
+        // v3_filled_axes: die MIT-Zeile weist alle 18 aus (inkl. T17); die MACRO-Zeile darf T17 nicht
+        // ausweisen -- deklarationsgetrieben gedeckelt auf 17, obwohl der Snapshot 18 behauptet.
+        std::cout << "  (i) v3_filled_axes: MIT='" << cell(header, mit, "v3_filled_axes") << "' MACRO='"
+                  << cell(header, macro, "v3_filled_axes") << "'\n";
+        tr("(i) v3_filled_axes MIT Feinkorn == 18 (T17 zaehlt mit)", cell(header, mit, "v3_filled_axes") == "18");
+        tr("(i) v3_filled_axes OHNE Feinkorn == 17 (T17 nicht ausgewiesen; Deckel an der Deklaration)",
+           cell(header, macro, "v3_filled_axes") == "17");
+
+        // NIE AUFWERTEND: ohne Observer bleiben auch T17-Zellen und v3_filled_axes n/a (Konjunktion).
+        std::vector<std::string> const ohne_obs2 = split_semicolon(ex::format_csv_row(probe_row(false, true, true)));
+        std::size_t                    t17_na_ohne_obs = 0;
+        for (char const* name : kT17Spalten)
+            if (cell(header, ohne_obs2, name) == na) ++t17_na_ohne_obs;
+        std::cout << "  (i) OHNE Observer, Feinkorn true: T17-n/a = " << t17_na_ohne_obs << " von 5\n";
+        tr("(i) seg_real kann NIE aufwerten: ohne Observer sind T17-Zellen und v3_filled_axes n/a",
+           t17_na_ohne_obs == 5 && cell(header, ohne_obs2, "v3_filled_axes") == na);
+    }
 
     std::cout << "\n== Fehler: " << g_fail << " ==\n";
     return g_fail == 0 ? 0 : 1;

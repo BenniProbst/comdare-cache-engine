@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-#include <axes/lookup/composable/tier_to_organ_mapping.hpp>
+#include <organ_axes/lookup/composable/tier_to_organ_mapping.hpp>
 #include <topics/nodes/axis_bst_shape/axis_bst_shape_ptr_size_t.hpp>
 #include <topics/nodes/axis_bst_shape/axis_bst_shape_ptr_u16.hpp>
 #include <topics/nodes/axis_bst_shape/axis_bst_shape_ptr_u32.hpp>

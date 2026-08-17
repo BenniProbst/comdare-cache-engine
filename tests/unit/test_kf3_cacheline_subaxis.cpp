@@ -2,7 +2,7 @@
 // Standalone-Test (kein gtest) fuer die per-Organ cacheline-Unterachse.
 // Build: cl /std:c++latest /EHsc /I<libs/cache_engine> test_kf3_cacheline_subaxis.cpp
 
-#include "axes/cacheline/cacheline_config.hpp"
+#include "organ_axes/cacheline/cacheline_config.hpp"
 
 #include <cstddef>
 #include <iostream>

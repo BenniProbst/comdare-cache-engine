@@ -25,18 +25,18 @@
 // SUPERSEDED 2026-07-11: obiger .ps1-Build-Weg (scratch_clu_pmd1_verify.ps1) entfernt (Behelfsweg-Bereinigung);
 //   Test jetzt registriertes ctest-Target (tests/unit/CMakeLists.txt, M-CE-24-Block COMDARE_MCE24_PLAIN_TESTS).
 
-#include <axes/cacheline/cacheline_line_bytes.hpp> // B14-NB4: die Einheit der Linienzahl kommt aus der Achse
-#include <axes/node/axis_04_node_type_layout_aware_store.hpp>
-#include <axes/node/axis_04_node_type_node4.hpp>
-#include <axes/node/axis_04_node_type_node16.hpp>
-#include <axes/node/axis_04_node_type_node48.hpp>
-#include <axes/node/axis_04_node_type_node256.hpp>
-#include <axes/layout/axis_05_memory_layout_observable.hpp>
-#include <axes/layout/axis_05_memory_layout_aos_strict.hpp>
-#include <axes/layout/axis_05_memory_layout_cache_line_aligned.hpp>
-#include <axes/layout/axis_05_memory_layout_soa.hpp>
-#include <axes/layout/axis_05_memory_layout_aosoa.hpp>
-#include <axes/layout/axis_05_memory_layout_packed_bitmap.hpp>
+#include <organ_axes/cacheline/cacheline_line_bytes.hpp> // B14-NB4: die Einheit der Linienzahl kommt aus der Achse
+#include <organ_axes/node/axis_04_node_type_layout_aware_store.hpp>
+#include <organ_axes/node/axis_04_node_type_node4.hpp>
+#include <organ_axes/node/axis_04_node_type_node16.hpp>
+#include <organ_axes/node/axis_04_node_type_node48.hpp>
+#include <organ_axes/node/axis_04_node_type_node256.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_observable.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_aos_strict.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_cache_line_aligned.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_soa.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_aosoa.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_packed_bitmap.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_mimalloc.hpp>
 
 #include <cmath>

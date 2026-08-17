@@ -107,7 +107,7 @@ struct SetAxisObservation {
 
 /// SetAnatomy<Composition> — genus()==Set; K-only-Mengen-API über das echte search_algo-Organ (K=V).
 /// E-24 C1 (Luecke L5): erbt die CRTP-Wache OrganGuard nach dem Repo-Goldstandard
-/// axes/io_dispatch/axis_io_strategy_base.hpp:15-21 -- die erste Konstruktion prueft compile-hart, dass
+/// organ_axes/io_dispatch/axis_io_strategy_base.hpp:15-21 -- die erste Konstruktion prueft compile-hart, dass
 /// diese Anatomie OrganConcept erfuellt (Identitaet + const-noexcept observe_all). Zero-cost: leere Basis,
 /// protected Ctor, keine virtuelle Funktion. Kein ABI-Ereignis (EBO, keine Layout-Aenderung).
 template <class Composition>

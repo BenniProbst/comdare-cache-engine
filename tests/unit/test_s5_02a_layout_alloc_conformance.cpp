@@ -46,28 +46,28 @@
 
 #include "s5_family_alloc_conformance.hpp"
 
-#include <axes/layout/axis_05_memory_layout_observable.hpp>
-#include <axes/layout/axis_05_memory_layout_registry.hpp>
-#include <axes/node/axis_04_node_type_chunked_store.hpp>
-#include <axes/node/axis_04_node_type_composed_store.hpp>
-#include <axes/node/axis_04_node_type_layout_aware_store.hpp>
-#include <axes/node/axis_04_node_type_observable.hpp>
-#include <axes/node/axis_04_node_type_registry.hpp>
-#include <axes/path_compression/axis_02_path_compression_observable.hpp>
-#include <axes/path_compression/axis_02_path_compression_real_trie.hpp>
-#include <axes/path_compression/axis_02_path_compression_registry.hpp>
-#include <axes/serialization_axis/axis_10_serialization_observable.hpp>
-#include <axes/serialization_axis/axis_10_serialization_primitives.hpp>
-#include <axes/serialization_axis/axis_10_serialization_registry.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_observable.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_registry.hpp>
+#include <organ_axes/node/axis_04_node_type_chunked_store.hpp>
+#include <organ_axes/node/axis_04_node_type_composed_store.hpp>
+#include <organ_axes/node/axis_04_node_type_layout_aware_store.hpp>
+#include <organ_axes/node/axis_04_node_type_observable.hpp>
+#include <organ_axes/node/axis_04_node_type_registry.hpp>
+#include <organ_axes/path_compression/axis_02_path_compression_observable.hpp>
+#include <organ_axes/path_compression/axis_02_path_compression_real_trie.hpp>
+#include <organ_axes/path_compression/axis_02_path_compression_registry.hpp>
+#include <organ_axes/serialization_axis/axis_10_serialization_observable.hpp>
+#include <organ_axes/serialization_axis/axis_10_serialization_primitives.hpp>
+#include <organ_axes/serialization_axis/axis_10_serialization_registry.hpp>
 
-#include <axes/alloc/axis_06_allocator_exgen.hpp>
-#include <axes/alloc/axis_06_allocator_mimalloc.hpp>
-#include <axes/alloc/axis_06_allocator_registry.hpp>
+#include <organ_axes/alloc/axis_06_allocator_exgen.hpp>
+#include <organ_axes/alloc/axis_06_allocator_mimalloc.hpp>
+#include <organ_axes/alloc/axis_06_allocator_registry.hpp>
 
 // Form-(B)-REFERENZ am realen Repo-Typ (Pilot-Vorbild): der B-Baum-Knoten-Pool fuehrt seinen unbounded
 // Knoten-Speicher ueber die Allokator-Achse (StdAllocatorAdapter-Rebind + COW-Memento). Er gehoert NICHT zu
 // dieser Familie und wird hier nur GELESEN -- er ist der Anker, an dem der Scrub dieser Familie Mass nimmt.
-#include <axes/lookup/composable/btree_node_pool_store.hpp>
+#include <organ_axes/lookup/composable/btree_node_pool_store.hpp>
 
 #include <boost/mp11.hpp>
 

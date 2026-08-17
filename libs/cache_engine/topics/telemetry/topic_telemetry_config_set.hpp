@@ -2,7 +2,7 @@
 // V41.F.6.1.R7.5.b TopicConfigSet fuer telemetry-Topic (1 Achse)
 
 #include <topics/telemetry/axis_11_telemetry/axis_11_telemetry_registry.hpp>
-#include <axes/telemetry_axis/axis_11_telemetry_observable.hpp> // V42 L-74c: ObservableTelemetry-Huelle
+#include <organ_axes/telemetry_axis/axis_11_telemetry_observable.hpp> // V42 L-74c: ObservableTelemetry-Huelle
 
 #include <boost/mp11.hpp>
 #include <array>

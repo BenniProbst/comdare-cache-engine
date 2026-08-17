@@ -25,7 +25,7 @@
 #include "anatomy/sequence_anatomy.hpp"
 #include "anatomy/set_default_organ.hpp" // SortedArrayKeySet: das echte search_algo-Kern-Organ
 #include "anatomy/set_tier.hpp"          // SetObserverSnapshotV1 (der eingefrorene V1-POD)
-#include "axes/alloc/concepts/axis_06_allocator_cache_engine_permutation_concept.hpp"
+#include "organ_axes/alloc/concepts/axis_06_allocator_cache_engine_permutation_concept.hpp"
 
 #include <cstddef>
 #include <cstdint>

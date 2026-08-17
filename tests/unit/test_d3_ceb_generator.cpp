@@ -11,7 +11,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 using namespace comdare::cache_engine::builder::experiment;
 

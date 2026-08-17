@@ -7,15 +7,16 @@
 //   (3) value_handle Indirektions-Charakteristik: Inline=0 indirect, ExternalPool/Versioned>0, ChainRef am höchsten.
 // So ist MEINE Vervollständigung unabhängig vom Stand der anderen Phase-B-Agenten build- + verhaltens-verifiziert.
 
-#include <anatomy/observer_aggregate.hpp>                             // ObservableAxis-Concept
-#include <axes/value_handle_axis/axis_14_value_handle_observable.hpp> // ObservableValueHandle + ValueHandleSnapshot
-#include <axes/simd/axis_09_isa_observable.hpp>                       // ObservableIsa + IsaStatistics
-#include <axes/value_handle_axis/axis_14_value_handle_inline.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_external_pool.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_chain_ref.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_versioned_pointer.hpp>
-#include <axes/simd/axis_09_isa_amd64.hpp>
-#include <axes/node/axis_04_node_type_chunked_store.hpp> // NodeChunkedStore (organ_observe_*)
+#include <anatomy/observer_aggregate.hpp> // ObservableAxis-Concept
+// ObservableValueHandle + ValueHandleSnapshot
+#include <organ_axes/value_handle_axis/axis_14_value_handle_observable.hpp>
+#include <organ_axes/simd/axis_09_isa_observable.hpp> // ObservableIsa + IsaStatistics
+#include <organ_axes/value_handle_axis/axis_14_value_handle_inline.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_external_pool.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_chain_ref.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_versioned_pointer.hpp>
+#include <organ_axes/simd/axis_09_isa_amd64.hpp>
+#include <organ_axes/node/axis_04_node_type_chunked_store.hpp> // NodeChunkedStore (organ_observe_*)
 #include <topics/traversal/axis_03a_search_algo/composable/composable_search.hpp>
 #include <topics/traversal/axis_03a_search_algo/composable/observable_composed_search.hpp> // ObservableComposedSearch
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_cache_line_aligned.hpp>

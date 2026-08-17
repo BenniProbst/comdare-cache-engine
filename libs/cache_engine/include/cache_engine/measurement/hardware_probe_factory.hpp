@@ -60,10 +60,10 @@
 #include <cache_engine/measurement/machine_identity.hpp>
 #include <cache_engine/measurement/numa_page_probe.hpp>
 #include <cache_engine/measurement/numa_cpu_pin_process_probe.hpp>
-#include <cache_engine/measurement/operating_system_axis.hpp>
+#include <system_axes/operating_system_axis.hpp>
 #include <cache_engine/measurement/ram_frequency_reading.hpp>
 #include <cache_engine/measurement/ram_probe_chain.hpp>
-#include <cache_engine/measurement/target_isa_complex_axis.hpp>
+#include <system_axes/target_isa_complex_axis.hpp>
 
 #include <concepts>
 #include <cstddef>

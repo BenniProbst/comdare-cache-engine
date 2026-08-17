@@ -80,22 +80,22 @@
 
 #include <cache_engine/measurement/axis_error.hpp>
 
-#include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>
-#include <cache_engine/measurement/compiler_system_axis.hpp>
-#include <cache_engine/measurement/extension_hardware_system_axis.hpp>
-#include <cache_engine/measurement/external_utils_family_axis.hpp>
+#include <system_axes/compiler_atomic_sub_axis.hpp>
+#include <system_axes/compiler_system_axis.hpp>
+#include <system_axes/extension_hardware_system_axis.hpp>
+#include <system_axes/external_utils_family_axis.hpp>
 #include <cache_engine/measurement/hardware_isa_system_axis.hpp>
 #include <cache_engine/measurement/hardware_meta_meta_axis.hpp>
 #include <cache_engine/measurement/load_framework_measurement_axis.hpp>
-#include <cache_engine/measurement/operating_system_axis.hpp>
-#include <cache_engine/measurement/operating_system_sub_axes.hpp>
-#include <cache_engine/measurement/optimization_level_sub_axis.hpp>
-#include <cache_engine/measurement/scheduling_system_axis.hpp>
-#include <cache_engine/measurement/simd_sub_axis.hpp>
+#include <system_axes/operating_system_axis.hpp>
+#include <system_axes/operating_system_sub_axes.hpp>
+#include <system_axes/optimization_level_sub_axis.hpp>
+#include <system_axes/scheduling_system_axis.hpp>
+#include <system_axes/simd_sub_axis.hpp>
 #include <cache_engine/measurement/system_axis.hpp>
-#include <cache_engine/measurement/target_isa_complex_axis.hpp>
-#include <cache_engine/measurement/target_isa_sub_axes.hpp>
-#include <cache_engine/measurement/target_isa_system_axis.hpp>
+#include <system_axes/target_isa_complex_axis.hpp>
+#include <system_axes/target_isa_sub_axes.hpp>
+#include <system_axes/target_isa_system_axis.hpp>
 
 #include <array>
 #include <cstddef>

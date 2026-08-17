@@ -129,7 +129,7 @@ Zwei-Phasen-Cache-Warmup gilt auf Re-Entry intrinsisch je Op (er ist Teil jeder 
 | Zweck | Datei |
 |---|---|
 | Undo-Log-Memento (save/rollback/Hooks/Helfer) | `libs/cache_engine/anatomy/abi_adapter.hpp` |
-| O(1)-Stat-Restore der Hüllen | `axes/lookup/composable/observable_composed_search.hpp` + `observable_composed_container.hpp` |
+| O(1)-Stat-Restore der Hüllen | `organ_axes/lookup/composable/observable_composed_search.hpp` + `observable_composed_container.hpp` |
 | Semantik-Test | `tests/unit/test_undolog_memento.cpp` (standalone, ADHOC-Include-Satz) |
 | Resume (Stamp + Skip + resumed_csv_rows) | `libs/cache_engine/builder/experiment_tree/cache_engine_builder_iterator.hpp` |
 | Host (argv[11], globale CSV inkl. resumiert) | `tests/unit/thesis_tiere/run_lazy_150.cpp` (geloescht 2026-07-11; Host heute Code/02_messung_driver, E4-XML) |

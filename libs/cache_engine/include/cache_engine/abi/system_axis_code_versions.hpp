@@ -45,7 +45,7 @@ inline constexpr std::size_t kSystemAxisCodeCount = 3;
 /// (Codex-Review 02.08.2026) HART als static_assert je Eintrag unter der Tabelle, nicht mehr nur als
 /// Kommentar (der einzige maschinelle Anker war zuvor der test_m_w12-Golden-String, also indirekt):
 /// Die Einfuehrung der drei operating_system-UNTER-Achsen (os_version/kernel/build,
-/// measurement/operating_system_sub_axes.hpp) darf den Eintrag "operating_system" NICHT bumpen. Die
+/// system_axes/operating_system_sub_axes.hpp) darf den Eintrag "operating_system" NICHT bumpen. Die
 /// Unter-Achsen sind RT-Unter-Achsen (A-15: nie im Binary-Stempel); der in die Binary kompilierte
 /// Achsen-CODE aendert sich durch sie nicht. Ein Bump ginge in system_stamp_line ein, verschoebe den
 /// SHA512 ALLER Neubauten gegen den Bestand und liesse das Lager-Skip-Gate an den Alt-Binaries

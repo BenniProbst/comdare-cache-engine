@@ -19,13 +19,13 @@ foreach(_axis_src_dir ${_comdare_axis_src_dirs})
             "${PROJECT_BINARY_DIR}/generated/topics/${_axis_rel}")
     endif()
 endforeach()
-# V41.F.2: physisch nach axes/<axis>/ migrierte Achsen (Glob topics/*/axis_* findet sie nicht) — generisch
-# je migriertem axes/<axis>-Verzeichnis das generated-Dir ergaenzen, sonst C1083 in umbrella/compositions.
-file(GLOB _comdare_axes_dirs LIST_DIRECTORIES true "${PROJECT_SOURCE_DIR}/libs/cache_engine/axes/*")
+# V41.F.2: physisch nach organ_axes/<axis>/ migrierte Achsen (Glob topics/*/axis_* findet sie nicht) -- generisch
+# je migriertem organ_axes/<axis>-Verzeichnis das generated-Dir ergaenzen, sonst C1083 in umbrella/compositions.
+file(GLOB _comdare_axes_dirs LIST_DIRECTORIES true "${PROJECT_SOURCE_DIR}/libs/cache_engine/organ_axes/*")
 foreach(_axes_dir ${_comdare_axes_dirs})
     if(IS_DIRECTORY "${_axes_dir}")
         get_filename_component(_axes_name "${_axes_dir}" NAME)
-        list(APPEND COMDARE_ALL_AXIS_GENERATED_DIRS "${PROJECT_BINARY_DIR}/generated/axes/${_axes_name}")
+        list(APPEND COMDARE_ALL_AXIS_GENERATED_DIRS "${PROJECT_BINARY_DIR}/generated/organ_axes/${_axes_name}")
     endif()
 endforeach()
 
@@ -842,7 +842,7 @@ target_include_directories(test_v41_axis_12_general_hardware PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
     "${PROJECT_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware"
-    "${PROJECT_BINARY_DIR}/generated/axes/simd"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/simd"
     "${PROJECT_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_12_general_hardware PRIVATE
@@ -856,7 +856,7 @@ target_include_directories(test_v41_axis_05_memory_layout PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/layout"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/layout"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_05_memory_layout PRIVATE
     Boost::mp11)
@@ -869,8 +869,8 @@ target_include_directories(test_v41_axis_02_axis_04_nodes PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/path_compression"
-    "${PROJECT_BINARY_DIR}/generated/axes/node"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/path_compression"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/node"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_02_axis_04_nodes PRIVATE
     Boost::mp11)
@@ -883,7 +883,7 @@ target_include_directories(test_v41_axis_07_prefetch PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/prefetch_axis"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/prefetch_axis"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_07_prefetch PRIVATE
     Boost::mp11)
@@ -896,8 +896,8 @@ target_include_directories(test_v41_axis_11_telemetry PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/telemetry_axis"
-    ${COMDARE_ALL_AXIS_GENERATED_DIRS})  # V41.F.2: axis_11_telemetry → axes/telemetry_axis
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/telemetry_axis"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})  # V41.F.2: axis_11_telemetry -> organ_axes/telemetry_axis
 target_link_libraries(test_v41_axis_11_telemetry PRIVATE
     Boost::mp11)
 
@@ -909,7 +909,7 @@ target_include_directories(test_v41_axis_10_serialization PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/serialization_axis"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/serialization_axis"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_10_serialization PRIVATE
     Boost::mp11)
@@ -922,7 +922,7 @@ target_include_directories(test_v41_axis_14_value_handle PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/value_handle_axis"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/value_handle_axis"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_14_value_handle PRIVATE
     Boost::mp11)
@@ -935,7 +935,7 @@ target_include_directories(test_v41_axis_08_concurrency PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/concurrency_axis"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/concurrency_axis"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_08_concurrency PRIVATE
     Boost::mp11)
@@ -1004,7 +1004,7 @@ target_include_directories(test_v41_axis_filter PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/filter_axis"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/filter_axis"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_filter PRIVATE
     Boost::mp11)
@@ -1017,7 +1017,7 @@ target_include_directories(test_v41_axis_filter_surf_organ PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/filter_axis"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/filter_axis"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_filter_surf_organ PRIVATE
     Boost::mp11)
@@ -1030,7 +1030,7 @@ target_include_directories(test_v41_axis_filter_surf_louds_organ PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/filter_axis"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/filter_axis"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_filter_surf_louds_organ PRIVATE
     Boost::mp11)
@@ -1043,8 +1043,8 @@ target_include_directories(test_v41_axis_io PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/io_dispatch"
-    ${COMDARE_ALL_AXIS_GENERATED_DIRS})  # V41.F.2: axis_io → axes/io_dispatch migriert
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/io_dispatch"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})  # V41.F.2: axis_io -> organ_axes/io_dispatch migriert
 target_link_libraries(test_v41_axis_io PRIVATE
     Boost::mp11)
 
@@ -1056,8 +1056,8 @@ target_include_directories(test_v41_axis_migration PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/migration_policy"
-    ${COMDARE_ALL_AXIS_GENERATED_DIRS})  # V41.F.2: axis_migration → axes/migration_policy
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/migration_policy"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})  # V41.F.2: axis_migration -> organ_axes/migration_policy
 target_link_libraries(test_v41_axis_migration PRIVATE
     Boost::mp11)
 
@@ -1069,7 +1069,7 @@ target_include_directories(test_v41_axis_01_index_organization PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/index_organization"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/index_organization"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_01_index_organization PRIVATE
     Boost::mp11)
@@ -1083,7 +1083,7 @@ target_include_directories(test_v41_axis_09_isa PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/simd"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/simd"
     "${PROJECT_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
     "${PROJECT_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
@@ -1098,7 +1098,7 @@ target_include_directories(test_v41_axis_09b_simd_extension PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/simd"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/simd"
     "${PROJECT_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
     "${PROJECT_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
@@ -1113,7 +1113,7 @@ target_include_directories(test_v41_r5c3_isa_simd_cross_constraint PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_BINARY_DIR}/generated"
-    "${PROJECT_BINARY_DIR}/generated/axes/simd"
+    "${PROJECT_BINARY_DIR}/generated/organ_axes/simd"
     "${PROJECT_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
     "${PROJECT_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
@@ -1945,13 +1945,33 @@ add_test(NAME test_s14_axis_version_lock_tripwire COMMAND test_s14_axis_version_
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s14_axis_version_lock_tripwire)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS comdare_axis_version_lock)
 # Raw add_test bekommt KEINEN Auto-Timeout (cmake/gtest_setup.cmake setzt ihn nur fuer comdare_add_test);
-# 900s fuer Baum-Kopie (~8 MB seit Fixup 3: topics/ GANZ + anatomy/ + include/cache_engine/measurement/)
+# 900s fuer Baum-Kopie (~8 MB seit Fixup 3: topics/ GANZ + anatomy/ + Homes system_axes/ + mess_axes/)
 # + ~90 Tool-Laeufe mit SHA-256 ueber 718 Dateien je Lauf (Pflicht-Fixup 3 13.08.2026: Overlay-
 # Grundgesamtheit 712 + heuristik 6, Koeder T1-T5 kamen hinzu; Debug-Builds rechnen die SHA deutlich
 # langsamer als Release).
 set_tests_properties(test_s14_axis_version_lock_tripwire PROPERTIES
     TIMEOUT 900
     LABELS "s14;axis_lock;tripwire")
+
+# S-18/#16 RIDER #95 (KF-Design; Codex-Auflagen Nichtleer/CDATA-Kante/Skip-bei-fehlend=rot): die
+# ce-SEITIGE Wache der ce-eigenen Fixture experiment_golden_kern.xml -- bis hierher hatte sie in
+# der ce-CI KEINE Wache (A7-Befund). Script-Test (cmake -P, Vorbild f15_compare_cli_smoke);
+# xmllint ist PFLICHT im Script (FATAL statt Skip). Das SCHEMA-Bein sucht die Single-Source-XSD
+# des super-Nachbarn (Submodul-Layout ../../test_data_xml/) und meldet ohne Nachbarn einen
+# BENANNTEN Halb-Skip -- eine XSD-Kopie in ce waere eine zweite Quelle (Begruendung im Script).
+add_test(NAME fixture_schema_subset_check_ce
+    COMMAND "${CMAKE_COMMAND}"
+        "-DFIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere/experiment_golden_kern.xml"
+        "-DCE_ROOT=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/fixture_schema_subset_check.cmake")
+set_tests_properties(fixture_schema_subset_check_ce PROPERTIES
+    TIMEOUT 60
+    LABELS "golden;fixture;s18")
+comdare_registrierung_vermerken(
+    BLOCK  s18_fixture_schema_subset_check_ce
+    STATUS AKTIV
+    TESTS  fixture_schema_subset_check_ce
+    GRUND  "Rider #95 im #16-Auftrag: ce-Fixture-Wache (Nichtleer/Wohlform/DOCTYPE hart, Schema-Bein nachbar-gebunden)")
 
 # -----------------------------------------------------------------------------
 # E-24 C6-V (2026-08-04, Entscheid E5 LEDGER:3828) -- die Statistics-Huellen der GATTUNGS-EIGENEN
@@ -2184,7 +2204,7 @@ set_tests_properties(${_comdare_e24_c5_fk7_tu} PROPERTIES LABELS "goal_v6;phase_
 # #155 Phase-E-Standalone-Tests CTest-registrieren (vorher NICHT in CMake/ctest — nur als Quelle im Tree).
 # Identisches Muster wie die GoalV6-D-Tests darueber: plain `int main()`-Standalone (KEIN gtest, daher add_test
 # direkt, NICHT comdare_add_test), Return 0/1. KEIN DLL-/ADHOC-Bau — sie nutzen die normale cache-engine-Anatomie-
-# Header (anatomy/ compositions/ axes/ builder/experiment_tree/), also den boost/generated-Include-Satz.
+# Header (anatomy/ compositions/ organ_axes/ builder/experiment_tree/), also den boost/generated-Include-Satz.
 #   * test_migration_two_tier (#123, P4): 2-Tier IMigratableTier + organ_migrate_step + memento-parallel.
 #   * test_seg_coverage       (P-MD3): seg_*_ns-Attributions-Coverage ueber perm_runner (ART/HOT/Masstree).
 # test_v5_io_real_fixture ist leichter (nur std + Win32-API, kein Anatomie-Header) → eigener Block darunter.
@@ -2302,9 +2322,9 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     test_s5_01c_fassaden_conformance # A8-S5 -- Fassaden-/Durchbindungs-Konformitaet Familie 01c
     # A8-S5 (2026-08-05) Familie 05_write_path_io / RESTSTRECKE queuing = die vom S5-Abschnitts-Truth-Check
     # gefundene VOLLSTAENDIGKEITS-LUECKE (wf_94ca9f27 R1, Auflage 2+3). Der bisherige 05-Nachweis war ein
-    # grep ueber axes/io_dispatch/ + axes/persistence_target/ und meldete "leer" -- korrekt, aber gegen ein
+    # grep ueber organ_axes/io_dispatch/ + organ_axes/persistence_target/ und meldete "leer" -- korrekt, aber gegen ein
     # zu kleines UNIVERSUM: kOrganGruppe05 hat VIER Achsen, und queuing_q1/q2 haben ueberhaupt keinen
-    # axes/-Ordner (sie leben nur in der topics/-Doppelwurzel). Diese TU macht die stille Annahme
+    # organ_axes/-Ordner (sie leben nur in der topics/-Doppelwurzel). Diese TU macht die stille Annahme
     # unmoeglich: das Universum kommt aus der drift-bewachten EINZIGQUELLE (lager_baum_writer.hpp
     # kOrganGruppe05), die Deckung wird BEIDSEITIG gepinnt (jede Achse gedeckt UND jede Deckung in der
     # Familie), und die Quell-WURZEL wird nicht angenommen, sondern von den Organen selbst erfragt
@@ -2825,6 +2845,7 @@ target_compile_definitions(test_a14_os_sub_axes_guard PRIVATE
 comdare_add_test(test_meta_meta_halbordnung
     SOURCES test_meta_meta_halbordnung.cpp)
 target_include_directories(test_meta_meta_halbordnung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 target_link_libraries(test_meta_meta_halbordnung PRIVATE Boost::mp11)
 target_compile_definitions(test_meta_meta_halbordnung PRIVATE
@@ -3263,7 +3284,7 @@ target_compile_definitions(test_217_2a_capacity_guard PRIVATE
 
 # P5 (#156-De-Risk, 2026-06-20) — Smoke fuer die PMC-WIDE-Naht: make_pmc_source()/IPmcSource im LAZY WIDE-Mess-Pfad
 # (perm_runner) + 7 additive pmc_*-Spalten in lazy_csv_header. Standalone (plain int main, baut KEINE DLLs), zieht
-# aber den schweren iterator-/pmc_source_factory-Kontext -> derselbe anatomy/axes/Boost::mp11-Include-Satz wie
+# aber den schweren iterator-/pmc_source_factory-Kontext -> derselbe anatomy/organ_axes/Boost::mp11-Include-Satz wie
 # COMDARE_PHASE_E_BOOST_TESTS + die Mess-Mode-Defines (COMDARE_MEASUREMENT_ON/STATISTICS/EXPERIMENT_MODE_ON), unter
 # denen perm_runner die PMC-Naht aktiviert. OFFIZIELLE CMake/ctest-Registrierung (ersetzt das fruehere Scratch-
 # Build-Skript). NullPmcSource (COMDARE_ENABLE_PMC OFF) -> alle 7 Spalten 0/available=0 (ehrliche Null).
@@ -4569,7 +4590,7 @@ message(STATUS "tools-tests: test_cacheline_policy_selector (#174) + test_load_p
 # plain `int main()`-Standalone, KEIN gtest -> add_test DIREKT, Return 0/1).
 #   * test_kf3_cacheline_subaxis (C1): pinnt den cacheline-Wertraum (jetzt 60 = 4x3x5; B32 additiv,
 #       KF-5 thesis-treu). War bisher NUR Quelle im Tree (nie in ctest) -> der Produkt-Pin war zahnlos;
-#       ab jetzt laeuft er in der Suite. Schlanker Include-Satz (nur axes/cacheline/ -> Root libs/cache_engine).
+#       ab jetzt laeuft er in der Suite. Schlanker Include-Satz (nur organ_axes/cacheline/ -> Root libs/cache_engine).
 #   * test_ff2_node_width_subaxis (C2): die NEUE FF2-Unterachse "Knoten-Breite in Cache-Lines" (1..16) —
 #       Wertraum + binary-id-Neutralitaet ohne Profil-Aktivierung (profile_to_tree) + REALER Konsum im
 #       Node-Layout-Pfad (LayoutAwareChunkedStore-Chunk-Geometrie). Include-Satz wie die #155-Phase-E-Tests
@@ -5346,6 +5367,84 @@ set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_r3_mess_gates_spie
 set_tests_properties(test_r3_mess_gates_spiegel PROPERTIES
     LABELS "r3;messachse;stempel;dll_roundtrip")
 
+# B2 GATE-TRENNUNG G2(macro)/G3(micro) (15.08.2026): der Koeder, der die Trennung VERLANGT. K1-K6
+# sind am Vor-B2-Stand rot (Rot-Nachweis am Basis-Stand 0817c7bf im Bericht der Scheibe woertlich
+# protokolliert), die Gegenproben G1-G5 in BEIDEN Staenden gruen (Paar-Doktrin). Wie der m1-Nachbar
+# BEWUSST OHNE COMDARE_MEASUREMENT_COMBO_CT und ohne Gate-Defines: der Test beisst an der REINEN
+# Abbildung mess_achsen_defines_for_legend / mess_gates_glied_for_legend, nicht am Makro-Zustand
+# dieser TU.
+add_executable(test_b2_mess_gate_trennung "test_b2_mess_gate_trennung.cpp")
+target_compile_features(test_b2_mess_gate_trennung PRIVATE cxx_std_23)
+target_include_directories(test_b2_mess_gate_trennung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+comdare_set_platform_defines(test_b2_mess_gate_trennung)
+add_test(NAME test_b2_mess_gate_trennung COMMAND test_b2_mess_gate_trennung)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_b2_mess_gate_trennung)
+set_tests_properties(test_b2_mess_gate_trennung PROPERTIES LABELS "b2;messachse;stempel;gates")
+
+# B2-ABSCHLUSS (15.08.2026, Dual-Review-Fund "Gate-Zustand G2-an/G3-aus wird NIRGENDS kompiliert"):
+# die GEGEN-TU zum Abbildungs-Test darueber. Sie kompiliert EXAKT den Define-Satz, den
+# mess_achsen_defines("[wallclock,macro]") emittiert (G1+G2, G3 EXPLIZIT =0, zwei Deklarationen),
+# plus Perm-Marker und CT-Einbau der CEB-Stufe -- und instanziiert den ECHTEN Adapter (MCE24-/a8s4-
+# Bauform; ein uninstanziierter Template-Rumpf waere kein Bau-Beweis). K4 macht einen Revert der
+# drei G3-Flaechen (anatomy/abi_adapter.hpp) zurueck auf das G2-Gate ROT; K5 prueft die
+# Produktions-Naht lazy_row_mess_ausstattung_uebernehmen in beiden Polaritaeten (Fund
+# "Capability-Weitergabe ohne beissenden Test").
+add_executable(test_b2_gate_zustand_g2an_g3aus "test_b2_gate_zustand_g2an_g3aus.cpp")
+target_compile_features(test_b2_gate_zustand_g2an_g3aus PRIVATE cxx_std_23)
+target_include_directories(test_b2_gate_zustand_g2an_g3aus PRIVATE ${COMDARE_MCE24_INCLUDES})
+target_link_libraries(test_b2_gate_zustand_g2an_g3aus PRIVATE Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_b2_gate_zustand_g2an_g3aus)
+target_compile_definitions(test_b2_gate_zustand_g2an_g3aus PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_CE_ENABLE_SEGMENT_TIMING=0
+    COMDARE_EXPERIMENT_MODE_ON=1 COMDARE_MEASUREMENT_TOOLING_WALLCLOCK=1 COMDARE_MEASUREMENT_TOOLING_MACRO=1
+    "COMDARE_MEASUREMENT_COMBO_CT=\"[wallclock,macro]\"")
+add_test(NAME test_b2_gate_zustand_g2an_g3aus COMMAND test_b2_gate_zustand_g2an_g3aus)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_b2_gate_zustand_g2an_g3aus)
+set_tests_properties(test_b2_gate_zustand_g2an_g3aus PROPERTIES
+    LABELS "b2;messachse;gates;standalone" TIMEOUT 120)
+
+# B2-ABSCHLUSS NEGATIVPROBE (15.08.2026, Configure-Zeit): G3=1 OHNE G2 ist kein baubarer Zustand --
+# der #error der EINEN Ableitung (cache_engine/abi/mess_gate_segment_timing.hpp:54-56) MUSS feuern.
+# Der Dual-Review-Fund war woertlich "die #error-Wache nie als feuernd bewiesen"; ein add_test kann
+# das nicht tragen (ein Compile-FEHLSCHLAG ist kein lauffaehiger Test), also wohnt die Probe im
+# Configure-Schritt und macht JEDEN Baum rot, in dem die Wache nicht mehr beisst.
+try_compile(_b2_g3_ohne_g2_baut
+    SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/b2_probe_g3_schichtung_tu.cpp"
+    CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    COMPILE_DEFINITIONS "-DCOMDARE_CE_ENABLE_SEGMENT_TIMING=1"
+    CXX_STANDARD 23
+    OUTPUT_VARIABLE _b2_g3_ohne_g2_ausgabe)
+if(_b2_g3_ohne_g2_baut)
+    message(FATAL_ERROR "B2-ABSCHLUSS NEGATIVPROBE: eine TU mit COMDARE_CE_ENABLE_SEGMENT_TIMING=1 "
+        "OHNE COMDARE_CE_ENABLE_STATISTICS hat gebaut -- die #error-Schichtungs-Wache in "
+        "cache_engine/abi/mess_gate_segment_timing.hpp ist geschlachtet (micro ist G1+G2+G3, "
+        "mess_achsen_naht.hpp). Wache wiederherstellen, nicht diese Probe entfernen.")
+endif()
+string(FIND "${_b2_g3_ohne_g2_ausgabe}" "verlangt COMDARE_CE_ENABLE_STATISTICS" _b2_g3_fundstelle)
+if(_b2_g3_fundstelle EQUAL -1)
+    message(FATAL_ERROR "B2-ABSCHLUSS NEGATIVPROBE: die G3-ohne-G2-Probe scheitert aus dem FALSCHEN "
+        "Grund (der #error-Wortlaut 'verlangt COMDARE_CE_ENABLE_STATISTICS' fehlt in der "
+        "Compiler-Ausgabe). Compiler-Ausgabe:\n${_b2_g3_ohne_g2_ausgabe}")
+endif()
+# KONTROLLE (K13, der Koeder muss beissen): dieselbe Probe-TU MIT beiden Gates MUSS bauen -- sonst
+# waere der Fehlschlag oben still einem fremden Grund zuzuschreiben (Include-Pfad, Standard).
+try_compile(_b2_g3_mit_g2_baut
+    SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/b2_probe_g3_schichtung_tu.cpp"
+    CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    COMPILE_DEFINITIONS "-DCOMDARE_CE_ENABLE_SEGMENT_TIMING=1" "-DCOMDARE_CE_ENABLE_STATISTICS=1"
+    CXX_STANDARD 23
+    OUTPUT_VARIABLE _b2_g3_mit_g2_ausgabe)
+if(NOT _b2_g3_mit_g2_baut)
+    message(FATAL_ERROR "B2-ABSCHLUSS KONTROLLE: die Probe-TU baut NICHT einmal MIT beiden Gates -- "
+        "die Negativprobe darueber ist damit beweislos (sie scheitert dann aus einem fremden "
+        "Grund, nicht am #error). Compiler-Ausgabe:\n${_b2_g3_mit_g2_ausgabe}")
+endif()
+message(STATUS "B2-ABSCHLUSS Schichtungs-Wache: Negativprobe feuert am #error, Kontrolle baut (2/2)")
+
 # M-1/H-A + M-1/H-2 (06.08.2026): die STUFEN-Wache im CT-losen Zweig und die PMC-Ausstattungs-Invariante.
 # BEWUSST OHNE COMDARE_MEASUREMENT_COMBO_CT -- und hier ist das nicht bloss Unabhaengigkeit vom Makro-
 # Zustand wie beim Nachbarn oben, sondern die SACHE selbst: die H-A-Luecke SASS im #else-Zweig. Eine TU,
@@ -5448,7 +5547,7 @@ function(comdare_add_simd_dispatch_test suffix flag do_run)
     add_executable(${_tgt} "test_simd_field_sum_dispatch.cpp")
     target_compile_features(${_tgt} PRIVATE cxx_std_23)
     # Include-Konvention wie das Schwester-Target test_v41_axis_09b_simd_extension: die generierten
-    # (configure_file) Header — allen voran axes/simd/axis_09_isa_flags.hpp — EXPLIZIT nachreichen, damit das
+    # (configure_file) Header -- allen voran organ_axes/simd/axis_09_isa_flags.hpp -- EXPLIZIT nachreichen, damit das
     # Target self-sufficient ist und nicht implizit auf comdare_set_platform_defines' generated-Kante baut.
     target_include_directories(${_tgt} PRIVATE
         "${PROJECT_SOURCE_DIR}/libs/cache_engine"
@@ -5456,7 +5555,7 @@ function(comdare_add_simd_dispatch_test suffix flag do_run)
         "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
         "${PROJECT_SOURCE_DIR}/libs/common"
         "${PROJECT_BINARY_DIR}/generated"
-        "${PROJECT_BINARY_DIR}/generated/axes/simd"
+        "${PROJECT_BINARY_DIR}/generated/organ_axes/simd"
         "${PROJECT_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
         "${PROJECT_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware"
         ${COMDARE_ALL_AXIS_GENERATED_DIRS})
@@ -6938,6 +7037,7 @@ set_tests_properties(test_s1_stempel_basis_vertrag PROPERTIES LABELS "s1;stempel
 comdare_add_test(test_s3_ordnung_relation
     SOURCES test_s3_ordnung_relation.cpp)
 target_include_directories(test_s3_ordnung_relation PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 target_compile_definitions(test_s3_ordnung_relation PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)

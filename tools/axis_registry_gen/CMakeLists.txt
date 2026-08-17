@@ -4,7 +4,7 @@
 # EXCLUDE_FROM_ALL: der Standard-Build baut das Tool nicht mit; es wird explizit per Target gebaut.
 
 # Die generierten axis_*_flags.hpp liegen unter ${PROJECT_BINARY_DIR}/generated/{axes,topics}/<...>.
-# Vollpfad-Includes (<axes/lookup/axis_03a_search_algo_flags.hpp>) loesen ueber ${PROJECT_BINARY_DIR}/generated;
+# Vollpfad-Includes (<organ_axes/lookup/axis_03a_search_algo_flags.hpp>) loesen ueber ${PROJECT_BINARY_DIR}/generated;
 # die per-Achse-Dirs werden analog tests/unit/CMakeLists.txt ergaenzt (robust gegen bare Includes).
 file(GLOB _arg_axis_src_dirs LIST_DIRECTORIES true
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/topics/*/axis_*")
@@ -16,11 +16,11 @@ foreach(_axis_src_dir ${_arg_axis_src_dirs})
         list(APPEND _ARG_GENERATED_DIRS "${PROJECT_BINARY_DIR}/generated/topics/${_axis_rel}")
     endif()
 endforeach()
-file(GLOB _arg_axes_dirs LIST_DIRECTORIES true "${PROJECT_SOURCE_DIR}/libs/cache_engine/axes/*")
+file(GLOB _arg_axes_dirs LIST_DIRECTORIES true "${PROJECT_SOURCE_DIR}/libs/cache_engine/organ_axes/*")
 foreach(_axes_dir ${_arg_axes_dirs})
     if(IS_DIRECTORY "${_axes_dir}")
         get_filename_component(_axes_name "${_axes_dir}" NAME)
-        list(APPEND _ARG_GENERATED_DIRS "${PROJECT_BINARY_DIR}/generated/axes/${_axes_name}")
+        list(APPEND _ARG_GENERATED_DIRS "${PROJECT_BINARY_DIR}/generated/organ_axes/${_axes_name}")
     endif()
 endforeach()
 

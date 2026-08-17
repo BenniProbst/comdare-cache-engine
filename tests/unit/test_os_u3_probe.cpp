@@ -17,8 +17,8 @@
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
 #include <cache_engine/abi/system_axis_code_versions.hpp>
 #include <cache_engine/measurement/algo_semver.hpp>
-#include <cache_engine/measurement/operating_system_axis.hpp>
-#include <cache_engine/measurement/operating_system_probe.hpp>
+#include <system_axes/operating_system_axis.hpp>
+#include <system_axes/operating_system_probe.hpp>
 
 #include <gtest/gtest.h>
 

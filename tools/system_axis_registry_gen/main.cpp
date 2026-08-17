@@ -1,6 +1,6 @@
 // PAKET W2-B (2026-07-19) - system_axis_registry_gen: erzeugt die CEB-System-Achsen-Registry-XML
 // `system_axis_registry.xml` per COMPILE-TIME-REFLEKTION der realen CebSystemAxis-Typen aus dem
-// measurement-Modul (measurement/*_system_axis.hpp + *_sub_axis.hpp + *_family_axis.hpp).
+// SYSTEM-Kategorie-Home (system_axes/*_system_axis.hpp + *_sub_axis.hpp + *_family_axis.hpp; S-18/#16).
 //
 // WAS (Ledger §28/§30): die System-Achsen-ART (system_config, AxisKind::system_config) bekommt ihre
 // EIGENE Registry-Bibliothek in IHREM Modul -- das Angebot des Compiles fuer die CEB-Stufe (System->CEB).
@@ -34,20 +34,20 @@
 #include <cache_engine/abi/system_axis_order.hpp>   // P5/A7': kSystemAxisOrder (Ordnungs-Single-Source)
 #include <profile_facade/system_version_suffix.hpp> // T-c/NETZ 4: kSuffixSegmentOrder (Suffix-Single-Source)
 #include <cache_engine/measurement/ceb_complex_system_axis.hpp> // O-8 Schritt 6: aeussere Komplex-Achse + Gruppe
-#include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>
-#include <cache_engine/measurement/compiler_system_axis.hpp>
-#include <cache_engine/measurement/external_utils_family_axis.hpp>
+#include <system_axes/compiler_atomic_sub_axis.hpp>
+#include <system_axes/compiler_system_axis.hpp>
+#include <system_axes/external_utils_family_axis.hpp>
 #include <cache_engine/measurement/load_framework_measurement_axis.hpp>
 #include <cache_engine/measurement/machine_simd_signature.hpp> // Section 40.a: deklarierte Maschinen-Signaturen
-#include <cache_engine/measurement/operating_system_axis.hpp>
-#include <cache_engine/measurement/operating_system_sub_axes.hpp> // A14/OS-U2: os_version + kernel + build
-#include <cache_engine/measurement/optimization_level_sub_axis.hpp>
-#include <cache_engine/measurement/scheduling_system_axis.hpp>
+#include <system_axes/operating_system_axis.hpp>
+#include <system_axes/operating_system_sub_axes.hpp> // A14/OS-U2: os_version + kernel + build
+#include <system_axes/optimization_level_sub_axis.hpp>
+#include <system_axes/scheduling_system_axis.hpp>
 #include <cache_engine/measurement/simd_feature_flag.hpp> // Section 40.a: feingranularer Flag-Katalog (code=Wahrheit)
-#include <cache_engine/measurement/simd_sub_axis.hpp>
-#include <cache_engine/measurement/target_isa_complex_axis.hpp> // O-8 Schritt 6: innerer Komplex-Wrapper
-#include <cache_engine/measurement/target_isa_sub_axes.hpp> // O-8/6 + OD-11-RT: numa_node+page+core_class
-#include <cache_engine/measurement/target_isa_system_axis.hpp>
+#include <system_axes/simd_sub_axis.hpp>
+#include <system_axes/target_isa_complex_axis.hpp> // O-8 Schritt 6: innerer Komplex-Wrapper
+#include <system_axes/target_isa_sub_axes.hpp>     // O-8/6 + OD-11-RT: numa_node+page+core_class
+#include <system_axes/target_isa_system_axis.hpp>
 
 #include <array>
 #include <cstddef>

@@ -235,7 +235,7 @@ AlgorithmProfile XmlConfigParser::parse_profile(std::filesystem::path const& pro
     if (auto const* vt = find_first_named(*profile_node, "value_types")) prof.value_types = vt->text;
     // V19.1 — expected_workload (optional, ueberschreibt V11.2-Heuristik)
     if (auto const* ew = find_first_named(*profile_node, "expected_workload")) prof.expected_workload = ew->text;
-    // V29.A — allocator_override (optional, ueberschreibt axes/allocator)
+    // V29.A -- allocator_override (optional, ueberschreibt organ_axes/allocator)
     if (auto const* ao = find_first_named(*profile_node, "allocator_override")) prof.allocator_override = ao->text;
     return prof;
 }

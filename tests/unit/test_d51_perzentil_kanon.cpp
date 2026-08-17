@@ -19,7 +19,7 @@
 //              Median-Bauarten (best_binary_selector-Binary, eta_kalibrierung::median_t_s,
 //              HDR-Histogramm, Iterator-Gruppenmedian) -- das ist D5-2/D5-5. Nichts ueber die
 //              ALTBESTAENDE an Messdaten: die bleiben liegen und werden nur als ungueltig MARKIERT.
-//              Der Form-Zensus (2) sieht nur die zwei genannten Wurzeln; axes/, ext/ und tests/
+//              Der Form-Zensus (2) sieht nur die zwei genannten Wurzeln; organ_axes/, ext/ und tests/
 //              sind bewusst ausserhalb.
 //
 // TDD-VERTRAG: T-1 (diese Datei lief ROT, bevor der Kanon gebaut wurde), T-2 (jede Zusicherung

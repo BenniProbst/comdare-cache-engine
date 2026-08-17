@@ -1,12 +1,12 @@
 // AP-7b-3/#27 -- SwissTable ISA group-match primitive (opt-in SIMD, default scalar).
 
-#include <axes/lookup/composable/tier_to_organ_mapping.hpp>
-#include <axes/lookup/axis_03a_search_algo_swisstable.hpp>
-#include <axes/simd/axis_09_isa_aarch64.hpp>
-#include <axes/simd/axis_09_isa_amd64.hpp>
-#include <axes/simd/axis_09_isa_observable.hpp>
-#include <axes/simd/axis_09_isa_powerpc.hpp>
-#include <axes/simd/axis_09_isa_riscv.hpp>
+#include <organ_axes/lookup/composable/tier_to_organ_mapping.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_swisstable.hpp>
+#include <organ_axes/simd/axis_09_isa_aarch64.hpp>
+#include <organ_axes/simd/axis_09_isa_amd64.hpp>
+#include <organ_axes/simd/axis_09_isa_observable.hpp>
+#include <organ_axes/simd/axis_09_isa_powerpc.hpp>
+#include <organ_axes/simd/axis_09_isa_riscv.hpp>
 
 #include <anatomy/observable_tier.hpp>
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp>

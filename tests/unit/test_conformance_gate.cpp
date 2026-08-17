@@ -11,8 +11,8 @@
 #include <builder/pruef_dock/conformance_gate.hpp>
 // #188-4a: das reale KAryTraversal-Organ ueber den Pilot-Store (RawSlotStore<>) — reine lib-Header (CI-tauglich, kein
 // cl/anatomy/boost/generated, exakt der #223-Standalone-Stil) → beweist KAryTraversal == std::map-konform (Weg-A).
-#include <axes/lookup/composable/composable_search.hpp>
-#include <axes/lookup/composable/k_ary_traversal_organ.hpp>
+#include <organ_axes/lookup/composable/composable_search.hpp>
+#include <organ_axes/lookup/composable/k_ary_traversal_organ.hpp>
 
 #include <algorithm>
 #include <cstdint>

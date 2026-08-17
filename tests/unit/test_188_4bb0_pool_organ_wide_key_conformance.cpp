@@ -22,8 +22,8 @@
 // Additiv/gate-frei: berührt WEDER den abi_adapter NOCH den Produktions-Konformitäts-Gate (dessen Erweiterung
 // auf weite Keys hätte die damaligen u16-Monolith-Binaries gebrochen — daher hier organ-direkt, nicht am Gate).
 
-#include <axes/lookup/composable/organ_for_search_algo.hpp>         // organ_for_search_algo_t + 9 Wrapper-Fwd + Organe
-#include <axes/lookup/composable/observable_composed_container.hpp> // ObservableComposedContainer<Organ>
+#include <organ_axes/lookup/composable/organ_for_search_algo.hpp> // organ_for_search_algo_t + 9 Wrapper-Fwd + Organe
+#include <organ_axes/lookup/composable/observable_composed_container.hpp> // ObservableComposedContainer<Organ>
 
 #include <gtest/gtest.h>
 

@@ -45,7 +45,7 @@
          page {4k,2m}: 4k = Basis-Page der Plattform (HW::memory_page_size()), 2m = Huge-Page-Hint
            (nur wenn HW::huge_page_capable(), sonst compile-time weggegated auf 4k).
          Konsum: NUMAllocAllocatorBody (numa_node statt Hartcode -1) + PoolResourceAllocatorBody
-           (page -> pmr::pool_options); Gate: gate_alloc_hw_for<HW> (axes/alloc/alloc_hw_config.hpp). -->
+           (page -> pmr::pool_options); Gate: gate_alloc_hw_for<HW> (organ_axes/alloc/alloc_hw_config.hpp). -->
     <axis ref="alloc_hw">
       <numa_node>auto</numa_node>
       <numa_node>0</numa_node>

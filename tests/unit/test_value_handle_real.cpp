@@ -28,12 +28,12 @@
 #include <anatomy/search_algorithm_anatomy.hpp>
 
 #include <compositions/hot_reference.hpp> // Basis-Composition (value_handle wird im Test ersetzt)
-#include <axes/value_handle_axis/axis_14_value_handle_inline.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_external_pool.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_immutable_shared_ref.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_versioned_pointer.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_chain_ref.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_observable.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_inline.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_external_pool.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_immutable_shared_ref.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_versioned_pointer.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_chain_ref.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_observable.hpp>
 
 #include <cstdint>
 #include <iostream>

@@ -1,4 +1,4 @@
-// A8-S5 Familie 01_read_path / Sub-Scheibe 01a (die Pool-/Layout-Stores unter axes/lookup/composable/)
+// A8-S5 Familie 01_read_path / Sub-Scheibe 01a (die Pool-/Layout-Stores unter organ_axes/lookup/composable/)
 // -- FAMILIEN-KONFORMITAETS-WACHE.
 //
 // Dossier: docs/architecture/20260803-a8_f2_benchmarking_schnitt_soll_design.md Abschn. 3.4 + 5-S5
@@ -46,12 +46,12 @@
 
 #include "s5_family_alloc_conformance.hpp"
 
-#include <axes/alloc/axis_06_allocator_exgen.hpp>
-#include <axes/alloc/concepts/axis_06_allocator_concept.hpp>
-#include <axes/lookup/axis_03a_search_algo_registry.hpp>
-#include <axes/lookup/composable/observable_composed_container.hpp>
-#include <axes/lookup/composable/organ_for_search_algo.hpp>
-#include <axes/lookup/composable/tier_to_organ_mapping.hpp>
+#include <organ_axes/alloc/axis_06_allocator_exgen.hpp>
+#include <organ_axes/alloc/concepts/axis_06_allocator_concept.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_registry.hpp>
+#include <organ_axes/lookup/composable/observable_composed_container.hpp>
+#include <organ_axes/lookup/composable/organ_for_search_algo.hpp>
+#include <organ_axes/lookup/composable/tier_to_organ_mapping.hpp>
 
 #include <boost/mp11.hpp>
 

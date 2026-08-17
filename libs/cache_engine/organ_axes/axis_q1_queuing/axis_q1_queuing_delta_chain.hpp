@@ -1,0 +1,200 @@
+#pragma once
+// V41.F.6.1 axis_q1_queuing DeltaChainBuffer Q-DELTA (2026-05-26)
+//
+// @topic queuing @achse Q1 @family Q07 DeltaChainBuffer
+// @subaxis QS4 versioned_access
+//
+// Delta-Chain Buffer im Bw-Tree-Stil (Levandoski/Lomet/Sengupta, ICDE 2013):
+// jeder put() haengt einen Delta-Record mit aufsteigender Version-ID an die
+// Spitze der Chain. get() liefert das neueste Delta zurueck und entfernt es
+// (LIFO-Drain mit Versions-ID).
+//
+// **Erste Strategie mit is_versioned()=true** — Markant fuer PermutationEngine:
+// nur versionierte Strategien koennen in Snapshot/MVCC-Pfaden eingesetzt werden
+// (z.B. fuer Q-EPOCH-Konsumenten, Snapshot-Isolation).
+//
+// Allocation: A8-S5 SCHNITT-FORM (B), 2026-08-05 -- der Chain-Speicher haengt an der Allokator-ACHSE
+// (axis_06). FORM-ENTSCHEID am Objekt: Form A (heap-frei) scheidet aus -- die Delta-Chain waechst
+// unbounded mit jedem put() (is_bounded()==false), eine CT-Kappe waere ein anderes Organ.
+// [[allocation-failure-exception]]: der Wurf kommt seit diesem Schnitt vom StdAllocatorAdapter der
+// Achse (Posten 64), nicht mehr vom Default-Allokator.
+
+#include "axis_q1_queuing_axis_storage.hpp"
+#include "axis_q1_queuing_base.hpp"
+#include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
+#include "concepts/axis_q1_queuing_concept.hpp"
+#include "concepts/axis_q1_queuing_cache_engine_permutation_concept.hpp"
+#include "concepts/axis_q1_queuing_versioned_strategy_concept.hpp"
+#include <topics/queuing/concepts/topic_queuing_concept.hpp>
+
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_flags.hpp>
+#include <measurement/measurable_concept.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <string_view>
+#include <type_traits>
+#include <vector>
+
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
+namespace comdare::cache_engine::queuing::axis_q1_queuing {
+
+class DeltaChainBuffer : public BufferStrategyBase<DeltaChainBuffer> {
+public:
+    static constexpr bool enabled = flags::delta_chain_enabled;
+
+    using element_type = std::uint64_t;
+    using size_type    = std::size_t;
+    using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
+    using axis_tag     = subaxes::versioned_access_tag;
+    using family_id    = std::integral_constant<int, 7>; // Q07
+
+    /// A8-S5 SCHNITT-FORM (B): DIESE Zeile ist der Ausweis, den die Familien-Konformitaets-Wache
+    /// liest (tests/unit/s5_family_alloc_conformance.hpp). Achsen-Default: axis_q1_queuing_axis_storage.hpp.
+    using allocator_type = queuing_buffer_allocator_t;
+
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "delta_chain"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::queuing::axis_q1_queuing::DeltaChainBuffer",
+                                  "organ_axes/axis_q1_queuing/axis_q1_queuing_delta_chain.hpp");
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "DeltaChainBuffer (Bw-Tree, Levandoski/Lomet/Sengupta ICDE 2013)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "DELTA_CHAIN"; }
+    /// Algorithmus-Version (Organ-Provenienz, inkrementeller Tier-Binary-Cache): Bump bei algorithmischer
+    /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
+    /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
+    /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
+    static constexpr std::string_view algo_version = "1.0.0.c";
+
+    [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_concurrent_consumers() noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_priority_ordering() noexcept { return false; }
+    /// SONDERFALL: erste Q1-Strategie mit Versionierung=TRUE.
+    [[nodiscard]] static constexpr bool                        is_versioned() noexcept { return true; }
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
+        return concepts::ProgressGuarantee::Blocking;
+    }
+
+    /// Die Chain wird an das EIGENE allocator_ gebunden (der Adapter haelt &allocator_).
+    DeltaChainBuffer() : chain_(allocator_.template as_std_allocator<element_type>()) {}
+
+    /// COW-SICHERHEIT (Memento-Muster, Praezedenz btree_node_pool_store.hpp:86): Copy-Ctor/Assign
+    /// rebinden an das EIGENE allocator_ und verwerfen die transiente Kopier-Pollution per
+    /// restore_statistics. MOVE bewusst NICHT deklariert (Fremd-Zeiger im Adapter).
+    DeltaChainBuffer(DeltaChainBuffer const& o)
+        : allocator_(o.allocator_), chain_(o.chain_, allocator_.template as_std_allocator<element_type>()),
+          next_version_id_(o.next_version_id_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_    = o.stats_;
+        observer_ = o.observer_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    DeltaChainBuffer& operator=(DeltaChainBuffer const& o) {
+        if (this != &o) {
+            chain_           = o.chain_; // POCCA=false -> eigener Adapter bleibt erhalten
+            next_version_id_ = o.next_version_id_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_    = o.stats_;
+            observer_ = o.observer_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~DeltaChainBuffer() = default;
+
+    [[nodiscard]] bool operator==(DeltaChainBuffer const& other) const noexcept {
+        return chain_.size() == other.chain_.size();
+    }
+
+    /// SONDERFALL [[allocation-failure-exception]]: push_back kann werfen -- seit dem A8-S5-Schnitt aus
+    /// dem StdAllocatorAdapter der Allokator-ACHSE (Posten 64), nicht mehr vom Default-Allokator.
+    void put(element_type v) {
+        chain_.push_back(v);
+        ++next_version_id_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        ++stats_.total_put_count;
+        if (chain_.size() > stats_.peak_size) stats_.peak_size = chain_.size();
+        observer_.notify(stats_);
+#endif
+    }
+
+    /// LIFO-Drain (jüngstes Delta zuerst).
+    [[nodiscard]] std::optional<element_type> get() {
+        if (chain_.empty()) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            ++stats_.underflow_count;
+            observer_.notify(stats_);
+#endif
+            return std::nullopt;
+        }
+        element_type v = chain_.back();
+        chain_.pop_back();
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        ++stats_.total_get_count;
+        observer_.notify(stats_);
+#endif
+        return v;
+    }
+
+    [[nodiscard]] size_type size() const noexcept { return chain_.size(); }
+    [[nodiscard]] bool      is_empty() const noexcept { return chain_.empty(); }
+    void                    clear() noexcept { chain_.clear(); }
+
+    /// Versionsspezifisch: peek_front=neuestes Delta (top of chain), peek_back=aeltestes.
+    [[nodiscard]] std::optional<element_type> peek_front() const noexcept {
+        if (chain_.empty()) return std::nullopt;
+        return chain_.back();
+    }
+    [[nodiscard]] std::optional<element_type> peek_back() const noexcept {
+        if (chain_.empty()) return std::nullopt;
+        return chain_.front();
+    }
+    void emplace(element_type v) { put(v); }
+
+    /// VersionedBufferStrategy [[versioned-strategy]]: monoton steigender Delta-Counter.
+    /// Inkrementiert bei jedem put() (Append-Versioning, Bw-Tree-Stil).
+    [[nodiscard]] std::uint64_t version_id() const noexcept { return next_version_id_; }
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    using snapshot_t = concepts::BufferStatistics;
+    using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
+    [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
+    [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11) -- EIGENER Name, DISJUNKT zum
+    /// konstitutiven Store-Snapshot; die Summierungs-Frage gehoert ins Mess-Schnitt-Fenster.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t buffer_allocator_statistics() const noexcept { return allocator_.statistics(); }
+#endif
+
+private:
+    using chain_type = std::vector<element_type, queuing_buffer_alloc_t<element_type>>;
+
+    // allocator_ MUSS VOR chain_ stehen (Adapter haelt &allocator_) -- Ordnung wie 01a/01c/01d.
+    allocator_type allocator_{};
+    chain_type     chain_;
+    std::uint64_t  next_version_id_ = 0;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    concepts::BufferStatistics stats_{};
+    observer_t                 observer_{};
+#endif
+};
+
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing
+
+namespace comdare::cache_engine::queuing::axis_q1_queuing {
+static_assert(concepts::BufferStrategy<DeltaChainBuffer>);
+static_assert(concepts::CacheEngineBufferPermutationStrategy<DeltaChainBuffer>);
+static_assert(concepts::VersionedBufferStrategy<DeltaChainBuffer>);
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing

@@ -7,8 +7,8 @@
 #include <anatomy/rollbackable_tier.hpp> // IRollbackableTier (Zwei-Phasen-CoW)
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <builder/anatomy_commands/tier_observe_trace_abi.hpp> // detail::two_phase_measure
-#include <axes/lookup/axis_03a_search_algo_bst.hpp>
-#include <axes/lookup/composable/tier_to_organ_mapping.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_bst.hpp>
+#include <organ_axes/lookup/composable/tier_to_organ_mapping.hpp>
 #include <builder/codegen/all_axes_umbrella.hpp>
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp>
 #include <compositions/art_reference.hpp>
@@ -23,7 +23,7 @@
 #include <string_view>
 #include <type_traits>
 #include <vector>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an   = ::comdare::cache_engine::anatomy;
 namespace b    = ::comdare::cache_engine::builder;

@@ -51,20 +51,24 @@
 // ------------------------------------------------------------------------------------------------
 // DIE GRAMMATIK
 // ------------------------------------------------------------------------------------------------
-//   "mg=" <m> ";" <s> ";" <x> ";" <tw> ";" <tm> ";" <tmi>
-// mit m in {m0,m1} (COMDARE_MEASUREMENT_ON, wertbasiert wie anatomy/abi_adapter.hpp:9),
-//     s in {s0,s1} (COMDARE_CE_ENABLE_STATISTICS, #ifdef -- so steht es im anatomy/-Baum),
-//     x in {x0,x1} (COMDARE_EXPERIMENT_MODE_ON, wertbasiert wie abi_adapter.hpp:9),
-//     tw/tm/tmi    (die drei Deklarations-Defines COMDARE_MEASUREMENT_TOOLING_<ID>, #ifdef).
+//   "mg=" <m> ";" <s> ";" <st> ";" <x> ";" <tw> ";" <tm> ";" <tmi>
+// mit m in {m0,m1}   (COMDARE_MEASUREMENT_ON, wertbasiert wie anatomy/abi_adapter.hpp:9),
+//     s in {s0,s1}   (COMDARE_CE_ENABLE_STATISTICS, #ifdef -- so steht es im anatomy/-Baum),
+//     st in {st0,st1} (B2 15.08.2026: COMDARE_CE_ENABLE_SEGMENT_TIMING, WERTBASIERT nach der EINEN
+//                    Ableitung in mess_gate_segment_timing.hpp -- so prueft es der anatomy/-Baum;
+//                    st steht DIREKT hinter s, weil G3 die naechste Schicht ueber G2 ist),
+//     x in {x0,x1}   (COMDARE_EXPERIMENT_MODE_ON, wertbasiert wie abi_adapter.hpp:9),
+//     tw/tm/tmi      (die drei Deklarations-Defines COMDARE_MEASUREMENT_TOOLING_<ID>, #ifdef).
 // Es kommen ausschliesslich Zeichen aus anatomy_glied_zeichen_erlaubt vor, kein '\n', und der
 // erste Schluessel ist nicht leer -- die Injektivitaets-Format-Wache
 // injizierter_glied_wert_ist_wohlgeformt haelt das compile-hart fest (in anatomy_fingerprint.hpp,
 // wo die Wache wohnt).
 //
-// KUENFTIGE GATE-VERFEINERUNG (mess_achsen_naht.hpp:93-98: G3 aus dem STATISTICS-Gate herausloesen):
-// dieses Glied MUSS dann um das neue Makro erweitert werden. Die Selbstbeweis-static_asserts unten
-// und der Spiegel-Test machen das Vergessen compile- bzw. test-hart; die Erweiterung selbst gehoert
-// in die Beschreibung jenes Folgepakets.
+// GATE-VERFEINERUNG -- ERLEDIGT DURCH B2 (15.08.2026). Hier stand seit R-3 die Zusage: "G3 aus dem
+// STATISTICS-Gate herausloesen: dieses Glied MUSS dann um das neue Makro erweitert werden." B2 hat
+// beides gebaut: das Gate (COMDARE_CE_ENABLE_SEGMENT_TIMING, Ableitung in
+// mess_gate_segment_timing.hpp) und das Feld <st> dieser Grammatik. Die Selbstbeweis-static_asserts
+// unten und der Spiegel-Test tragen das Feld seither mit.
 //
 // ------------------------------------------------------------------------------------------------
 // WARUM DIE BILDUNG KEINEN std::string BENUTZT (08.08.2026)
@@ -89,6 +93,11 @@
 // header-only, ASCII-only, keine Abhaengigkeit ausser <array>/<cstddef>/<string>/<string_view>
 // (<string> traegt nur noch den LAUFZEIT-Ausgang MessGatesGliedText::str(), nicht die Bildung).
 
+// B2: die EINE Ableitung des G3-Gates -- quoted-relativ, damit jede TU sie unabhaengig vom
+// Include-Pfad bekommt. Sie MUSS vor den Segment-Makros stehen: das <st>-Segment liest den
+// ABGELEITETEN, real wirksamen Wert, nicht das rohe Kommandozeilen-Makro.
+#include "mess_gate_segment_timing.hpp"
+
 #include <array>
 #include <cstddef>
 #include <string>
@@ -110,6 +119,14 @@ namespace comdare::cache_engine::abi {
 #define COMDARE_MESS_GATES_SEG_S "s1"
 #else
 #define COMDARE_MESS_GATES_SEG_S "s0"
+#endif
+
+// B2: G3 -- WERTBASIERT, weil die Ableitung oben das Makro in JEDER TU auf 0/1 normalisiert und der
+// anatomy/-Baum es genauso prueft (#if COMDARE_CE_ENABLE_SEGMENT_TIMING).
+#if COMDARE_CE_ENABLE_SEGMENT_TIMING
+#define COMDARE_MESS_GATES_SEG_ST "st1"
+#else
+#define COMDARE_MESS_GATES_SEG_ST "st0"
 #endif
 
 #if defined(COMDARE_EXPERIMENT_MODE_ON) && COMDARE_EXPERIMENT_MODE_ON
@@ -141,13 +158,14 @@ inline constexpr std::string_view kMessGatesGliedPraefix = "mg=";
 
 /// Die FELD-POSITIONEN, benannt statt nackt (dieselbe Begruendung wie bei den Glied-Positionen in
 /// anatomy_fingerprint.hpp: eine Umsortierung ohne Nachzug muss brechen, nicht still verschieben).
-inline constexpr std::size_t kMessGatesFeldMeasurement = 0;
-inline constexpr std::size_t kMessGatesFeldStatistics  = 1;
-inline constexpr std::size_t kMessGatesFeldExperiment  = 2;
-inline constexpr std::size_t kMessGatesFeldWallclock   = 3;
-inline constexpr std::size_t kMessGatesFeldMacro       = 4;
-inline constexpr std::size_t kMessGatesFeldMicro       = 5;
-inline constexpr std::size_t kMessGatesFeldCount       = 6;
+inline constexpr std::size_t kMessGatesFeldMeasurement   = 0;
+inline constexpr std::size_t kMessGatesFeldStatistics    = 1;
+inline constexpr std::size_t kMessGatesFeldSegmentTiming = 2; // B2: G3 direkt hinter G2 (Schichten-Ordnung)
+inline constexpr std::size_t kMessGatesFeldExperiment    = 3;
+inline constexpr std::size_t kMessGatesFeldWallclock     = 4;
+inline constexpr std::size_t kMessGatesFeldMacro         = 5;
+inline constexpr std::size_t kMessGatesFeldMicro         = 6;
+inline constexpr std::size_t kMessGatesFeldCount         = 7;
 
 /// Der Feld-TRENNER der Grammatik. Er steht hier als Konstante und nicht als Literal in der Bildung,
 /// weil die Kapazitaets-Rechnung unten mit ihm rechnet.
@@ -162,13 +180,13 @@ inline constexpr char kMessGatesFeldTrenner = ';';
 /// sie MUSS, weil der Praeprozessor keine constexpr-Tabelle lesen kann. Genau diese unvermeidbare
 /// Doppelung ist der Grund fuer den Binde-static_assert am Dateiende.
 inline constexpr std::string_view kMessGatesSegmente[kMessGatesFeldCount][2] = {
-    {"m0", "m1"}, {"s0", "s1"}, {"x0", "x1"}, {"tw0", "tw1"}, {"tm0", "tm1"}, {"tmi0", "tmi1"},
+    {"m0", "m1"}, {"s0", "s1"}, {"st0", "st1"}, {"x0", "x1"}, {"tw0", "tw1"}, {"tm0", "tm1"}, {"tmi0", "tmi1"},
 };
 
 /// kMessGatesGliedMaxLen -- die LAENGSTE Zeichenkette, die diese Grammatik bilden kann. GERECHNET
 /// aus den Segmenten oben, nicht abgezaehlt: der Puffer darunter kann konstruktiv nicht zu klein
-/// werden. Heute sind es 24 Zeichen ("mg=m0;s0;x0;tw0;tm0;tmi0"); die Wache am Dateiende prueft alle
-/// 2^6 baubaren Formen dagegen, damit die Zahl nicht bloss behauptet ist.
+/// werden. Seit B2 sind es 28 Zeichen ("mg=m0;s0;st0;x0;tw0;tm0;tmi0"); die Wache am Dateiende
+/// prueft alle 2^7 baubaren Formen dagegen, damit die Zahl nicht bloss behauptet ist.
 inline constexpr std::size_t kMessGatesGliedMaxLen = [] {
     std::size_t n = kMessGatesGliedPraefix.size() + (kMessGatesFeldCount - 1); // Praefix + Trenner
     for (auto const& feld : kMessGatesSegmente) n += feld[0].size() > feld[1].size() ? feld[0].size() : feld[1].size();
@@ -236,18 +254,20 @@ private:
 /// Rueckgabetyp ist MessGatesGliedText und NICHT std::string -- s. den Absatz "WARUM DIE BILDUNG
 /// KEINEN std::string BENUTZT" im Kopf. Die Laufzeit-Seiten holen sich ihren std::string mit .str().
 [[nodiscard]] constexpr MessGatesGliedText mess_gates_glied_komponieren(bool measurement_on, bool statistics_on,
-                                                                        bool experiment_mode_on, bool tooling_wallclock,
-                                                                        bool tooling_macro, bool tooling_micro) {
+                                                                        bool segment_timing_on, bool experiment_mode_on,
+                                                                        bool tooling_wallclock, bool tooling_macro,
+                                                                        bool tooling_micro) {
     // Die Zuordnung Argument -> Feld laeuft ueber die BENANNTEN Positionen, nicht ueber die
     // Reihenfolge der Argumente: eine Umsortierung der Felder muss die Bildung mitnehmen, und die
     // Wache am Dateiende faengt es, falls jemand nur die Segment-Tabelle umstellt.
     bool an[kMessGatesFeldCount]{};
-    an[kMessGatesFeldMeasurement] = measurement_on;
-    an[kMessGatesFeldStatistics]  = statistics_on;
-    an[kMessGatesFeldExperiment]  = experiment_mode_on;
-    an[kMessGatesFeldWallclock]   = tooling_wallclock;
-    an[kMessGatesFeldMacro]       = tooling_macro;
-    an[kMessGatesFeldMicro]       = tooling_micro;
+    an[kMessGatesFeldMeasurement]   = measurement_on;
+    an[kMessGatesFeldStatistics]    = statistics_on;
+    an[kMessGatesFeldSegmentTiming] = segment_timing_on; // B2
+    an[kMessGatesFeldExperiment]    = experiment_mode_on;
+    an[kMessGatesFeldWallclock]     = tooling_wallclock;
+    an[kMessGatesFeldMacro]         = tooling_macro;
+    an[kMessGatesFeldMicro]         = tooling_micro;
 
     MessGatesGliedText g;
     g.anhaengen(kMessGatesGliedPraefix);
@@ -270,6 +290,12 @@ constexpr bool kMessGatesTuMeasurementOn =
 #endif
 constexpr bool kMessGatesTuStatisticsOn =
 #ifdef COMDARE_CE_ENABLE_STATISTICS
+    true;
+#else
+    false;
+#endif
+constexpr bool kMessGatesTuSegmentTimingOn = // B2: der ABGELEITETE, real wirksame G3-Zustand
+#if COMDARE_CE_ENABLE_SEGMENT_TIMING
     true;
 #else
     false;
@@ -303,8 +329,9 @@ constexpr bool kMessGatesTuToolingMicro =
 /// Er entsteht rein aus den Segment-Literalen oben, also aus dem Praeprozessor-Zustand, den der
 /// Compiler wirklich sieht. Interne Bindung -- s. der ODR-Absatz im Kopf.
 constexpr std::string_view kMessGatesTuGlied =
-    "mg=" COMDARE_MESS_GATES_SEG_M ";" COMDARE_MESS_GATES_SEG_S ";" COMDARE_MESS_GATES_SEG_X
-    ";" COMDARE_MESS_GATES_SEG_TW ";" COMDARE_MESS_GATES_SEG_TM ";" COMDARE_MESS_GATES_SEG_TMI;
+    "mg=" COMDARE_MESS_GATES_SEG_M ";" COMDARE_MESS_GATES_SEG_S ";" COMDARE_MESS_GATES_SEG_ST
+    ";" COMDARE_MESS_GATES_SEG_X ";" COMDARE_MESS_GATES_SEG_TW ";" COMDARE_MESS_GATES_SEG_TM
+    ";" COMDARE_MESS_GATES_SEG_TMI;
 // NOLINTEND(misc-definitions-in-headers)
 
 // -- W3: DER SELBSTBEWEIS. DIE KONSTANTE KANN DEN TU-ZUSTAND NICHT VERFEHLEN ----------------------
@@ -323,6 +350,14 @@ static_assert(mess_gates_feld(kMessGatesTuGlied, kMessGatesFeldStatistics) == "s
 #else
 static_assert(mess_gates_feld(kMessGatesTuGlied, kMessGatesFeldStatistics) == "s0",
               "R-3/W3: COMDARE_CE_ENABLE_STATISTICS ist in dieser TU AUS, das Glied sagt aber 's1'.");
+#endif
+// B2/W3: dieselbe Selbstbeweis-Form fuer G3 -- wertbasiert, exakt wie der anatomy/-Baum prueft.
+#if COMDARE_CE_ENABLE_SEGMENT_TIMING
+static_assert(mess_gates_feld(kMessGatesTuGlied, kMessGatesFeldSegmentTiming) == "st1",
+              "B2/W3: COMDARE_CE_ENABLE_SEGMENT_TIMING ist in dieser TU wirksam AN, das Glied sagt aber 'st0'.");
+#else
+static_assert(mess_gates_feld(kMessGatesTuGlied, kMessGatesFeldSegmentTiming) == "st0",
+              "B2/W3: COMDARE_CE_ENABLE_SEGMENT_TIMING ist in dieser TU wirksam AUS, das Glied sagt aber 'st1'.");
 #endif
 #if defined(COMDARE_EXPERIMENT_MODE_ON) && COMDARE_EXPERIMENT_MODE_ON
 static_assert(mess_gates_feld(kMessGatesTuGlied, kMessGatesFeldExperiment) == "x1",
@@ -362,8 +397,9 @@ static_assert(mess_gates_feld(kMessGatesTuGlied, kMessGatesFeldCount).empty(),
 /// Ohne sie waere "eine Grammatik" eine Absichtserklaerung -- der Host koennte eine andere Form
 /// vorhersagen, als die TU einbaut, und genau diese Drift ist die Fehlerklasse aus D-1.
 static_assert(mess_gates_glied_komponieren(kMessGatesTuMeasurementOn, kMessGatesTuStatisticsOn,
-                                           kMessGatesTuExperimentModeOn, kMessGatesTuToolingWallclock,
-                                           kMessGatesTuToolingMacro, kMessGatesTuToolingMicro)
+                                           kMessGatesTuSegmentTimingOn, kMessGatesTuExperimentModeOn,
+                                           kMessGatesTuToolingWallclock, kMessGatesTuToolingMacro,
+                                           kMessGatesTuToolingMicro)
                       .sv() == kMessGatesTuGlied,
               "R-3: die Praeprozessor-Bildung des mess-gates-Glieds und mess_gates_glied_komponieren() "
               "sind auseinandergelaufen -- es gibt dann ZWEI Grammatiken und die Host-Vorhersage ist wertlos.");
@@ -373,15 +409,16 @@ static_assert(mess_gates_glied_komponieren(kMessGatesTuMeasurementOn, kMessGates
 // und dass die Segment-Tabelle zu den benannten Feld-Positionen passt.
 namespace detail {
 
-/// Die groesste Laenge ueber ALLE 2^6 baubaren Grammatiken. Sie laeuft die Bildung wirklich durch --
+/// Die groesste Laenge ueber ALLE 2^7 baubaren Grammatiken. Sie laeuft die Bildung wirklich durch --
 /// laege eine Form ueber der Kapazitaet, braeche schon das .at() im Puffer, und zwar hier.
 [[nodiscard]] constexpr std::size_t mess_gates_groesste_bildung() {
     std::size_t groesste = 0;
     for (unsigned maske = 0; maske < (1u << kMessGatesFeldCount); ++maske) {
         auto const bit = [maske](std::size_t feld) { return ((maske >> feld) & 1u) != 0u; };
         auto const g   = mess_gates_glied_komponieren(bit(kMessGatesFeldMeasurement), bit(kMessGatesFeldStatistics),
-                                                      bit(kMessGatesFeldExperiment), bit(kMessGatesFeldWallclock),
-                                                      bit(kMessGatesFeldMacro), bit(kMessGatesFeldMicro));
+                                                      bit(kMessGatesFeldSegmentTiming), bit(kMessGatesFeldExperiment),
+                                                      bit(kMessGatesFeldWallclock), bit(kMessGatesFeldMacro),
+                                                      bit(kMessGatesFeldMicro));
         if (g.size() > groesste) groesste = g.size();
     }
     return groesste;
@@ -399,8 +436,9 @@ namespace detail {
     for (std::size_t feld = 0; feld < kMessGatesFeldCount; ++feld) {
         auto const bit = [feld](std::size_t f) { return f == feld; };
         auto const g   = mess_gates_glied_komponieren(bit(kMessGatesFeldMeasurement), bit(kMessGatesFeldStatistics),
-                                                      bit(kMessGatesFeldExperiment), bit(kMessGatesFeldWallclock),
-                                                      bit(kMessGatesFeldMacro), bit(kMessGatesFeldMicro));
+                                                      bit(kMessGatesFeldSegmentTiming), bit(kMessGatesFeldExperiment),
+                                                      bit(kMessGatesFeldWallclock), bit(kMessGatesFeldMacro),
+                                                      bit(kMessGatesFeldMicro));
         for (std::size_t i = 0; i < kMessGatesFeldCount; ++i)
             if (mess_gates_feld(g.sv(), i) != kMessGatesSegmente[i][i == feld ? 1 : 0]) return false;
     }
@@ -416,12 +454,14 @@ static_assert(detail::mess_gates_groesste_bildung() == kMessGatesGliedMaxLen,
 static_assert(detail::mess_gates_segmente_stehen_auf_ihrem_feld(),
               "R-3/08.08.: die Segment-Tabelle kMessGatesSegmente und die benannten kMessGatesFeld*-Positionen "
               "sind auseinandergelaufen -- die Bildung schreibt ein Gate an die Stelle eines anderen.");
-static_assert(mess_gates_glied_komponieren(false, false, false, false, false, false).sv() == "mg=m0;s0;x0;tw0;tm0;tmi0",
-              "R-3/08.08.: der AUS-Zustand der Grammatik hat seine Form geaendert. Er ist an mehreren Stellen "
+static_assert(mess_gates_glied_komponieren(false, false, false, false, false, false, false).sv() ==
+                  "mg=m0;s0;st0;x0;tw0;tm0;tmi0",
+              "R-3/B2: der AUS-Zustand der Grammatik hat seine Form geaendert. Er ist an mehreren Stellen "
               "als Text belegt (anatomy_fingerprint.hpp: 'NIEMALS leer'); wer ihn bewegt, zieht sie mit.");
 
 #undef COMDARE_MESS_GATES_SEG_M
 #undef COMDARE_MESS_GATES_SEG_S
+#undef COMDARE_MESS_GATES_SEG_ST
 #undef COMDARE_MESS_GATES_SEG_X
 #undef COMDARE_MESS_GATES_SEG_TW
 #undef COMDARE_MESS_GATES_SEG_TM

@@ -9,7 +9,8 @@
 //     ueber Lock-Eintraege; am 13.08.2026 literal belegt: Phantom-Eintrag -> 'GRUEN', Exit 0).
 //     v2 erhebt seine Grundgesamtheit SELBST unter --root und prueft BIDIREKTIONAL.
 //   * KATEGORIE-DETAIL-KLASSEN (KON17-03): HeuristikDetail traegt den Marker-Mechanismus,
-//     OrganDetail die Literal-Mechanik (axes/ + topics/queuing/). EINE Wache, EIN Lock
+//     OrganDetail die Literal-Mechanik (organ_axes/ inkl. der per #72 eingezogenen queuing-Traeger
+//     + topics/-Andock-Verzeichnisse). EINE Wache, EIN Lock
 //     (KON27-01/KON17-03) -- die Kategorien sind Spalten desselben Locks, kein zweites Lockfile.
 //   * ZWEI RIEGEL-SCHAERFUNGEN: (i) Lock-Eintrag ohne Datei => ROT (verwaist); (ii) je Kategorie
 //     ein discovered-Zaehler MIT NENNER in der Ausgabe (BESTAND-Zeilen), damit die Zahl gefahren
@@ -32,7 +33,7 @@
 //        KONKRETEN Inhalt. (b) Der CI-Job erzwingt zusaetzlich Byte-Identitaet des Registers
 //        (--write + git diff --exit-code) -- Tiefenstaffelung, faengt auch Klassen, die --check
 //        strukturell nicht sieht.
-//   (G3) ALLE LITERALE EINER DATEI, NICHT DAS ERSTE. axes/lookup/axis_03a_search_algo_k_ary.hpp
+//   (G3) ALLE LITERALE EINER DATEI, NICHT DAS ERSTE. organ_axes/lookup/axis_03a_search_algo_k_ary.hpp
 //        traegt ZWEI Variantenfamilien mit je eigenem Literal (:141 KArySearchAlgoCore, :573
 //        KAryPerKCore). Vorher zaehlte nur :141 -- Bump am falschen Literal => 'OK MIT
 //        Version-Bump'/GRUEN, korrekter Bump an :573 => falsches ROT (beides literal belegt).
@@ -75,9 +76,9 @@
 //        system 16, mess 1, tier_substanz 55) + heuristik 6 = 718 Records. Dateien ohne Literal
 //        stehen digest-only ('-') im Lock; der Riegel faengt sie ueber Digest-Drift.
 //        DIFFERENZ BEIDER MENGEN, BENANNT: 26 *.hpp der alten Homes stehen NICHT im Schnitt
-//        (axes/telemetry_axis 10: telemetry ist CEB-System-Achse geworden; axes/simd 10: isa ->
-//        target_isa, simd_extension ist Build-only-Achse in Glied [6]; axes/cacheline 3 +
-//        axes/axis_centric_namespaces.hpp + topics/queuing-Topic-Huelle 2: keine Achsen-
+//        (organ_axes/telemetry_axis 10: telemetry ist CEB-System-Achse geworden; organ_axes/simd 10: isa ->
+//        target_isa, simd_extension ist Build-only-Achse in Glied [6]; organ_axes/cacheline 3 +
+//        organ_axes/axis_centric_namespaces.hpp + topics/queuing-Topic-Huelle 2: keine Achsen-
 //        Implementierung im Sinne des Schnitts). 0 der 26 waren gelockt, 0 enthalten
 //        'algo_version' (gemessen) -- die Wache folgt dem Schnitt, nicht umgekehrt.
 //   (D2) TRAEGER-AUSTRITT IST ROT. Rot-zuerst literal: Literal entfernt und --write gefahren =>
@@ -140,6 +141,11 @@
 //              KATEGORIE-REGELN (D2/D3/D4): Kategorie-Abweichung Lock vs. Discovery => ROT;
 //              traeger -> digest-only => ROT ohne --write-Weg; digest-only -> traeger =>
 //              Exit 3 (Regen).
+//              S-18/#16 DETAIL-SPLIT (KON27-01, 15.08.2026): SystemDetail/MessDetail tragen
+//              Home + Phasigkeits-Pruefsyntax (system+organ ZWEIPHASIG hardware-only via
+//              ce_owned_version_is_wellformed; mess DREIPHASIG = benannte Leerstelle bis zum
+//              G-1-Stufe-C-Bau, bis dahin Parser-Pruefung). Homes: system_axes/ + mess_axes/
+//              (organ: organ_axes/+topics/, compile-hart gepinnt im Schnitt-Header).
 //
 // LOCK-FORMAT v3 (v1 UND v2 werden mit klarer Meldung abgewiesen, kein stilles Weiterlesen):
 //   # format: v3
@@ -221,12 +227,15 @@ namespace ovl  = ::comdare::cache_engine::builder::overlay;
 // MINDEST-NENNER (G5a, Hausvertrag V-1 'Nenner 0 = Exit != 0, nie GRUEN'): unterschreitet die
 // Grundgesamtheit diese Anker, ist der Lauf ein Umgebungsfehler (Exit 2) -- eine Wache ueber
 // einer leeren Menge behauptet sonst Konsistenz, die sie nie gemessen hat. Die Werte spiegeln
-// die ctest-Anker und sind BEWUSST so gewaehlt, dass die angekuendigte #16-Umgliederung der
-// Homes sie anfassen MUSS (wer Homes verschiebt/leert, entscheidet die neuen Anker hier, nicht
-// per stillem Gruen). MITGEZOGEN in Fixup 3 (D5) auf die Ist-Zahlen der Overlay-Grundgesamtheit
-// vom 13.08.2026 (Messkommando im Fixup-Commit): heuristik 6, organ 640, system 16, mess 1,
-// tier_substanz 55; die Schwellen stehen knapp darunter, damit eine bewusste Einzel-Loeschung
-// den Regen-Weg behaelt, ein Struktur-Verlust (Home leer/umgezogen) aber IMMER hier aufschlaegt.
+// die ctest-Anker. #16-UMGLIEDERUNG VOLLZOGEN (15.08.2026, S-18/KON27-01): die system-/mess-
+// Familien wohnen seither in den Kategorie-Homes libs/cache_engine/system_axes/ (16 Dateien)
+// und libs/cache_engine/mess_axes/ (1 Datei) statt flach in include/cache_engine/measurement/;
+// der Schnitt (builder/overlay_source_set.hpp) traegt die neuen Pfade und pinnt die Homes
+// compile-hart (kategorie_haelt_ihr_home). Die ANKER-WERTE bleiben BEWUSST unveraendert --
+// der Umzug bewegt exakt die 17 verzeichneten Dateien, die Ist-Zahlen (heuristik 6, organ 640,
+// system 16, mess 1, tier_substanz 55; gemessen 13.08., am 15.08. unveraendert) halten die
+// Schwellen weiter; ein Struktur-Verlust (Home leer/umgezogen ohne Schnitt-Nachzug) schlaegt
+// weiterhin IMMER hier bzw. am Schnitt-Pfad-Fehler auf.
 // Die exakten Ist-Zahlen pinnt der ctest (Anker organ-traeger==123 inkl. Synthetik usw.).
 inline constexpr int kMinHeuristikDiscovered = 6;
 inline constexpr int kMinOrganDiscovered     = 600; // Ist 640 (13.08.2026)
@@ -830,6 +839,79 @@ struct OrganDetail {
 };
 
 // ================================================================================================
+// DETAIL-KLASSEN-SPLIT S-18/#16 (KON27-01 'je Achsen-Kategorie EIN Home + EIN Waechter' als
+// Detail-Klassen IN DER EINEN Wache; KON17-03 'EINE Wache, EIN Lock' -- kein zweites Werkzeug,
+// kein zweites Lockfile). SystemDetail/MessDetail tragen Home und PRUEF-SYNTAX ihrer Kategorie;
+// die Literal-MECHANIK (Scan/Render/Bump) bleibt die EINE in OrganDetail -- der Split traegt
+// POLITIK, keine Zweitmechanik, und die Grammatik bleibt der EINE Bestands-Parser
+// measurement/algo_semver.hpp (NIE Zweitgrammatik).
+//   ZWEIPHASIG (system UND organ, KON27-01): jedes algo_version-Literal muss die volle
+//     Hardware-Wache ce_owned_version_is_wellformed tragen (Katalog + c-Pflichtform +
+//     Voraussetzungs-Ketten). Sie lehnt insbesondere Mess-Vokabular ('m'-Baum) auf System-/
+//     Organ-Zeilen ab -- exakt die G-1-Abgrenzung ('das generische Praedikat bleibt
+//     hardware-only').
+//   DREIPHASIG (mess): BENANNTE LEERSTELLE, kein stiller Default (Praezedenz KON58-01): die
+//     G-1-Form-Wachen (mess_form_ist_dreiphasig / mess_version_is_wellformed / Katalog
+//     kMessGrammarCatalog im Mess-Home) sind per G-1-Design Par. 6 Stufe B/C ein EIGENER,
+//     owner-gestufter Bau NACH diesem Fenster (#17/G-2 folgt). Bis dahin prueft mess ueber den
+//     EINEN Parser auf Parsebarkeit (Sentinel = ROT, bestehender Weg); der Hardware-Katalog
+//     wird auf mess BEWUSST NICHT erzwungen -- die Mess-Grammatik ist ein v2-PROFIL MIT
+//     m-Vokabular, das der Hardware-Katalog nicht kennt.
+//   tier_substanz: KEIN Achsen-Eigentum (anatomy/ = gemeinsamer Traeger) -- keine
+//     Phasigkeits-Syntax; heuristik behaelt den Integer-Marker-Weg.
+// Die HOME-ZUGEHOERIGKEIT der Discovery pinnt der Schnitt-Header compile-hart
+// (builder/overlay_source_set.hpp, kategorie_haelt_ihr_home); die bidirektionale
+// Lock-Deckung (unlocked/verwaist) besteht seit v2. Hier steht die LAUFZEIT-Politik je Literal.
+struct SystemDetail {
+    static constexpr std::string_view kName = "system";
+    static constexpr std::string_view kHome = "libs/cache_engine/system_axes";
+    /// ZWEIPHASIG: volle Hardware-Wache je Literal (EIN Katalog, EIN Parser).
+    [[nodiscard]] static bool literal_zulaessig(std::string const& literal) {
+        return meas::ce_owned_version_is_wellformed(literal);
+    }
+};
+
+struct MessDetail {
+    static constexpr std::string_view kName = "mess";
+    static constexpr std::string_view kHome = "libs/cache_engine/mess_axes";
+    /// DREIPHASIG: heute NUR Parsebarkeit ueber den EINEN Parser (Leerstelle s. Block-Kopf);
+    /// der G-1-Bau ersetzt diesen Rumpf durch mess_version_is_wellformed (Stufe C).
+    [[nodiscard]] static bool literal_zulaessig(std::string const& literal) {
+        return !meas::parse_algo_semver(literal).is_sentinel();
+    }
+};
+
+/// Phasigkeits-Politik je Kategorie-Literal (S-18). true = gedruckt und rot. Laeuft NACH der
+/// Sentinel-Wache (befund_immer_rot-Reihenfolge): ein unparsbares Literal ist dort schon rot,
+/// hier faellt die KATALOG-/PROFIL-Frage der wohlgeformten Literale.
+[[nodiscard]] bool phasigkeit_rot(std::string const& rel, std::string const& kategorie, std::string const& version) {
+    if (version == "-") return false;
+    bool        rot  = false;
+    char const* form = nullptr;
+    for (std::string const& teil : OrganDetail::split_versionen(version)) {
+        if (kategorie == std::string(SystemDetail::kName) || kategorie == "organ") {
+            if (!SystemDetail::literal_zulaessig(teil)) {
+                form = "ZWEIPHASIG hardware-only, ce_owned_version_is_wellformed";
+                rot  = true;
+            }
+        } else if (kategorie == std::string(MessDetail::kName)) {
+            if (!MessDetail::literal_zulaessig(teil)) {
+                form = "DREIPHASIG (heute: Parsebarkeit, G-1-Formwache folgt)";
+                rot  = true;
+            }
+        }
+        if (rot) {
+            std::fprintf(stderr,
+                         "axis_version_lock: ROT Phasigkeits-Syntax verletzt (Kategorie '%s', %s): "
+                         "Literal '%s' %s\n",
+                         kategorie.c_str(), form, teil.c_str(), rel.c_str());
+            return true;
+        }
+    }
+    return false;
+}
+
+// ================================================================================================
 // Lock-Datei v2: Lesen/Schreiben + der bidirektionale Check.
 // ================================================================================================
 struct Befund {
@@ -892,6 +974,7 @@ struct BestandZaehler {
                          b.version.c_str(), rel.c_str());
             return true;
         }
+        if (phasigkeit_rot(rel, b.category, b.version)) return true; // S-18 Detail-Split (s.o.)
     }
     return false;
 }

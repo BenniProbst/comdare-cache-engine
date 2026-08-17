@@ -468,7 +468,7 @@ TEST_F(CodegenFromProfileFixture, ParsesAllocatorOverrideTag) {
     EXPECT_EQ(p.id, "testao");
     EXPECT_EQ(p.expected_workload, "YCSB_C");
     EXPECT_EQ(p.allocator_override, "jemalloc");
-    // axes/allocator bleibt MIMALLOC (Override nur per Builder anzuwenden)
+    // organ_axes/allocator bleibt MIMALLOC (Override nur per Builder anzuwenden)
     EXPECT_EQ(p.axes.at("allocator"), "MIMALLOC");
 }
 

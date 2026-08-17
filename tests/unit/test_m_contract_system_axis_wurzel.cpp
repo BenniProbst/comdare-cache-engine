@@ -4,8 +4,8 @@
 #include <cache_engine/measurement/system_axis.hpp>
 #include <topics/axis_command_base.hpp>
 
-#include <axes/alloc/axis_06_allocator_std_malloc.hpp>
-#include <axes/telemetry_axis/axis_11_telemetry_insert_counter.hpp>
+#include <organ_axes/alloc/axis_06_allocator_std_malloc.hpp>
+#include <organ_axes/telemetry_axis/axis_11_telemetry_insert_counter.hpp>
 
 #include <gtest/gtest.h>
 

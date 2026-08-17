@@ -7,8 +7,8 @@
 // bietet beide separat fuer PermutationEngine + ein kombiniertes Cartesian-Product
 // fuer Buffer-Strategy x Flush-Policy.
 
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_registry.hpp>
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_registry.hpp>
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_registry.hpp>
+#include <organ_axes/axis_q2_queuing/axis_q2_queuing_registry.hpp>
 
 #include <boost/mp11.hpp>
 

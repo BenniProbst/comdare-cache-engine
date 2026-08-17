@@ -174,7 +174,7 @@ lokales `run_workload`-SearchAlgo — Doc 24 §-Tabelle). Das verletzt die Obser
   Es verbleibt EINE Hierarchie `IExecutionEngine→IAnatomyBase→SearchAlgorithmAnatomy<C>→SearchAlgorithmAbiAdapter<A>`
   (= ABI-Sicht „SearchEngine"; Invariante als Code-Kommentar in `anatomy/abi_adapter.hpp`). Die reale
   prt-art-Kopplung (`optional_prt_art_impl`-Slots + CMake-`COMDARE_CE_PRUEFLINGE`,
-  `axes/axis_centric_namespaces.hpp:145-172`) bleibt **unberührt**. ABI-Major unverändert (Header-only,
+  `organ_axes/axis_centric_namespaces.hpp:145-172`) bleibt **unberührt**. ABI-Major unverändert (Header-only,
   überquert die `extern "C"`-Factory nicht). Build grün (`test_abi_interface`, `test_v41_anatomy_module_abi`).
 
 ---

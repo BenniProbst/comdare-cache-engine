@@ -11,7 +11,7 @@
 // Nachlaessigkeit, sondern ein STRUKTURFEHLER des Nachweises: der bisherige 05-Nachweis
 // (test_s5_04_execution_alloc_conformance.cpp, Kommentar-Block) greppte
 //
-//     axes/io_dispatch/  axes/persistence_target/
+//     organ_axes/io_dispatch/  organ_axes/persistence_target/
 //
 // und meldete "LEER -> Familie 05 traegt keinen Default-Allokator-Container". Beide Aussagen stimmen.
 // Die SCHLUSSFOLGERUNG stimmte trotzdem nicht, weil das UNIVERSUM falsch war: die Familie 05 hat
@@ -20,8 +20,8 @@
 //     builder/bestandslog/lager_baum_writer.hpp -> kOrganGruppe05
 //     = {queuing_q1, queuing_q2, io_dispatch, persistence_target}
 //
-// und die beiden ersten haben ueberhaupt keinen axes/-Ordner: sie leben ausschliesslich in der
-// topics/-Doppelwurzel. Ein grep ueber "axes/<achse>/" konnte sie also gar nicht sehen -- er lief
+// und die beiden ersten haben ueberhaupt keinen organ_axes/-Ordner: sie leben ausschliesslich in der
+// topics/-Doppelwurzel. Ein grep ueber "organ_axes/<achse>/" konnte sie also gar nicht sehen -- er lief
 // gegen zwei leere Pfade und war deshalb "gruen". Das ist die Lehre "gruene Tests zementieren alte
 // Ordnung" in Reinform: nicht der Test war falsch, sondern die stille Annahme darueber, wo eine
 // Achse wohnt.
@@ -37,7 +37,7 @@
 //   (S3) DIE WURZEL WIRD NICHT ANGENOMMEN, SONDERN VOM ORGAN ERFRAGT. Jede Deckungs-Eintragung
 //        traegt die erwartete Quell-Wurzel, und die Pruefung vergleicht sie gegen das, was die
 //        ORGANE SELBST ueber ihren Header sagen (COMDARE_DEFINE_ORGAN_LOCATION -> header_include).
-//        Wandert eine Achse zwischen axes/ und topics/, faellt die Wache -- statt still an der
+//        Wandert eine Achse zwischen organ_axes/ und topics/, faellt die Wache -- statt still an der
 //        neuen Wurzel vorbeizulaufen.
 //
 // ===================================================================================================
@@ -61,10 +61,10 @@
 #include <builder/bestandslog/lager_baum_writer.hpp>
 
 // Die vier Achsen-Registries der Gruppe. DASS es genau diese vier sein muessen, prueft (S2).
-#include <axes/io_dispatch/axis_io_registry.hpp>
-#include <axes/persistence_target/axis_persistence_target_registry.hpp>
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_registry.hpp>
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_registry.hpp>
+#include <organ_axes/io_dispatch/axis_io_registry.hpp>
+#include <organ_axes/persistence_target/axis_persistence_target_registry.hpp>
+#include <organ_axes/axis_q1_queuing/axis_q1_queuing_registry.hpp>
+#include <organ_axes/axis_q2_queuing/axis_q2_queuing_registry.hpp>
 
 #include <anatomy/organ_location.hpp>
 
@@ -107,10 +107,10 @@ struct AchsenDeckung {
     std::string_view wurzel; ///< erwartetes Praefix von header_include der Organe dieser Achse
 };
 
-constexpr AchsenDeckung kDeckungQ1{"queuing_q1", "topics/queuing/"};
-constexpr AchsenDeckung kDeckungQ2{"queuing_q2", "topics/queuing/"};
-constexpr AchsenDeckung kDeckungIo{"io_dispatch", "axes/io_dispatch/"};
-constexpr AchsenDeckung kDeckungPt{"persistence_target", "axes/persistence_target/"};
+constexpr AchsenDeckung kDeckungQ1{"queuing_q1", "organ_axes/axis_q1_queuing/"};
+constexpr AchsenDeckung kDeckungQ2{"queuing_q2", "organ_axes/axis_q2_queuing/"};
+constexpr AchsenDeckung kDeckungIo{"io_dispatch", "organ_axes/io_dispatch/"};
+constexpr AchsenDeckung kDeckungPt{"persistence_target", "organ_axes/persistence_target/"};
 
 constexpr std::array<AchsenDeckung, 4> kDeckungen{{kDeckungQ1, kDeckungQ2, kDeckungIo, kDeckungPt}};
 
@@ -142,7 +142,7 @@ static_assert(jede_deckung_zeigt_in_die_familie(),
               "die Wache prueft dann etwas, das gar nicht zur Familie gehoert.");
 static_assert(jede_familien_achse_ist_gedeckt(),
               "S5-05q: eine Achse der Familie 05_write_path_io hat KEINE Deckungs-Eintragung. GENAU DAS "
-              "war die vom Abschnitts-Truth-Check gefundene Luecke (queuing_q1/q2 ohne axes/-Ordner): "
+              "war die vom Abschnitts-Truth-Check gefundene Luecke (queuing_q1/q2 ohne organ_axes/-Ordner): "
               "der Nachweis lief gegen ein zu kleines Universum und war deshalb gruen.");
 static_assert(kDeckungen.size() == kFamilie05.size(),
               "S5-05q: Deckungs- und Familien-Groesse stimmen nicht ueberein (doppelte Deckung?).");

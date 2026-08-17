@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # Wartbarkeits-Lint (2026-06-01): jeder #include eines generierten *_flags.hpp muss den
-      # configure_file-Generierungs-Ort treffen (axes/ vs topics/). Verhindert die latente Bug-Klasse,
+      # configure_file-Generierungs-Ort treffen (organ_axes/ vs topics/). Verhindert die latente Bug-Klasse,
       # die nur dank stale Build-Artefakten kompiliert + bei frischem Build-Dir scheitert.
       - name: Flags-include consistency lint
         run: bash scripts/lint_flags_includes.sh

@@ -4,8 +4,8 @@
 // alte Muenzwurf-Formel, verankert P=1/4 statistisch und treibt die realen SkipListOrganShaped-Varianten gegen
 // std::map ueber einen weiten uint64-Schluesselraum inklusive for_each_record-exactly-once.
 
-#include <axes/lookup/composable/skip_list_node_pool_store.hpp>
-#include <axes/lookup/composable/tier_to_organ_mapping.hpp>
+#include <organ_axes/lookup/composable/skip_list_node_pool_store.hpp>
+#include <organ_axes/lookup/composable/tier_to_organ_mapping.hpp>
 #include <topics/nodes/axis_skip_list_shape/axis_skip_list_shape_max16_p25.hpp>
 #include <topics/nodes/axis_skip_list_shape/axis_skip_list_shape_max16_p50.hpp>
 #include <topics/nodes/axis_skip_list_shape/axis_skip_list_shape_max32_p50.hpp>

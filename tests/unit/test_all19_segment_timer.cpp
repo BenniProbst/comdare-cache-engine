@@ -23,14 +23,14 @@
 
 // Layout-Fix-Beleg: eine Art-Variante mit aos_strict statt cache_line_aligned (observable Hülle, wie im Original).
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_aos_strict.hpp>
-#include <axes/layout/axis_05_memory_layout_observable.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_observable.hpp>
 
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an   = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;

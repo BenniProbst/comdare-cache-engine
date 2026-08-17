@@ -7,7 +7,7 @@
 // KF-6-Durchbindung (Posten 62), die die per-Organ-Config als NTTP emittiert.
 //
 // Der Guard pinnt deshalb DREI Ebenen:
-//   (A) QUELLE: axes/cacheline/cacheline_line_bytes.hpp loest die Line-Groesse eines Organs auf; der
+//   (A) QUELLE: organ_axes/cacheline/cacheline_line_bytes.hpp loest die Line-Groesse eines Organs auf; der
 //       Achsen-Default ist 64. Abgrenzung zum INTRINSISCHEN Deskriptor cache_line_size() (aos_strict = 1,
 //       packed_bitmap = 8) -- wer den verwechselt, baut den Duplikat-Bug aus
 //       axis_05_memory_layout_cache_line_aligned.hpp:54 nach.
@@ -22,11 +22,11 @@
 // gleicher intrinsischer Deskriptor 64, gleiche Repraesentation) -- jede Divergenz unten kommt also aus der
 // cacheline-Unterachse und aus nichts sonst.
 
-#include <axes/cacheline/cacheline_config.hpp>
-#include <axes/cacheline/cacheline_line_bytes.hpp>
-#include <axes/node/axis_04_node_type_node4.hpp>
-#include <axes/node/axis_04_node_type_strategy_base.hpp>
-#include <axes/node/axis_04_node_type_layout_aware_store.hpp>
+#include <organ_axes/cacheline/cacheline_config.hpp>
+#include <organ_axes/cacheline/cacheline_line_bytes.hpp>
+#include <organ_axes/node/axis_04_node_type_node4.hpp>
+#include <organ_axes/node/axis_04_node_type_strategy_base.hpp>
+#include <organ_axes/node/axis_04_node_type_layout_aware_store.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_aos_strict.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_aosoa.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_cache_line_aligned.hpp>

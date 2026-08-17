@@ -23,10 +23,10 @@
 #include <anatomy/search_algorithm_anatomy.hpp>
 
 #include <compositions/hot_reference.hpp> // BloomFilter ist der Default-Filter (HotComposition)
-#include <axes/filter_axis/axis_filter_bloom.hpp>
-#include <axes/filter_axis/axis_filter_cuckoo.hpp>
-#include <axes/filter_axis/axis_filter_xor.hpp>
-#include <axes/filter_axis/axis_filter_range_surf.hpp>
+#include <organ_axes/filter_axis/axis_filter_bloom.hpp>
+#include <organ_axes/filter_axis/axis_filter_cuckoo.hpp>
+#include <organ_axes/filter_axis/axis_filter_xor.hpp>
+#include <organ_axes/filter_axis/axis_filter_range_surf.hpp>
 
 #include <cstdint>
 #include <iostream>

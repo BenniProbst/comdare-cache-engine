@@ -5,8 +5,8 @@
 
 #define COMDARE_CE_ENABLE_STATISTICS 1
 
-#include <axes/node/axis_04_node_type_observable.hpp>
-#include <axes/node/axis_04_node_type_node256.hpp>
+#include <organ_axes/node/axis_04_node_type_observable.hpp>
+#include <organ_axes/node/axis_04_node_type_node256.hpp>
 #include "anatomy/observer_aggregate.hpp" // ObservableAxis
 
 #include <cassert>

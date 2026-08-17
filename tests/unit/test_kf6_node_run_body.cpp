@@ -4,11 +4,11 @@
 // Identischer Input → 4 DISTINKTE Prüfsummen = Beleg der per-Format-Divergenz. + cacheline_prefetch-Hook (KF-5).
 // Build: cl /std:c++latest /EHsc /I<libs/cache_engine> /I<include> /I<src> /I<build/generated> /I<boost_mp11> ...
 
-#include <axes/node/axis_04_node_type_node4.hpp>
-#include <axes/node/axis_04_node_type_node16.hpp>
-#include <axes/node/axis_04_node_type_node48.hpp>
-#include <axes/node/axis_04_node_type_node256.hpp>
-#include <axes/cacheline/cacheline_config.hpp>
+#include <organ_axes/node/axis_04_node_type_node4.hpp>
+#include <organ_axes/node/axis_04_node_type_node16.hpp>
+#include <organ_axes/node/axis_04_node_type_node48.hpp>
+#include <organ_axes/node/axis_04_node_type_node256.hpp>
+#include <organ_axes/cacheline/cacheline_config.hpp>
 
 #include <cstdint>
 #include <iostream>

@@ -16,7 +16,7 @@
 #include "../codegen/adhoc_emitter.hpp"
 #include "../../anatomy/composition_factory.hpp"
 
-#include <axes/lookup/composable/organ_for_search_algo.hpp>
+#include <organ_axes/lookup/composable/organ_for_search_algo.hpp>
 
 #include <map>
 #include <string>

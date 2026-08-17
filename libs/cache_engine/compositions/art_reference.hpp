@@ -40,14 +40,14 @@
 // Topic filter (1 Achse) — bei ART optional (BloomFilter als CE-Erweiterung)
 #include "../topics/filter/axis_filter/axis_filter_bloom.hpp"
 // Topic queuing (2 Achsen T17/T18, Doc 30 §8.0) — Durchreich-Defaults NoBuffer/LazyFlush (ART = in-memory)
-#include "../topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp"
-#include "../topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp"
+#include "../organ_axes/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp"
+#include "../organ_axes/axis_q2_queuing/axis_q2_queuing_lazy.hpp"
 
 // R5.G: COMDARE_DEFINE_COMPOSITION_LOCATION Macro fuer CMake-Codegen-Lokalisierung
 #include "../anatomy/composition_concept.hpp"
 
 #include <string_view>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace comdare::cache_engine::compositions {
 

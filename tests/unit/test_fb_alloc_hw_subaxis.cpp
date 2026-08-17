@@ -19,9 +19,9 @@
 // HW-GATE-GRENZE (ehrlich): der NUMA-EFFEKT braucht Multi-Socket-HW (~Sep); hier wird die KONFIGURATIONS-
 // Ankunft bewiesen (Knopf existiert + wirkt im Code), nicht der Multi-Socket-Durchsatz-Effekt.
 
-#include <axes/alloc/alloc_hw_config.hpp>
-#include <axes/alloc/axis_06_allocator_numalloc.hpp>
-#include <axes/alloc/axis_06_allocator_pool_resource.hpp>
+#include <organ_axes/alloc/alloc_hw_config.hpp>
+#include <organ_axes/alloc/axis_06_allocator_numalloc.hpp>
+#include <organ_axes/alloc/axis_06_allocator_pool_resource.hpp>
 #include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_generic.hpp>
 #include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_x86_64.hpp>
 

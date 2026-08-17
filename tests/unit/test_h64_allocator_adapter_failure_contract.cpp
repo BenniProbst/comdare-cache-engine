@@ -32,11 +32,11 @@
 // Standalone (plain int main, KEIN gtest) -- konsistent mit den uebrigen Phase-E-Standalone-Wachen.
 // ASCII-only.
 
-#include <axes/alloc/axis_06_allocator_exgen.hpp> // die reale Achsen-Default-Strategie (Positiv-Kontrolle)
-#include <axes/alloc/axis_06_allocator_strategy_base.hpp>
-#include <axes/alloc/axis_06_allocator_subaxes_aa1_to_aa7.hpp>
-#include <axes/alloc/concepts/axis_06_allocator_cache_engine_permutation_concept.hpp>
-#include <axes/alloc/concepts/axis_06_allocator_concept.hpp>
+#include <organ_axes/alloc/axis_06_allocator_exgen.hpp> // die reale Achsen-Default-Strategie (Positiv-Kontrolle)
+#include <organ_axes/alloc/axis_06_allocator_strategy_base.hpp>
+#include <organ_axes/alloc/axis_06_allocator_subaxes_aa1_to_aa7.hpp>
+#include <organ_axes/alloc/concepts/axis_06_allocator_cache_engine_permutation_concept.hpp>
+#include <organ_axes/alloc/concepts/axis_06_allocator_concept.hpp>
 #include <topics/allocator/concepts/topic_allocator_concept.hpp>
 #include <topics/axis_base.hpp>
 #include <topics/organ_axis.hpp>

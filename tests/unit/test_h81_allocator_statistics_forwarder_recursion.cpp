@@ -35,11 +35,11 @@
 //
 // Standalone (plain int main, KEIN gtest) -- konsistent mit den uebrigen S5-/Haertungs-Wachen.
 
-#include <axes/alloc/axis_06_allocator_exgen.hpp>
-#include <axes/alloc/axis_06_allocator_mimalloc.hpp>
-#include <axes/alloc/axis_06_allocator_registry.hpp>
-#include <axes/alloc/axis_06_allocator_strategy_base.hpp>
-#include <axes/lookup/composable/axis_bound_scratch.hpp>
+#include <organ_axes/alloc/axis_06_allocator_exgen.hpp>
+#include <organ_axes/alloc/axis_06_allocator_mimalloc.hpp>
+#include <organ_axes/alloc/axis_06_allocator_registry.hpp>
+#include <organ_axes/alloc/axis_06_allocator_strategy_base.hpp>
+#include <organ_axes/lookup/composable/axis_bound_scratch.hpp>
 
 #include <boost/mp11.hpp>
 

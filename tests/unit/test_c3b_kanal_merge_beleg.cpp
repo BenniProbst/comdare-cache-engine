@@ -36,7 +36,7 @@
 #include <cache_engine/measurement/simd_build_gate.hpp>
 #include <cache_engine/measurement/simd_organ_requirement.hpp>
 #include <cache_engine/measurement/simd_organ_sensibility.hpp>
-#include <cache_engine/measurement/simd_sub_axis.hpp>
+#include <system_axes/simd_sub_axis.hpp>
 
 #include <gtest/gtest.h>
 

@@ -34,13 +34,13 @@
 #pragma once
 
 #include <cache_engine/measurement/ceb_system_axis.hpp>
-#include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>
-#include <cache_engine/measurement/compiler_system_axis.hpp>
-#include <cache_engine/measurement/external_utils_family_axis.hpp>
-#include <cache_engine/measurement/operating_system_axis.hpp>
-#include <cache_engine/measurement/optimization_level_sub_axis.hpp>
-#include <cache_engine/measurement/simd_sub_axis.hpp>
-#include <cache_engine/measurement/target_isa_complex_axis.hpp>
+#include <system_axes/compiler_atomic_sub_axis.hpp>
+#include <system_axes/compiler_system_axis.hpp>
+#include <system_axes/external_utils_family_axis.hpp>
+#include <system_axes/operating_system_axis.hpp>
+#include <system_axes/optimization_level_sub_axis.hpp>
+#include <system_axes/simd_sub_axis.hpp>
+#include <system_axes/target_isa_complex_axis.hpp>
 
 #include <array>
 #include <concepts>

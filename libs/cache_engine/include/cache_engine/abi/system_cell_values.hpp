@@ -26,7 +26,7 @@
 // die Instanz-Zuordnung einer Messung laeuft ueber Mess-Spalten/Dateinamen (OS-U4). Diese Grenze ist
 // hier MECHANISCH: die zulaessigen Schluessel sind ABSCHLIESSEND aufgezaehlt, und der Fallen-Katalog
 // unten gibt den RT-Schluesseln eine EIGENE, benannte Diagnose (Muster der 9-Fallen-Wache
-// measurement/operating_system_sub_axes.hpp).
+// system_axes/operating_system_sub_axes.hpp).
 //
 // IDENTITAET IST DER GRUNDPFAD: ein LEERES Werte-Set laesst die Zeile BYTE-IDENTISCH. Ohne gesetztes
 // Define ist W10 damit golden-neutral -- der Fingerprint, das .fingerprint-Sidecar und der Lager-Key
@@ -157,7 +157,7 @@ namespace detail {
 
 /// (f) A-15-VERBOTS-KATALOG: Schluessel, die hier NIE einen Zellwert tragen duerfen. Jeder Eintrag steht
 /// fuer eine REALE Verwechslung, nicht fuer eine hypothetische (Muster der 9-Fallen-Wache in
-/// measurement/operating_system_sub_axes.hpp):
+/// system_axes/operating_system_sub_axes.hpp):
 ///   os_version/kernel/build -- die FINAL DREI RT-Unter-Achsen von operating_system (A14/OS-U1). Sie
 ///       werden je Lauf ERHOBEN (OS-U3) und gehoeren in Mess-Spalten/Dateinamen, nie in den Stempel;
 ///   os_family -- die Familie heisst im Stempel operating_system; ein zweiter Name waere eine zweite

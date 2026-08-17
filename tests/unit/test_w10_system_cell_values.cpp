@@ -37,8 +37,8 @@
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
 #include <cache_engine/abi/system_axis_order.hpp>
 #include <cache_engine/abi/system_cell_values.hpp>
-#include <cache_engine/measurement/external_utils_family_axis.hpp>
-#include <cache_engine/measurement/operating_system_sub_axes.hpp>
+#include <system_axes/external_utils_family_axis.hpp>
+#include <system_axes/operating_system_sub_axes.hpp>
 
 #include "bestandslog/bestandslog_factory.hpp" // W10-C3: der Laufzeit-Zwilling am Lager-Key
 

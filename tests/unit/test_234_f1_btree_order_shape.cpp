@@ -11,7 +11,7 @@
 // Additiv/gate-frei: beruehrt weder CMake noch Header noch bestehende Tests; prueft nur die public APIs
 // BTreeSearchOrganShaped<Shape> und BTreeNodePoolStore<Shape>.
 
-#include <axes/lookup/composable/tier_to_organ_mapping.hpp>
+#include <organ_axes/lookup/composable/tier_to_organ_mapping.hpp>
 #include <topics/nodes/axis_btree_order/axis_btree_order_kt16.hpp>
 #include <topics/nodes/axis_btree_order/axis_btree_order_kt2.hpp>
 #include <topics/nodes/axis_btree_order/axis_btree_order_kt3.hpp>

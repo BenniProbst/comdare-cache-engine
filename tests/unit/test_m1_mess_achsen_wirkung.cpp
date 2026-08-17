@@ -27,7 +27,7 @@
 
 #include <profile_facade/mess_achsen_naht.hpp>
 
-#include <cache_engine/measurement/measurement_tooling_registry.hpp>
+#include <mess_axes/measurement_tooling_registry.hpp>
 
 #include <algorithm>
 #include <exception>
@@ -263,21 +263,27 @@ void fall_d_injektiv() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// (e) BYTE-BILANZ zum Vor-M-1-Stand: die Vollmenge ([all] == der gesamte golden-/CI-Bestand) traegt
-//     die BEIDEN Gates in derselben Reihenfolge und mit demselben Wortlaut wie die abgeloeste
-//     Literal-Liste. Wer diese Zeile bricht, bewegt den produktiven Bau.
+// (e) BYTE-BILANZ: die Vollmenge ([all] == der gesamte golden-/CI-Bestand) traegt die Gates in
+//     Schichten-Reihenfolge und mit exakt diesem Wortlaut. [HISTORIE bis B2: ZWEI Gates im
+//     Vor-M-1-Wortlaut.] Seit B2 (15.08.2026, Gate-Trennung G2/G3 -- das DEKLARIERTE
+//     GOLDEN-EREIGNIS der Naht, s. mess_achsen_naht.hpp BYTE-BILANZ B2) steht das dritte Gate
+//     -DCOMDARE_CE_ENABLE_SEGMENT_TIMING=1 an Position 2. Wer diese Zeilen bricht, bewegt den
+//     produktiven Bau -- genau dafuer stehen sie hier.
 // ---------------------------------------------------------------------------------------------
 void fall_e_byte_bilanz() {
-    std::cout << "\n---- (e) BYTE-BILANZ: [all] traegt die Gates unveraendert (Vor-M-1-Wortlaut) ----\n";
+    std::cout << "\n---- (e) BYTE-BILANZ: [all] traegt die Gates in Schichten-Reihenfolge (B2-Wortlaut) ----\n";
     Lauf const all = ruf("[all]");
     check_true("(e) [all] wirft nicht", !all.warf);
     check_true("(e) Gate 1 an Position 0: -DCOMDARE_MEASUREMENT_ON=1",
                !all.defs.empty() && all.defs[0] == "-DCOMDARE_MEASUREMENT_ON=1");
     check_true("(e) Gate 2 an Position 1: -DCOMDARE_CE_ENABLE_STATISTICS=1",
                all.defs.size() > 1 && all.defs[1] == "-DCOMDARE_CE_ENABLE_STATISTICS=1");
+    check_true("(e) Gate 3 an Position 2: -DCOMDARE_CE_ENABLE_SEGMENT_TIMING=1 (B2)",
+               all.defs.size() > 2 && all.defs[2] == "-DCOMDARE_CE_ENABLE_SEGMENT_TIMING=1");
     // Die leere Legende ist der UNGESETZT-Fall der Stempel-Seite; die Bau-Seite loest ihn nach "[all]"
     // auf (resolve_live_measurement_combo_legend), NICHT hier -- hier ist er ein Wurf.
-    check_true("(e) [all] deklariert alle 3 Toolings", all.defs.size() == 2 + cm::kMeasurementToolingCount);
+    check_true("(e) [all] deklariert alle 3 Toolings (3 Gates + 3 Deklarationen, B2)",
+               all.defs.size() == 3 + cm::kMeasurementToolingCount);
 }
 
 // ---------------------------------------------------------------------------------------------

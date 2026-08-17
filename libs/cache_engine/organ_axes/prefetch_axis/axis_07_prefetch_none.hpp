@@ -1,0 +1,49 @@
+#pragma once
+// V41.F.6.1.R7.5.a axis_07 NonePrefetch (Goldstandard-Update)
+//
+// R7.6 Paper-Reference (Task #723):
+// Kein Paper — NonePrefetch ist Baseline (kein Prefetch-Mechanismus).
+// Dient als Vergleichs-Referenz fuer Mess-Reihen (mit vs ohne Prefetch).
+
+#include "axis_07_prefetch_strategy_base.hpp"
+#include "axis_07_prefetch_subaxes_pf1_to_pf3.hpp"
+#include "concepts/axis_07_prefetch_cache_engine_permutation_concept.hpp"
+#include <organ_axes/prefetch_axis/axis_07_prefetch_flags.hpp>
+#include <topics/prefetch/concepts/topic_prefetch_concept.hpp>
+#include <string_view>
+#include <type_traits>
+
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
+namespace comdare::cache_engine::prefetch_axis {
+
+/// NonePrefetch — Default: kein Prefetch (Baseline fuer Mess-Reihen).
+class NonePrefetch : public PrefetchStrategyBase<NonePrefetch> {
+public:
+    using topic_tag = ::comdare::cache_engine::prefetch::concepts::PrefetchTopicTag;
+    using axis_tag  = subaxes::trigger_mechanism_tag;
+    using family_id = std::integral_constant<int, 0>;
+
+    static constexpr bool enabled = flags::none_enabled;
+
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return false; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "prefetch_none"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::prefetch_axis::NonePrefetch",
+                                  "organ_axes/prefetch_axis/axis_07_prefetch_none.hpp");
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "NonePrefetch (no prefetch baseline)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "NONE"; }
+
+    /// Algorithmus-Version (Organ-Provenienz, inkrementeller Tier-Binary-Cache): Bump bei algorithmischer
+    /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
+    /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
+    /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
+    static constexpr std::string_view algo_version = "1.0.0.c";
+};
+
+} // namespace comdare::cache_engine::prefetch_axis
+
+namespace comdare::cache_engine::prefetch_axis {
+static_assert(concepts::PrefetchStrategy<NonePrefetch>);
+static_assert(concepts::CacheEnginePermutationStrategy<NonePrefetch>);
+} // namespace comdare::cache_engine::prefetch_axis

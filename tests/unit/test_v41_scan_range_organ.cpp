@@ -13,11 +13,11 @@
 // Ersetzt-Bezug: der frühere abi_adapter::tier_scan kopierte je Scan-Op den ganzen Store (save_state) + std::sort
 // (O(n log n)); der GoF-Iterator hier ist der O(log n + scan_len)-Kern, den tier_scan nun uniform aufruft.
 
-#include <axes/lookup/composable/composable_search.hpp>
-#include <axes/lookup/composable/interpolation_traversal_organ.hpp>
-#include <axes/lookup/composable/galloping_traversal_organ.hpp>
-#include <axes/lookup/composable/k_ary_traversal_organ.hpp> // #188-4a
-#include <axes/lookup/composable/observable_composed_search.hpp>
+#include <organ_axes/lookup/composable/composable_search.hpp>
+#include <organ_axes/lookup/composable/interpolation_traversal_organ.hpp>
+#include <organ_axes/lookup/composable/galloping_traversal_organ.hpp>
+#include <organ_axes/lookup/composable/k_ary_traversal_organ.hpp> // #188-4a
+#include <organ_axes/lookup/composable/observable_composed_search.hpp>
 
 #include <gtest/gtest.h>
 

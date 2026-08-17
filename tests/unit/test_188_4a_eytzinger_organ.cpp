@@ -3,10 +3,10 @@
 // GTest im Nachbar-Stil der #234-F-Tests: direkter Organ-Drive gegen std::map, Wrapper-Aequivalenz,
 // Option-b-Lazy-Semantik und for_each_record-Ernte. Additiv/gate-frei: NICHT in CMake registriert.
 
-#include <axes/lookup/axis_03a_search_algo_eytzinger.hpp>
-#include <axes/lookup/composable/organ_for_search_algo.hpp>
-#include <axes/lookup/composable/store_traversable_search_algo.hpp>
-#include <axes/lookup/composable/traversal_for_search_algo.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_eytzinger.hpp>
+#include <organ_axes/lookup/composable/organ_for_search_algo.hpp>
+#include <organ_axes/lookup/composable/store_traversable_search_algo.hpp>
+#include <organ_axes/lookup/composable/traversal_for_search_algo.hpp>
 
 #include <gtest/gtest.h>
 

@@ -26,16 +26,16 @@
 // **ADDITIV & golden/ABI-NEUTRAL:** reiner requires/static_assert-Test ueber Bestandstypen. KEINE Aenderung
 // an Kernen/Registries/golden/permutation_axes/ABI.
 
-#include <axes/filter_axis/axis_filter_registry.hpp>
-#include <axes/index_organization/axis_01_index_organization_registry.hpp>
-#include <axes/io_dispatch/axis_io_registry.hpp>
-#include <axes/layout/axis_05_memory_layout_registry.hpp>
-#include <axes/migration_policy/axis_migration_registry.hpp>
-#include <axes/node/axis_04_node_type_registry.hpp>
-#include <axes/path_compression/axis_02_path_compression_registry.hpp>
-#include <axes/serialization_axis/axis_10_serialization_registry.hpp>
-#include <axes/simd/axis_09_isa_amd64.hpp>
-#include <axes/value_handle_axis/axis_14_value_handle_registry.hpp>
+#include <organ_axes/filter_axis/axis_filter_registry.hpp>
+#include <organ_axes/index_organization/axis_01_index_organization_registry.hpp>
+#include <organ_axes/io_dispatch/axis_io_registry.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_registry.hpp>
+#include <organ_axes/migration_policy/axis_migration_registry.hpp>
+#include <organ_axes/node/axis_04_node_type_registry.hpp>
+#include <organ_axes/path_compression/axis_02_path_compression_registry.hpp>
+#include <organ_axes/serialization_axis/axis_10_serialization_registry.hpp>
+#include <organ_axes/simd/axis_09_isa_amd64.hpp>
+#include <organ_axes/value_handle_axis/axis_14_value_handle_registry.hpp>
 
 #include <boost/mp11.hpp>
 

@@ -135,7 +135,7 @@
 /// ueber die Prosa einer Klasse. Er haelt die VOLLSTAENDIGKEIT, nicht die Richtigkeit der Beschreibung.
 /// EINE PRAEZISIERUNG AM RANDE, die der Riegel sichtbar gemacht hat: der generische grep sucht den
 /// Bezeichner OHNE Klammer und faengt deshalb auch reine VERWEISE mit. Am Objekt:
-/// axes/alloc/axis_06_allocator_strategy_base.hpp nennt die Wache zweimal in Kommentaren, mit Leerzeichen
+/// organ_axes/alloc/axis_06_allocator_strategy_base.hpp nennt die Wache zweimal in Kommentaren, mit Leerzeichen
 /// vor der Klammer -- das ist keine Quelle und steht deshalb zu Recht nicht als Klasse hier. Der Riegel
 /// zaehlt darum die AUFRUF-Form "<name>(" und nicht den blossen Namen.
 ///
@@ -194,7 +194,7 @@
 ///         * MECHANISCH GESICHERT (bricht beim Scharfschalten von selbst mit): jede Stelle, an der
 ///           neben dem ungated meta_meta_version_wohlgeformt<> auch der gated
 ///           meta_meta_version_cpu_pflicht<>-Zwilling steht -- heute
-///           measurement/external_utils_family_axis.hpp (SimdExternalUtilsFamily).
+///           system_axes/external_utils_family_axis.hpp (SimdExternalUtilsFamily).
 ///         * UNGESICHERT (bricht NICHT mit, muss aktiv gefunden werden): test-lokale Meta-Metas ohne
 ///           gated Wache -- heute tests/unit/test_striktheit_axis_dach_guard.cpp (ProofOrganMetaMeta)
 ///           und tests/unit/test_meta_meta_halbordnung.cpp (Avx512MetaMeta, GpuMetaMeta,
@@ -221,7 +221,7 @@
 ///       Scharfschalten von selbst mit.
 ///       Erhebung: grep -rn 'kPlannerVersion *=' --include=*.hpp profile_facade/planner
 ///   (f) OS-U3 (Commit d115e4cc; Befund GA-05/Z-10 vom 03.08.2026, in A13-M3/C2 nachgetragen): die
-///       OS-PROBE-VERFAHRENS-Version. measurement/operating_system_probe.hpp fuehrt kOsProbeVersion als
+///       OS-PROBE-VERFAHRENS-Version. system_axes/operating_system_probe.hpp fuehrt kOsProbeVersion als
 ///       EIGENES ce-Literal -- EIN Literal, aber DREI probe_ids ("os_probe.<familie>@1.0.0.c", je Familie
 ///       eine). MECHANISCH GESICHERT: die gated ENFORCE-Wache in operating_system_probe.hpp bricht beim
 ///       Scharfschalten von selbst mit. WARUM DIE KLASSE HIER FEHLTE (die Lehre): das Literal heisst weder
@@ -356,6 +356,16 @@
 ///       Klasse ist der gemeinsame DURCHSETZUNGS-Punkt, keine neue Quelle -- ein drittes Literal
 ///       entstuende hier nie (die Basis ist leer, KON7-08).
 ///       Erhebung: der generische Wachen-grep oben faengt sie (stempel_basis.hpp).
+///   (m) S-18/#16 (15.08.2026, im Bau-Commit selbst nachgetragen): der PHASIGKEITS-DELEGAT DES
+///       LOCK-WAECHTERS. tools/axis_version_lock/axis_version_lock.cpp fuehrt KEIN eigenes
+///       Versions-Literal; seine Aufruf-Stelle ist die ZWEIPHASIG-Pruefsyntax der Kategorie-Homes
+///       (KON27-01): jedes algo_version-Literal der Kategorien system und organ muss
+///       ce_owned_version_is_wellformed tragen (SystemDetail/MessDetail-Split in der EINEN Wache;
+///       mess ist DREIPHASIG und wird bis zum G-1-Stufe-C-Bau bewusst NICHT hardware-gegated --
+///       benannte Leerstelle im Tool-Kopf).
+///       ABGRENZUNG: wie (l) ein DURCHSETZUNGS-Punkt, keine neue Quelle -- die Literale bleiben in
+///       den Traeger-Dateien der Homes und tragen dort ihre eigenen Wachen.
+///       Erhebung: der generische Wachen-grep oben faengt sie (axis_version_lock.cpp).
 #ifndef COMDARE_VERSION_HW_FLAG_ENFORCE
 #define COMDARE_VERSION_HW_FLAG_ENFORCE 1
 #endif

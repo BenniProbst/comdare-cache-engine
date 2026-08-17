@@ -12,7 +12,8 @@
 #include <topics/nodes/axis_02_path_compression/axis_02_path_compression_byte_wise.hpp>
 #include <topics/nodes/axis_02_path_compression/axis_02_path_compression_registry.hpp>
 #include <topics/nodes/axis_02_path_compression/axis_02_path_compression_subaxes_pc1_to_pc3.hpp>
-#include <axes/path_compression/axis_02_path_compression_flags.hpp> // generierte Flags liegen unter axes/ (NICHT topics/-Forwarder)
+// generierte Flags liegen unter organ_axes/ (NICHT topics/-Forwarder)
+#include <organ_axes/path_compression/axis_02_path_compression_flags.hpp>
 
 // axis_04
 #include <topics/nodes/axis_04_node_type/axis_04_node_type_node4.hpp>
@@ -21,7 +22,8 @@
 #include <topics/nodes/axis_04_node_type/axis_04_node_type_node256.hpp>
 #include <topics/nodes/axis_04_node_type/axis_04_node_type_registry.hpp>
 #include <topics/nodes/axis_04_node_type/axis_04_node_type_subaxes_nt1_to_nt3.hpp>
-#include <axes/node/axis_04_node_type_flags.hpp> // generierte Flags liegen unter axes/ (NICHT topics/-Forwarder)
+// generierte Flags liegen unter organ_axes/ (NICHT topics/-Forwarder)
+#include <organ_axes/node/axis_04_node_type_flags.hpp>
 
 // TopicConfigSet
 #include <topics/nodes/topic_nodes_config_set.hpp>

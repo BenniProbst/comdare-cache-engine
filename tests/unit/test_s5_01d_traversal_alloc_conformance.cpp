@@ -29,7 +29,7 @@
 //       der ABI-Adapter haelt die Strategie DIREKT (abi_adapter.hpp:2206
 //       "mutable typename Composition::cache_traversal ct_organ_;"). Es gibt keine
 //       ObservableCacheTraversal-Huelle -- Nachweis am Ist 2026-08-04:
-//         grep -rn "Observable.*[Tt]raversal" axes/cache_traversal/ topics/traversal/ --include=*.hpp
+//         grep -rn "Observable.*[Tt]raversal" organ_axes/cache_traversal/ topics/traversal/ --include=*.hpp
 //         -> LEER (0 Treffer). Statt einer leeren Huellen-Liste (die jede Alles-Aussage wahr machte)
 //       prueft Abschnitt 2 unten den REALEN Member-Typ ueber die verdrahteten Referenz-Kompositionen.
 //   (3) der VERDRAHTUNGS-ANKER       -- der Adapter-Typ des realen Container-Members (Abschnitt 3)
@@ -38,7 +38,7 @@
 
 #include "s5_family_alloc_conformance.hpp"
 
-#include <axes/cache_traversal/axis_03b_cache_traversal_registry.hpp>
+#include <organ_axes/cache_traversal/axis_03b_cache_traversal_registry.hpp>
 
 // Die REAL verdrahteten Kompositionen dieser Achse (nur GELESEN): sie belegen, dass die geprueften
 // Strategie-Typen genau die Typen sind, die der ABI-Adapter als ct_organ_ haelt.
@@ -48,7 +48,7 @@
 // Form-(B)-REFERENZ am realen Repo-Typ der FREMDEN Familie (nur GELESEN, Pilot-Muster): der
 // B-Baum-Knoten-Pool fuehrt seinen unbounded Knoten-Speicher ueber die Allokator-Achse. Er belegt,
 // dass der zweite Zweig des Praedikats an echtem Bestand traegt und nicht toter Code ist.
-#include <axes/lookup/composable/btree_node_pool_store.hpp>
+#include <organ_axes/lookup/composable/btree_node_pool_store.hpp>
 
 #include <boost/mp11.hpp>
 

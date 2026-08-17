@@ -1,7 +1,7 @@
 # Doku 23 — F.2/F.3: Axen-zentrische Namespaces + Achsen-Concepts (Migrationsplan)
 
 > ✅ **STATUS-UPDATE / SUPERSEDED als aktiver Plan (2026-05-31):** Dieser MIGRATIONSPLAN ist UMGESETZT — F.2 (17/17
-> physische `axes/<axis>/`, volle Regression 2112/2112) + F.3 (Concept-Layer alle 17, `F2F3_AxisCentricFacade` +
+> physische `organ_axes/<axis>/`, volle Regression 2112/2112) + F.3 (Concept-Layer alle 17, `F2F3_AxisCentricFacade` +
 > perm_engine 21/21) sind **done-verified**. Als *aktiver* Plan damit **überholt** (historische Referenz); IST-treue
 > Single-Source-of-Truth: `docs/ledger-sections/architektur-ziele-offene-punkte-ledger.md` (§e). Etwaige „pending"-
 > Formulierungen unten sind historischer Plan, NICHT offener Stand. Niemals löschen — nur Banner.
@@ -25,12 +25,12 @@ Jede Achse + Basisfunktionalitaet entspricht einem abstrakten C++23-`concept` (F
 Ein direktes Umbenennen aller `comdare::cache_engine::<topic>::axis_NN_<name>`-Namespaces wuerde jeden
 Build-Zwischenstand brechen (codebase-weit, alle 1965 Tests). Stattdessen drei Stufen:
 
-1. **Alias-Fassade (ERLEDIGT, Inkrement 1):** `libs/cache_engine/axes/axis_centric_namespaces.hpp`
+1. **Alias-Fassade (ERLEDIGT, Inkrement 1):** `libs/cache_engine/organ_axes/axis_centric_namespaces.hpp`
    fuehrt die axen-zentrischen Namen als ALIASE auf die bestehenden topic-/achsen-Namespaces ein.
    Ab sofort gueltig: `comdare::cache_engine::lookup::Array256SearchAlgo` etc. — alt UND neu funktionieren,
    kein Bruch. (verifiziert: `F2F3_AxisCentricFacade.AliasesAreSameTypeAndConceptsHold`, perm-engine 21/21.)
 2. **Inkrementeller physischer Rename (GROSS, je Achse):** pro Achse Header verschieben
-   (`cache_engine/axes/<axis>/…`) + Definition-Namespace umbenennen; Referenzen folgen; der Alias bleibt
+   (`cache_engine/organ_axes/<axis>/…`) + Definition-Namespace umbenennen; Referenzen folgen; der Alias bleibt
    bis alle Referenzen migriert sind → jederzeit gruener Build.
 3. **Alt-Aliase entfernen:** wenn eine Achse vollstaendig physisch migriert ist, entfaellt ihr Alias.
 

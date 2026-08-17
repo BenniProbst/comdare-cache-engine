@@ -17,7 +17,7 @@
 //                (sysconf(_SC_PAGESIZE) bzw. GetSystemInfo/hw.pagesize) und dazu jede vom Kernel
 //                gefuehrte Huge-Seite MIT ihrem Pool-Stand. Die Achse ist die System-SEITE der
 //                Freigabe; ihre organ-seitige Durchsetzung bleibt der AllocPageHint-NTTP
-//                (axes/alloc/alloc_hw_config.hpp) und wird hier NICHT beruehrt.
+//                (organ_axes/alloc/alloc_hw_config.hpp) und wird hier NICHT beruehrt.
 //
 // K2 PROZESS-FREI: ausschliesslich Datei-Reads unter sysfs und Familien-Schnittstellen im eigenen
 // Prozess (sysconf, GetLogicalProcessorInformationEx, sysctlbyname). Externe Programme, Shells und
@@ -81,8 +81,8 @@
 
 #include <cache_engine/measurement/algo_semver.hpp>
 #include <cache_engine/measurement/axis_error.hpp>
-#include <cache_engine/measurement/operating_system_axis.hpp>
-#include <cache_engine/measurement/target_isa_sub_axes.hpp>
+#include <system_axes/operating_system_axis.hpp>
+#include <system_axes/target_isa_sub_axes.hpp>
 
 #include <array>
 #include <concepts>

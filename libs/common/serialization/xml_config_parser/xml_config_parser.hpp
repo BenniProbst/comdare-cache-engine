@@ -54,7 +54,7 @@ enum class MessreihenMode {
 
 // REV 7.6 V8.6 — Ein Profil aus algorithm_profiles/sota/<id>.profile.xml
 // REV 7.6 V19.1 — expected_workload Tag (optional Override fuer V11.2-Heuristik)
-// REV 7.7 V29.A — allocator_override Tag (optional Override fuer axes/allocator)
+// REV 7.7 V29.A -- allocator_override Tag (optional Override fuer organ_axes/allocator)
 struct AlgorithmProfile {
     std::string id;        // z.B. "art", "hot", "masstree"
     std::string paper_ref; // z.B. "P01", "P02"
@@ -389,7 +389,7 @@ struct ExperimentEngine {
 // (CPU-Fabrikation) hat KEIN eigenes Attribut -- es ist das O-4a-Kern-Tupel aus machine_identity.hpp,
 // aufgeloest ueber den unveraenderten Schluessel cpu_fabrication + ram_pair.
 // A14/OS-U2 (Owner-Entscheid E3, 02.08.2026): <machines> ist zusaetzlich der ERWARTUNGS-Kanal der drei
-// operating_system-Unter-Achsen os_version/kernel/build (measurement/operating_system_sub_axes.hpp).
+// operating_system-Unter-Achsen os_version/kernel/build (system_axes/operating_system_sub_axes.hpp).
 // AUSDRUECKLICH ERWARTUNG, NICHT WERTE-QUELLE: die Werte werden je Lauf auf der Maschine ERHOBEN
 // (Paket OS-U3, Owner-KERN 27.07. "HW-Werte nie statisch"); was hier steht, ist der Soll-Wert, gegen den
 // die Erhebung gegengeprueft wird. ADDITIV + OPTIONAL + PASSIV: leer/fehlend = nicht deklariert (NICHT

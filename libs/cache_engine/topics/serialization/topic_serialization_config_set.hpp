@@ -2,7 +2,8 @@
 // V41.F.6.1.R7.5.c TopicConfigSet fuer serialization-Topic
 
 #include <topics/serialization/axis_10_serialization/axis_10_serialization_registry.hpp>
-#include <axes/serialization_axis/axis_10_serialization_observable.hpp> // V42 L-74c: ObservableSerialization-Huelle
+// V42 L-74c: ObservableSerialization-Huelle
+#include <organ_axes/serialization_axis/axis_10_serialization_observable.hpp>
 
 #include <boost/mp11.hpp>
 #include <array>

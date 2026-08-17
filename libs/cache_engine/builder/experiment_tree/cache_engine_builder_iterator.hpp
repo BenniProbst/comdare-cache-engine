@@ -185,6 +185,14 @@ struct LazyRunConfig {
     // DEFAULT true == IDENTITAET fuer den gesamten Bestand: jeder [all]-Lauf traegt den Observer, und jeder
     // Bestands-Lauf ist ein [all]-Lauf (Sidecar-Bestand 0). Der Wert kann nur ABWERTEN, nie aufwerten.
     bool mess_observer_ausstattung = true;
+    // B2 (15.08.2026): dieselbe Ehrlichkeit eine Schicht hoeher -- traegt die Tier-Binary dieses Laufs das
+    // FEINKORN (G3, fill_segment_timing_v3)? Seit der Gate-Trennung G2/G3 ist eine [wallclock,macro]-Binary
+    // baubar: Observer AN, Segment-Timer NICHT einkompiliert. Ihre seg_ns waeren durchgehend 0 bei
+    // batches_measured == 0 -- von einer echten Messung mit Ergebnis 0 nicht unterscheidbar.
+    // QUELLE: profile_facade::live_mess_feinkorn_ausstattung() -- DIESELBE Aufloesung und Abbildung wie die
+    // Observer-Zeile darueber, eine Schicht hoeher. DEFAULT true == IDENTITAET fuer den gesamten Bestand
+    // (jeder [all]-Lauf traegt G3, per expliziter Naht-Entscheidung oder Vererbung); nur ABWERTEND wirksam.
+    bool mess_feinkorn_ausstattung = true;
     // M3v2-SELEKTION (2026-06-18, Task #156): Lauf-weite Tags je Mess-Zeile, damit die Auswertung die drei
     // Mess-Klassen (Basis-320 / Per-Achsen-Sweep / SOTA-Reihen A/B/C) UND die Working-Set-N-Dimension UND die
     // Plattform/Build-Version trennen kann. NUR Metadaten (kein Mess-Einfluss) — sie reisen rein über die
@@ -433,6 +441,11 @@ struct LazyMeasuredRow {
     // Komposition). Ersetzt den früheren V3-Snapshot + den Pfad-A-Segment-Timer.
     anatomy::ComdareTierObserverSnapshot unified{};
     bool                                 unified_real = false;
+    // B2 (15.08.2026): sind die seg_*-Zellen dieser Zeile ECHT (G3/Feinkorn einkompiliert)? Wirksam NUR in
+    // Konjunktion mit unified_real (seg ist Teilmenge des Observer-Blocks; die Naht haelt G3 ohne G2 schon
+    // compile-hart fuer unbaubar). DEFAULT true == Identitaet: jede Bestands-Zeile rendert byte-gleich wie
+    // vor B2; die Run-Eintritte werten aus cfg.mess_feinkorn_ausstattung ab (nie auf).
+    bool seg_real = true;
     // Achse 2 (INC-3): Lastprofil + Mess-GÜLTIGKEIT (Zwei-Phasen-Cache-Warmup exakt). profile_name leer/"-" =
     // alter fixer Workload (kein Achse-2-Profil). two_phase_valid=false ⇒ Messung UNGÜLTIG (nicht als valide werten).
     std::string profile_name;
@@ -498,6 +511,32 @@ struct LazyMeasuredRow {
     bool          drift_bestimmbar = false; // D4: gab es ueberhaupt einen Nenner (Median > 0, n >= 2)?
     bool          drift_stabil     = false; // bestimmbar UND unter der Schwelle
 };
+
+/// lazy_row_mess_ausstattung_uebernehmen(row, cfg, gemessen_unified_real) -- DIE EINE UEBERNAHME der
+/// Mess-Ausstattung cfg -> row (B2-ABSCHLUSS, 15.08.2026; Dual-Review-Fund "Capability-Weitergabe
+/// Legende->cfg->row hat keinen beissenden Test").
+///
+/// Bis zum Abschluss-Fix standen die beiden Zuweisungen als nackte Zeilen im Mess-Rumpf des
+/// Builder-Iterators -- produktiv GENAU EINMAL, aber fuer keinen Host-Test erreichbar: fiele eine weg
+/// oder invertierte, blieben alle Gate-Tests gruen, und die fail-open-Defaults der beiden row-Felder
+/// (unified_real/seg_real, beide true als deklarierter Byte-Identitaets-Entscheid) renderten auf einer
+/// G3-aus-Binary wieder strukturelle Nullen als Zahlen. Als benannte Naht ist die Uebernahme testbar
+/// (test_b2_gate_zustand_g2an_g3aus, Abschnitt K5 -- beide Polaritaeten) und hat EINE Semantik:
+///   unified_real = gemessen_unified_real UND cfg.mess_observer_ausstattung   (M-1/H-B, nur abwertend)
+///   seg_real     = cfg.mess_feinkorn_ausstattung                             (B2,      nur abwertend)
+/// "Nur abwertend": true && false == false, true && true == der bisherige Wert; seg wirkt im Renderer
+/// als Konjunktion mit unified_real (seg ist Teilmenge des Observer-Blocks). AUSDRUECKLICH NICHT
+/// GEDECKT (ehrlich benannt): dass der Mess-Rumpf diese Naht RUFT, prueft kein Host-Test -- das deckt
+/// nur ein echter Perm-Lauf; der Aufrufort ist quelltext-gewacht (a8s4-Klasse) und einzig.
+inline void lazy_row_mess_ausstattung_uebernehmen(LazyMeasuredRow& row, LazyRunConfig const& cfg,
+                                                  bool gemessen_unified_real) noexcept {
+    // M-1/H-B: unified_real ist die Konjunktion aus "die Messung lief" (perm_runner) UND "diese
+    // Binary ist ueberhaupt mit Observer gebaut" (cfg). Ohne den zweiten Faktor schrieb eine
+    // [wallclock]-Zeile literal 0 in Zellen, die es nicht wissen konnte.
+    row.unified_real = gemessen_unified_real && cfg.mess_observer_ausstattung;
+    // B2 (15.08.2026): seg-Ehrlichkeit eine Schicht hoeher -- G3/Feinkorn dieser Binary.
+    row.seg_real = cfg.mess_feinkorn_ausstattung;
+}
 
 // ── (B/C/D/X) EINHEITLICHES CSV-Schema (global + per-Binary identisch) ──────────────────────────────────
 //   binary_id;setting;repetition;n_ops;total_ns;ns_per_op;
@@ -824,18 +863,23 @@ struct LazyMeasuredRow {
     // SampleStatus::SourceUnavailable -> sample_status_token() == "n/a", per static_assert dort zementiert)
     // statt eines rohen Literals. CSV-Bytes UNVERAENDERT (golden-neutral); der volle bool-valid->SampleStatus-
     // Split je Zelle bleibt der separate Klein-Increment (Roadmap K-10).
-    auto seg_field = [&](int i) {
-        if (row.unified_real)
+    // B2 (15.08.2026): die seg_*-Zellen haengen zusaetzlich am FEINKORN (G3). Eine [wallclock,macro]-Zeile
+    // (Observer real, Segment-Timer nicht einkompiliert) rendert sie ehrlich "n/a" -- dieselbe zellgenaue
+    // Ehrlichkeit wie M-1/H-B, eine Schicht hoeher. Fuer den gesamten [all]-Bestand ist seg_echt ==
+    // unified_real (seg_real default true) -- die CSV bleibt byte-identisch.
+    bool const seg_echt  = row.unified_real && row.seg_real;
+    auto       seg_field = [&](int i) {
+        if (seg_echt)
             zelle_sep(std::to_string(row.unified.seg_ns[i])); // Pfad-B-Timing aus dem EINEN POD
         else
             zelle_sep(cem::sample_status_token(
-                cem::SampleStatus::SourceUnavailable)); // "n/a": Quelle fehlt (alte/Nicht-Mess-DLL)
+                cem::SampleStatus::SourceUnavailable)); // "n/a": Quelle fehlt (alte/Nicht-Mess-DLL/kein G3)
     };
     for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) seg_field(static_cast<int>(i));
     // P-MD3 (2026-06-18): die Coverage-Versöhnung. seg_framework_ns/seg_run_total_ns ehrlich n/a, wenn keine Mess-DLL;
     // seg_coverage = Σseg_ns / seg_run_total_ns (gegen die KOMMENSURABLE eigene Wall-Clock des Segment-Laufs → ~1.0,
     // NICHT gegen die unkommensurable Real-Workload-total_ns). seg_run_total_ns==0 → coverage n/a (kein Div-by-0).
-    if (row.unified_real) {
+    if (seg_echt) { // B2: wie seg_field am FEINKORN-Gate, nicht nur am Observer (s. seg_echt oben)
         std::int64_t seg_sum = 0;
         for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) seg_sum += row.unified.seg_ns[i];
         zelle_sep(std::to_string(row.unified.seg_framework_ns));
@@ -897,19 +941,45 @@ struct LazyMeasuredRow {
     zelle_sep(std::to_string(row.applied_axis_count)); // applied_axes
     // Phase A: die per-Achsen-Observer-Werte stat_<achse>_<feld> (WIDE, generisch aus kV3AxisSchema). Echt wenn
     // unified_real (Modul trägt das Mess-Interface), sonst ehrlich „n/a" (NICHT 0). Reihenfolge IDENTISCH zum Header.
+    // B2-A2.5/F1 (15.08.2026): die EINE NUR-Pfad-B-getriebene Achse (T17 persistence_target) haengt
+    // ZUSAETZLICH am FEINKORN -- ihre Zaehler ENTSTEHEN ausschliesslich im Segment-Lauf (abi_adapter:
+    // fill_observer_pathb_driven_v3, seit B2 unter COMDARE_CE_ENABLE_SEGMENT_TIMING). Eine G2-an/G3-aus-
+    // Binary ([wallclock,macro]) rendert ihre 5 Zellen deshalb wie die seg_*-Zellen ueber seg_echt:
+    // ehrlich "n/a" (SourceUnavailable), NIE die strukturelle 0 -- exakt die Luegen-Klasse, die B2 fuer
+    // die seg_*-Zellen selbst schliesst. Fuer den gesamten [all]-Bestand ist seg_echt == unified_real
+    // (seg_real default true) -- die CSV bleibt byte-identisch. Slot-Bindung an die Single-Source wie in
+    // A8-S3: wandert die Schema-Zeile, bricht der Bau LAUT, statt still die falsche Achse zu gaten.
+    constexpr std::size_t kPathBDrivenAxis = 17; // T17 persistence_target (STRUKT-R ORG-18)
+    static_assert(std::string_view{anatomy::kV3AxisSchema[kPathBDrivenAxis].names[0]} == std::string_view{"rounds"} &&
+                      std::string_view{anatomy::kV3AxisSchema[kPathBDrivenAxis].names[1]} ==
+                          std::string_view{"bytes_staged"},
+                  "B2-A2.5/F1: der T17-Slot der Single-Source kV3AxisSchema traegt nicht mehr die "
+                  "persistence_target-Spalten -- das Feinkorn-Gate der stat_*-Zellen zeigt auf die falsche Achse.");
     for (std::size_t t = 0; t < anatomy::kV3AxisCount; ++t) {
+        // T17 verlangt den Segment-Lauf (G3), alle anderen Achsen nur den Observer (G2).
+        bool const achse_echt = (t == kPathBDrivenAxis) ? seg_echt : row.unified_real;
         for (std::size_t f = 0; f < anatomy::kV3FieldCount; ++f) {
             if (anatomy::kV3AxisSchema[t].names[f] == nullptr) continue; // ungenutzt / Phase B → keine Spalte
-            if (row.unified_real)
+            if (achse_echt)
                 zelle_sep(std::to_string(row.unified.axis_stats[t][f])); // konsolidierter POD
             else
-                zelle_sep("n/a"); // alte/Nicht-Mess-DLL -> ehrlich n/a
+                zelle_sep(cem::sample_status_token(
+                    cem::SampleStatus::SourceUnavailable)); // "n/a": alte/Nicht-Mess-DLL bzw. T17 ohne G3 -- NIE 0
         }
     }
-    if (row.unified_real)
-        zelle(std::to_string(row.unified.filled_axis_count)); // filled_axes
-    else
+    if (row.unified_real) {
+        // B2-A2.5/F1: der T17-Beitrag zur v3_filled_axes-Zahl haengt am SELBEN Feinkorn wie die T17-Zellen
+        // (der ++filled_axis_count der DLL sitzt in fill_observer_pathb_driven_v3 unter G3). Ohne seg_echt
+        // darf die Zeile T17 nicht als befuellt ausweisen -- deklarationsgetrieben gedeckelt (M-1/H-B (g):
+        // die Wache haengt an der Deklaration, nicht an den Zahlen). Fuer jede ABI-legale Zeile ist der
+        // Deckel ein No-Op: eine G3-aus-DLL zaehlt T17 nie mit -- die CSV bleibt byte-identisch.
+        std::uint64_t       gezeigt = row.unified.filled_axis_count;
+        std::uint64_t const deckel  = static_cast<std::uint64_t>(anatomy::kV3AxisCount) - 1u;
+        if (!seg_echt && gezeigt > deckel) gezeigt = deckel;
+        zelle(std::to_string(gezeigt)); // filled_axes
+    } else {
         zelle("n/a");
+    }
     out += ';';
     zelle(row.profile_name.empty() ? std::string_view{"-"} : std::string_view{row.profile_name}); // workload (Achse 2)
     out += ';';
@@ -2981,11 +3051,11 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 row.timed_ops          = pr.timed_ops;
                 row.op_lat             = pr.op_lat;
                 row.unified            = pr.unified;
-                // M-1/H-B: unified_real ist die Konjunktion aus "die Messung lief" (perm_runner) UND "diese
-                // Binary ist ueberhaupt mit Observer gebaut" (cfg). Der zweite Faktor ist neu; ohne ihn
-                // schrieb eine [wallclock]-Zeile literal 0 in Zellen, die es nicht wissen konnte. Nur
-                // abwertend -- true && false == false, true && true == der bisherige Wert.
-                row.unified_real    = pr.unified_real && cfg.mess_observer_ausstattung;
+                // M-1/H-B + B2: Observer- und Feinkorn-Ehrlichkeit dieser Zeile -- seit dem
+                // B2-ABSCHLUSS ueber die EINE benannte, host-testbare Naht (Funktionskopf direkt
+                // hinter LazyMeasuredRow traegt Semantik und Byte-Bilanz; Test: Abschnitt K5 in
+                // test_b2_gate_zustand_g2an_g3aus). Beide Felder nur abwertend.
+                lazy_row_mess_ausstattung_uebernehmen(row, cfg, pr.unified_real);
                 row.profile_name    = pr.profile_name;
                 row.two_phase_valid = pr.two_phase_valid;
                 row.sample_status   = pr.sample_status;

@@ -67,7 +67,7 @@ T0–T18, der Code-`axis_NN` weicht historisch ab (Brücke aus Doc 35 §0).
 
 | T# | Achse | Member-Handle (`abi_adapter.hpp`) | Code-`axis_NN` (Repräsentant) |
 |----|-------|-----------------------------------|-------------------------------|
-| T0  | search_algo        | `search_organ_` (Weg B) / `container_` (Weg A) — `:1663` / `:1664` | `axis_03a` (`axes/lookup/composable/`) |
+| T0  | search_algo        | `search_organ_` (Weg B) / `container_` (Weg A) — `:1663` / `:1664` | `axis_03a` (`organ_axes/lookup/composable/`) |
 | T1  | cache_traversal    | `ct_organ_` `:1690` | `axis_03b` |
 | T2  | mapping            | `map_organ_` `:1691` | `axis_03m` |
 | T3  | path_compression   | `pc_organ_` `:1712` | `axis_02` |
@@ -137,7 +137,7 @@ Pro Achsen-Tag wählt `resolve_baustein<Algo, Tag>` zur **Übersetzungszeit** de
 
 | Concept / Weiche | Datei:Zeile | Wirkung |
 |---|---|---|
-| `StoreTraversableSearchAlgo<SearchAlgo>` | `axes/lookup/composable/store_traversable_search_algo.hpp` (genutzt `abi_adapter.hpp:693`, `:763`, `:813`) | **Weg A** (Suche über den `container_`-Store) vs. **Weg B** (separates `search_organ_`) |
+| `StoreTraversableSearchAlgo<SearchAlgo>` | `organ_axes/lookup/composable/store_traversable_search_algo.hpp` (genutzt `abi_adapter.hpp:693`, `:763`, `:813`) | **Weg A** (Suche über den `container_`-Store) vs. **Weg B** (separates `search_organ_`) |
 | `container_traversal_t` = `std::conditional_t<…>` | `abi_adapter.hpp:1650-1653` | wählt das Traversal-Organ des Stores: `traversal_for_search_algo_t<SearchAlgo>` (Weg A) **oder** `SortedBinaryTraversal` (Fallback/Weg B) |
 | `ObservableAxis<T>` | (Concept; z. B. `abi_adapter.hpp:915`, `:932`) | steuert, ob eine Achse im Observer (`fill_observer_v3`) aggregiert wird |
 | `MementoAxis<T>` | (Concept; `abi_adapter.hpp:1501`, `:1538`) | save/restore-Fähigkeit (Warmlauf-Zustand, CoW, `tier_scan`) |

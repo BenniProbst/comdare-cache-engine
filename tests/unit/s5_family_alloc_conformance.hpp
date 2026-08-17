@@ -15,7 +15,7 @@
 //       staerkere der beiden Formen und der richtige Schnitt ueberall dort, wo eine COMPILE-TIME-Kappe
 //       existiert (Beispiel: die Pfad-Trajektorie mit kMaxTrackedSlots).
 //   (B) UEBER DIE ALLOKATOR-ACHSE: das Organ deklariert einen allocator_type, und dieser Typ erfuellt
-//       das Allokator-Achsen-Concept AllocatorStrategy (axes/alloc/concepts/axis_06_allocator_concept.hpp).
+//       das Allokator-Achsen-Concept AllocatorStrategy (organ_axes/alloc/concepts/axis_06_allocator_concept.hpp).
 //       Das ist die Form fuer unbounded Container -- Muster: BTreeNodePoolStore mit
 //       StdAllocatorAdapter-Rebind + COW-/Memento-Verhalten (btree_node_pool_store.hpp).
 //
@@ -40,7 +40,7 @@
 // halten -- sonst pinnt die Wache nichts (die Lehre "gruene Tests zementieren alte Ordnung": eine Wache,
 // die nie beissen kann, ist eine Erfolgs-Meldung ohne Aussage).
 
-#include <axes/alloc/concepts/axis_06_allocator_concept.hpp>
+#include <organ_axes/alloc/concepts/axis_06_allocator_concept.hpp>
 
 #include <boost/mp11.hpp>
 

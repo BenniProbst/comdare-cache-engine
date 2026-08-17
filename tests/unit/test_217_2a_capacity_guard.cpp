@@ -5,16 +5,16 @@
 #include <anatomy/composition_factory.hpp>
 #include <anatomy/idriveable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
-#include <axes/lookup/axis_03a_search_algo_array256.hpp>
-#include <axes/lookup/axis_03a_search_algo_array65535.hpp>
-#include <axes/lookup/axis_03a_search_algo_linear_scan.hpp>
-#include <axes/lookup/composable/capacity_constraint.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_array256.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_array65535.hpp>
+#include <organ_axes/lookup/axis_03a_search_algo_linear_scan.hpp>
+#include <organ_axes/lookup/composable/capacity_constraint.hpp>
 #include <compositions/art_reference.hpp>
 
 #include <gtest/gtest.h>
 
 #include <cstdint>
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an   = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;

@@ -325,7 +325,7 @@ int main() {
     // && ThrowTranslatingStrategy<A>` (der vierte Term seit der A1-Nachbesserung 06.08.2026; er aendert an
     // DIESEM Befund nichts -- die Grenze faellt schon am ersten Term, s.u.).
     // NodeTypeStrategy verlangt NodesComponent, also `typename T::topic_tag == NodesTopicTag`
-    // (axes/node/concepts/axis_04_node_type_concept.hpp:17). Weder CarriedAxis noch ein Cross-Genus-Organ
+    // (organ_axes/node/concepts/axis_04_node_type_concept.hpp:17). Weder CarriedAxis noch ein Cross-Genus-Organ
     // traegt ein topic_tag -- der SA-ABI-Adapter lehnt beide compile-hart ab. Literaler Bau-Fehler:
     //   "abi_adapter.hpp:2064:11: error: template constraint failure for
     //    'template<class N, class L, class A> requires (NodeTypeStrategy<N>) && ... class LayoutAwareChunkedStore'"

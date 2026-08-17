@@ -7,8 +7,8 @@
 
 #define COMDARE_CE_ENABLE_STATISTICS 1
 
-#include <axes/layout/axis_05_memory_layout_observable.hpp>
-#include <axes/layout/axis_05_memory_layout_cache_line_aligned.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_observable.hpp>
+#include <organ_axes/layout/axis_05_memory_layout_cache_line_aligned.hpp>
 #include "anatomy/observer_aggregate.hpp" // ObservableAxis
 
 #include <cassert>

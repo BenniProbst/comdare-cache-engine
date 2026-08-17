@@ -54,11 +54,11 @@
 #include <builder/experiment_tree/axis_path_serialization.hpp> // kCompositionAxisNames (die 19 Komposition-Achsen)
 #include <cache_engine/measurement/measurement_axis_registry.hpp> // kMeasurementAxisRegistry (INC-3: Single-Source der 16 Kategorie-Namen)
 #include <cache_engine/measurement/system_axis.hpp> // kAllMeasurementCategories (INC-D: Single-Source der 16 Kategorie-Enums)
-#include <cache_engine/measurement/optimization_level_sub_axis.hpp> // kAllOptLevelIds (Single-Source der opt_level-ids)
-#include <cache_engine/measurement/simd_sub_axis.hpp>               // kAllSimdIds (Single-Source der simd-ids, F-SIMD)
-#include <cache_engine/measurement/external_utils_family_axis.hpp>  // GN-1: aktiver external_utils-Familien-Knoten
-#include <cache_engine/measurement/compiler_atomic_sub_axis.hpp> // S2/A2: kAllAtomic128Ids (Single-Source der atomic128-ids)
-#include <cache_engine/measurement/target_isa_system_axis.hpp> // S2/A2: kAllTargetIsaIds (Single-Source der target_isa-ids)
+#include <system_axes/optimization_level_sub_axis.hpp> // kAllOptLevelIds (Single-Source der opt_level-ids)
+#include <system_axes/simd_sub_axis.hpp>               // kAllSimdIds (Single-Source der simd-ids, F-SIMD)
+#include <system_axes/external_utils_family_axis.hpp>  // GN-1: aktiver external_utils-Familien-Knoten
+#include <system_axes/compiler_atomic_sub_axis.hpp>    // S2/A2: kAllAtomic128Ids (Single-Source der atomic128-ids)
+#include <system_axes/target_isa_system_axis.hpp>      // S2/A2: kAllTargetIsaIds (Single-Source der target_isa-ids)
 #include <cache_engine/measurement/run_methodology_registry.hpp> // A9.1: kRunMethodologyRegistry (debug/measure/release)
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // A9.1: kMeasurementFrameworkRegistry (ycsb)
 #include <cache_engine/measurement/writeback_method_registry.hpp> // A9.1: kWritebackMethodRegistry (csv/latex_table/comparison_metrics)

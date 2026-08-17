@@ -9,10 +9,10 @@
 #include <cache_engine/abi/anatomy_fingerprint.hpp>        // K7b-3: anatomy_fingerprint_hex (A13-M3: 3 Stempel-Zeilen)
 #include <cache_engine/abi/anatomy_stamp_entries.hpp>      // A3: count/parse_stamp_entries + AnatomyStampEntryV1
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
-#include <cache_engine/abi/meta_meta_stamp_suffix.hpp>               // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
-#include <cache_engine/measurement/external_utils_family_axis.hpp>   // A13-M2: ExternalUtilsHub (System-Realm)
-#include <cache_engine/abi/system_axis_code_versions.hpp>            // A2: kSystemAxisCodeVersions (Single-Source)
-#include <cache_engine/measurement/measurement_tooling_registry.hpp> // A2: version-Feld + tooling_version_for_id
+#include <cache_engine/abi/meta_meta_stamp_suffix.hpp>    // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
+#include <system_axes/external_utils_family_axis.hpp>     // A13-M2: ExternalUtilsHub (System-Realm)
+#include <cache_engine/abi/system_axis_code_versions.hpp> // A2: kSystemAxisCodeVersions (Single-Source)
+#include <mess_axes/measurement_tooling_registry.hpp>     // A2: version-Feld + tooling_version_for_id
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // S2: Bestands-Probe der Katalog-Wache
 #include <cache_engine/measurement/pmc_vendor_registry.hpp> // I-PMC-2 (10.08.2026): die ZWEI PMC-Hardware-Komponenten
 #include <sha512/ctsha512.hpp> // K7b-3: Referenz-SHA-512 fuer den Fingerprint-Korrektheitstest
@@ -44,7 +44,7 @@
 #include <type_traits> // NB-3/T2-D: is_constructible_v-Beweis des geloeschten Rvalue-Konstruktors
 #include <utility>     // die Fehlform-Tabelle der Form-Wache (Paar aus Beschreibung und Literal)
 #include <vector>      // A4: die Flag-Schwanz-Gegenprobe der POD-Rekonstruktion
-#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
+#include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace m  = ::comdare::cache_engine::measurement;
 namespace pl = ::comdare::cache_engine::planner;

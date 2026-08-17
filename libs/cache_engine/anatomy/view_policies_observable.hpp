@@ -7,7 +7,7 @@
 // AUSGANGSLAGE (Katalog): DynamicExtent/LayoutRight/DefaultAccessor tragen KEIN statistics()/snapshot_t --
 // alle drei C3-Slots der View-Gattung waren EmptyAxisSnapshot (view_anatomy.hpp:44-48). Diese Huellen
 // schliessen die Luecke nach dem Muster ObservableIndexOrg<Strategy>
-// (axes/index_organization/axis_01_index_organization_observable.hpp:60-134): die Policy bleibt unangetastet,
+// (organ_axes/index_organization/axis_01_index_organization_observable.hpp:60-134): die Policy bleibt unangetastet,
 // die Huelle reicht ihre Concept-Ops DURCH und zaehlt dabei.
 //
 // GATING exakt nach Praezedenz: snapshot_t/statistics()/reset() nur unter COMDARE_CE_ENABLE_STATISTICS;

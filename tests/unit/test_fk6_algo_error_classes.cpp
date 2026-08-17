@@ -41,8 +41,8 @@
 #include <cache_engine/measurement/axis_error.hpp> // die EINE D2-Taxonomie-Quelle (measurement-Schicht)
 #include <topics/organ_axis_error_classes.hpp>     // FK-5-Etiketten + FK-6-Praedikat/Wache
 
-#include <axes/alloc/axis_06_allocator_pim_malloc.hpp> // der EINE HW-gatete Algorithmus
-#include <axes/alloc/axis_06_allocator_std_malloc.hpp> // ein nicht-gatetes Geschwister (D)
+#include <organ_axes/alloc/axis_06_allocator_pim_malloc.hpp> // der EINE HW-gatete Algorithmus
+#include <organ_axes/alloc/axis_06_allocator_std_malloc.hpp> // ein nicht-gatetes Geschwister (D)
 
 #include <array>
 #include <cstddef>

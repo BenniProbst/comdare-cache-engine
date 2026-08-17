@@ -90,7 +90,7 @@
 #include "profile_facade/validate_profile.hpp"
 #include "xml_config_parser/xml_config_parser.hpp"
 
-#include <axes/persistence_target/axis_persistence_target_registry.hpp>
+#include <organ_axes/persistence_target/axis_persistence_target_registry.hpp>
 
 #include <boost/mp11.hpp>
 
