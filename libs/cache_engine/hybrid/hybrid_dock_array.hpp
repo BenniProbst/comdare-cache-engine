@@ -25,8 +25,8 @@
 // (soll_design 3.2 Punkt 1).
 // VERBOTEN bleibt variant: in jeder plain Tier-Binary (uneingeschraenkt), in der
 // Haupt-Observer-Kommunikation, als Achsen-Traeger und im Planer (soll_design 3.2 Punkt 3).
-// GEDULDET bleibt er in der CEB (Owner-Duldung, unveraendert; im Design-Dokument als LEDGER:3489
-// gefuehrt -- Zeilen-Anker jener Zeit sind gewandert, die Aussage nicht).
+// GEDULDET bleibt er in der CEB (Owner-Duldung, unveraendert; im Design-Dokument ueber einen
+// Zeilenverweis auf 3489 gefuehrt -- Verweise jener Zeit sind gewandert, die Aussage nicht).
 //
 // EHRLICHE GRENZE DIESER ZUSAGE: der Satz "DockSlot ist die einzige variant-Ausnahme" ist eine
 // ZONEN-Aussage ueber libs/cache_engine/hybrid/, KEINE System-Aussage. Systemweit gibt es die
