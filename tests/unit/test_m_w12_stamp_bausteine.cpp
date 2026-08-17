@@ -1354,12 +1354,25 @@ TEST(MW12StampBausteine, A4AnatomyStampArraysRoundtripThroughPod) {
     static constexpr auto kME =
         abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kMeasure})>(kMeasure);
 
-    abi::AnatomyVersionLines const v{abi::kAnatomyVersionLinesLayout, 0u, kOrgan, sizeof(kOrgan) - 1, kSystem,
-                                     sizeof(kSystem) - 1, kMeasure, sizeof(kMeasure) - 1,
-                                     // A13-M3: die merge-Slots ("" / 0u) sind hier ERSATZLOS entfallen (18 -> 16
-                                     // Initialisierer) -- sha512_line folgt jetzt unmittelbar auf measurement_len.
-                                     "deadbeef", 8u, abi::stamp_entries_ptr(kOE), kOE.size(),
-                                     abi::stamp_entries_ptr(kSE), kSE.size(), abi::stamp_entries_ptr(kME), kME.size()};
+    // A13-M3: die merge-Slots ("" / 0u) sind hier ERSATZLOS entfallen (18 -> 16 Initialisierer) -- sha512_line
+    // folgt unmittelbar auf measurement_len. VL-2: die Zuordnung steht ab hier als DESIGNATOR da, nicht als
+    // Position -- ein S-6a-Feld-Tausch bricht damit laut, statt die Werte still zu vertauschen.
+    abi::AnatomyVersionLines const v{.stamp_layout_version    = abi::kAnatomyVersionLinesLayout,
+                                     .reserved                = 0u,
+                                     .organ_line              = kOrgan,
+                                     .organ_len               = sizeof(kOrgan) - 1,
+                                     .system_line             = kSystem,
+                                     .system_len              = sizeof(kSystem) - 1,
+                                     .measurement_line        = kMeasure,
+                                     .measurement_len         = sizeof(kMeasure) - 1,
+                                     .sha512_line             = "deadbeef",
+                                     .sha512_len              = 8u,
+                                     .organ_entries           = abi::stamp_entries_ptr(kOE),
+                                     .organ_entry_count       = kOE.size(),
+                                     .system_entries          = abi::stamp_entries_ptr(kSE),
+                                     .system_entry_count      = kSE.size(),
+                                     .measurement_entries     = abi::stamp_entries_ptr(kME),
+                                     .measurement_entry_count = kME.size()};
 
     EXPECT_TRUE(abi::stamp_pod_has_entries(v));
     EXPECT_EQ(v.stamp_layout_version, 6u);

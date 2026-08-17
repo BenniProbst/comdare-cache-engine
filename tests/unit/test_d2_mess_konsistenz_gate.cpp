@@ -83,22 +83,22 @@ constexpr auto kEntriesWallclock =
                                                           std::uint64_t                   mess_len,
                                                           cea::AnatomyStampEntryV1 const* eintraege,
                                                           std::uint64_t                   eintrag_count) noexcept {
-    return cea::AnatomyVersionLines{layout,
-                                    0u,
-                                    "",
-                                    0u,
-                                    "",
-                                    0u,
-                                    mess,
-                                    mess_len,
-                                    "",
-                                    0u,
-                                    cea::kAnatomyStampNoEntries,
-                                    0u,
-                                    cea::kAnatomyStampNoEntries,
-                                    0u,
-                                    eintraege,
-                                    eintrag_count};
+    return cea::AnatomyVersionLines{.stamp_layout_version    = layout,
+                                    .reserved                = 0u,
+                                    .organ_line              = "",
+                                    .organ_len               = 0u,
+                                    .system_line             = "",
+                                    .system_len              = 0u,
+                                    .measurement_line        = mess,
+                                    .measurement_len         = mess_len,
+                                    .sha512_line             = "",
+                                    .sha512_len              = 0u,
+                                    .organ_entries           = cea::kAnatomyStampNoEntries,
+                                    .organ_entry_count       = 0u,
+                                    .system_entries          = cea::kAnatomyStampNoEntries,
+                                    .system_entry_count      = 0u,
+                                    .measurement_entries     = eintraege,
+                                    .measurement_entry_count = eintrag_count};
 }
 
 /// Die eine gebaute perm-.so im Fixture-Dir finden (Loader-Konvention, uebernommen aus test_pruef_only_gate).
