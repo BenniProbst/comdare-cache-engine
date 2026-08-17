@@ -278,8 +278,8 @@ private:
         for (std::size_t i = peeled; i-- > 0;) { // RUECKWAERTS fuellen (Alg. 3)
             std::uint64_t const m = mix_(sc.order_key[i], seed);
             std::size_t const   s = sc.order_slot[i]; // je Peel-Schritt eindeutig, sc.tab[s] ist noch 0
-            sc.tab[s]             = static_cast<std::uint8_t>(fingerprint_(sc.order_key[i]) ^ sc.tab[h0_(m)] ^
-                                                              sc.tab[h1_(m)] ^ sc.tab[h2_(m)]);
+            sc.tab[s] = static_cast<std::uint8_t>(fingerprint_(sc.order_key[i]) ^ sc.tab[h0_(m)] ^ sc.tab[h1_(m)] ^
+                                                  sc.tab[h2_(m)]);
         }
         return true;
     }
