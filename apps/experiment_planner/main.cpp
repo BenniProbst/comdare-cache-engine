@@ -714,7 +714,10 @@ int main(int argc, char* argv[]) {
         }
         // SICHTBAR, nicht still: ein unbemerkter Debug-Lauf ist der Weg, auf dem seine Zahl spaeter fuer
         // einen Messwert gehalten wird. Der Vermerk geht auf stderr, damit stdout emissions-rein bleibt
-        // (clig.dev: Daten -> stdout, Diagnose -> stderr) -- die Plan-Emissionen bleiben byte-gleich.
+        // (clig.dev: Daten -> stdout, Diagnose -> stderr). GEMESSEN ist nur der stderr-Weg des
+        // Vermerks; die stdout-Byte-Gleichheit mit/ohne --debug ist NICHT gemessen (Audit 17.08.,
+        // VL-3-Restposten: Bytevergleich = offener Pruef-Posten, Welle-2-Fix) -- bis dahin keine
+        // Byte-Gleichheits-ZUSICHERUNG an dieser Stelle.
         std::cerr << "[debug] AKTIV (COMDARE_DEBUG_FREIGABE=true): nicht-regelkonformes Messen freigegeben. "
                   << "Zahlen aus diesem Lauf sind AUSSCHUSS\n"
                   << "        und duerfen nicht ins Messwertlager -- geprueft wird die KETTE, nicht die "
