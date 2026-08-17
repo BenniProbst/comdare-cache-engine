@@ -153,8 +153,7 @@ TEST(RcuConcurrency, WriterSyncsWhileReaderThreadsChurnNoUseAfterFree) {
     // ueber ein Schnappschuss-Paar bestimmt (unten).
     auto churn = [&]() {
         bool erster = true;
-        while (generation.load(std::memory_order_relaxed) < kReaderEnde
-               && !stop.load(std::memory_order_relaxed)) {
+        while (generation.load(std::memory_order_relaxed) < kReaderEnde && !stop.load(std::memory_order_relaxed)) {
             rcu::RcuReadGuard g{d};
             int const*        p = slot.load(std::memory_order_acquire);
             volatile int      v = *p; // Deref waehrend der read-side critical section MUSS gueltig bleiben

@@ -143,5 +143,6 @@ if [ "$ERLAUBT_GENUTZT" -ne "$ALLOWLIST_SOLL" ]; then
     echo "  -- eine Ausnahme ohne Gegenstand ist eine offene Tuer."
     exit 2
 fi
-echo "lint_layer_includes: OK ($ANZ_DATEIEN Header unter [$ZIELE] geprueft, keine unerlaubte builder/-Kante; $ERLAUBT_GENUTZT erlaubte)."
+echo "lint_layer_includes: OK ($ANZ_DATEIEN Header unter [$ZIELE] geprueft," \
+     "keine unerlaubte builder/-Kante; $ERLAUBT_GENUTZT erlaubte)."
 exit 0
