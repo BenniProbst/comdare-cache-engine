@@ -66,12 +66,34 @@ namespace comdare::cache_engine::hybrid {
 // ein bekannter Fehler aussieht. Deshalb hat jeder Code hier einen Namen, und der Test prueft die
 // Totalitaet mitsamt Gegenprobe.
 
-inline constexpr int hybrid_status_ok                     = 0;
-inline constexpr int hybrid_status_unbekannter_vertrag    = 1; ///< contract_id zeigt in keine Registry-Zeile
-inline constexpr int hybrid_status_contract_ohne_dock_typ = 2; ///< Vertrag existiert, sein Dock-Typ noch nicht
+inline constexpr int hybrid_status_ok                      = 0;
+inline constexpr int hybrid_status_unbekannter_vertrag     = 1; ///< contract_id zeigt in keine Registry-Zeile
+inline constexpr int hybrid_status_contract_ohne_dock_typ  = 2; ///< Vertrag existiert, sein Dock-Typ noch nicht
 inline constexpr int hybrid_status_kein_zielfaehiges_genus = 3; ///< Ziel ist ein Klassifikations-Genus (Gate S1)
-inline constexpr int hybrid_status_array_voll             = 4; ///< Dock-Array am Kapazitaets-Deckel
-inline constexpr int hybrid_status_slot_leer              = 5; ///< adressierter Slot traegt kein Dock
+inline constexpr int hybrid_status_array_voll              = 4; ///< Dock-Array am Kapazitaets-Deckel
+inline constexpr int hybrid_status_slot_leer               = 5; ///< adressierter Slot traegt kein Dock
+// HY-A3 -- die Parse-Seite. Sie lebt HIER und nicht in hybrid_config_xml.hpp, damit es EINE
+// Status-Heimat gibt: zwei Namensfunktionen liefen auseinander, und die zweite waere die stumme.
+inline constexpr int hybrid_status_xml_nicht_wohlgeformt = 6; ///< kein DOM / falscher Wurzel-Tag
+inline constexpr int hybrid_status_unbekanntes_token     = 7; ///< enabled/storage/genus ausserhalb der Wire-Form
+inline constexpr int hybrid_status_max_docks_ungueltig   = 8; ///< 0, nicht-numerisch oder ueber dem Programm-Deckel
+inline constexpr int hybrid_status_mehr_docks_als_deckel = 9; ///< Bestueckung sprengt das selbst gesetzte max_docks
+
+/// Die EINZELQUELLE aller Status-Codes. Wer einen anhaengt, traegt ihn HIER ein -- die
+/// Namens-Totalitaets-Wache unten faengt sonst den Vergessenen. Handgefuehrte Listen IM TEST sind
+/// genau die Bauart, an der die alten Vollstaendigkeits-Wachen gescheitert sind
+/// (nachgemessen, heuristik_adapter_klassifikation.hpp:20-30).
+inline constexpr std::array<int, 10> kAlleHybridStatus{
+    hybrid_status_ok,
+    hybrid_status_unbekannter_vertrag,
+    hybrid_status_contract_ohne_dock_typ,
+    hybrid_status_kein_zielfaehiges_genus,
+    hybrid_status_array_voll,
+    hybrid_status_slot_leer,
+    hybrid_status_xml_nicht_wohlgeformt,
+    hybrid_status_unbekanntes_token,
+    hybrid_status_max_docks_ungueltig,
+    hybrid_status_mehr_docks_als_deckel};
 
 [[nodiscard]] constexpr std::string_view hybrid_status_name(int s) noexcept {
     switch (s) {
@@ -81,9 +103,37 @@ inline constexpr int hybrid_status_slot_leer              = 5; ///< adressierter
         case hybrid_status_kein_zielfaehiges_genus: return "kein_zielfaehiges_genus";
         case hybrid_status_array_voll: return "array_voll";
         case hybrid_status_slot_leer: return "slot_leer";
+        case hybrid_status_xml_nicht_wohlgeformt: return "xml_nicht_wohlgeformt";
+        case hybrid_status_unbekanntes_token: return "unbekanntes_token";
+        case hybrid_status_max_docks_ungueltig: return "max_docks_ungueltig";
+        case hybrid_status_mehr_docks_als_deckel: return "mehr_docks_als_deckel";
         default: return "unknown";
     }
 }
+
+namespace detail {
+/// true gdw. JEDER gelistete Status einen echten Namen hat -- und die Namen paarweise verschieden
+/// sind. Der zweite Teil ist nicht kosmetisch: zwei Codes mit demselben Namen sind im Bericht
+/// ununterscheidbar, also genauso stumm wie ein namenloser.
+[[nodiscard]] consteval bool alle_hybrid_status_benannt() {
+    for (std::size_t i = 0; i < kAlleHybridStatus.size(); ++i) {
+        if (hybrid_status_name(kAlleHybridStatus[i]) == std::string_view{"unknown"}) return false;
+        for (std::size_t j = i + 1; j < kAlleHybridStatus.size(); ++j) {
+            if (hybrid_status_name(kAlleHybridStatus[i]) == hybrid_status_name(kAlleHybridStatus[j])) return false;
+        }
+    }
+    return true;
+}
+} // namespace detail
+
+static_assert(detail::alle_hybrid_status_benannt(),
+              "HY-A1-STATUS: ein gelisteter Status hat keinen Namen (oder zwei teilen sich einen). "
+              "NAHT-1-Lehre (pruef_dock.hpp:59-63): ein stummer Zustand ist schlimmer als gar "
+              "keiner -- er sieht im Bericht aus wie ein bekannter Fehler.");
+static_assert(hybrid_status_name(-1) == std::string_view{"unknown"} &&
+                  hybrid_status_name(9999) == std::string_view{"unknown"},
+              "HY-A1-STATUS: die Namensfunktion muss fuer NICHT-Status 'unknown' liefern -- sonst "
+              "ist sie auf immer-benannt degeneriert und die Wache darueber wertlos.");
 
 // ------------------------------------------------------------------------------------------
 // (2) DIE VIER VERTRAEGE

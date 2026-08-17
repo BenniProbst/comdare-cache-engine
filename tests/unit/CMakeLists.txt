@@ -2173,6 +2173,22 @@ target_include_directories(test_hy_a1_dock_contract PRIVATE
 target_compile_definitions(test_hy_a1_dock_contract PRIVATE
     "COMDARE_HY_QUELLVERZEICHNIS=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/hybrid\"")
 
+# HY-A3 -- der Parser der <hybrid_tier>-Sektion: der ZWEIWEIG-Schalter (XOR je Kette) und der
+# XML-Override des Dock-Deckels (KON42-01: constexpr-Default im Planer, XML ueberschreibt).
+# Braucht libs/common auf dem Include-Pfad (common-DOM xml_reader) -- dieselbe Machart wie
+# experiment_dock_payload.hpp, keine neue XML-Lib.
+# KEINE XSD-Aenderung: der Typ HybridTierType bleibt Kommentar-Reserve, die Validierung lebt per
+# Haus-Doktrin im C++-Validator. Der validate_profile-Anschluss und der Registry-Eintrag ("22->23")
+# sind NICHT gebaut -- letzterer haengt an der offenen Owner-Frage E-6.
+comdare_add_test(test_hy_a3_hybrid_config_parser
+    SOURCES test_hy_a3_hybrid_config_parser.cpp)
+target_include_directories(test_hy_a3_hybrid_config_parser PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+
 # HY-A1 (Dock-Schicht) -- VIERTE Negativ-Compile-Fixture, nach dem in C1 benannten Muster (a)-(d).
 # Gegenstand: die Vertrags-Registry. Bauplan-Auflage HY-A1 woertlich: "ein Vertrag-Token
 # contract_f0a01c9e, der NICHT in der constexpr-Registry steht, muss compile-time laut brechen
