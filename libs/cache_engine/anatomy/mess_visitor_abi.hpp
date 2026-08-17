@@ -1,5 +1,25 @@
 #pragma once
-// anatomy/mess_visitor_abi.hpp -- DIE MESS-NAHT AM GENUS-INTERFACE (Owner-KERN 09.08.2026).
+// anatomy/mess_visitor_abi.hpp -- FLAECHE 3: DER MEASUREMENT-DURCHSTICH AM GENUS-INTERFACE
+//                                 = DIE MESS-NAHT (NAHT-1, Owner-KERN 09.08.2026).
+//
+// ------------------------------------------------------------------------------------------------
+// FLAECHE-3-VEREINIGUNG (KON25-02) -- EIN GEGENSTAND, ZWEI HISTORISCHE NAMEN
+// ------------------------------------------------------------------------------------------------
+// Owner 11.08.2026: "Ja genau, das ist Flaeche 3 und beide Konzepte muessen vereint werden."
+//
+// Das Drei-Flaechen-Modell (KON16-06):
+//   FLAECHE 1  Genus-Interface einer Tier-Binary    abstract factory, Laufzeit
+//   FLAECHE 2  der STEMPEL                          compile time factory, ABI-stabil
+//   FLAECHE 3  der MEASUREMENT-DURCHSTICH           GENAU DIESE Naht (IMessVisitor)
+//
+// Flaeche 3 existiert, DAMIT Gattungs- und Genus-Interfaces UNVERAENDERT bleiben: die Messung
+// quert als eigener Durchstich (tier_measure_accept + IMessVisitor), statt Mess-Felder oder
+// Mess-Methoden in die fachlichen Interfaces zu draengen. Es gibt KEINEN zweiten Mechanismus:
+// "measurement-Durchstich" (Plan-/Ledger-Vokabular, KON16-06) und "Mess-Visitor-Naht / NAHT-1"
+// (Bau-Vokabular vom 09.08.2026) bezeichnen DIESELBE Flaeche -- dieser Header IST sie. Wer nach
+// dem einen Begriff sucht, muss den anderen finden; deshalb stehen beide in diesem Kopf.
+// Die Deckung der Gate-Kombination CEB=AUS/Tier=AN belegt am Objekt
+// tests/unit/test_flaeche3_deckung_ceb_aus_tier_an.cpp (KON25-02-Deckungsluecke, Task #20).
 //
 // ------------------------------------------------------------------------------------------------
 // DER KERN, WOERTLICH, UND WAS ER VERWIRFT

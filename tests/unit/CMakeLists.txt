@@ -6854,6 +6854,43 @@ target_compile_definitions(test_naht1_mess_visitor_biss PRIVATE
 set_tests_properties(test_naht1_mess_visitor_biss PROPERTIES
     TIMEOUT 300 LABELS "naht1;messnaht;genus_interface;visitor;dll_roundtrip;fehlerklassen")
 
+# -- FLAECHE-3-DECKUNG CEB=AUS/Tier=AN (KON25-02, Task #20) --------------------------------------
+# Der vierte Gate-Quadrant der zweiseitigen Aktivierung von Flaeche 3 (measurement-Durchstich =
+# Mess-Naht NAHT-1, Identitaets-Kopfblock anatomy/mess_visitor_abi.hpp): eine funktional-only
+# uebersetzte Wirts-TU (CEB=AUS per #undef in der QUELLE -- a8s4-/r3-Praezedenz, die Wurzel setzt
+# COMDARE_MEASUREMENT_ON=1 GLOBAL und ein Target kann das nicht abwaehlen) laedt die MESS-AN-
+# Schwester der NAHT-1-Familie und belegt BEIDE Richtungen: CEB=AUS misst nicht (mess_deaktiviert,
+# 0 Bytes trotz getriebener Ops und VORHANDENER Tier-Flaeche) und Tier=AN traegt die Flaeche am
+# Objekt (dynamic_cast + nm; die AUS-Schwester als Distinguisher). Diese TU uebersetzt damit
+# ERSTMALS den "#if !COMDARE_MEASUREMENT_ON"-Zweig von SearchAlgorithmDock::measure in einem
+# Testziel -- exakt die KON25-02-Deckungsluecke. Wiederverwendet die naht1-Schwestern-Module und
+# -Verzeichnisse (kein dritter Modul-Bau; Konsolidierungs-Pflicht).
+comdare_add_test(test_flaeche3_deckung_ceb_aus_tier_an
+    SOURCES test_flaeche3_deckung_ceb_aus_tier_an.cpp)
+target_include_directories(test_flaeche3_deckung_ceb_aus_tier_an PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_flaeche3_deckung_ceb_aus_tier_an PRIVATE
+    Boost::mp11
+    comdare::anatomy_module_loader
+    ${CMAKE_DL_LIBS})
+add_dependencies(test_flaeche3_deckung_ceb_aus_tier_an naht1_modul_mess_an naht1_modul_mess_aus)
+# Pfade als COMPILE-DEFINITIONS, nicht als ctest-Argumente (Befund am naht1-Vorbild: set_property
+# (TEST ... COMMAND) wird von ctest ignoriert; leere Pfade waeren ein Werkzeug-Rot).
+set(_f3v_naht_src "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/pruef_dock")
+target_compile_definitions(test_flaeche3_deckung_ceb_aus_tier_an PRIVATE
+    "COMDARE_F3V_AN_SO=\"$<TARGET_FILE:naht1_modul_mess_an>\""
+    "COMDARE_F3V_AUS_SO=\"$<TARGET_FILE:naht1_modul_mess_aus>\""
+    "COMDARE_F3V_AN_DIR=\"${_naht1_an_dir}\""
+    "COMDARE_F3V_AUS_DIR=\"${_naht1_aus_dir}\""
+    "COMDARE_F3V_CEB_NAHT_SRC=\"${_f3v_naht_src}/genus_mess_naht.hpp\"")
+unset(_f3v_naht_src)
+set_tests_properties(test_flaeche3_deckung_ceb_aus_tier_an PROPERTIES
+    TIMEOUT 300 LABELS "flaeche3;messnaht;genus_interface;dll_roundtrip;release_mode;fehlerklassen")
+
 # -----------------------------------------------------------------------------
 # Warnungs-Review Runde 1c/2a (09.08.2026) -- die zwei Wachen zu den Funden, die DEFEKTE waren.
 #   test_warn2a_block_id_bidirektional : block_id==axis auch auf dem PROFIL-Pfad (7 gemeldete

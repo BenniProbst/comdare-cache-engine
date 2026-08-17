@@ -354,7 +354,10 @@ public:
     /// strukturell nicht gelesene Zaehler).
     virtual void tier_observe(ComdareTierObserverSnapshot* out) const noexcept = 0;
 
-    /// NAHT-1 (Owner-KERN 09.08.2026) -- DIE MESS-NAHT AM GENUS-INTERFACE.
+    /// NAHT-1 (Owner-KERN 09.08.2026) -- DIE MESS-NAHT AM GENUS-INTERFACE. Seit KON25-02 ist der
+    /// Begriff VEREINT: diese Methode IST der measurement-Durchstich von FLAECHE 3 (Drei-Flaechen-
+    /// Modell KON16-06; Identitaets-Kopfblock: anatomy/mess_visitor_abi.hpp). Sie existiert, DAMIT
+    /// Gattungs- und Genus-Interfaces von Mess-Belangen UNVERAENDERT bleiben.
     ///
     /// Der Host reicht den Mess-Visitor HINEIN; das Tier BERICHTET in ihn (e2_begin -> N x
     /// e1_axis_row -> e2_end, Vertrag in mess_visitor_abi.hpp). Das ist die Umkehr des Transports
