@@ -165,8 +165,8 @@ TEST(Flaeche3Deckung, CebAusMisstNichtTrotzMessfaehigemTier) {
         std::string csv, json;
         opts.mess_legende_erwartung = legende;
         int const rc                = dock.measure(handles[0], opts, csv, json);
-        std::printf("[CEB=AUS] measure(Legende=%2d) gegen MESS-AN-Tier -> rc=%d (%s), csv=%zu B, json=%zu B\n",
-                    legende, rc, std::string(pd::dock_status_name(rc)).c_str(), csv.size(), json.size());
+        std::printf("[CEB=AUS] measure(Legende=%2d) gegen MESS-AN-Tier -> rc=%d (%s), csv=%zu B, json=%zu B\n", legende,
+                    rc, std::string(pd::dock_status_name(rc)).c_str(), csv.size(), json.size());
         EXPECT_EQ(rc, pd::dock_status_mess_deaktiviert)
             << "CEB=AUS hat gemessen oder falsch klassifiziert -- die CEB-Haelfte der UND-Bedingung wirkt nicht.";
         // NULL Bytes, nicht "leer-artig": eine nicht messende CEB darf keine Mess-Ausgabe erzeugen.
@@ -229,8 +229,7 @@ TEST(Flaeche3Deckung, CebMessmaschinerieTraegtDenCompileHartenRiegel) {
     // Der wertbasierte Guard (-DCOMDARE_MEASUREMENT_ON=0 muss ausloesen) UND der #error dahinter.
     EXPECT_NE(quelle.find("#if !defined(COMDARE_MEASUREMENT_ON) || !COMDARE_MEASUREMENT_ON"), std::string::npos)
         << "Der wertbasierte OFF-Guard fehlt in " << g_naht_src;
-    EXPECT_NE(quelle.find("#error"), std::string::npos)
-        << "Der compile-harte Riegel (#error) fehlt in " << g_naht_src;
+    EXPECT_NE(quelle.find("#error"), std::string::npos) << "Der compile-harte Riegel (#error) fehlt in " << g_naht_src;
     // Und die Vereinigungs-Identitaet ist dort angekommen (Flaeche-3-Vokabular an der gebauten Naht).
     EXPECT_NE(quelle.find("FLAECHE 3"), std::string::npos)
         << "Die KON25-02-Vereinigung (Flaeche-3-Vokabular) fehlt in der CEB-Seite der Naht.";
