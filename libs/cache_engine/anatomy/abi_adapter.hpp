@@ -2136,6 +2136,8 @@ public:
 
     // ---------------------------------------------------------------------------------------------
     // NAHT-1: DIE MESS-NAHT AM GENUS-INTERFACE (der KERN vom 09.08.2026)
+    // = FLAECHE 3, der measurement-Durchstich (KON25-02-Vereinigung; Identitaets-Kopfblock in
+    // anatomy/mess_visitor_abi.hpp). Die Tier-Seite des Durchstichs ist GENAU dieses Override.
     // ---------------------------------------------------------------------------------------------
     // Der Host reicht den Visitor herein, das Tier BERICHTET in ihn. Der Ereignis-Strom ist der
     // Vertrag aus mess_visitor_abi.hpp: e2_begin -> 18 x e1_axis_row (AUFSTEIGEND) -> e2_end.

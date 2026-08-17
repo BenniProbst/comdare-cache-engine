@@ -53,6 +53,9 @@ public:
         // Also wird KEINER uebergeben, und es wird NICHT gemessen. Frueher lief der Mess-Versuch in
         // der CEB IMMER, unabhaengig vom eigenen Schalter; das war die fehlende Haelfte, wegen der
         // die Aktivierung einseitig blieb.
+        // FLAECHE 3 / KON25-02-DECKUNG: dieser Zweig ist der Zustand CEB=AUS/Tier=beliebig des
+        // measurement-Durchstichs. Uebersetzt und am Objekt belegt wird er von
+        // tests/unit/test_flaeche3_deckung_ceb_aus_tier_an.cpp (vorher: von KEINEM Testziel).
         (void)opts;
         (void)out_csv;
         (void)out_json;

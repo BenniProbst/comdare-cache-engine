@@ -1,5 +1,7 @@
 #pragma once
-// builder/pruef_dock/genus_mess_naht.hpp -- DIE CEB-SEITE DER MESS-NAHT (NAHT-1, Owner-KERN 09.08.2026).
+// builder/pruef_dock/genus_mess_naht.hpp -- DIE CEB-SEITE VON FLAECHE 3 (measurement-Durchstich
+// = Mess-Naht NAHT-1, Owner-KERN 09.08.2026; Vereinigung der Begriffe: KON25-02, s.
+// anatomy/mess_visitor_abi.hpp Kopfblock).
 //
 // ------------------------------------------------------------------------------------------------
 // DIE COMPILE-HARTE WACHE
