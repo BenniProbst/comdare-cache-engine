@@ -3,7 +3,9 @@
 // variant-Alternativen.
 //
 // ============================================================================================
-// DER AUFTRAG, WOERTLICH (Owner-KORREKTUR Paragraf 49, LEDGER:2663)
+// DER AUFTRAG, WOERTLICH (Owner-KORREKTUR Paragraf 49, 20.07.2026 -- Ledger-Stichwort
+// "49-KORREKTUR"; die im Design-Dokument genannte Zeile :2663 ist gewandert, s.
+// hybrid_dock_contract.hpp Kopf)
 // ============================================================================================
 // variant NUR als Traeger abweichender Unter-Pruef-Dock-Typen/-Vertraege, "gelesen und verarbeitet
 // per Abstract-Factory-Methode"; die Haupt-Kommunikation zu den Tier-Binary-Observern bleibt

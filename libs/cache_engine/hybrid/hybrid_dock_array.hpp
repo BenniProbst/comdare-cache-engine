@@ -11,18 +11,22 @@
 //
 // Und die Verbots-Seite, aus demselben Satz: "Aber in den plain Tier-Binaries ist das verboten."
 //
-// WARUM DAS VERBOT UEBERHAUPT EXISTIERT -- die Begruendung ist Speicher-Mathematik, keine Aesthetik
-// (Ledger :27765-27788): golden N = 131.072 Binaries; mit variant-Bloat ~60 MB je Binary sind das
-// 7,5 TB gegen 6 TB verfuegbar. Bloat-reduziert (2-5 MB) bleiben 256-640 GB. std::variant zu
-// vermeiden ist damit die dritte Voraussetzung dafuer, dass das golden N ueberhaupt baubar ist.
-// Wer diese Datei liest und denkt "ein variant mehr schadet nicht", rechnet mit der falschen Zahl.
+// WARUM DAS VERBOT UEBERHAUPT EXISTIERT -- die Begruendung ist Speicher-Mathematik, keine
+// Aesthetik. Im Ledger unter dem Stichwort "SPEICHER-MATHEMATIK (der Kern-Grund)" (Stand
+// 17.08.2026 bei :20060, zweite Fassung bei :27831 -- Stichwort statt Zeilennummer, weil der
+// Ledger waechst und Anker wandern): golden N = 131.072 Binaries; mit variant-Bloat ~60 MB je
+// Binary sind das 7,5 TB gegen 6 TB verfuegbar. Bloat-reduziert (2-5 MB) bleiben 256-640 GB.
+// std::variant zu vermeiden ist damit die dritte Voraussetzung dafuer, dass das golden N ueberhaupt
+// baubar ist. Wer diese Datei liest und denkt "ein variant mehr schadet nicht", rechnet mit der
+// falschen Zahl.
 //
 // ERLAUBT ist deshalb GENAU: HybridDockVariant im DockSlot dieses Arrays -- der Traeger dafuer, dass
 // N Docks ZAHLENMAESSIG dynamisch variieren und TYPLICH abweichende Vertraege tragen koennen
 // (soll_design 3.2 Punkt 1).
 // VERBOTEN bleibt variant: in jeder plain Tier-Binary (uneingeschraenkt), in der
 // Haupt-Observer-Kommunikation, als Achsen-Traeger und im Planer (soll_design 3.2 Punkt 3).
-// GEDULDET bleibt er in der CEB (LEDGER:3489, unveraendert).
+// GEDULDET bleibt er in der CEB (Owner-Duldung, unveraendert; im Design-Dokument als LEDGER:3489
+// gefuehrt -- Zeilen-Anker jener Zeit sind gewandert, die Aussage nicht).
 //
 // EHRLICHE GRENZE DIESER ZUSAGE: der Satz "DockSlot ist die einzige variant-Ausnahme" ist eine
 // ZONEN-Aussage ueber libs/cache_engine/hybrid/, KEINE System-Aussage. Systemweit gibt es die

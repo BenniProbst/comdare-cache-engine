@@ -4,7 +4,8 @@
 // ============================================================================================
 // WELCHES DOCK HIER GEMEINT IST -- die Verwechslung kostet sonst eine Schicht
 // ============================================================================================
-// Die Kette traegt DREI Dock-Ebenen (soll_design Abschnitt 2, LEDGER:490 + :1692-1698):
+// Die Kette traegt DREI Dock-Ebenen (soll_design Abschnitt 2; die dort genannten Ledger-Zeilen
+// :490/:1692-1698 sind Stand 02.08. und im heutigen 30k-Zeilen-Ledger gewandert):
 //   Ebene 1  EXPERIMENT-DOCK   Planer  <-> CEB
 //   Ebene 2  PRUEF-DOCK        CEB     <-> Tier-Binary   -- gebaut: builder/pruef_dock/IPruefDock
 //   Ebene 3  HYBRID-PRUEF-DOCK Hybrid  <-> plain Tiers    -- DIESE DATEI

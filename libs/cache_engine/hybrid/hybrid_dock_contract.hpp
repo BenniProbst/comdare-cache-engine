@@ -11,9 +11,17 @@
 //    Zwischenloesung zwischen statischen Pruef-Docks und austauschbaren plain Tier-Binaries je
 //    Pruefdock, das ist eine XML Konfiguration auf Wunsch des anwenders in der Auswertungsphase."
 //
-// Und die aeltere Owner-KORREKTUR Paragraf 49 (LEDGER:2663), die unveraendert bindend bleibt:
+// Und die aeltere Owner-KORREKTUR Paragraf 49 (20.07.2026), die unveraendert bindend bleibt:
 // variant NUR als Traeger abweichender Unter-Pruef-Dock-TYPEN/-VERTRAEGE, gelesen und verarbeitet
 // per Abstract-Factory-Methode; die Haupt-Kommunikation zu den Tier-Observern bleibt STATISCH.
+//
+// ZUM ANKER, weil hier eine Falle liegt: das Design-Dokument nennt fuer diese Korrektur
+// "LEDGER:2663". Am 17.08.2026 nachgemessen zeigt :2663 auf eine voellig andere Stelle -- der
+// Wortlaut steht bei :20612 ("49-KORREKTUR (2026-07-20, User)"). Der Anker ist nicht falsch
+// GESCHRIEBEN, sondern GEWANDERT: der Ledger ist seit dem 02.08. auf ueber 30.000 Zeilen gewachsen.
+// Der Ledger zitiert seinen eigenen stale Anker sogar selbst weiter (bei :18012). Deshalb steht
+// hier das DATUM und ein suchbares Stichwort statt einer Zeilennummer -- Datum und Wortlaut
+// wandern nicht.
 //
 // ============================================================================================
 // DIE UNTERSCHEIDUNG, AN DER ALLES HAENGT: VERTRAG (Daten) gegen DOCK-TYP (Code)
