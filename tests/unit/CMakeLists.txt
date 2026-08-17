@@ -6753,6 +6753,17 @@ add_test(NAME test_check_size_cli_deckel COMMAND test_check_size_cli_deckel
     "$<TARGET_FILE:comdare_experiment_planner>"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/m3v2_study.profile.xml")
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_check_size_cli_deckel)
+# DIE AUFGERUFENE BINARY IST EINE BAU-ABHAENGIGKEIT, NICHT NUR EIN ARGUMENT (Landung A2.1a,
+# 2026-08-17): add_test wertet $<TARGET_FILE:...> nur zum PFAD aus und legt KEINE Bau-Kante an.
+# comdare_tests haengt an COMDARE_TEST_TARGETS und zieht damit die Test-Binary, aber NICHT den
+# Planer -- ein Bau mit '--target comdare_tests' liess beide Planer-Tests auf eine nicht
+# existierende Binary laufen. AM OBJEKT ERLEBT, nicht vermutet: Vier-Zellen-Kombibau der Landung,
+# Zelle gcc-rel, literal "99% tests passed, 2 tests failed out of 499" mit exakt
+# test_check_size_cli_deckel und test_vl3_debug_flag_sperre. In der CI fiel es nie auf, weil
+# 'make inventar' zuerst 'all' baut (der Planer ist NICHT EXCLUDE_FROM_ALL) und erst danach
+# comdare_tests -- die Luecke traf ausschliesslich den selektiven --target-Weg. Der VL-3-Bericht
+# hat genau diese Stelle als ungeklaert gemeldet ("kein add_dependencies"); hier ist sie geklaert.
+add_dependencies(test_check_size_cli_deckel comdare_experiment_planner)
 set_tests_properties(test_check_size_cli_deckel PROPERTIES
     LABELS "check_size;planer;cli;deckel;standalone" TIMEOUT 120)
 # D5-5 HDR-VERDRAHTUNG (2026-08-09) -- die Thesis-Zusage "das HdrHistogram ERHEBT die Latenz-
@@ -7240,5 +7251,8 @@ add_test(NAME test_vl3_debug_flag_sperre COMMAND test_vl3_debug_flag_sperre
     "$<TARGET_FILE:comdare_experiment_planner>"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/m3v2_study.profile.xml")
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_vl3_debug_flag_sperre)
+# Bau-Kante zur aufgerufenen Binary -- dieselbe Klasse und dieselbe Begruendung wie beim
+# Geschwister-Block test_check_size_cli_deckel (dort ausfuehrlich, mit dem Mess-Beleg der Landung).
+add_dependencies(test_vl3_debug_flag_sperre comdare_experiment_planner)
 set_tests_properties(test_vl3_debug_flag_sperre PROPERTIES
     LABELS "vl3;planer;cli;debug;zulassung;koeder;standalone" TIMEOUT 120)
