@@ -39,6 +39,8 @@
 #include <builder/artifact_transport/artifact_cache.hpp>    // planer_block-Kontext: ArtifactCache::from_env
 #include <builder/bestandslog/artifact_cache_transport.hpp> // W5: make_bestand_transport (NUR LESEND, kein Binden)
 
+#include <cache_engine/measurement/axis_error.hpp> // VL-3: AdmissionStatus + debug_flag_admission (Sperre)
+
 #include "xml_config_parser/xml_reader.hpp" // Bruecke-I2: Root-Tag-Sniff des validate-Profils (common-DOM)
 
 #include <cerrno> // check-size: ERANGE der strtoull-Bereichspruefung des Byte-Deckels
@@ -59,6 +61,7 @@ namespace {
 
 namespace pln = ::comdare::cache_engine::planner;
 namespace pf  = ::comdare::cache_engine::builder::profile_facade;
+namespace cem = ::comdare::cache_engine::measurement; // VL-3: die Zulassungs-Taxonomie der --debug-Sperre
 
 // ---------------------------------------------------------------------------------------------------------------
 // G4b-2 (d2) / #46b I1b: das GATE des planer_block fuer die beiden CEB-Compile-Strecken (plan ci / plan cmake).
@@ -571,6 +574,14 @@ void help_for(std::string const& topic) {
               << "                          Mengen-Vorschau VOR dem Lauf: Faktoren, Nenner, Arena, Dauer\n"
               << "  version                 Planer-Selbst-Stempel + Compile-Einstellung\n"
               << "  help [<subcommand>]     diese Uebersicht bzw. Detail-Hilfe (auch: <subcommand> --help)\n\n"
+              << "Globales Flag (mit JEDEM Subkommando kombinierbar, Stellung frei):\n"
+              << "  --debug                 Wartungs-Modus: nicht-regelkonformes, PARALLELES Messen -- prueft die\n"
+              << "                          KETTE (entsteht eine xlsx, wird sie abgelegt?), NICHT die Zahl. Seine\n"
+              << "                          Messwerte sind AUSSCHUSS und gehoeren nie ins Messwertlager.\n"
+              << "                          FUER ANWENDER GESPERRT (Integritaetsregel): ohne den internen Kontext\n"
+              << "                          COMDARE_DEBUG_FREIGABE=true wird der Aufruf mit Exit 8 abgewiesen.\n"
+              << "                          Das Flag aendert nie die Reihenfolge oder Abhaengigkeiten der Modi,\n"
+              << "                          nur ihre Auspraegung.\n\n"
               << "Rollen-Trennung (Section 40.b/42, ZWEI MODULE): die STUFE-2-Sicht (tier ci|cmake) und der\n"
               << "Mess-Vollzug (run) gehoeren der CEB -- comdare-messung-driver. Exit 7 (Lane-Fehlrouting) gibt es\n"
               << "nur dort; diese Binary misst nicht.\n\n"
@@ -578,7 +589,7 @@ void help_for(std::string const& topic) {
               << "Ausgaben: Daten/Emissionen -> stdout; Diagnose/Fehler -> stderr (clig.dev).\n\n"
               << "Exit-Codes:\n"
               << "  0 Erfolg | 1 Usage/Verstoss/Emission abgebrochen | 2 Konfig-Fehler (kaputte Range)\n"
-              << "  5 unbekannte Profil-Wurzel | 6 Bestandslog-Gate-Abbruch\n";
+              << "  5 unbekannte Profil-Wurzel | 6 Bestandslog-Gate-Abbruch | 8 --debug-Zulassung gesperrt\n";
 }
 
 // Profil-Aufloesung (identisch in allen Zweigen): Argument > COMDARE_THESIS_PROFILE > gebackenes Default-Profil.
@@ -606,6 +617,75 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> args;
     args.reserve(static_cast<std::size_t>(argc));
     for (int i = 0; i < argc; ++i) args.emplace_back(argv[i]);
+
+    // -- A-05/VL-3: DAS --debug-FLAG DIESER SHELL (Ledger 09.08.2026, geltende work_mode-Fassung) ---
+    // Owner verbatim: "Damit ist Debug auch eher als Flag entkoppelt, als dass es als State gleichrangig
+    // einsortiert wird, denn es beeinflusst zwar die AUSPRAEGUNG der States, aber nicht ihr Verhalten der
+    // Reihenfolge oder Abhaengigkeiten. Es ist also ein CLI-Flag auf der Planer-Shell." Und, im selben
+    // Abschluss: "Debug ist fuer normale Benutzer gesperrt."
+    //
+    // WARUM DIE AUSWERTUNG VOR DEM DISPATCH STEHT -- und das ist keine Stil-Frage:
+    //   (a) ORTHOGONALITAET. Das Flag hat keine Stellung in der Kette build->measure->compare->release;
+    //       es ist mit JEDEM Subkommando kombinierbar. Wer es je Subkommando parst, hat es beim
+    //       naechsten vergessen -- genau die Ausnahmenliste, die eine Zulassungsregel aufloest.
+    //   (b) DIE SPERRE MUSS ZUERST GREIFEN. Laege sie hinter dem Dispatch, meldete ein gesperrter Lauf
+    //       "unbekanntes Subkommando" statt der Sperre, und die Regel waere unbeobachtbar (Wachen-
+    //       Doktrin: ein verdeckter Zweig ist kein Zweig).
+    // Das Flag wird HIER aus argv entfernt; die Sub-Parser sehen es nie und brauchen keine Kenntnis
+    // davon (ihre '-'-Reserve bleibt unveraendert gueltig).
+    //
+    // WAS ES HEUTE TUT: es traegt sich ein und meldet sich. Die WIRKUNG (maximale Thread-Zahl in jeder
+    // Factory, Jitter-Pruefer aus) haengt am work_mode-Umbau und am Drift-Gate-Paket T-15+D4 und wird
+    // dort verdrahtet -- Ledger-Bauliste Punkte 9 und 10. Dieses Glied ist der VORBAU: es muss stehen,
+    // BEVOR Debug das RunMethodology-Enum verlaesst, sonst verliert der einzige debug-Token in XML
+    // (m3_smoke_coverage.profile.xml) seinen Traeger ersatzlos.
+    bool debug_flag = false;
+    {
+        std::vector<std::string> ohne_debug;
+        ohne_debug.reserve(args.size());
+        for (std::size_t i = 0; i < args.size(); ++i) {
+            if (i > 0 && args[i] == "--debug") {
+                debug_flag = true; // mehrfache Nennung ist kein Fehler, nur Redundanz
+                continue;
+            }
+            ohne_debug.push_back(args[i]);
+        }
+        args.swap(ohne_debug);
+    }
+    if (debug_flag) {
+        // Die Zulassung entsteht AUSSCHLIESSLICH aus dieser Funktion (measurement/axis_error.hpp) --
+        // fail-closed, weil AdmissionStatus::Zugelassen Ordinal 0 ist und eine Default-Initialisierung
+        // die Freigabe sonst verschenken wuerde. Das Gate-Idiom ist das des Hauses: exakter Vergleich
+        // gegen "true" (wie COMDARE_BESTANDSLOG oben); jeder andere Wert -- "1", "TRUE", leer, nicht
+        // gesetzt -- faellt auf gesperrt.
+        auto const zulassung =
+            cem::debug_flag_admission(pln::env_trimmed("COMDARE_DEBUG_FREIGABE") == "true");
+        if (zulassung != cem::AdmissionStatus::Zugelassen) {
+            // WARUM DIE SPERRE EINE INTEGRITAETSREGEL IST, KEIN KOMFORT-GATE (Ledger): debug ist der
+            // einzige work_mode, der MISST und dabei PARALLEL laeuft. Parallel gemessene Latenzen sind
+            // nicht run-to-run-stabil -- genau die Stabilitaet, die `measure` zusichert. "Ein Anwender,
+            // der debug waehlen koennte, bekaeme Zahlen, die wie Messwerte AUSSEHEN und keine sind.
+            // Das ist die unheilbare Klasse: kontaminierte Daten."
+            std::cerr << "comdare-experiment-planner: FEHLER fehlerklasse=debug_zulassung_gesperrt: "
+                      << "--debug ist fuer Anwender GESPERRT (Zulassung: "
+                      << cem::admission_status_token(zulassung) << ").\n"
+                      << "  GRUND (Integritaetsregel, kein Komfort-Gate): der Debug-Modus misst PARALLEL. "
+                      << "Seine Zahlen sehen wie\n"
+                      << "  Messwerte aus und sind keine -- sie gehoeren nie ins Messwertlager, nie in "
+                      << "eine Auswertung, nie in die Thesis.\n"
+                      << "  FREIGABE nur im internen/CI-Kontext: COMDARE_DEBUG_FREIGABE=true (exakt "
+                      << "dieser Wert; alles andere bleibt gesperrt).\n";
+            return 8;
+        }
+        // SICHTBAR, nicht still: ein unbemerkter Debug-Lauf ist der Weg, auf dem seine Zahl spaeter fuer
+        // einen Messwert gehalten wird. Der Vermerk geht auf stderr, damit stdout emissions-rein bleibt
+        // (clig.dev: Daten -> stdout, Diagnose -> stderr) -- die Plan-Emissionen bleiben byte-gleich.
+        std::cerr << "[debug] AKTIV (COMDARE_DEBUG_FREIGABE=true): nicht-regelkonformes Messen freigegeben. "
+                  << "Zahlen aus diesem Lauf sind AUSSCHUSS\n"
+                  << "        und duerfen nicht ins Messwertlager -- geprueft wird die KETTE, nicht die "
+                  << "Zahl.\n";
+    }
+
     std::string const a1 = args.size() > 1 ? args[1] : std::string{};
     std::string const a2 = args.size() > 2 ? args[2] : std::string{};
     std::string const a3 = args.size() > 3 ? args[3] : std::string{};
