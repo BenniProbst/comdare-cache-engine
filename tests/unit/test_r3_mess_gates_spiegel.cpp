@@ -80,9 +80,9 @@ void check_true(std::string const& was, bool ok) {
 /// ihr einkompilierter Wert ist dort also tatsaechlich die Identitaet.
 [[nodiscard]] std::string host_fingerprint(std::string_view organ, std::string_view system,
                                            std::string_view measurement, std::string_view mess_gates) {
-    auto const glieder =
-        cea::anatomy_fingerprint_glieder(organ, system, measurement, cea::ToolchainGlied{""}, cea::BvsetGlied{""},
-                                         cea::OverlayHash{cea::kOverlaySourceHash}, cea::MessGatesGlied{mess_gates});
+    auto const glieder = cea::anatomy_fingerprint_glieder(
+        cea::OrganZeile{organ}, cea::SystemZeile{system}, cea::MessZeile{measurement}, cea::ToolchainGlied{""},
+        cea::BvsetGlied{""}, cea::OverlayHash{cea::kOverlaySourceHash}, cea::MessGatesGlied{mess_gates});
     std::string const preimage =
         cea::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = s5::sha512(

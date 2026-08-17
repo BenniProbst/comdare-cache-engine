@@ -38,7 +38,7 @@
 #include <stdexcept> // NB/CX-1: die RT-Injektivitaets-Wache der injizierten Glieder ist FAIL-LOUD
 #include <string>
 #include <string_view>
-#include <type_traits> // T2-D: das Praedikat des geloeschten Rvalue-Konstruktors (GliedSterbenderString)
+#include <type_traits> // T2-D: GliedSterbenderString; S-6b: die CT-Negativ-Proben der Zeilen-Traeger
 
 namespace comdare::cache_engine::abi {
 
@@ -410,6 +410,110 @@ private:
     std::string_view wert_;
 };
 
+/// -- S-6b: DIE TRANSPOSITIONS-SPERRE DER DREI STEMPEL-ZEILEN -------------------------------------------
+///
+/// DIE FALLE, DIE SIE SCHLIESST -- dieselbe Klasse wie K-1, nur eine Ebene frueher: die Glieder [1][2][3]
+/// (Organ-, System- und Mess-Tooling-Zeile) reisten bis hierher als DREI rohe string_view in fester
+/// Positions-Folge. Wer zwei davon vertauscht, bekommt KEINE Diagnose: es uebersetzt, das Preimage ist
+/// wohlgeformt, der Digest ist falsch. Sichtbar wird das erst als "der Cache greift nie" -- oder, teurer,
+/// als FALSCHER SKIP, wenn zwei verschiedene Tier-Binaries denselben Fingerprint bekommen. Die vier
+/// SCHWANZ-Glieder waren gegen genau diese Verwechslung seit K-1 geschuetzt ("drei disjunkte Typen machen
+/// jede Verwechslung compile-hart"); ausgerechnet die drei Zeilen, die den Grossteil des Preimage tragen,
+/// waren es nicht. Am Objekt belegt (17.08.2026): die Vertauschung zweier Zeilen-Argumente an einer
+/// Aufrufstelle uebersetzte mit rc=0 und ohne eine einzige Warnung.
+///
+/// DREI DISJUNKTE TYPEN schliessen sie. Ein string_view konvertiert nicht implizit in einen von ihnen
+/// (explicit), und untereinander konvertieren sie gar nicht -- die Sperre laesst sich weder unterlaufen
+/// noch versehentlich befriedigen. Sie greift AN JEDER der Aufrufstellen zugleich, weil sie in der
+/// Signatur wohnt und nicht in einer Wache, die jemand aufrufen muesste.
+///
+/// WARUM SIE KEINE FORMAT-WACHE TRAGEN (ehrlich benannt statt stillschweigend weggelassen): die vier
+/// Schwanz-Traeger rufen require_injizierter_glied_wert im Konstruktor, diese drei NICHT. Der Grund steht
+/// schon bei anatomy_fingerprint_preimage_emit: fuer die ZEILEN gilt allein die Separator-Wache, nicht der
+/// engere Zeichenvorrat -- "die Achsen-Namen gehoeren den Achsen, nicht diesem Header". Eine
+/// Konstruktor-Wache mit dem engeren Vorrat wuerde legitime Achsen-Namen ablehnen; eine mit NUR der
+/// Separator-Pruefung waere eine zweite Fassung derselben Wache, die anatomy_fingerprint_preimage_emit
+/// ohnehin ueber JEDES Glied fuehrt -- sie verschoebe bloss den Wurf-Ort. Diese Traeger sind deshalb
+/// reine BENENNUNG: sie tragen eine Positions-Zusage, keine Wert-Zusage. Genau daran haengt die
+/// Neutralitaet der Scheibe -- kein Wert wird neu geprueft, kein Wert neu abgelehnt, kein Byte bewegt
+/// sich (S-6b: die Typen leben in der Makro-EXPANSION, der emittierte Quelltext kennt sie nicht).
+///
+/// NB-3/T2-D GILT HIER UNVERAENDERT: alle drei loeschen den Konstruktor aus einem std::string-RVALUE, ueber
+/// dasselbe GliedSterbenderString-Konzept und mit derselben Verengung (ein String-LITERAL muss weiter
+/// passen, sonst braeche der Normalfall -- die Herleitung steht bei OverlayHash). Der Laufzeit-Weg
+/// lazy_adhoc_fingerprint_for baut die Zeilen aus benannten std::string, die den Aufruf ueberleben; ein
+/// Temporary waere dort dieselbe Dangling-Falle wie bei den Schwanz-Gliedern.
+///
+/// ABGRENZUNG, DIE NICHT VERWISCHT WERDEN DARF: MessZeile ist Glied [3] -- die Mess-TOOLING-Zeile dieser
+/// Tier-Binary, also ihre einkompilierte CT-Ausstattung. Sie ist NICHT der CEB-Schluessel und NICHT der
+/// Messwert-Schluessel; Paragraf 62-D trennt beide, und messwert_registrierung.hpp haelt seine eigene
+/// Ableitung. Positions-Zusagen dieses Headers duerfen dorthin nie uebertragen werden (dieselbe
+/// Grenzziehung, die anatomy_fingerprint_glieder unten fuer den generischen Emitter benennt).
+class OrganZeile {
+public:
+    constexpr explicit OrganZeile(std::string_view v) noexcept : wert_{v} {}
+    /// NB-3/T2-D (a): kein Traeger auf ein sterbendes Temporary (Verengung s. OverlayHash).
+    template <GliedSterbenderString S>
+    explicit OrganZeile(S&&) = delete;
+
+    [[nodiscard]] constexpr std::string_view wert() const noexcept { return wert_; }
+
+private:
+    std::string_view wert_;
+};
+
+class SystemZeile {
+public:
+    constexpr explicit SystemZeile(std::string_view v) noexcept : wert_{v} {}
+    /// NB-3/T2-D (a): kein Traeger auf ein sterbendes Temporary (Verengung s. OverlayHash).
+    template <GliedSterbenderString S>
+    explicit SystemZeile(S&&) = delete;
+
+    [[nodiscard]] constexpr std::string_view wert() const noexcept { return wert_; }
+
+private:
+    std::string_view wert_;
+};
+
+class MessZeile {
+public:
+    constexpr explicit MessZeile(std::string_view v) noexcept : wert_{v} {}
+    /// NB-3/T2-D (a): kein Traeger auf ein sterbendes Temporary (Verengung s. OverlayHash).
+    template <GliedSterbenderString S>
+    explicit MessZeile(S&&) = delete;
+
+    [[nodiscard]] constexpr std::string_view wert() const noexcept { return wert_; }
+
+private:
+    std::string_view wert_;
+};
+
+/// S-6b CT-NEGATIV-PROBE, am Eigentuemer statt in einer Test-TU: die Sperre ist nur so viel wert, wie die
+/// drei Typen wirklich disjunkt sind. Diese Asserts sind der Beweis dafuer -- sie brechen, sobald jemand
+/// einem der Traeger eine Konvertierung anhaengt (implizit ODER explizit) und damit die Vertauschung
+/// wieder baubar macht. Sie stehen HIER, weil die Zusage hier entsteht; eine Test-TU koennte sie nur
+/// nachtraeglich nachlesen.
+static_assert(!std::is_constructible_v<OrganZeile, SystemZeile> && !std::is_constructible_v<OrganZeile, MessZeile> &&
+                  !std::is_constructible_v<SystemZeile, OrganZeile> &&
+                  !std::is_constructible_v<SystemZeile, MessZeile> && !std::is_constructible_v<MessZeile, OrganZeile> &&
+                  !std::is_constructible_v<MessZeile, SystemZeile>,
+              "S-6b: die drei Zeilen-Traeger muessen PAARWEISE unkonstruierbar auseinander sein -- sonst "
+              "kompiliert eine Vertauschung wieder still und der Fingerprint waere falsch.");
+static_assert(!std::is_convertible_v<std::string_view, OrganZeile> &&
+                  !std::is_convertible_v<std::string_view, SystemZeile> &&
+                  !std::is_convertible_v<std::string_view, MessZeile>,
+              "S-6b: kein Zeilen-Traeger darf IMPLIZIT aus einer Zeichenkette entstehen -- sonst waere die "
+              "Sperre an jeder Aufrufstelle mit Literalen wieder offen.");
+static_assert(std::is_constructible_v<OrganZeile, std::string_view> &&
+                  std::is_constructible_v<SystemZeile, std::string_view> &&
+                  std::is_constructible_v<MessZeile, std::string_view>,
+              "S-6b: der EXPLIZITE Weg aus einer Zeichenkette muss offen bleiben -- er ist der Normalfall.");
+static_assert(!std::is_convertible_v<OrganZeile, std::string_view> &&
+                  !std::is_convertible_v<SystemZeile, std::string_view> &&
+                  !std::is_convertible_v<MessZeile, std::string_view>,
+              "S-6b: kein Zeilen-Traeger darf ZURUECK nach string_view konvertieren -- sonst waere die "
+              "Roh-Sperre unten auch fuer typisierte Aufrufe viabel und meldete den falschen Grund.");
+
 /// Anzahl der Preimage-Glieder. FEST -- die Injektivitaet der '\n'-Zerlegung haengt an der festen Anzahl.
 /// A13-M3 (Format 2): 6. O-2/C-2 (Format 3): 8 (Toolchain + bvset kommen dazu).
 /// R-3 (Format 4): 9 (das Mess-Gates-Glied kommt dazu).
@@ -534,6 +638,17 @@ static_assert(!kMessGatesTuGlied.empty(),
               "'mg=m0;s0;st0;x0;tw0;tm0;tmi0'. Ein leerer Wert waere die Identitaet und wuerde eine gate-lose "
               "TU mit dem CEB-Default (der bewusst leeren Nicht-Tier-Identitaet) kollidieren lassen.");
 
+namespace detail {
+/// Abhaengiger false-Wert: erst bei INSTANZIIERUNG der beiden Sperr-Ueberladungen ausgewertet, damit die
+/// Sperre nur den fehlerhaften Aufruf trifft und nicht schon die Deklaration.
+///
+/// EINE Konstante fuer BEIDE Sperren (_glieder und _hex): sie geben dieselbe Zusage, und zwei getrennte
+/// Praedikate koennten auseinanderlaufen, ohne dass es jemandem auffiele -- dieselbe Begruendung, aus der
+/// GliedSterbenderString oben als EIN benanntes Konzept dasteht und nicht dreimal als roher requires.
+template <class...>
+inline constexpr bool kFingerprintRohZeilenGesperrt = false;
+} // namespace detail
+
 /// anatomy_fingerprint_glieder(...) -- DIE EINE QUELLE der Preimage-Ordnung. Jede Rechen-Stelle (der
 /// consteval-Hex unten, der Laufzeit-Zwilling lazy_adhoc_fingerprint_for, der Lager-Key-Ableiter
 /// derive_key_from_lines ueber seinen Aufrufer) zieht ihre Glieder HIER heraus. Wer die Ordnung aendert,
@@ -590,8 +705,15 @@ static_assert(!kMessGatesTuGlied.empty(),
 /// CEB-eigenen TU statt an ihrer Mess-WAHL. Der Wert wird deshalb NUR am Makro-Expansionsort explizit
 /// gereicht -- dort, wo genau eine TU gemeint ist. Praezedenz der Fehlerklasse: die
 /// M-1/D-4-Verdrahtungs-Wache in ceb_version_stamp.hpp.
+///
+/// -- S-6b: DIE DREI ZEILEN REISEN AB HIER TYPISIERT ----------------------------------------------------
+///
+/// organ/system/measurement sind keine nackten string_view mehr, sondern OrganZeile/SystemZeile/MessZeile
+/// (Begruendung ausfuehrlich bei den Traegern oben). Die Funktion rechnet unveraendert: sie packt
+/// dieselben WERTE an dieselben Positionen. Was sich aendert, ist allein, dass eine Vertauschung nicht
+/// mehr uebersetzt.
 [[nodiscard]] constexpr std::array<std::string_view, kAnatomyFingerprintGliedCount>
-anatomy_fingerprint_glieder(std::string_view organ, std::string_view system, std::string_view measurement,
+anatomy_fingerprint_glieder(OrganZeile organ, SystemZeile system, MessZeile measurement,
                             ToolchainGlied toolchain  = ToolchainGlied{kToolchainStampGlied},
                             BvsetGlied     bvset      = BvsetGlied{kBuildVariantSetSignatureGlied},
                             OverlayHash    overlay    = OverlayHash{kOverlaySourceHash},
@@ -600,29 +722,47 @@ anatomy_fingerprint_glieder(std::string_view organ, std::string_view system, std
     require_injizierter_glied_wert("bvset", bvset.wert());
     require_injizierter_glied_wert("overlay", overlay.wert());
     require_injizierter_glied_wert("mess-gates", mess_gates.wert());
-    return {kAnatomyFingerprintFormat, organ,        system,         measurement,      kSubAxisValuesetSegment,
+    return {kAnatomyFingerprintFormat, organ.wert(), system.wert(),  measurement.wert(), kSubAxisValuesetSegment,
             toolchain.wert(),          bvset.wert(), overlay.wert(), mess_gates.wert()};
+}
+
+/// S-6b ROH-SPERRE (Zwilling der K-1-Sperre unten, dieselbe Bauart und derselbe Zweck): der Alt-Aufruf mit
+/// DREI nackten Zeichenketten ist unbaubar und meldet sich mit BENANNTEM Text statt mit einem blossen
+/// "no matching function". Ohne sie waere die lauteste Stelle des Umbaus die unverstaendlichste.
+template <class... Rest>
+[[nodiscard]] constexpr std::array<std::string_view, kAnatomyFingerprintGliedCount>
+anatomy_fingerprint_glieder(std::string_view, std::string_view, std::string_view, Rest...) noexcept {
+    static_assert(detail::kFingerprintRohZeilenGesperrt<Rest...>,
+                  "S-6b: die drei Stempel-ZEILEN sind benannte Traeger-Typen, keine string_view -- "
+                  "OrganZeile{...}, SystemZeile{...}, MessZeile{...}, in dieser Reihenfolge. Roh gereicht "
+                  "koennten sie beliebig gegeneinander verschoben werden: es uebersetzte, der Digest waere "
+                  "falsch, und sichtbar wuerde es erst als 'der Cache greift nie' oder als FALSCHER SKIP. "
+                  "Genau das verhindert diese Sperre. Die Aufrufstelle auf die Traeger-Typen ziehen.");
+    return {};
 }
 
 /// W10-C3: die Positions-Konstante ist BEWIESEN, nicht behauptet -- wer die Glied-Ordnung oben umbaut,
 /// bricht hier compile-time, statt den Zellwert still ins Organ-Glied zu schreiben.
-static_assert(anatomy_fingerprint_glieder("ORGAN", "SYSTEM", "MESS")[kAnatomyFingerprintSystemGlied] == "SYSTEM",
+static_assert(anatomy_fingerprint_glieder(OrganZeile{"ORGAN"}, SystemZeile{"SYSTEM"},
+                                          MessZeile{"MESS"})[kAnatomyFingerprintSystemGlied] == "SYSTEM",
               "kAnatomyFingerprintSystemGlied zeigt nicht mehr auf die System-Zeile der Glied-Folge.");
 static_assert(kAnatomyFingerprintSystemGlied < kAnatomyFingerprintGliedCount);
 
 /// O-2/C-2: dieselbe Beweis-Form fuer die drei neuen/verschobenen Positionen. Sie sind KEINE Kommentare:
 /// bestandslog_factory vervollstaendigt Glied [2] anhand seiner Konstante, und die Konsumenten der
 /// Toolchain-/bvset-Naht adressieren ihre Glieder ebenso. Eine Umsortierung ohne Nachzug bricht hier.
-static_assert(anatomy_fingerprint_glieder("O", "S", "M", ToolchainGlied{"TC"}, BvsetGlied{"BV"},
+static_assert(anatomy_fingerprint_glieder(OrganZeile{"O"}, SystemZeile{"S"}, MessZeile{"M"}, ToolchainGlied{"TC"},
+                                          BvsetGlied{"BV"},
                                           OverlayHash{"OV"})[kAnatomyFingerprintToolchainGlied] == "TC",
               "kAnatomyFingerprintToolchainGlied zeigt nicht mehr auf das Toolchain-Glied.");
-static_assert(anatomy_fingerprint_glieder("O", "S", "M", ToolchainGlied{"TC"}, BvsetGlied{"BV"},
-                                          OverlayHash{"OV"})[kAnatomyFingerprintBvsetGlied] == "BV",
+static_assert(anatomy_fingerprint_glieder(OrganZeile{"O"}, SystemZeile{"S"}, MessZeile{"M"}, ToolchainGlied{"TC"},
+                                          BvsetGlied{"BV"}, OverlayHash{"OV"})[kAnatomyFingerprintBvsetGlied] == "BV",
               "kAnatomyFingerprintBvsetGlied zeigt nicht mehr auf das bvset-Glied.");
-static_assert(anatomy_fingerprint_glieder("O", "S", "M", ToolchainGlied{"TC"}, BvsetGlied{"BV"},
-                                          OverlayHash{"OV"})[kAnatomyFingerprintOverlayGlied] == "OV",
+static_assert(anatomy_fingerprint_glieder(OrganZeile{"O"}, SystemZeile{"S"}, MessZeile{"M"}, ToolchainGlied{"TC"},
+                                          BvsetGlied{"BV"}, OverlayHash{"OV"})[kAnatomyFingerprintOverlayGlied] == "OV",
               "kAnatomyFingerprintOverlayGlied zeigt nicht mehr auf das Overlay-Glied.");
-static_assert(anatomy_fingerprint_glieder("O", "S", "M", ToolchainGlied{"TC"}, BvsetGlied{"BV"}, OverlayHash{"OV"},
+static_assert(anatomy_fingerprint_glieder(OrganZeile{"O"}, SystemZeile{"S"}, MessZeile{"M"}, ToolchainGlied{"TC"},
+                                          BvsetGlied{"BV"}, OverlayHash{"OV"},
                                           MessGatesGlied{"MG"})[kAnatomyFingerprintMessGatesGlied] == "MG",
               "kAnatomyFingerprintMessGatesGlied zeigt nicht mehr auf das Mess-Gates-Glied.");
 /// R-3: das Overlay-Glied war bis Format 3 das SCHWANZ-Glied (O-2/C-2: "ein noch leeres Glied gehoert
@@ -733,7 +873,7 @@ constexpr void anatomy_fingerprint_preimage_emit(std::span<std::string_view cons
 /// abbrechen (kein konstanter Ausdruck), statt still ueber std::terminate zu laufen oder -- schlimmer -- ein
 /// mehrdeutiges Preimage zu hashen.
 [[nodiscard]] consteval std::array<char, 129>
-anatomy_fingerprint_hex(std::string_view organ, std::string_view system, std::string_view measurement,
+anatomy_fingerprint_hex(OrganZeile organ, SystemZeile system, MessZeile measurement,
                         ToolchainGlied toolchain  = ToolchainGlied{kToolchainStampGlied},
                         BvsetGlied     bvset      = BvsetGlied{kBuildVariantSetSignatureGlied},
                         OverlayHash    overlay    = OverlayHash{kOverlaySourceHash},
@@ -750,32 +890,33 @@ anatomy_fingerprint_hex(std::string_view organ, std::string_view system, std::st
     return out;
 }
 
-namespace detail {
-/// Abhaengiger false-Wert: erst bei INSTANZIIERUNG der Sperr-Ueberladung unten ausgewertet.
-template <class...>
-inline constexpr bool kFingerprintMergeAritaetEntfallen = false;
-} // namespace detail
-
-/// K-1-SPERRE: die alte 4-/5-string_view-Form existiert weiter als Ueberladung, ist aber unbaubar und meldet
-/// sich mit BENANNTEM Text. Sie ist bewusst KEIN `= delete` -- die Form `= delete("Grund")` ist C++26 und
-/// waere unter -std=c++23 eine Erweiterung; ein Template mit static_assert liefert denselben Effekt
-/// standardkonform und mit derselben Lesbarkeit im Fehlertext.
+/// K-1-SPERRE, ab S-6b auf DREI rohe Zeichenketten VERENGT: jeder Alt-Aufruf, der mit drei nackten
+/// string_view beginnt, ist unbaubar und meldet sich mit BENANNTEM Text. Sie ist bewusst KEIN `= delete`
+/// -- die Form `= delete("Grund")` ist C++26 und waere unter -std=c++23 eine Erweiterung; ein Template mit
+/// static_assert liefert denselben Effekt standardkonform und mit derselben Lesbarkeit im Fehlertext.
 ///
-/// Sie greift GENAU dann, wenn jemand das 4. Argument als string_view uebergibt (der alte merge-Slot). Der
-/// gueltige typisierte 4-arg-Aufruf (..., OverlayHash{...}) trifft sie nicht: OverlayHash konvertiert nicht
-/// nach string_view, also ist diese Ueberladung dort nicht einmal viabel.
+/// WARUM DER PRAEFIX AUF DREI SCHRUMPFT (vorher: vier): bis S-6b griff sie erst am 4. Argument, weil die
+/// ersten drei legitim string_view WAREN. Seit die Zeilen benannte Traeger sind, ist schon der 3-arg-Aufruf
+/// mit Rohtext falsch -- und ein Praefix von DREI deckt den alten 4-arg-Fall (merge-Slot) mit ab. Zwei
+/// getrennte Ueberladungen (3 und 4) waeren fuer den 4-arg-Aufruf mehrdeutig gewesen und haetten statt der
+/// benannten Meldung einen Ambiguitaets-Fehler geliefert; EINE Ueberladung mit variadischem Schwanz deckt
+/// beide Faelle und mehr.
+///
+/// Der gueltige typisierte Aufruf trifft sie nicht: OrganZeile/SystemZeile/MessZeile konvertieren nicht
+/// nach string_view (durch die CT-Negativ-Probe oben bewiesen), also ist diese Ueberladung dort nicht
+/// einmal viabel.
 template <class... Rest>
-[[nodiscard]] consteval std::array<char, 129>
-anatomy_fingerprint_hex(std::string_view, std::string_view, std::string_view, std::string_view, Rest...) noexcept {
-    static_assert(detail::kFingerprintMergeAritaetEntfallen<Rest...>,
-                  "A13-M3/K-1: die merge-ZEILE existiert nicht mehr (Owner-E2 02.08.2026) -- das 4. Argument von "
-                  "anatomy_fingerprint_hex ist ein BENANNTER Glied-TYP, kein string_view. O-2/C-2 (Format 3) "
-                  "haengt zwei weitere injizierbare Glieder an, R-3 (Format 4) das Mess-Gates-Glied: die "
-                  "Schwanz-Slots heissen jetzt ToolchainGlied{...}, BvsetGlied{...}, OverlayHash{...}, "
-                  "MessGatesGlied{...} -- in dieser Reihenfolge. Ein "
-                  "Alt-Aufruf mit nackten string_view wuerde sie still gegeneinander verschieben; genau das "
-                  "verhindert diese Sperre. Aufruf auf die 3-arg-Form ziehen (bzw. die Traeger-Typen explizit "
-                  "angeben).");
+[[nodiscard]] consteval std::array<char, 129> anatomy_fingerprint_hex(std::string_view, std::string_view,
+                                                                      std::string_view, Rest...) noexcept {
+    static_assert(detail::kFingerprintRohZeilenGesperrt<Rest...>,
+                  "S-6b: die drei Stempel-ZEILEN sind benannte Traeger-Typen, keine string_view -- "
+                  "OrganZeile{...}, SystemZeile{...}, MessZeile{...}, in dieser Reihenfolge. Roh gereicht "
+                  "koennten sie beliebig gegeneinander verschoben werden: es uebersetzte, der Digest waere "
+                  "falsch, und sichtbar wuerde es erst als 'der Cache greift nie' oder als FALSCHER SKIP. "
+                  "A13-M3/K-1 (weiterhin gueltig): die merge-ZEILE existiert nicht mehr (Owner-E2 "
+                  "02.08.2026) -- auch das 4. Argument ist ein BENANNTER Glied-TYP. Die Schwanz-Slots "
+                  "heissen ToolchainGlied{...}, BvsetGlied{...}, OverlayHash{...}, MessGatesGlied{...}, in "
+                  "dieser Reihenfolge. Die Aufrufstelle auf die Traeger-Typen ziehen.");
     return {};
 }
 

@@ -187,9 +187,10 @@ int main() {
         // QUELLTEXT-Stand des Baums, bewegte sich bei jedem Commit, und die Aussage waere nicht mehr
         // messbar -- der Zeuge wuerde durch Rauschen ersetzt. Die Wirksamkeit des LIVE-Werts beweist
         // stattdessen der Bissbeweis in test_m_w12_stamp_bausteine.cpp.
-        constexpr auto kRefJetzt = abi::anatomy_fingerprint_hex(
-            kRefOrgan, kRefSystem, kRefMess, abi::ToolchainGlied{abi::kToolchainStampGlied},
-            abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied}, abi::OverlayHash{""});
+        constexpr auto kRefJetzt =
+            abi::anatomy_fingerprint_hex(abi::OrganZeile{kRefOrgan}, abi::SystemZeile{kRefSystem},
+                                         abi::MessZeile{kRefMess}, abi::ToolchainGlied{abi::kToolchainStampGlied},
+                                         abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied}, abi::OverlayHash{""});
         std::string const ref_jetzt{kRefJetzt.data()};
         std::cout << "  Referenz-SA-Tripel:\n    organ  = " << kRefOrgan << "\n    system = " << kRefSystem
                   << "\n    mess   = " << kRefMess << "\n";
@@ -197,8 +198,9 @@ int main() {
            std::string{kRefDigestVorC8});
 
         constexpr auto kLeerJetzt = abi::anatomy_fingerprint_hex(
-            "", "", "", abi::ToolchainGlied{abi::kToolchainStampGlied},
-            abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied}, abi::OverlayHash{""}); // E-E: s. oben
+            abi::OrganZeile{""}, abi::SystemZeile{""}, abi::MessZeile{""},
+            abi::ToolchainGlied{abi::kToolchainStampGlied}, abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied},
+            abi::OverlayHash{""}); // E-E: s. oben
         std::string const leer_jetzt{kLeerJetzt.data()};
         eq("der Stempel des LEEREN Tripels ist IDENTISCH zum eingefrorenen Wert (Glied-Struktur)", leer_jetzt,
            std::string{kLeerDigestVorC8});
@@ -215,8 +217,9 @@ int main() {
         // exakt den Zustand vor der Injektion. Wer sie nach C-3 gruen halten will, muss die Bilanz neu
         // formulieren -- nicht die Wache entschaerfen.
         auto const glieder = abi::anatomy_fingerprint_glieder(
-            kRefOrgan, kRefSystem, kRefMess, abi::ToolchainGlied{abi::kToolchainStampGlied},
-            abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied}, abi::OverlayHash{""}); // E-E: s. oben
+            abi::OrganZeile{kRefOrgan}, abi::SystemZeile{kRefSystem}, abi::MessZeile{kRefMess},
+            abi::ToolchainGlied{abi::kToolchainStampGlied}, abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied},
+            abi::OverlayHash{""}); // E-E: s. oben
         auto const major_text = std::to_string(COMDARE_ANATOMY_ABI_MAJOR);
         bool       major_frei = true;
         for (auto const& glied : glieder) {
