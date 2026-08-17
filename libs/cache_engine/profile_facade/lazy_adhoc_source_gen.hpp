@@ -372,7 +372,8 @@ template <class List>
     // nicht mehr per Default hinter dem Mess-Gates-Glied stehenbleiben. Der Wert ist derselbe wie zuvor
     // (der Default), also bewegt allein das neunte Glied den Digest.
     auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(
-        organ, system, measurement_stamp, toolchain_glied, bvset_glied,
+        ::comdare::cache_engine::abi::OrganZeile{organ}, ::comdare::cache_engine::abi::SystemZeile{system},
+        ::comdare::cache_engine::abi::MessZeile{measurement_stamp}, toolchain_glied, bvset_glied,
         ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash}, mess_gates_glied);
     std::string const preimage = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(
         std::span<std::string_view const>{glieder.data(), glieder.size()});

@@ -276,6 +276,112 @@ static_assert(sizeof(AnatomyVersionLines) == 120,
               "sizeof (120 auf x86_64) aktualisieren.");
 static_assert(alignof(AnatomyVersionLines) == 8, "AnatomyVersionLines: 8-Byte-Ausrichtung erwartet (Zeiger).");
 
+/// VL-2 (i) -- DIE FELDZAHL-WACHE. Der sizeof-Pin darueber faengt jede Layout-Wanderung, aber genau EINEN
+/// Schritt zu spaet fuer die Aggregat-Initialisierer: wer ein 17. Feld anhaengt, bumpt den sizeof-Pin (das
+/// ist die bestellte Bewegung) -- und danach sind die vier 16er-Initialisierer WIEDER still, mit dem neuen
+/// Feld wert-initialisiert. Bei einem char const* heisst das nullptr, und das bricht die ""-Doktrin dieses
+/// POD lautlos an einer Stelle, an der niemand mehr nachsieht.
+///
+/// KEIN EIGENER #include <type_traits>, UND DAS IST ABSICHT: dieser Header ist zeilen-GEPINNT. Vier
+/// Dokumente und libs/cache_engine/anatomy/observable_tier.hpp:31 nennen die #define-Zeilen unten als
+/// ZEILEN-Anker, und die Wache hy_label_gate prueft das scharf -- eine einzige zusaetzliche Kopfzeile
+/// verschiebt COMDARE_ANATOMY_ABI_MAJOR/MAGIC und reisst sie (am Objekt erlebt, 17.08.2026: +1 Zeile ->
+/// 109/114 wandern auf 110/115 -> hy_label_gate FAILED). Der Anker in anatomy/observable_tier.hpp liegt
+/// zudem in einer Verbotszone dieses Vorlaufs, also ist der Nachzug hier gar kein zulaessiger Weg.
+/// <type_traits> kommt ueber den direkt eingebundenen stempel_baustein_trait.hpp (dessen Zeile 12) --
+/// dieselbe Quelle, aus der die Trait-Spezialisierungen weiter unten schon heute leben.
+///
+/// DAS IST EINE SCHULD MIT FAELLIGKEIT, kein Dauerzustand: NACHZUG im S-6a-Bruch (Layout 6->7), wo
+/// anatomy/ ohnehin angefasst wird -- eigener #include <type_traits> + Anker-Nachzug in
+/// anatomy/observable_tier.hpp:31 und den vier Dokumenten + hy_label_gate-Lauf, alles in EINEM Commit.
+/// Ohne Faelligkeit laeuft so eine Zeile jahrelang mit; mit ihr hat der Bruch einen Posten.
+///
+/// WIE SIE MISST -- UND WARUM DIE ERSTE FASSUNG DAS NICHT KONNTE (Lens-Fund 17.08.2026, am Objekt
+/// nachvollzogen): die Wache zaehlt FELDER, nicht Typen. Die erste Fassung buchstabierte die 16 Feldtypen
+/// aus und haengte fuer das Negativ-Bein einen 17. uint64 an. Das war BLIND fuer genau den Fall, den der
+/// Absatz darueber als Anlass nennt: bekommt der POD ein 17. Feld vom Typ char const* (oder einen
+/// Klassen-/Zeigertyp), dann ist is_constructible mit ...,uint64 ohnehin FALSCH -- uint64 konvertiert
+/// nicht in einen Zeiger --, das '!' macht daraus TRUE, und die Wache SCHWEIGT. Am echten Header
+/// gemessen: beim 17. Feld char const* feuerte nur der sizeof-Pin, die Feldzahl-Wache nicht. Beim 17. Feld
+/// uint64 feuerte sie -- die alte Fassung traf also ausgerechnet die integrale Klasse, die die
+/// ""-Doktrin gar nicht bricht.
+///
+/// DIE SONDE: AnyFeld konvertiert sich in JEDEN Typ, also passt es an jede Feldposition, ganz gleich
+/// welchen Typ das Feld hat. N Stueck davon an T{...} gereicht sagt: "nimmt der Aggregat-Typ N Elemente?"
+/// -- 16 muessen passen, 17 duerfen nicht. Damit haengt die Wache an kAnatomyVersionLinesFeldZahl statt an
+/// einer Typ-Liste, und die Konstante ist tragend statt Dekoration.
+///
+/// OHNE <utility>, UND DAS IST GEMESSEN, NICHT BEQUEM: die uebliche Bauform nimmt std::index_sequence.
+/// std::make_index_sequence ist hier zwar erreichbar -- aber NUR ueber bits/utility.h, ein libstdc++-
+/// INTERNUM ohne Zusage (mit -H nachgesehen, gcc 15.3.0 und clang 22.1.8 je rc=0). Sich darauf zu stuetzen
+/// hiesse, die Wache an ein Implementierungs-Detail zu haengen, das ein Bibliotheks-Update still
+/// wegnehmen darf. Ein eigener #include <utility> ist zugleich versperrt (Zeilen-Pin, s. Absatz oben).
+/// Die rekursive Form loest beides: sie braucht nur, was diese Datei ohnehin hat.
+///
+/// WAS SIE ERZWINGT: derselbe Commit, der den POD waechst, MUSS die vier Initialisierer anfassen -- sonst
+/// kommt er gar nicht durch. Das ist die "erst laute Compile-Fehler"-Haelfte, die designierte
+/// Initialisierer allein nicht leisten koennen (sie ordnen, sie zaehlen nicht).
+///
+/// WAS SIE NICHT KANN, und warum die Typ-Folge darunter BLEIBT: die Sonde zaehlt, sie unterscheidet nicht.
+/// Einen TYP-WECHSEL eines Feldes sieht sie prinzipiell nicht -- AnyFeld passt auf jeden Typ, die Zahl
+/// bleibt 16. Das faengt allein die ausbuchstabierte Typ-Folge. Die Feld-ZAHL dagegen deckt die Sonde in
+/// BEIDE Richtungen ab (am Objekt geprueft, 17.08.2026): ein Feld MEHR reisst das Negativ-Bein, ein Feld
+/// WENIGER das Positiv-Bein -- beim probeweisen Entfall von measurement_entries feuerten Sonde, Typ-Folge
+/// und sizeof-Pin gemeinsam. Arbeitsteilung also: Sonde = Feld-ZAHL, Typ-Folge = Feld-ART.
+inline constexpr std::uint32_t kAnatomyVersionLinesFeldZahl = 16;
+
+namespace detail {
+/// Kurznamen NUR fuer die Typ-Folge-Wache -- die Liste steht sonst zweimal ueber je 16 Zeilen und waere
+/// beim Lesen nicht mehr als Liste erkennbar.
+using FeldU32   = std::uint32_t;
+using FeldU64   = std::uint64_t;
+using FeldZgr   = char const*;
+using FeldEintr = AnatomyStampEntryV1 const*;
+
+template <class... A>
+inline constexpr bool kVersionLinesNimmt = std::is_constructible_v<AnatomyVersionLines, A...>;
+
+/// Passt an JEDE Feldposition. Der Konvertierungs-Operator ist bewusst nur DEKLARIERT: er lebt
+/// ausschliesslich im unevaluierten requires-Ausdruck unten, eine Definition gaebe es nie zu rufen.
+struct AnyFeld {
+    template <class T>
+    constexpr operator T() const;
+};
+
+/// N-mal AnyFeld an T{...} reichen -- rekursiv aufgebaut statt ueber index_sequence, s. Begruendung oben.
+template <class T, std::uint32_t N, class... A>
+struct FeldSonde : FeldSonde<T, N - 1, AnyFeld, A...> {};
+template <class T, class... A>
+struct FeldSonde<T, 0, A...> {
+    static constexpr bool wert = requires { T{A{}...}; };
+};
+
+template <class T, std::uint32_t N>
+inline constexpr bool kNimmtFelder = FeldSonde<T, N>::wert;
+} // namespace detail
+
+static_assert(detail::kNimmtFelder<AnatomyVersionLines, kAnatomyVersionLinesFeldZahl>,
+              "VL-2: AnatomyVersionLines nimmt kAnatomyVersionLinesFeldZahl Elemente nicht mehr -- der POD "
+              "hat Felder VERLOREN. Konstante und die vier Aggregat-Initialisierer (decl-Probe, Makro "
+              "anatomy_module_abi_v1.hpp, test_d2 mach_pod, test_m_w12) im SELBEN Commit nachziehen.");
+static_assert(!detail::kNimmtFelder<AnatomyVersionLines, kAnatomyVersionLinesFeldZahl + 1>,
+              "VL-2 (i): AnatomyVersionLines hat ein weiteres Feld bekommen -- GLEICH WELCHEN TYPS. Die vier "
+              "Aggregat-Initialisierer wuerden es STILL wert-initialisieren (ein char const* damit auf "
+              "nullptr -- Bruch der \"\"-Doktrin). Alle vier im SELBEN Commit nachziehen und "
+              "kAnatomyVersionLinesFeldZahl heben.");
+
+/// Die TYP-FOLGE, als Ergaenzung zur Zahl darueber: sie faengt, was die Zaehl-Sonde nicht sehen kann --
+/// einen Feld-ENTFALL (dann sind 16 Argumente zu viel) und den TYP-WECHSEL eines Feldes. Ein 17. Feld
+/// faengt sie ausdruecklich NICHT; das war der Lens-Fund und ist ab jetzt Sache der Sonde.
+static_assert(detail::kVersionLinesNimmt<detail::FeldU32, detail::FeldU32, detail::FeldZgr, detail::FeldU64,
+                                         detail::FeldZgr, detail::FeldU64, detail::FeldZgr, detail::FeldU64,
+                                         detail::FeldZgr, detail::FeldU64, detail::FeldEintr, detail::FeldU64,
+                                         detail::FeldEintr, detail::FeldU64, detail::FeldEintr, detail::FeldU64>,
+              "VL-2: AnatomyVersionLines nimmt seine 16 Felder nicht mehr in der erwarteten Typ-Folge -- ein "
+              "Feld ist ENTFALLEN oder hat seinen Typ gewechselt. kAnatomyVersionLinesFeldZahl und die vier "
+              "Aggregat-Initialisierer (decl-Probe, Makro anatomy_module_abi_v1.hpp, test_d2 mach_pod, "
+              "test_m_w12) im SELBEN Commit nachziehen.");
+
 /// Loader-Gate (A4) -- A13-M3/K-4: GLEICHHEITS-Wache statt `>= 5`.
 ///
 /// TRAGENDE BEGRUENDUNG (nicht Stilfrage): bis Layout 5 wuchs der POD ausschliesslich am ENDE, deshalb war ein
@@ -287,11 +393,57 @@ static_assert(alignof(AnatomyVersionLines) == 8, "AnatomyVersionLines: 8-Byte-Au
     return v.stamp_layout_version == 6;
 }
 
+// -- VL-2: DIE POSITIONALEN POD-INITIALISIERER SIND LAUT GEMACHT ---------------------------------------
+//
+// ZWEI STILLE FALLEN, beide am Objekt belegt (17.08.2026), beide in demselben Aggregat-Initialisierer:
+//
+//   (i)  POD-APPEND. Waechst AnatomyVersionLines am Ende, initialisiert ein 16er-Aggregat die neuen
+//        Felder STILL wert-initialisiert -- ein char const* wird damit nullptr und bricht die
+//        ""-Doktrin dieses POD, ohne dass irgendetwas rot wird.
+//   (ii) FELD-TAUSCH. Der kuenftige S-6a-Umbau vertauscht gleichtypige Felder ({char const*, uint64}
+//        bzw. die drei uint64-Zaehler). Positionale Initialisierer uebersetzen weiter und vertauschen
+//        die WERTE. Gemessen: der Tausch organ_entry_count <-> measurement_entry_count uebersetzte mit
+//        rc=0 und ohne Diagnose; rot wurde erst der LAUF (test_m_w12 A4AnatomyStampArraysRoundtripThroughPod).
+//        Ein Fehler, der erst zur Laufzeit auffaellt, faellt in einem Pfad ohne Test gar nicht auf.
+//
+// DIE GEWAEHLTE FORM: DESIGNIERTE INITIALISIERER (.organ_line = ...), NICHT Feld-Traeger-Typen.
+//
+// WARUM SIE (ii) LOEST -- und das ist das Kriterium, an dem die Wahl haengt: C++ verlangt, dass
+// Designatoren in DEKLARATIONS-Reihenfolge stehen. Tauscht S-6a zwei Felder in der struct, passt die
+// Reihenfolge der Designatoren nicht mehr, und der Compiler sagt es laut ("designator order ... does not
+// match declaration order") -- an JEDER der vier Stellen zugleich. Genau die Bruchstelle, die die Regel
+// "erst laute Compile-Fehler, dann verschieben" vor dem Bruch verlangt.
+//
+// WARUM NICHT FELD-TRAEGER-TYPEN (ehrlich verworfen statt verschwiegen): sie loesten (ii) ebenfalls,
+// aendern aber den POD -- sizeof, Layout und die Loader-Sicht ueber die ABI-Grenze. Das ist Bruch-Materie
+// und gehoert in den EINEN Bruch (Layout 6->7), nicht in eine Vorstufe, die per Auftrag layout-neutral
+// bleibt. Designierte Initialisierer beruehren kein einziges Byte: kAnatomyVersionLinesLayout bleibt 6,
+// sizeof bleibt 120, die Werte sind dieselben.
+//
+// WAS SIE NICHT LOESEN, UND WAS STATTDESSEN (i) TRAEGT: gegen den APPEND helfen Designatoren nicht --
+// ein neues Feld ohne Designator bleibt still wert-initialisiert. Dafuer steht die Feldzahl-Wache unter
+// dem sizeof-Pin oben (kAnatomyVersionLinesFeldZahl): sie bricht, sobald der POD ein 17. Feld bekommt,
+// und zwingt damit denselben Commit, der das Feld anhaengt, auch die vier Initialisierer anzufassen.
 namespace detail {
 /// CT-Probe-POD mit frei waehlbarer Layout-Version. Die Zeiger sind nullptr und werden NIE dereferenziert --
 /// die Wache liest ausschliesslich stamp_layout_version.
 [[nodiscard]] constexpr AnatomyVersionLines stamp_pod_layout_probe(std::uint32_t layout) noexcept {
-    return AnatomyVersionLines{layout, 0u, "", 0u, "", 0u, "", 0u, "", 0u, nullptr, 0u, nullptr, 0u, nullptr, 0u};
+    return AnatomyVersionLines{.stamp_layout_version    = layout,
+                               .reserved                = 0u,
+                               .organ_line              = "",
+                               .organ_len               = 0u,
+                               .system_line             = "",
+                               .system_len              = 0u,
+                               .measurement_line        = "",
+                               .measurement_len         = 0u,
+                               .sha512_line             = "",
+                               .sha512_len              = 0u,
+                               .organ_entries           = nullptr,
+                               .organ_entry_count       = 0u,
+                               .system_entries          = nullptr,
+                               .system_entry_count      = 0u,
+                               .measurement_entries     = nullptr,
+                               .measurement_entry_count = 0u};
 }
 } // namespace detail
 

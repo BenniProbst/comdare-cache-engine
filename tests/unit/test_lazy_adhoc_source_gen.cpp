@@ -559,7 +559,9 @@ void check_fingerprint_drift_free(std::vector<std::string> const& g320_ids) {
     // ZWEITE, separatorlose Konkatenations-Regel, die die alte Ordnung zementierte. Die Glieder selbst
     // kommen weiter aus dem EMITTIERTEN Quelltext (args), nicht aus dem Provider: nur so bleibt es ein
     // Drift-Beweis und keine Selbst-Bestaetigung.
-    auto const        glieder  = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(args[0], args[1], "");
+    auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(
+        ::comdare::cache_engine::abi::OrganZeile{args[0]}, ::comdare::cache_engine::abi::SystemZeile{args[1]},
+        ::comdare::cache_engine::abi::MessZeile{""});
     std::string const preimage = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(
         std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = ::comdare::cache_engine::sha512::sha512(
@@ -582,8 +584,9 @@ void check_fingerprint_drift_free(std::vector<std::string> const& g320_ids) {
     cea::ToolchainGlied const tc{cea::kToolchainStampGlied};
     cea::BvsetGlied const     bv{cea::kBuildVariantSetSignatureGlied};
     cea::OverlayHash const    ov{cea::kOverlaySourceHash};
-    auto const                glieder_mg = cea::anatomy_fingerprint_glieder(args[0], args[1], "", tc, bv, ov, mg);
-    std::string const         preimage_mg =
+    auto const        glieder_mg = cea::anatomy_fingerprint_glieder(cea::OrganZeile{args[0]}, cea::SystemZeile{args[1]},
+                                                                    cea::MessZeile{""}, tc, bv, ov, mg);
+    std::string const preimage_mg =
         cea::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder_mg.data(), glieder_mg.size()});
     auto const digest_mg = ::comdare::cache_engine::sha512::sha512(
         std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(preimage_mg.data()), preimage_mg.size()});

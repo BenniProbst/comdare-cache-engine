@@ -590,7 +590,8 @@ inline constexpr std::string_view kCebMeasurementStampFor{kCebMeasurementStampAr
 /// die Defaults lieferten.
 template <CebComboLegend L>
 inline constexpr auto kCebFingerprintArrayFor = ::comdare::cache_engine::abi::anatomy_fingerprint_hex(
-    "", "", kCebMeasurementStampFor<L>,
+    ::comdare::cache_engine::abi::OrganZeile{""}, ::comdare::cache_engine::abi::SystemZeile{""},
+    ::comdare::cache_engine::abi::MessZeile{kCebMeasurementStampFor<L>},
     ::comdare::cache_engine::abi::ToolchainGlied{::comdare::cache_engine::abi::kToolchainStampGlied},
     ::comdare::cache_engine::abi::BvsetGlied{::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied},
     ::comdare::cache_engine::abi::OverlayHash{""});

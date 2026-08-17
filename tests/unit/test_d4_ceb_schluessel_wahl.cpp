@@ -68,8 +68,9 @@ struct LegendeUndSchluessel {
 /// vermutlich "repariert", indem man die Aussage entschaerft.
 [[nodiscard]] std::string runtime_ceb_key(std::string const& mess) {
     auto const glieder = cabi::anatomy_fingerprint_glieder(
-        "", "", mess, cabi::ToolchainGlied{cabi::kToolchainStampGlied},
-        cabi::BvsetGlied{cabi::kBuildVariantSetSignatureGlied}, cabi::OverlayHash{""});
+        cabi::OrganZeile{""}, cabi::SystemZeile{""}, cabi::MessZeile{mess},
+        cabi::ToolchainGlied{cabi::kToolchainStampGlied}, cabi::BvsetGlied{cabi::kBuildVariantSetSignatureGlied},
+        cabi::OverlayHash{""});
     std::string const pre =
         cabi::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = ::comdare::cache_engine::sha512::sha512(
