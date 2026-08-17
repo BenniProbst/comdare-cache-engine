@@ -97,6 +97,8 @@ TEST(RcuConcurrency, StackDomainAddressReuseGivesFreshSlot) {
 // (Thread-Churn), gleichzeitig zum Writer, der ueber viele Grace-Periods alte Versionen freigibt.
 // Uebt den "Slot ueberlebt Thread"-Pfad NEBENLAEUFIG zu synchronize() aus. Determiniert im Ergebnis
 // (kein Crash, reads>0, Post-Join-synchronize() sicher), race-frei unter -fsanitize=thread.
+// PRAEZISIERUNG 2026-08-17: die Teilzusage "reads>0" traegt erst seit der ANLAUF-SPERRE unten;
+// vorher hing sie am Scheduling und fiel unter Last reproduzierbar. Messung steht dort.
 TEST(RcuConcurrency, WriterSyncsWhileReaderThreadsChurnNoUseAfterFree) {
     rcu::RcuDomain    d;
     rcu::RcuDeferred  def;
@@ -114,9 +116,23 @@ TEST(RcuConcurrency, WriterSyncsWhileReaderThreadsChurnNoUseAfterFree) {
         }
     };
 
+    constexpr int            kReaders = 4;
     std::vector<std::thread> readers;
-    readers.reserve(4);
-    for (int i = 0; i < 4; ++i) { readers.emplace_back(churn); }
+    readers.reserve(kReaders);
+    for (int i = 0; i < kReaders; ++i) { readers.emplace_back(churn); }
+
+    // ANLAUF-SPERRE (2026-08-17): ohne sie war die Zusage im Kopfkommentar ("Determiniert im
+    // Ergebnis ... reads>0") von Scheduling-GLUECK abhaengig. Unter Last kam der Main-Thread
+    // durch alle 500 Generationen, BEVOR ein Reader seinen ersten Durchlauf schaffte; danach
+    // stand stop=true, alle vier brachen bei k=0 ab, und EXPECT_GT(reads,0) fiel mit
+    // "actual: 0 vs 0". REPRODUZIERT: 5 von 30 Laeufen unter 32-Prozess-Last, 0 von 50 ohne.
+    // Der Assert war dabei im RECHT -- er ist der Waechter dagegen, dass dieser Test seinen
+    // Gegenstand (Reader-Churn NEBENLAEUFIG zu synchronize()) still verfehlt. Gefehlt hat das
+    // Warten. Hier steht deshalb kein weicheres Erwartungsmass, sondern die Herstellung der
+    // Bedingung: erst wenn JEDER Reader mindestens einmal gelesen hat, laeuft der Writer los.
+    // Terminiert immer -- die Threads sind erzeugt (sonst haette emplace_back geworfen) und
+    // stop ist hier noch false, also erreicht jeder mindestens k=0.
+    while (reads.load(std::memory_order_relaxed) < kReaders) { std::this_thread::yield(); }
 
     for (int gen = 1; gen <= 500; ++gen) {
         rcu::rcu_replace(slot, new int(gen), def); // publiziert neue Version, defer alte
