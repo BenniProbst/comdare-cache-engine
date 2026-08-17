@@ -7210,3 +7210,26 @@ comdare_add_test(test_k2_stufen_neutraler_loader
 # Vorher bewies er nur, dass die HEADER ohne Builder auskommen -- die CMake-Kante blieb unbenutzt.
 target_include_directories(test_k2_stufen_neutraler_loader PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_k2_stufen_neutraler_loader PRIVATE comdare::ce_anatomy_drive)
+
+# ===================================================================================================
+# VL-3 (#15-Vorlauf, 17.08.2026): das --debug-FLAG der Planer-Shell + seine ANWENDER-SPERRE.
+#
+# Dieses Ziel ist die PROZESS-Probe der Sperre am echten Kommando -- und NUR die. Die compile-time-
+# Haelfte (AdmissionStatus-Umhaengung, Ledger-Bauliste 4b) liegt als static_assert IM HEADER
+# measurement/axis_error.hpp und ist dort unbedingt aktiv (die Datei hat ausser `#pragma once` keinen
+# #if-Guard); eine erste Fassung dieses Ziels hat sie zusaetzlich woertlich wiederholt, was nichts
+# deckte, was der Header nicht schon deckt -- entfernt, samt der dafuer noetigen Include-Wurzel.
+#
+# Die ECHTE Binary als Prozess (Muster test_check_size_cli_deckel, dieselbe Shell, derselbe Gegenstand):
+# geprueft wird das KOMMANDO, nicht ein Nachbau seiner Parse-Logik (T-2/GEGENSTAND). Der Profil-Pfad
+# reist explizit aus dem Quellbaum, damit der Test hermetisch gegen COMDARE_THESIS_PROFILE ist; das
+# Freigabe-Gate COMDARE_DEBUG_FREIGABE setzt der Test selbst per setenv (popen erbt die Umgebung).
+add_executable(test_vl3_debug_flag_sperre "test_vl3_debug_flag_sperre.cpp")
+target_compile_features(test_vl3_debug_flag_sperre PRIVATE cxx_std_23)
+comdare_set_platform_defines(test_vl3_debug_flag_sperre)
+add_test(NAME test_vl3_debug_flag_sperre COMMAND test_vl3_debug_flag_sperre
+    "$<TARGET_FILE:comdare_experiment_planner>"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/m3v2_study.profile.xml")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_vl3_debug_flag_sperre)
+set_tests_properties(test_vl3_debug_flag_sperre PROPERTIES
+    LABELS "vl3;planer;cli;debug;zulassung;koeder;standalone" TIMEOUT 120)
