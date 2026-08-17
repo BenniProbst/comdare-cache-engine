@@ -18,16 +18,21 @@
        2. tests/unit/test_s3_ordnung_freigabe.cpp (S-3c, alle 6 TESTs; "dieselbe Parser-Flaeche")
 
      ABSICHTLICHE DIVERGENZ ZUM MASTER. Das ist KEIN Drift, sondern der Testgegenstand: jede der folgenden
-     Zeilen hat einen literalen Beleg in test_experiment_kern_seam.cpp (Zeilennummer in Klammern).
+     Zeilen hat einen literalen Beleg in test_experiment_kern_seam.cpp (TEST-Name in Klammern;
+     Namens-Anker statt Zeilennummern, weil die Datei lebt und Zeilen driften; Lens-Fund 17.08.:
+     alle sechs frueheren Zeilenangaben lagen nach EINEM Include-Shift um +1 daneben).
        - lebewesen: 3 statt 7 Tiere. Minimalmenge, die phase@pruefling="prt_art" aufloesbar macht.
-       - axis search_algo pruefling="ee_prt" statt "prt_art": uebt den ENGINE-id-Zweig     (180)
+       - axis search_algo pruefling="ee_prt" statt "prt_art": uebt den ENGINE-id-Zweig
+         (ParsesAxisPrueflingAndFulljoinToken)
        - axis path_compression merge="fulljoin" statt "merge": der EINZIGE Positiv-Lauf des
-         dritten merge-Tokens samt Phase-3-Bindung                                         (184)
-       - dritte Achse mapping pruefling="self": uebt den self-Marker-Zweig                  (185, 186)
+         dritten merge-Tokens samt Phase-3-Bindung        (ParsesAxisPrueflingAndFulljoinToken)
+       - dritte Achse mapping pruefling="self": uebt den self-Marker-Zweig
+         (ParsesAxisPrueflingAndFulljoinToken)
        - storage backend="minio" mit endpoint statt backend="local": uebt den
-         endpoint-tragenden Zweig                                                          (192, 193)
+         endpoint-tragenden Zweig                                          (ParsesStorageSlot)
        - KEINE OS- und KEINE RAM-Attribute an <machine>: die ABWESENHEIT ist load-bearing
-         (Byte-Identitaets-Zusicherung additiver Attribute)                (104 bis 111, 159 bis 173)
+         (Byte-Identitaets-Zusicherung additiver Attribute)
+         (ParsesMachinesWithCoreIdentity, MachinesWithoutOsExpectationStayEmpty)
      WER DIESE WERTE AN DEN MASTER ANGLEICHT, LOESCHT DIE BEWEISE. Schema-Evolution dagegen MUSS
      nachgezogen werden: die Datei wird gegen dieselbe Single-Source-XSD auf Vokabular geprueft
      (ce tests/unit/fixture_schema_subset_check.cmake; das Schema-Bein zieht super

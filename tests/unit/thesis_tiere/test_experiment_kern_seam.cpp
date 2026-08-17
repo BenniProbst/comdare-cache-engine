@@ -154,7 +154,7 @@ TEST(ExperimentKernSeam, ParsesDeclaredOsExpectationValues) {
     EXPECT_TRUE(ep->machines[1].os_declaration_source.empty());
 }
 
-// A14/OS-U2: die Byte-Identitaets-Zusicherung. Die Golden-Kern-Fixture deklariert KEINE OS-Erwartung --
+// A14/OS-U2: die Byte-Identitaets-Zusicherung. Die Kern-Naht-Fixture deklariert KEINE OS-Erwartung --
 // alle vier Felder muessen leer bleiben. Ein Bestands-Profil ohne die neuen Attribute verhaelt sich
 // exakt wie vorher; die Attribute sind ADDITIV und PASSIV (kein Validator-Zwang, keine Warnung).
 TEST(ExperimentKernSeam, MachinesWithoutOsExpectationStayEmpty) {
