@@ -8,6 +8,35 @@
        - <axes_default_lookup><axis pruefling=..> (engine-id / lebewesen-id / self-Marker)
        - merge="fulljoin" (dritter Token, hier mit Phase-3-Bindung ueber <phase merge="Stufe3_FullJoin">)
        - <output><storage backend=.. endpoint=..> (inert) -->
+<!-- UMBENANNT 2026-08-17 (Scheibe 6 / Weg a, AUDIT-VERDIKT 20260722 Befund C5): diese Datei hiess frueher
+     experiment_golden_kern.xml und damit GLEICH wie die kanonische super-Instanz
+     Code/test_data_xml/experiment_golden_kern.xml, ohne deren Kopie zu sein. Der Name ist jetzt eindeutig.
+     Die Umbenennung war WERT-NEUTRAL: kein einziger Wert dieser Datei hat sich dabei bewegt.
+
+     LESER DIESER FIXTURE (beide ueber das Compile-Define COMDARE_EXPERIMENT_KERN_SEAM_FIXTURE):
+       1. tests/unit/thesis_tiere/test_experiment_kern_seam.cpp (6 der 15 TESTs lesen die Datei)
+       2. tests/unit/test_s3_ordnung_freigabe.cpp (S-3c, alle 6 TESTs; "dieselbe Parser-Flaeche")
+
+     ABSICHTLICHE DIVERGENZ ZUM MASTER. Das ist KEIN Drift, sondern der Testgegenstand: jede der folgenden
+     Zeilen hat einen literalen Beleg in test_experiment_kern_seam.cpp (TEST-Name in Klammern;
+     Namens-Anker statt Zeilennummern, weil die Datei lebt und Zeilen driften; Lens-Fund 17.08.:
+     alle sechs frueheren Zeilenangaben lagen nach EINEM Include-Shift um +1 daneben).
+       - lebewesen: 3 statt 7 Tiere. Minimalmenge, die phase@pruefling="prt_art" aufloesbar macht.
+       - axis search_algo pruefling="ee_prt" statt "prt_art": uebt den ENGINE-id-Zweig
+         (ParsesAxisPrueflingAndFulljoinToken)
+       - axis path_compression merge="fulljoin" statt "merge": der EINZIGE Positiv-Lauf des
+         dritten merge-Tokens samt Phase-3-Bindung        (ParsesAxisPrueflingAndFulljoinToken)
+       - dritte Achse mapping pruefling="self": uebt den self-Marker-Zweig
+         (ParsesAxisPrueflingAndFulljoinToken)
+       - storage backend="minio" mit endpoint statt backend="local": uebt den
+         endpoint-tragenden Zweig                                          (ParsesStorageSlot)
+       - KEINE OS- und KEINE RAM-Attribute an <machine>: die ABWESENHEIT ist load-bearing
+         (Byte-Identitaets-Zusicherung additiver Attribute)
+         (ParsesMachinesWithCoreIdentity, MachinesWithoutOsExpectationStayEmpty)
+     WER DIESE WERTE AN DEN MASTER ANGLEICHT, LOESCHT DIE BEWEISE. Schema-Evolution dagegen MUSS
+     nachgezogen werden: die Datei wird gegen dieselbe Single-Source-XSD auf Vokabular geprueft
+     (ce tests/unit/fixture_schema_subset_check.cmake; das Schema-Bein zieht super
+     Code/test_data_xml/experiment_schema.xsd). -->
 <comdare_experiment version="2" id="diplomarbeit_golden_kern_fixture"
                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                     xsi:noNamespaceSchemaLocation="experiment_schema.xsd">

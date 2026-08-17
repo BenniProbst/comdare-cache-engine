@@ -323,6 +323,29 @@ selbst CSV -- der Ergebnis-Rueckschrieb bleibt CEB-Aufgabe nach Planer-Bestimmun
 
 ## 7. Offene Abschnitte aus der adversarialen Review (K1-K6) -- BINDEND vor dem Bau
 
+> **NACHTRAG 17.08.2026 -- VIER DER SECHS K-PUNKTE SIND BEANTWORTET. Der Text darunter stammt vom
+> 02.08. und ist in seinem OFFEN-Status ueberholt; er bleibt unveraendert stehen (Doku wird
+> deprecated, nicht geloescht).**
+>
+> Die Diskrepanz ist eine reine Marker-Nachzugs-Klasse: der Owner hat am 09.08.2026 entschieden,
+> dieses Dokument wurde nicht nachgezogen. Nach der Doktrin NEU GEWINNT GEGEN ALT ist der
+> Ledger-Stand vom 09.08. massgeblich. Wer nur dieses Dokument liest, haelt vier erledigte Punkte
+> faelschlich fuer Blocker -- genau deshalb steht der Nachtrag hier und nicht anderswo.
+>
+> | Punkt | Stand 02.08. (unten) | Stand 17.08.2026 | Beleg |
+> |---|---|---|---|
+> | **K1** Lager-Identitaet | offen, "Owner-/A13-Entscheid noetig" | **JA / BEANTWORTET** -- Hybrid ist eine regulaere Gattung+Genus unter `Gattung -> Genus -> (Binary\|Messung) -> REST`. Kein weiterer Owner-Entscheid noetig. | Owner 09.08.2026 (Ledger-Abschnitt 09.08., Hybrid-Block) |
+> | **K2** Loader-/Drive-Schichtung | offen, "(a) oder (b), Entscheid vor HY-B1" | **JA = OPTION (a)** -- Owner woertlich: *"der Loader wandert in eine stufen-neutrale Bibliothek, weil das Pruefdock der CEB und das Pruefdock der Hybrid-Tier-Binary jeweils technisch identisch bei Konfiguration sein muessen."* **VOLLZOGEN am 17.08.2026**: `libs/cache_engine/anatomy_drive/` (Status-Codes + Antriebs-Buendel), Bestands-Header re-exportieren per `using`, Beweis-TU `test_k2_stufen_neutraler_loader`. Zusaetzlich gedeckt durch Wellenplan-Korb-B-Posten B-10 "Loader stufen-neutral". | Owner 09.08.2026 |
+> | **K3** CoR-Substrat | "erledigt in diesem Dokument" | **unveraendert erledigt** als Kartierung. Die daran haengende Frage, ob `heuristik/` der KANONISCHE Kurven-Stack ist (E-5), liegt als Owner-Frage **D-2** im laufenden Fragenbuendel -- bis dahin wird **kein** Kurven-Stack kanonisiert und **keiner** neu gebaut. | Fragenbuendel 17.08. |
+> | **K4** Systemachsen-Framing | ENTSCHIEDEN (Q6-GO) | **unveraendert ENTSCHIEDEN** | Owner-GO Q6 02.08.2026 |
+> | **K5** Snapshot-Aggregation | offen, "benannter Entscheid in HY-B4" | **unveraendert OFFEN -- und das BLOCKIERT HY-A NICHT.** Der Entscheid ist hier selbst auf HY-B4 terminiert. Keine Variante gilt implizit; wo Code die Stelle beruehrt, gehoert ein fail-loud-Platzhalter mit dem Anker "K5-Entscheid HY-B4" hin, keine stille Wahl. | dieses Dokument, Abschnitt 7 K5 |
+> | **K6** F8-Minimal-DoD zuerst | bindend fuer die Paketreihenfolge | **unveraendert bindend**: genau 1 Standard-Dock, delegierter Bau, ctest-bewiesen, **ohne** Eviction und **ohne** XML. | dieses Dokument, Abschnitt 7 K6 |
+>
+> **Damit ist die Lage fuer den Bau:** K1, K2, K4 sind entschieden; K6 gibt die Reihenfolge vor;
+> K5 und die E-5-Haelfte von K3 sind die einzigen verbliebenen offenen Punkte, und beide sind
+> ausdruecklich auf spaetere Pakete terminiert. Ein "K-Punkt offen, also HY-A gesperrt" ist damit
+> ab heute unzutreffend.
+
 Die sechs Auflagen der Design-Review sind bewusst NICHT stillschweigend geschlossen worden. Sie sind
 die Tagesordnung fuer die Auswertungsphase; K1 und K4 beruehren zusaetzlich laufende Strecken
 (A13-Stempel, Lager) und muessen VOR dem jeweiligen Freeze beantwortet sein.

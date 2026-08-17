@@ -95,7 +95,8 @@ constexpr std::string_view kFrozenFingerprintV1 = "d53aebdbb22902f3cdbbf5947bc36
 // automatisch mit -- auch der O-2/C-2-Nachtrag von zwei Gliedern hat diese Funktion nicht angefasst.
 std::array<std::string_view, comdare::cache_engine::abi::kAnatomyFingerprintGliedCount> frozen_lines() {
     return comdare::cache_engine::abi::anatomy_fingerprint_glieder(
-        kOrgan, kSystem, kMeasure, comdare::cache_engine::abi::ToolchainGlied{kFrozenToolchain},
+        comdare::cache_engine::abi::OrganZeile{kOrgan}, comdare::cache_engine::abi::SystemZeile{kSystem},
+        comdare::cache_engine::abi::MessZeile{kMeasure}, comdare::cache_engine::abi::ToolchainGlied{kFrozenToolchain},
         comdare::cache_engine::abi::BvsetGlied{kFrozenBvset}, comdare::cache_engine::abi::OverlayHash{kFrozenOverlay});
 }
 

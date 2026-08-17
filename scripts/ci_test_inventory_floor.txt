@@ -40,6 +40,46 @@
 # nicht die Commit-Granularitaet -- er erzwingt Floor-Datei und Registrierung
 # im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
+# -- NACHZUG 2026-08-17 (HY-A: Dock-Schicht + K2-Extraktion, VIER NEUE REGISTRIERUNGEN) -------
+# 499/495/493 loest 495/491/489 ab. Der Zuwachs ist +4 in JEDER Klasse und stammt vollstaendig
+# aus diesem Strang -- keine Klassen-Umverteilung, keine Delta-Addition auf einen Alt-Anker:
+#     test_hy_a1_dock_contract            (comdare_add_test)
+#     test_hy_a3_hybrid_config_parser     (comdare_add_test)
+#     test_k2_stufen_neutraler_loader     (comdare_add_test)
+#     test_hy_a1_contract_token_negativ   (add_test -- VIERTE Negativ-Compile-Fixture nach dem
+#                                          C1-Muster, PASS_REGULAR_EXPRESSION statt Ausfuehrung)
+# ZWEI-SEITIGE GEGENPROBE am Objekt: (a) alle vier Namen stehen in der 499er- UND in der
+# 493er-Namensliste, sind also klassen-unabhaengig -- daher +4 auf allen drei Sprossen;
+# (b) der Branch-Diff gegen origin/development enthaelt GENAU 4 hinzugefuegte Registrierungs-
+# Aufrufe. Zahl und Namen decken sich; die 4 ist gezaehlt, nicht aus 499-495 erschlossen.
+# GEMESSEN am 2026-08-17, Messhost prod1, GCC 15.3.0, Ninja, Branch bau/hy-a-hybrid-struktur
+# (Basis 04ac26fa). Bau-Baum build-covguard KALT angelegt (rm -rf) und in der CI-FORM MIT
+# Pruefling gebaut (CC=gcc-15 CXX=g++-15 configure.sh --with-generator=Ninja
+# --enable-build-tests --build-dir=build-covguard
+# -DCOMDARE_CE_PRUEFLINGE="$PWD/tests/pruefling_fixture"), J-1-Muster (erst
+# comdare_anatomy_codegen_cli + comdare_adhoc_emitter_cli, dann RE-KONFIGURIERT), 'make
+# inventar', beide Klassen per cmake erzwungen, danach 'cmake -U' auf BEIDE Variablen:
+# Wiederherstellung BYTE-GLEICH (cmp ohne Ausgabe, Total wieder 499). Die MESS-FALLE des
+# Abschnitts darunter (rechtsbuendige ctest-Nummern) ist beachtet: Zaehlbasis war die
+# Schlusszeile "Total Tests: N", jede Namensliste hat die Gegenprobe Listenlaenge == Total
+# bestanden (499/499, 495/495, 493/493). LC_ALL=C comm in BEIDE Richtungen: avx512f->avx2
+# verliert exakt die dokumentierten VIER (test_ap5_simd_extension_coherence,
+# test_buildvariant_dll_real, test_simd_add_u64_carry_avx512, test_simd_field_sum_dispatch_
+# avx512), avx2->basis die ZWEI (test_simd_add_u64_carry_avx2, test_simd_field_sum_dispatch_
+# avx2), beide Gegenrichtungen LEER.
+#     avx512f (gemessen, prod1, ctest "Total Tests")                       -> 499
+#     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                  -> 495
+#     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0       -> 493
+# NEBENBEFUND F-12 (in DIESER Runde behoben, tests/unit/CMakeLists.txt): wer dieses Rezept
+# buchstabengetreu faehrt, baut die Werkzeuge VOR 'make inventar' und rekonfiguriert -- damit
+# sind die Bloecke comdare_perms_pa / comdare_perms_full_join schon aktiv, wenn 'all' laeuft,
+# und der Bau fiel an einem prt-art-Header, den die Fixture bewusst nicht traegt. CI sah das
+# nie, weil 'make inventar' seine erste 'all'-Runde VOR dem Reconfigure faehrt (Bloecke noch
+# SKIPPED) und danach nur noch 'comdare_tests' baut. Die Bloecke pruefen den Header jetzt und
+# ueberspringen sich mit genanntem Grund. Auf die Zahlen wirkt das NICHT: sie registrieren
+# keinen ctest-Test (D2-AUSNAHME, ebd. dokumentiert), und die Nachmessung nach dem Fix ergab
+# dieselbe Namensmenge byte-gleich.
+#
 # -- WIE DIE ZAHLEN ENTSTANDEN SIND (NACHMESSUNG 2026-08-15, GOLDEN-FENSTER: B2-MERGE IN #16) --
 # GEMESSEN am 2026-08-15 in diesem Repo, Stand = golden-Fenster-Arbeitsbaum (Branch
 # bau/golden-homes, Worktree wt-ce-golden-homes, WAEHREND der Aufloesung des ABSICHTLICHEN
@@ -50,7 +90,9 @@
 # --build-dir=build-covguard -DCOMDARE_CE_PRUEFLINGE="$PWD/tests/pruefling_fixture");
 # J-1-Muster: erst die beiden Registrierungs-Werkzeuge (comdare_anatomy_codegen_cli,
 # comdare_adhoc_emitter_cli), dann RE-KONFIGURIERT.
-# -- KORREKTUR 2026-08-17 (CI-LIVE-BEFUND PIPELINE 15936 + NACHMESSUNG AM GELANDETEN STAND) --
+# -- KORREKTUR 2026-08-17 (CI-LIVE-BEFUND PIPELINE 15936 + NACHMESSUNG AM GELANDETEN STAND;
+#    die WERTE 495/491/489 sind durch den NACHZUG 2026-08-17/HY-A oben abgeloest -- Verfahren,
+#    Mess-Falle und Pruefling-Befund dieses Abschnitts bleiben unveraendert gueltig) --
 # 495/491/489 ersetzt die 16.08.-Fassung 494/490/488. Der tragende Satz der 16.08.-Nachmessung
 # ("Der CI-Floor-Baum baut OHNE Pruefling") ist FALSCH: der coverage-guard-Job konfiguriert
 # build-covguard ausdruecklich MIT Pruefling (.gitlab-ci.yml: _pf="$CI_PROJECT_DIR/tests/
@@ -496,6 +538,6 @@
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
 
-avx512f 495
-avx2 491
-basis 489
+avx512f 499
+avx2 495
+basis 493

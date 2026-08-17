@@ -169,7 +169,9 @@
             system_lit, ::comdare::cache_engine::abi::kSystemCellValuesFromDefine);                                    \
         static constexpr char kM[] = measurement_lit;                                                                  \
         static constexpr auto kFP  = ::comdare::cache_engine::abi::anatomy_fingerprint_hex(                            \
-            organ_lit, kSC.view(), measurement_lit,                                                                    \
+            ::comdare::cache_engine::abi::OrganZeile{organ_lit},                                                       \
+            ::comdare::cache_engine::abi::SystemZeile{kSC.view()},                                                     \
+            ::comdare::cache_engine::abi::MessZeile{measurement_lit},                                                  \
             ::comdare::cache_engine::abi::ToolchainGlied{::comdare::cache_engine::abi::kToolchainStampGlied},          \
             ::comdare::cache_engine::abi::BvsetGlied{::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied},    \
             ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash},               \
@@ -184,22 +186,22 @@
             ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(kM)>(  \
                 kM);                                                                                                   \
         static constexpr ::comdare::cache_engine::abi::AnatomyVersionLines kL{                                         \
-            ::comdare::cache_engine::abi::kAnatomyVersionLinesLayout,                                                  \
-            0u,                                                                                                        \
-            kO,                                                                                                        \
-            sizeof(kO) - 1,                                                                                            \
-            kSC.chars,                                                                                                 \
-            kSC.size(),                                                                                                \
-            kM,                                                                                                        \
-            sizeof(kM) - 1,                                                                                            \
-            kFP.data(),                                                                                                \
-            kFP.size() - 1,                                                                                            \
-            ::comdare::cache_engine::abi::stamp_entries_ptr(kOE),                                                      \
-            kOE.size(),                                                                                                \
-            ::comdare::cache_engine::abi::stamp_entries_ptr(kSE),                                                      \
-            kSE.size(),                                                                                                \
-            ::comdare::cache_engine::abi::stamp_entries_ptr(kME),                                                      \
-            kME.size()};                                                                                               \
+            .stamp_layout_version    = ::comdare::cache_engine::abi::kAnatomyVersionLinesLayout,                       \
+            .reserved                = 0u,                                                                             \
+            .organ_line              = kO,                                                                             \
+            .organ_len               = sizeof(kO) - 1,                                                                 \
+            .system_line             = kSC.chars,                                                                      \
+            .system_len              = kSC.size(),                                                                     \
+            .measurement_line        = kM,                                                                             \
+            .measurement_len         = sizeof(kM) - 1,                                                                 \
+            .sha512_line             = kFP.data(),                                                                     \
+            .sha512_len              = kFP.size() - 1,                                                                 \
+            .organ_entries           = ::comdare::cache_engine::abi::stamp_entries_ptr(kOE),                           \
+            .organ_entry_count       = kOE.size(),                                                                     \
+            .system_entries          = ::comdare::cache_engine::abi::stamp_entries_ptr(kSE),                           \
+            .system_entry_count      = kSE.size(),                                                                     \
+            .measurement_entries     = ::comdare::cache_engine::abi::stamp_entries_ptr(kME),                           \
+            .measurement_entry_count = kME.size()};                                                                    \
         return &kL;                                                                                                    \
     }
 

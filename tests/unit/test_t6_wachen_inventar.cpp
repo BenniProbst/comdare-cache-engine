@@ -162,10 +162,30 @@ constexpr Eintrag kTabelle[] = {
 // gewordenen Fenster zwischen Ist und Obergrenze.
 constexpr std::size_t kWartelisteObergrenze = 3;
 
-// Die drei ctest-Eintraege mit PASS_REGULAR_EXPRESSION sind allesamt ungedeckt --
+// Die ctest-Eintraege mit PASS_REGULAR_EXPRESSION sind allesamt ungedeckt --
 // niemand prueft, ob diese Negativ-Fixturen wirklich beissen. Sie stehen als eigener,
 // gezaehlter Posten auf der Warteliste und werden hier nur ERHOBEN, nicht behauptet.
-constexpr std::size_t kKlasseCObergrenze = 3;
+//
+// NACHZUG 17.08.2026 (HY-A1-Dock-Schicht): 3 -> 4. Neu hinzugekommen ist
+// test_hy_a1_contract_token_negativ (Koeder contract_f0a01c9e gegen die Vertrags-Registry).
+// Die Wache hat den Zuwachs GEFANGEN -- genau ihre Aufgabe: "kommt eine dazu, gehoert sie auf
+// die Warteliste, nicht unbemerkt". Die Zahl wird deshalb als QUITTUNG mitgezogen, nicht als
+// Aufweichung: der neue Eintrag ist damit auf der Warteliste GEZAEHLT und nicht gedeckt.
+// Was ihm zur Deckung fehlt, ist derselbe Selbsttest wie den drei anderen -- ein Mechanismus,
+// der belegt, dass die Fixture ohne den erwarteten Bruch ROT wird. Fuer diese eine Fixture ist
+// der Biss am Objekt nachgemessen (3 Sperren, 2 davon mit Marker in der Diagnose, im Commit
+// protokolliert); ein maschineller Selbsttest ist das NICHT und wird hier nicht als solcher
+// gezaehlt.
+//
+// NACHTRAG 17.08.2026 (A2.5-FUND-11) -- WORIN DIE DECKUNGSLUECKE GENAU BESTEHT, damit der
+// Warteliste-Posten seinen Gegenstand kennt: die Negativ-Fixturen sind EIN-TU-Bauformen. Ein
+// PASS_REGULAR_EXPRESSION prueft, DASS ein Marker in der Diagnose steht -- nicht, WELCHE der
+// Sperren ihn erzeugt hat. Faellt Sperre 3 weg, waehrend Sperre 1 weiter bricht, bleibt der
+// ctest GRUEN. Verschaerfend: test_hy_a1_contract_token_negativ dokumentiert selbst, dass seine
+// Probe 2 gar keinen eigenen Marker druckt (consteval-throw zeigt auf die Wurf-Zeile im Header).
+// Ein echter Selbsttest muesste je Sperre EINE eigene TU bauen und je einzeln belegen, dass ihr
+// Wegfall rot wird. Das ist der Inhalt dieses Wartelisten-Postens -- nicht "irgendein Test fehlt".
+constexpr std::size_t kKlasseCObergrenze = 4;
 
 // ---------------------------------------------------------------------------
 // Der Zeilen-Scanner. Wirksam ist, was VOR dem ersten '#' steht.
