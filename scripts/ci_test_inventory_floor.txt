@@ -41,6 +41,13 @@
 # im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
 # -- NACHZUG 2026-08-17 (SERIELLE WELLEN-LANDUNG A2.1a, VIER STRAENGE, EINE NEUE REGISTRIERUNG) --
+# -- NACHZUG 2026-08-18 frueh (Welle-2-Landung xorf+f3v+a11) ------------------
+# 501/497/495 loest 500/496/494 ab. Der Zuwachs ist +1 in JEDER Klasse und stammt
+# vollstaendig aus f3v: test_flaeche3_deckung_ceb_aus_tier_an (UNBEDINGT registriert,
+# keine AVX-Klausel -- CMakeLists-Gegenprobe grep if/AVX vor der add_test-Zeile leer).
+# LIVE-BELEG am Verbund-Baum build-welle2 (Klasse avx512f): ctest "100% tests passed,
+# 0 tests failed out of 501"; Wache nach Nachzug GRUEN "ANKER ... 501". Die avx2-/
+# basis-Sprossen folgen der +1-Regel unbedingter Tests (wie 500er-Nachzug c3478a9c).
 # 500/496/494 loest 499/495/493 ab. Der Zuwachs ist +1 in JEDER Klasse und stammt vollstaendig aus
 # dem VL-3-Strang; die VIER des HY-A-Strangs stecken bereits in der 499 des Blocks darunter und
 # werden hier NICHT erneut addiert.
@@ -573,6 +580,6 @@
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
 
-avx512f 500
-avx2 496
-basis 494
+avx512f 501
+avx2 497
+basis 495
