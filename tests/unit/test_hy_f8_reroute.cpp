@@ -18,7 +18,8 @@
 //   (5) DIE B4-PAARE -- beide Ebenen, im selben Lauf, damit die Zahlen nicht in zwei Berichten
 //       auseinanderlaufen.
 //
-// DIE CT-SPERRE steht NICHT hier, sondern am Eigentuemer (hybrid_binary_proxy.hpp:62 (RerouteZiel primaer undefiniert) + :96-115 (die Negativ-Pins)): ein nicht
+// DIE CT-SPERRE steht NICHT hier, sondern am Eigentuemer (hybrid_binary_proxy.hpp:62, RerouteZiel primaer
+// undefiniert, + :96-115 die Negativ-Pins): ein nicht
 // deklariertes Reroute-Ziel ist per Konstruktion unbaubar, und ein unbaubarer Aufruf laesst sich in
 // einer Test-TU nur als auskommentierter Text ablegen, der nichts prueft. Was hier geprueft wird,
 // ist die BEDINGUNG, unter der die Sperre bestehen bleibt -- dieselbe Bauform wie bei S-6b.

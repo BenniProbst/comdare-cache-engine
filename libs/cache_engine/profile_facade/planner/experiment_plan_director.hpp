@@ -58,7 +58,7 @@
 // planer_driven_build.hpp -> batch_planner.hpp); die Wache haengt aber NICHT an einer fremden
 // Include-Kette, die ein spaeterer Umbau still kappen koennte -- sie zieht ihre Operanden selbst.
 #include <builder/bestandslog/planer_driven_build.hpp> // LAG-P4: bestandslog::kBuildSliceGrain (+ kGnBatchSlice)
-#include <cache_engine/measurement/run_methodology_registry.hpp> // S5-P1: WorkMode-Registry (Build-Semantik-Single-Source)
+#include <cache_engine/measurement/run_methodology_registry.hpp> // S5-P1: WorkMode-Registry (Single-Source)
 #include "planner/pmc_host_probe.hpp" // 10.08.2026: die LAUFZEIT-Erkennung der PMC-Hardwareform dieses Hosts
 
 #include "xml_config_parser/xml_config_parser.hpp" // cx::ExperimentProfile / cx::ThesisProfile (explizit)
