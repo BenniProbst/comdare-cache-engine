@@ -397,7 +397,7 @@ TEST(ValidateProfileMeasurementSubAxes, ValidA9SubAxesAccepted) {
 
 // (a9a-exactly-one) §61-STUFEN/(j1): MEHR als ein run_methodology-Modus ist ein HARTER Fehler (exactly-one je
 //     Profil/Call; die A9-"sweepbar"-Auslegung ist supersediert). Genau EIN Modus (measure/debug/release) = gueltig.
-TEST(ValidateProfileMeasurementSubAxes, RunMethodologyMustBeExactlyOne) {
+TEST(ValidateProfileMeasurementSubAxes, WorkModeMustBeExactlyOne) {
     ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
     auto                   tp       = parse_temp("");
     ASSERT_TRUE(tp.has_value());
@@ -405,7 +405,7 @@ TEST(ValidateProfileMeasurementSubAxes, RunMethodologyMustBeExactlyOne) {
     tp->writeback_methods     = {"csv"};
 
     // >1 Modus => harter Fehler (exactly-one).
-    tp->run_methodology                      = {"debug", "measure"};
+    tp->run_methodology                      = {"build", "measure"};
     tlz::ProfileValidationResult const multi = tlz::validate_profile(*tp, registry);
     EXPECT_FALSE(multi.ok) << "zwei Modi muessen abgelehnt werden (exactly-one)";
     bool found = false;
@@ -414,14 +414,14 @@ TEST(ValidateProfileMeasurementSubAxes, RunMethodologyMustBeExactlyOne) {
     EXPECT_TRUE(found) << "exactly-one-Fehlermeldung erwartet";
 
     // Genau EIN Modus (debug) => gueltig.
-    tp->run_methodology                    = {"debug"};
+    tp->run_methodology                    = {"build"};
     tlz::ProfileValidationResult const one = tlz::validate_profile(*tp, registry);
-    EXPECT_TRUE(one.ok) << "ein Modus (debug) ist gueltig";
+    EXPECT_TRUE(one.ok) << "ein Modus (build) ist gueltig";
     EXPECT_EQ(one.run_methodology_checked, 1u);
 }
 
 // (a9b) ein Bogus run_methodology-Wert (profiling) ist ein HARTER Fehler ({debug,measure,release}).
-TEST(ValidateProfileMeasurementSubAxes, BogusRunMethodologyRejected) {
+TEST(ValidateProfileMeasurementSubAxes, BogusWorkModeRejected) {
     ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
 
     auto tp = parse_temp("");

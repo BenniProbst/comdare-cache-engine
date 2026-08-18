@@ -14,7 +14,7 @@
 //    sind. Das ist die unheilbare Klasse: kontaminierte Daten."
 //
 // == WARUM DER TRAEGER VOR DEM ENUM-BRUCH KOMMT (Bau-Reihenfolge gruppe2 (c) Schritt 1) ===============
-// Im #15-Bruch verlaesst `Debug` das RunMethodology-Enum (B-5d). Der EINZIGE debug-Token in XML
+// Im #15-Bruch verlaesst `Debug` das WorkMode-Enum (B-5d). Der EINZIGE debug-Token in XML
 // repo-weit ist m3_smoke_coverage.profile.xml:172 <method value="debug"/>, gegatet von
 // test_smoke_coverage_profile (tests/unit/CMakeLists.txt:3784-3791). Faellt der Enum-Wert, BEVOR das
 // Flag existiert, verliert dieser Token seinen Traeger ERSATZLOS. Dieser Test baut den Traeger vor;

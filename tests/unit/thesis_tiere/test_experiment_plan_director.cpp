@@ -1621,7 +1621,7 @@ struct EmittierterPlan {
 // (Nachsatz W0b-3, 08.08.2026) BEIDE Methodiken, nicht nur der eine golden-measure-Release-Pfad:
 // der Review fand alle drei Wachen-Tests auf demselben Pfad -- der Debug-Zweig ((j3) Dual-Compile,
 // ZWEI Treiber-Aufrufe je Mess-Fenster, eigene Testat-Zeilen) war strukturell ungeprueft. Die
-// Debug-Plaene entstehen wie in MeasurementModi61 (j2): dieselben Achsen, run_methodology={"debug"}.
+// Debug-Plaene entstehen wie in MeasurementModi61 (j2): dieselben Achsen, run_methodology={"build"}.
 // Vier Plaene = {Stufe 1, Stufe 2} x {measure, debug}; jede Wache laeuft ueber ALLE vier.
 [[nodiscard]] std::vector<EmittierterPlan> alle_wachen_plaene(cx::ThesisProfile const& tp) {
     planner::ExperimentPlanDirector const director;
@@ -1630,7 +1630,7 @@ struct EmittierterPlan {
     director.construct(tp, b1m);
     director.construct(tp, b2m);
     cx::ThesisProfile dbg = tp;
-    dbg.run_methodology   = {"debug"};
+    dbg.run_methodology   = {"build"};
     planner::CiYamlBuilder     b1d;
     planner::TierCiYamlBuilder b2d;
     director.construct(dbg, b1d);
@@ -3505,7 +3505,7 @@ TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
     // DEBUG-Profil (j2: Methodik aus dem PROFIL): dieselben Achsen, run_methodology=debug -> STATISCH Debug-Build +
     // (i) COMDARE_BUILD_TYPE=Debug-Signal (Nicht-Default => +bt=Debug an der facade-Suffix-Naht, benannter Folgepunkt).
     auto dbg             = tp;
-    dbg->run_methodology = {"debug"};
+    dbg->run_methodology = {"build"};
     planner::TierCiYamlBuilder tb_dbg;
     director.construct(*dbg, tb_dbg);
     std::string const& ydbg = tb_dbg.text();
@@ -3585,19 +3585,19 @@ TEST(MeasurementModi61, TwoModeProfileHardFailsExactlyOne) {
 
     auto tp2 = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp2.has_value());
-    tp2->run_methodology = {"debug", "measure"}; // 2 Modi = Kontraktbruch (exactly-one verletzt)
+    tp2->run_methodology = {"build", "measure"}; // 2 Modi = Kontraktbruch (exactly-one verletzt)
     planner::TierCmakeGraphBuilder cm_two;
     EXPECT_THROW(director.construct(*tp2, cm_two), std::invalid_argument)
         << "(R5) tp-Pfad: build_semantic_of_run_methodology bricht bei >1 Modi HART ab (kein stilles front())";
 
     // Runtime-Konsum (Mess-Loop-Naht, resolve_measure_parallelism -> run_methodology_for_ids): wirft ebenfalls bei >1.
-    EXPECT_THROW((void)mm::run_methodology_for_ids({"debug", "measure"}), std::invalid_argument)
+    EXPECT_THROW((void)mm::run_methodology_for_ids({"build", "measure"}), std::invalid_argument)
         << "(R5) run_methodology_for_ids bricht bei >1 Methoden HART ab";
     EXPECT_THROW((void)mm::run_methodology_for_ids({"measure", "release"}), std::invalid_argument);
 
     // exactly-one bleibt gueltig + byte-neutral (kein Fehlalarm):
-    EXPECT_EQ(mm::run_methodology_for_ids({"debug"}).methodology, mm::RunMethodology::Debug);
-    EXPECT_EQ(mm::run_methodology_for_ids({}).methodology, mm::RunMethodology::Measure); // leer => measure-Default
+    EXPECT_EQ(mm::run_methodology_for_ids({"build"}).methodology, mm::WorkMode::Build);
+    EXPECT_EQ(mm::run_methodology_for_ids({}).methodology, mm::WorkMode::Measure); // leer => measure-Default
     auto tp1 = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp1.has_value());
     tp1->run_methodology = {"measure"};
@@ -3639,11 +3639,11 @@ TEST(MeasurementModi61, UnknownModeTokenFailsClosedInsteadOfSilentMeasure) {
         << "tp-Pfad: unbekannter Token bricht HART ab (kein stiller measure-Ersatz)";
 
     // Gegenprobe (byte-neutral, kein Fehlalarm): die VIER gueltigen Tokens und die leere Liste tragen unveraendert.
-    EXPECT_EQ(mm::run_methodology_for_ids({"debug"}).methodology, mm::RunMethodology::Debug);
-    EXPECT_EQ(mm::run_methodology_for_ids({"measure"}).methodology, mm::RunMethodology::Measure);
-    EXPECT_EQ(mm::run_methodology_for_ids({"release"}).methodology, mm::RunMethodology::Release);
-    EXPECT_EQ(mm::run_methodology_for_ids({"compare"}).methodology, mm::RunMethodology::Compare);
-    EXPECT_EQ(mm::run_methodology_for_ids({}).methodology, mm::RunMethodology::Measure) << "leer => measure-Default";
+    EXPECT_EQ(mm::run_methodology_for_ids({"build"}).methodology, mm::WorkMode::Build);
+    EXPECT_EQ(mm::run_methodology_for_ids({"measure"}).methodology, mm::WorkMode::Measure);
+    EXPECT_EQ(mm::run_methodology_for_ids({"release"}).methodology, mm::WorkMode::Release);
+    EXPECT_EQ(mm::run_methodology_for_ids({"compare"}).methodology, mm::WorkMode::Compare);
+    EXPECT_EQ(mm::run_methodology_for_ids({}).methodology, mm::WorkMode::Measure) << "leer => measure-Default";
     auto tp_ok = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp_ok.has_value());
     tp_ok->run_methodology = {"compare"};
@@ -3671,8 +3671,8 @@ TEST(MeasurementModi61, PlanBuildSemanticSpiegeltDieRegistryZeileFuerJedenModus)
         return b.header.build_semantic;
     };
 
-    for (std::size_t i = 0; i < mm::kRunMethodologyCount; ++i) {
-        auto const& zeile = mm::kRunMethodologyRegistry[i];
+    for (std::size_t i = 0; i < mm::kWorkModeCount; ++i) {
+        auto const& zeile = mm::kWorkModeRegistry[i];
         auto const  sem   = semantik_fuer({std::string(zeile.id)});
         EXPECT_EQ(sem.cmake_build_type, std::string(zeile.cmake_build_type)) << zeile.id;
         EXPECT_EQ(sem.measurement_on, zeile.measurement_on) << zeile.id;
@@ -3680,7 +3680,7 @@ TEST(MeasurementModi61, PlanBuildSemanticSpiegeltDieRegistryZeileFuerJedenModus)
     }
 
     // Leer => die measure-Zeile (Abwesenheit ist der Default, kein eigener Zustand).
-    auto const& measure = mm::run_methodology_info(mm::RunMethodology::Measure);
+    auto const& measure = mm::work_mode_info(mm::WorkMode::Measure);
     auto const  leer    = semantik_fuer({});
     EXPECT_EQ(leer.cmake_build_type, std::string(measure.cmake_build_type));
     EXPECT_EQ(leer.measurement_on, measure.measurement_on);
@@ -3688,15 +3688,15 @@ TEST(MeasurementModi61, PlanBuildSemanticSpiegeltDieRegistryZeileFuerJedenModus)
 
     // Und die Unterscheidungs-Probe, ohne die der Spiegel-Test nichts messen wuerde: measurement_on traegt NICHT
     // ueber alle Modi denselben Wert. Ein Feld, das immer gleich ist, waere auch als Annotation wertlos.
-    EXPECT_TRUE(semantik_fuer({"debug"}).measurement_on);
+    EXPECT_TRUE(semantik_fuer({"build"}).measurement_on);
     EXPECT_FALSE(semantik_fuer({"release"}).measurement_on);
     EXPECT_FALSE(semantik_fuer({"compare"}).measurement_on);
     EXPECT_TRUE(semantik_fuer({"measure"}).single_thread);
-    EXPECT_FALSE(semantik_fuer({"debug"}).single_thread);
+    EXPECT_FALSE(semantik_fuer({"build"}).single_thread);
 }
 
 // (smoke=>debug-Entkopplung 2026-07-22): der Director-Methodik-Override entkoppelt Bau-Profil != Methodik-Profil.
-// Ein all_axes_golden-Katalog (run_methodology=measure) emittiert MIT Override {"debug"} die DEBUG-Methodik
+// Ein all_axes_golden-Katalog (run_methodology=measure) emittiert MIT Override {"build"} die DEBUG-Methodik
 // ((j3)-Dual-Compile + COMDARE_BUILD_TYPE=Debug + TRIES=1 + Methodik-Profil-Forward), WAEHREND Achsen/Perms/Lanes
 // aus tp UNVERAENDERT bleiben (nur die Methodik wechselt, nicht der Katalog). Leerer Override => byte-identisch.
 TEST(MeasurementModi61, MethodikOverrideDecouplesCatalogFromMethodik) {
@@ -3718,8 +3718,8 @@ TEST(MeasurementModi61, MethodikOverrideDecouplesCatalogFromMethodik) {
     EXPECT_EQ(yref.find("COMDARE_PLAN_METHODIK_PROFILE=\"${COMDARE_PLAN_METHODIK_PROFILE:-}\""), std::string::npos)
         << "measure ohne Override => KEIN emit_measure_job-Methodik-Forward (measure byte-identisch)";
 
-    planner::TierCiYamlBuilder tb_dbg; // MIT Override {"debug"} => DEBUG-Methodik trotz measure-Katalog
-    director.construct(*tp, tb_dbg, /*combo_selector=*/{}, /*methodik_run_methodology=*/{"debug"});
+    planner::TierCiYamlBuilder tb_dbg; // MIT Override {"build"} => DEBUG-Methodik trotz measure-Katalog
+    director.construct(*tp, tb_dbg, /*combo_selector=*/{}, /*methodik_run_methodology=*/{"build"});
     std::string const& ydbg = tb_dbg.text();
     EXPECT_NE(ydbg.find("(j3) Aufruf 1/2: Release provision-only"), std::string::npos)
         << "Override debug => (j3)-Dual-Compile trotz measure-Katalog";
@@ -3959,7 +3959,7 @@ TEST(CompilerPinInvariante, ZwillingFolgtDemBuildTypDesProfils) {
     planner::ExperimentPlanDirector director;
     director.set_pmc_befund(befund_mit(planner::PmcLage::Amd, "AuthenticAMD"));
     planner::TierCiYamlBuilder tb_dbg; // Methodik-Override debug => (j3)-Zweig + Debug-BUILD_TYPE
-    director.construct(*tp, tb_dbg, /*combo_selector=*/{}, /*methodik_run_methodology=*/{"debug"});
+    director.construct(*tp, tb_dbg, /*combo_selector=*/{}, /*methodik_run_methodology=*/{"build"});
     std::string const& ydbg = tb_dbg.text();
     expect_compiler_pin_invariante(ydbg, "Thesis/Stufe2 (j3)-Debug",
                                    count_occurrences(ydbg, "# JOB tier-build-batch host="));

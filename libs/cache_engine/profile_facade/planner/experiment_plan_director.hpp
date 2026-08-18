@@ -58,7 +58,7 @@
 // planer_driven_build.hpp -> batch_planner.hpp); die Wache haengt aber NICHT an einer fremden
 // Include-Kette, die ein spaeterer Umbau still kappen koennte -- sie zieht ihre Operanden selbst.
 #include <builder/bestandslog/planer_driven_build.hpp> // LAG-P4: bestandslog::kBuildSliceGrain (+ kGnBatchSlice)
-#include <cache_engine/measurement/run_methodology_registry.hpp> // S5-P1: RunMethodology-Registry (Build-Semantik-Single-Source)
+#include <cache_engine/measurement/run_methodology_registry.hpp> // S5-P1: WorkMode-Registry (Build-Semantik-Single-Source)
 #include "planner/pmc_host_probe.hpp" // 10.08.2026: die LAUFZEIT-Erkennung der PMC-Hardwareform dieses Hosts
 
 #include "xml_config_parser/xml_config_parser.hpp" // cx::ExperimentProfile / cx::ThesisProfile (explizit)
@@ -2305,7 +2305,7 @@ private:
         // bis heute eine ZWEITE, eigene Suchschleife, die ein unbekanntes Token STILL auf measure warf -- ein
         // Tippfehler im Profil emittierte damit eine vollstaendige Mess-Strecke, die niemand angefordert hat.
         // Die >1-Wache bleibt HIER (eigene, den Planer nennende Meldung); die Registry wiederholt sie nur.
-        cm::RunMethodologyInfo const& m = cm::run_methodology_for_ids(run_methodology);
+        cm::WorkModeInfo const& m = cm::run_methodology_for_ids(run_methodology);
         return PlanBuildSemantic{std::string(m.cmake_build_type), m.measurement_on, m.single_thread};
     }
 

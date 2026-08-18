@@ -59,7 +59,7 @@
 #include <system_axes/external_utils_family_axis.hpp>  // GN-1: aktiver external_utils-Familien-Knoten
 #include <system_axes/compiler_atomic_sub_axis.hpp>    // S2/A2: kAllAtomic128Ids (Single-Source der atomic128-ids)
 #include <system_axes/target_isa_system_axis.hpp>      // S2/A2: kAllTargetIsaIds (Single-Source der target_isa-ids)
-#include <cache_engine/measurement/run_methodology_registry.hpp> // A9.1: kRunMethodologyRegistry (debug/measure/release)
+#include <cache_engine/measurement/run_methodology_registry.hpp> // A9.1: kWorkModeRegistry (debug/measure/release)
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // A9.1: kMeasurementFrameworkRegistry (ycsb)
 #include <cache_engine/measurement/writeback_method_registry.hpp> // A9.1: kWritebackMethodRegistry (csv/latex_table/comparison_metrics)
 #include <cache_engine/measurement/axis_error.hpp> // S3 P-RESOLVER: error_class_label(KonfigXmlParse) NUR lesend (Fehlerklassen-Etikett; KEIN Enum-/Count-Bump)
@@ -482,7 +482,7 @@ inline void check_measurement_sub_axis(std::vector<std::string> const& tokens, R
     //    constexpr-Registries (run_methodology/measurement_framework/writeback_method) — Single-Source im Code, kein
     //    hartkodiertes id-Literal. binary_id-NEUTRAL (Planer-delegiert). LEER = Skip (Zaehler 0 = byte-identisch:
     //    bestehende Profile ohne diese Elemente validieren unveraendert). measurement_framework ist EINZELN. ──
-    check_measurement_sub_axis(tp.run_methodology, ms::kRunMethodologyRegistry,
+    check_measurement_sub_axis(tp.run_methodology, ms::kWorkModeRegistry,
                                "<run_methodology><method value=", r.run_methodology_checked, r.ok, r.errors);
     // §61-STUFEN/(j1): GENAU EIN aktiver Modus je Profil/Call -- die Build-Semantik (build_semantic_of_run_methodology)
     // ist damit eindeutig (debug ODER measure ODER release). >1 ist mehrdeutig; die A9-"sweepbar"-Auslegung ist per
@@ -1313,7 +1313,7 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
     //    constexpr-Registries (run_methodology/measurement_framework/writeback_method) — deckungsgleich zum Thesis-
     //    Kanal (dieselben check_measurement_sub_axis-Naht + Meldungen). Single-Source im Code, binary_id-NEUTRAL
     //    (Planer-delegiert). LEER = Skip (Zaehler 0 = byte-identisch). measurement_framework ist EINZELN. ──
-    check_measurement_sub_axis(ep.run_methodology, ms::kRunMethodologyRegistry,
+    check_measurement_sub_axis(ep.run_methodology, ms::kWorkModeRegistry,
                                "<run_methodology><method value=", r.run_methodology_checked, r.ok, r.errors);
     // §61-STUFEN/(j1): GENAU EIN aktiver Modus je Profil/Call (s. thesis-Zweig).
     if (ep.run_methodology.size() > 1) {

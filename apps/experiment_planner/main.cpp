@@ -640,7 +640,7 @@ int main(int argc, char* argv[]) {
     // WAS ES HEUTE TUT: es traegt sich ein und meldet sich. Die WIRKUNG (maximale Thread-Zahl in jeder
     // Factory, Jitter-Pruefer aus) haengt am work_mode-Umbau und am Drift-Gate-Paket T-15+D4 und wird
     // dort verdrahtet -- Ledger-Bauliste Punkte 9 und 10. Dieses Glied ist der VORBAU: es muss stehen,
-    // BEVOR Debug das RunMethodology-Enum verlaesst, sonst verliert der einzige debug-Token in XML
+    // BEVOR Debug das WorkMode-Enum verlaesst, sonst verliert der einzige debug-Token in XML
     // (m3_smoke_coverage.profile.xml) seinen Traeger ersatzlos.
     bool debug_flag = false;
     {

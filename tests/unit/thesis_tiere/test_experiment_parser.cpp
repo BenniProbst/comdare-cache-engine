@@ -17,7 +17,7 @@
 #include "validate_profile.hpp"                    // validate_experiment_profile / ExperimentValidationResult
 #include "xml_config_parser/xml_config_parser.hpp" // XmlConfigParser / ExperimentProfile
 
-#include <cache_engine/measurement/run_methodology_registry.hpp> // Lane D: kRunMethodologyCount/Compare (4. Modus)
+#include <cache_engine/measurement/run_methodology_registry.hpp> // Lane D: kWorkModeCount/Compare (4. Modus)
 
 #include <gtest/gtest.h>
 
@@ -705,7 +705,7 @@ TEST(ExperimentParser, ValidA9MeasurementSubAxesAreAccepted) {
 }
 
 // (a9c) ein Bogus run_methodology-Wert (profiling) ist ein HARTER Fehler ({debug,measure,release,compare}).
-TEST(ExperimentParser, BogusRunMethodologyIsError) {
+TEST(ExperimentParser, BogusWorkModeIsError) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
     ep->run_methodology = {"measure", "profiling"}; // ausserhalb {debug,measure,release,compare} (Lane D)
@@ -726,11 +726,11 @@ TEST(ExperimentParser, BogusRunMethodologyIsError) {
 //       (§61-STUFEN) gilt UNVERAENDERT auch fuer compare.
 //       NICHT bewiesen und NICHT behauptet: ein modus-SPEZIFISCHER Ablauf. compare baut heute release-gleich
 //       {Release, misst NICHT, parallel}; der Vollzug (Replay-Vergleich) ist das Nach-Trigger-Paket D2.
-TEST(ExperimentParser, CompareIsFourthRunMethodologyRegistryMode) {
-    static_assert(mm::kRunMethodologyCount == 4, "Lane D: COMPARE ist der 4. Registry-Modus (Anzahl-Anker).");
-    static_assert(mm::run_methodology_info(mm::RunMethodology::Compare).id == std::string_view{"compare"},
+TEST(ExperimentParser, CompareIsFourthWorkModeRegistryMode) {
+    static_assert(mm::kWorkModeCount == 4, "Lane D: COMPARE ist der 4. Registry-Modus (Anzahl-Anker).");
+    static_assert(mm::work_mode_info(mm::WorkMode::Compare).id == std::string_view{"compare"},
                   "Lane D: das id-Token des 4. Modus ist \"compare\" (Namen-Anker).");
-    static_assert(mm::run_methodology_info(mm::RunMethodology::Compare).cmake_build_type == std::string_view{"Release"},
+    static_assert(mm::work_mode_info(mm::WorkMode::Compare).cmake_build_type == std::string_view{"Release"},
                   "Lane D/Q-5: compare baut Release (Etikett-Stand; Vollzug D2).");
 
     // (ii) PARSE aus echtem XML -- das Token kommt durch den Parser, nicht aus einem Feld-Literal.
