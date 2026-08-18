@@ -153,6 +153,25 @@ namespace comdare::cache_engine::abi {
 #define COMDARE_MESS_GATES_SEG_TMI "tmi0"
 #endif
 
+// -- DIE HYBRID-EBENE (A-12/B-5e, 18.08.2026) ----------------------------------------------------
+// WARUM ZWEI WEITERE FELDER UND NICHT MEHR: der Owner-Verbatim in KON25-03 nennt die
+// Belegungen namentlich -- "Micro/Macro auf Tier-Binary und Hybrid jeweils 2x2=4, also 16 und
+// Wall-Clock-time auf CEB mit an/aus also 2". Die drei bestehenden Tooling-Felder decken davon die
+// CEB-Wallclock (tw) und das Tier-Paar (tm/tmi) ab; was fehlte, war das HYBRID-Paar. Der Hybrid ist
+// eine eigene Traeger-Stufe mit eigenen Achsen -- er faehrt sein Micro-Benchmarking fuer sich selbst
+// und sein Macro getrennt abschaltbar. Ohne eigene Felder truege sein Stempel die Gate-Lage der
+// Tier-Ebene und behauptete damit etwas ueber eine Stufe, die er nicht ist.
+#ifdef COMDARE_HYBRID_TOOLING_MACRO
+#define COMDARE_MESS_GATES_SEG_HM "hm1"
+#else
+#define COMDARE_MESS_GATES_SEG_HM "hm0"
+#endif
+#ifdef COMDARE_HYBRID_TOOLING_MICRO
+#define COMDARE_MESS_GATES_SEG_HMI "hmi1"
+#else
+#define COMDARE_MESS_GATES_SEG_HMI "hmi0"
+#endif
+
 /// Das Praefix der Grammatik. Es traegt den nicht-leeren Schluessel, den die Format-Wache verlangt.
 inline constexpr std::string_view kMessGatesGliedPraefix = "mg=";
 
@@ -165,7 +184,13 @@ inline constexpr std::size_t kMessGatesFeldExperiment    = 3;
 inline constexpr std::size_t kMessGatesFeldWallclock     = 4;
 inline constexpr std::size_t kMessGatesFeldMacro         = 5;
 inline constexpr std::size_t kMessGatesFeldMicro         = 6;
-inline constexpr std::size_t kMessGatesFeldCount         = 7;
+// A-12/B-5e: die Hybrid-Ebene haengt HINTEN an. Die Position ist kein Geschmack -- ein Einschub in
+// der Mitte verschoebe die Felder aller bestehenden Gates und damit den Wert JEDER heute gebauten
+// Binary an Stellen, die mit dem Anbau nichts zu tun haben. Angehaengt bleibt die Lesart der ersten
+// sieben Felder unveraendert; nur die Zeichenkette wird laenger.
+inline constexpr std::size_t kMessGatesFeldHybridMacro = 7;
+inline constexpr std::size_t kMessGatesFeldHybridMicro = 8;
+inline constexpr std::size_t kMessGatesFeldCount       = 9;
 
 /// Der Feld-TRENNER der Grammatik. Er steht hier als Konstante und nicht als Literal in der Bildung,
 /// weil die Kapazitaets-Rechnung unten mit ihm rechnet.
@@ -180,13 +205,27 @@ inline constexpr char kMessGatesFeldTrenner = ';';
 /// sie MUSS, weil der Praeprozessor keine constexpr-Tabelle lesen kann. Genau diese unvermeidbare
 /// Doppelung ist der Grund fuer den Binde-static_assert am Dateiende.
 inline constexpr std::string_view kMessGatesSegmente[kMessGatesFeldCount][2] = {
-    {"m0", "m1"}, {"s0", "s1"}, {"st0", "st1"}, {"x0", "x1"}, {"tw0", "tw1"}, {"tm0", "tm1"}, {"tmi0", "tmi1"},
+    {"m0", "m1"},
+    {"s0", "s1"},
+    {"st0", "st1"},
+    {"x0", "x1"},
+    {"tw0", "tw1"},
+    {"tm0", "tm1"},
+    {"tmi0", "tmi1"},
+    // A-12/B-5e: die Hybrid-Ebene. Die Kuerzel folgen der bestehenden Konvention (tm/tmi = Tier-
+    // Macro/Micro) mit dem Traeger-Praefix h statt t -- hm/hmi. Sie sind KEINE Erweiterung der
+    // Tier-Kuerzel, sondern eigene Felder auf eigener Position; die Wache am Dateiende haelt das fest.
+    {"hm0", "hm1"},
+    {"hmi0", "hmi1"},
 };
 
 /// kMessGatesGliedMaxLen -- die LAENGSTE Zeichenkette, die diese Grammatik bilden kann. GERECHNET
 /// aus den Segmenten oben, nicht abgezaehlt: der Puffer darunter kann konstruktiv nicht zu klein
-/// werden. Seit B2 sind es 28 Zeichen ("mg=m0;s0;st0;x0;tw0;tm0;tmi0"); die Wache am Dateiende
-/// prueft alle 2^7 baubaren Formen dagegen, damit die Zahl nicht bloss behauptet ist.
+/// werden. Seit A-12/B-5e sind es 37 Zeichen ("mg=m0;s0;st0;x0;tw0;tm0;tmi0;hm0;hmi0" -- live gemessen,
+/// nicht gezaehlt; AN- und AUS-Form sind gleich lang, weil jedes Segmentpaar es ist); die Wache am
+/// Dateiende prueft alle 2^9 baubaren Formen dagegen, damit die Zahl nicht bloss behauptet ist.
+/// SIE RECHNET SICH SELBST: die Lambda liest kMessGatesSegmente, also hat der Anbau der Hybrid-Felder
+/// die Kapazitaet automatisch mitgenommen -- genau dafuer steht sie hier als Rechnung und nicht als Zahl.
 inline constexpr std::size_t kMessGatesGliedMaxLen = [] {
     std::size_t n = kMessGatesGliedPraefix.size() + (kMessGatesFeldCount - 1); // Praefix + Trenner
     for (auto const& feld : kMessGatesSegmente) n += feld[0].size() > feld[1].size() ? feld[0].size() : feld[1].size();
@@ -256,7 +295,8 @@ private:
 [[nodiscard]] constexpr MessGatesGliedText mess_gates_glied_komponieren(bool measurement_on, bool statistics_on,
                                                                         bool segment_timing_on, bool experiment_mode_on,
                                                                         bool tooling_wallclock, bool tooling_macro,
-                                                                        bool tooling_micro) {
+                                                                        bool tooling_micro, bool hybrid_macro,
+                                                                        bool hybrid_micro) {
     // Die Zuordnung Argument -> Feld laeuft ueber die BENANNTEN Positionen, nicht ueber die
     // Reihenfolge der Argumente: eine Umsortierung der Felder muss die Bildung mitnehmen, und die
     // Wache am Dateiende faengt es, falls jemand nur die Segment-Tabelle umstellt.
@@ -268,6 +308,8 @@ private:
     an[kMessGatesFeldWallclock]     = tooling_wallclock;
     an[kMessGatesFeldMacro]         = tooling_macro;
     an[kMessGatesFeldMicro]         = tooling_micro;
+    an[kMessGatesFeldHybridMacro]   = hybrid_macro; // A-12/B-5e
+    an[kMessGatesFeldHybridMicro]   = hybrid_micro; // A-12/B-5e
 
     MessGatesGliedText g;
     g.anhaengen(kMessGatesGliedPraefix);
@@ -324,6 +366,18 @@ constexpr bool kMessGatesTuToolingMicro =
 #else
     false;
 #endif
+constexpr bool kMessGatesTuHybridMacro =
+#ifdef COMDARE_HYBRID_TOOLING_MACRO
+    true;
+#else
+    false;
+#endif
+constexpr bool kMessGatesTuHybridMicro =
+#ifdef COMDARE_HYBRID_TOOLING_MICRO
+    true;
+#else
+    false;
+#endif
 
 /// kMessGatesTuGlied -- DER WERT DES NEUNTEN GLIEDS FUER **DIESE** UEBERSETZUNGSEINHEIT.
 /// Er entsteht rein aus den Segment-Literalen oben, also aus dem Praeprozessor-Zustand, den der
@@ -331,7 +385,7 @@ constexpr bool kMessGatesTuToolingMicro =
 constexpr std::string_view kMessGatesTuGlied =
     "mg=" COMDARE_MESS_GATES_SEG_M ";" COMDARE_MESS_GATES_SEG_S ";" COMDARE_MESS_GATES_SEG_ST
     ";" COMDARE_MESS_GATES_SEG_X ";" COMDARE_MESS_GATES_SEG_TW ";" COMDARE_MESS_GATES_SEG_TM
-    ";" COMDARE_MESS_GATES_SEG_TMI;
+    ";" COMDARE_MESS_GATES_SEG_TMI ";" COMDARE_MESS_GATES_SEG_HM ";" COMDARE_MESS_GATES_SEG_HMI;
 // NOLINTEND(misc-definitions-in-headers)
 
 // -- W3: DER SELBSTBEWEIS. DIE KONSTANTE KANN DEN TU-ZUSTAND NICHT VERFEHLEN ----------------------
@@ -388,8 +442,23 @@ static_assert(mess_gates_feld(kMessGatesTuGlied, kMessGatesFeldMicro) == "tmi0",
               "R-3/W3: COMDARE_MEASUREMENT_TOOLING_MICRO ist NICHT gesetzt, das Glied sagt aber 'tmi1'.");
 #endif
 
+#ifdef COMDARE_HYBRID_TOOLING_MACRO
+static_assert(mess_gates_feld(kMessGatesTuGlied, kMessGatesFeldHybridMacro) == "hm1",
+              "A-12/B-5e: COMDARE_HYBRID_TOOLING_MACRO ist gesetzt, das Glied sagt aber 'hm0'.");
+#else
+static_assert(mess_gates_feld(kMessGatesTuGlied, kMessGatesFeldHybridMacro) == "hm0",
+              "A-12/B-5e: COMDARE_HYBRID_TOOLING_MACRO ist NICHT gesetzt, das Glied sagt aber 'hm1'.");
+#endif
+#ifdef COMDARE_HYBRID_TOOLING_MICRO
+static_assert(mess_gates_feld(kMessGatesTuGlied, kMessGatesFeldHybridMicro) == "hmi1",
+              "A-12/B-5e: COMDARE_HYBRID_TOOLING_MICRO ist gesetzt, das Glied sagt aber 'hmi0'.");
+#else
+static_assert(mess_gates_feld(kMessGatesTuGlied, kMessGatesFeldHybridMicro) == "hmi0",
+              "A-12/B-5e: COMDARE_HYBRID_TOOLING_MICRO ist NICHT gesetzt, das Glied sagt aber 'hmi1'.");
+#endif
+
 /// EIN Feld mehr gibt es nicht -- sonst waere die Feld-Buchhaltung oben unvollstaendig und ein
-/// kuenftiges siebtes Gate koennte still hinten anhaengen, ohne dass eine Wache es forderte.
+/// kuenftiges zehntes Gate koennte still hinten anhaengen, ohne dass eine Wache es forderte.
 static_assert(mess_gates_feld(kMessGatesTuGlied, kMessGatesFeldCount).empty(),
               "R-3/W3: das mess-gates-Glied traegt mehr Felder, als kMessGatesFeldCount kennt.");
 
@@ -399,7 +468,7 @@ static_assert(mess_gates_feld(kMessGatesTuGlied, kMessGatesFeldCount).empty(),
 static_assert(mess_gates_glied_komponieren(kMessGatesTuMeasurementOn, kMessGatesTuStatisticsOn,
                                            kMessGatesTuSegmentTimingOn, kMessGatesTuExperimentModeOn,
                                            kMessGatesTuToolingWallclock, kMessGatesTuToolingMacro,
-                                           kMessGatesTuToolingMicro)
+                                           kMessGatesTuToolingMicro, kMessGatesTuHybridMacro, kMessGatesTuHybridMicro)
                       .sv() == kMessGatesTuGlied,
               "R-3: die Praeprozessor-Bildung des mess-gates-Glieds und mess_gates_glied_komponieren() "
               "sind auseinandergelaufen -- es gibt dann ZWEI Grammatiken und die Host-Vorhersage ist wertlos.");
@@ -409,16 +478,16 @@ static_assert(mess_gates_glied_komponieren(kMessGatesTuMeasurementOn, kMessGates
 // und dass die Segment-Tabelle zu den benannten Feld-Positionen passt.
 namespace detail {
 
-/// Die groesste Laenge ueber ALLE 2^7 baubaren Grammatiken. Sie laeuft die Bildung wirklich durch --
+/// Die groesste Laenge ueber ALLE 2^kMessGatesFeldCount baubaren Grammatiken. Sie laeuft die Bildung wirklich durch --
 /// laege eine Form ueber der Kapazitaet, braeche schon das .at() im Puffer, und zwar hier.
 [[nodiscard]] constexpr std::size_t mess_gates_groesste_bildung() {
     std::size_t groesste = 0;
     for (unsigned maske = 0; maske < (1u << kMessGatesFeldCount); ++maske) {
         auto const bit = [maske](std::size_t feld) { return ((maske >> feld) & 1u) != 0u; };
-        auto const g   = mess_gates_glied_komponieren(bit(kMessGatesFeldMeasurement), bit(kMessGatesFeldStatistics),
-                                                      bit(kMessGatesFeldSegmentTiming), bit(kMessGatesFeldExperiment),
-                                                      bit(kMessGatesFeldWallclock), bit(kMessGatesFeldMacro),
-                                                      bit(kMessGatesFeldMicro));
+        auto const g   = mess_gates_glied_komponieren(
+            bit(kMessGatesFeldMeasurement), bit(kMessGatesFeldStatistics), bit(kMessGatesFeldSegmentTiming),
+            bit(kMessGatesFeldExperiment), bit(kMessGatesFeldWallclock), bit(kMessGatesFeldMacro),
+            bit(kMessGatesFeldMicro), bit(kMessGatesFeldHybridMacro), bit(kMessGatesFeldHybridMicro));
         if (g.size() > groesste) groesste = g.size();
     }
     return groesste;
@@ -435,10 +504,10 @@ namespace detail {
 [[nodiscard]] constexpr bool mess_gates_segmente_stehen_auf_ihrem_feld() {
     for (std::size_t feld = 0; feld < kMessGatesFeldCount; ++feld) {
         auto const bit = [feld](std::size_t f) { return f == feld; };
-        auto const g   = mess_gates_glied_komponieren(bit(kMessGatesFeldMeasurement), bit(kMessGatesFeldStatistics),
-                                                      bit(kMessGatesFeldSegmentTiming), bit(kMessGatesFeldExperiment),
-                                                      bit(kMessGatesFeldWallclock), bit(kMessGatesFeldMacro),
-                                                      bit(kMessGatesFeldMicro));
+        auto const g   = mess_gates_glied_komponieren(
+            bit(kMessGatesFeldMeasurement), bit(kMessGatesFeldStatistics), bit(kMessGatesFeldSegmentTiming),
+            bit(kMessGatesFeldExperiment), bit(kMessGatesFeldWallclock), bit(kMessGatesFeldMacro),
+            bit(kMessGatesFeldMicro), bit(kMessGatesFeldHybridMacro), bit(kMessGatesFeldHybridMicro));
         for (std::size_t i = 0; i < kMessGatesFeldCount; ++i)
             if (mess_gates_feld(g.sv(), i) != kMessGatesSegmente[i][i == feld ? 1 : 0]) return false;
     }
@@ -454,8 +523,8 @@ static_assert(detail::mess_gates_groesste_bildung() == kMessGatesGliedMaxLen,
 static_assert(detail::mess_gates_segmente_stehen_auf_ihrem_feld(),
               "R-3/08.08.: die Segment-Tabelle kMessGatesSegmente und die benannten kMessGatesFeld*-Positionen "
               "sind auseinandergelaufen -- die Bildung schreibt ein Gate an die Stelle eines anderen.");
-static_assert(mess_gates_glied_komponieren(false, false, false, false, false, false, false).sv() ==
-                  "mg=m0;s0;st0;x0;tw0;tm0;tmi0",
+static_assert(mess_gates_glied_komponieren(false, false, false, false, false, false, false, false, false).sv() ==
+                  "mg=m0;s0;st0;x0;tw0;tm0;tmi0;hm0;hmi0",
               "R-3/B2: der AUS-Zustand der Grammatik hat seine Form geaendert. Er ist an mehreren Stellen "
               "als Text belegt (anatomy_fingerprint.hpp: 'NIEMALS leer'); wer ihn bewegt, zieht sie mit.");
 
@@ -466,5 +535,7 @@ static_assert(mess_gates_glied_komponieren(false, false, false, false, false, fa
 #undef COMDARE_MESS_GATES_SEG_TW
 #undef COMDARE_MESS_GATES_SEG_TM
 #undef COMDARE_MESS_GATES_SEG_TMI
+#undef COMDARE_MESS_GATES_SEG_HM
+#undef COMDARE_MESS_GATES_SEG_HMI
 
 } // namespace comdare::cache_engine::abi

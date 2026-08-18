@@ -585,7 +585,13 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
                hat("-DCOMDARE_MEASUREMENT_ON=1"), g2, st, /*experiment_mode_on=*/true,
                hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::WallClock))),
                hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::Macro))),
-               hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::Micro))))
+               hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::Micro))),
+               // A-12/B-5e: die Hybrid-Ebene. Der PERM-BAU-Pfad baut TIER-Binaries -- er setzt die
+               // Hybrid-Gates NICHT, also sagt die Vorhersage sie AUS vorher. Das ist keine Annahme,
+               // sondern dieselbe Mechanik wie oben: was nicht im Define-Vektor steht, ist aus. Sobald
+               // der Hybrid-Bau eigene Defines emittiert (B-8/A-12), gehoert HIER sein hat(...)-Paar
+               // hin -- eine zweite Ableitung woanders waere die Drift-Klasse aus D-1.
+               hat("-DCOMDARE_HYBRID_TOOLING_MACRO=1"), hat("-DCOMDARE_HYBRID_TOOLING_MICRO=1"))
         .str();
 }
 

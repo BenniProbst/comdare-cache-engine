@@ -679,7 +679,8 @@ inline constexpr std::size_t kAnatomyFingerprintOverlayGlied   = 7;
 /// Umsortierung waere ein zweites Byte-Ereignis ohne Gewinn. Das Overlay-Glied verliert damit seine
 /// Schwanz-Stellung; ihre urspruengliche Begruendung ("ein noch leeres Glied gehoert an den Schwanz,
 /// damit die Positionen der GEFUELLTEN Glieder stabil bleiben") gilt fuer das Mess-Gates-Glied NICHT --
-/// es ist niemals leer (der Aus-Zustand ist "mg=m0;s0;st0;x0;tw0;tm0;tmi0" seit B2, davor ohne das
+/// es ist niemals leer (der Aus-Zustand ist "mg=m0;s0;st0;x0;tw0;tm0;tmi0;hm0;hmi0" seit A-12/B-5e,
+/// davor ohne die beiden Hybrid-Felder, davor ohne das
 /// <st>-Feld), es kann also nicht "spaeter scharfgeschaltet" werden und braucht die Schwanz-Stellung
 /// nicht.
 inline constexpr std::size_t kAnatomyFingerprintMessGatesGlied = 8;
@@ -828,7 +829,8 @@ static_assert(injizierter_glied_wert_ist_wohlgeformt(kMessGatesTuGlied),
               "R-3: kMessGatesTuGlied verletzt die Injektivitaets-Format-Wache.");
 static_assert(!kMessGatesTuGlied.empty(),
               "R-3/B2: das Mess-Gates-Glied ist NIEMALS leer -- der Aus-Zustand heisst "
-              "'mg=m0;s0;st0;x0;tw0;tm0;tmi0'. Ein leerer Wert waere die Identitaet und wuerde eine gate-lose "
+              "'mg=m0;s0;st0;x0;tw0;tm0;tmi0;hm0;hmi0'. Ein leerer Wert waere die Identitaet und wuerde eine "
+              "gate-lose "
               "TU mit dem CEB-Default (der bewusst leeren Nicht-Tier-Identitaet) kollidieren lassen.");
 
 namespace detail {

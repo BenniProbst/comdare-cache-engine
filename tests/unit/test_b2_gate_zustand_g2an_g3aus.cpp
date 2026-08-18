@@ -18,7 +18,8 @@
 // kein Bau-Beweis) -- die MCE24-/a8s4-Bauform dieser Testdatei-Familie.
 //
 //   K1 COMPILE  Ableitung + Glied: die explizite 0 schlaegt die G2-Vererbung; das neunte
-//               Preimage-Glied dieser TU ist literal "mg=m1;s1;st0;x1;tw1;tm1;tmi0".
+//               Preimage-Glied dieser TU ist literal "mg=m1;s1;st0;x1;tw1;tm1;tmi0;hm0;hmi0"
+//               (die beiden Hybrid-Felder hm/hmi seit A-12/B-5e; Tier-TU => beide aus).
 //   K2 LAUFZEIT Emission == TU-Zustand: mess_achsen_defines_for_legend("[wallclock,macro]") ist
 //               EXAKT der Define-Satz dieser TU (Vektor-Gleichheit, Reihenfolge inklusive).
 //   K3 LAUFZEIT live-Kette der CEB-Seite: live_mess_observer_ausstattung() == true,
@@ -76,7 +77,13 @@ static_assert(cea::kMessGatesTuMeasurementOn && cea::kMessGatesTuExperimentModeO
               "B2-ABSCHLUSS K1: G1 und der Perm-Marker gehoeren zum realen [wallclock,macro]-Tier-Zustand.");
 static_assert(cea::kMessGatesTuToolingWallclock && cea::kMessGatesTuToolingMacro && !cea::kMessGatesTuToolingMicro,
               "B2-ABSCHLUSS K1: die Deklarations-Defines dieser TU muessen exakt {wallclock,macro} sein.");
-static_assert(cea::kMessGatesTuGlied == std::string_view{"mg=m1;s1;st0;x1;tw1;tm1;tmi0"},
+// A-12/B-5e (18.08.2026): die Grammatik traegt zwei Felder mehr -- die HYBRID-Ebene (hm/hmi). Diese TU
+// ist ein TIER-Modul und bestellt keine Hybrid-Defines, also stehen beide auf 0. Der geprueffte Zustand
+// [wallclock,macro] ist davon voellig unberuehrt; was sich aendert, ist allein die Laenge der Zeichenkette.
+static_assert(cea::kMessGatesTuHybridMacro == false && cea::kMessGatesTuHybridMicro == false,
+              "A-12/B-5e: diese Tier-TU darf keine Hybrid-Gates tragen -- sonst behauptete ihr Stempel eine "
+              "Traeger-Stufe, die sie nicht ist.");
+static_assert(cea::kMessGatesTuGlied == std::string_view{"mg=m1;s1;st0;x1;tw1;tm1;tmi0;hm0;hmi0"},
               "B2-ABSCHLUSS K1: das neunte Preimage-Glied dieser TU traegt nicht die [wallclock,macro]-Form "
               "(s1 mit st0) -- der Stempel wuerde einen anderen Gate-Zustand behaupten, als der Bau faehrt.");
 
@@ -203,7 +210,7 @@ constexpr char const* kObserverSpalten[] = {"search_lookup", "hit",         "mis
 }
 
 constexpr std::string_view kLegende   = "[wallclock,macro]";
-constexpr std::string_view kGliedSoll = "mg=m1;s1;st0;x1;tw1;tm1;tmi0";
+constexpr std::string_view kGliedSoll = "mg=m1;s1;st0;x1;tw1;tm1;tmi0;hm0;hmi0"; // A-12/B-5e: +hm/hmi
 
 } // namespace
 

@@ -117,7 +117,8 @@ using VersionLinesFn = cea::AnatomyVersionLines const* (*)();
 void fall_a_tu_wahrheit() {
     std::cout << "\n---- (a) NENNER: das Glied DIESER TU spiegelt ihren Makro-Zustand ----\n";
     std::cout << "  kMessGatesTuGlied = " << cea::kMessGatesTuGlied << "\n";
-    check_true("(a) das Glied ist NIEMALS leer (der Aus-Zustand ist mg=m0;s0;...)", !cea::kMessGatesTuGlied.empty());
+    check_true("(a) das Glied ist NIEMALS leer (der Aus-Zustand ist mg=m0;s0;...;hm0;hmi0)",
+               !cea::kMessGatesTuGlied.empty());
     check_true("(a) das Glied besteht die Injektivitaets-Format-Wache",
                cea::injizierter_glied_wert_ist_wohlgeformt(cea::kMessGatesTuGlied));
     check_true("(a) das Glied haelt sein Preimage-Budget",
@@ -158,7 +159,11 @@ void fall_b_spiegel() {
                 hat(def, "-DCOMDARE_MEASUREMENT_ON=1"), hat(def, "-DCOMDARE_CE_ENABLE_STATISTICS=1"),
                 hat(def, "-DCOMDARE_CE_ENABLE_SEGMENT_TIMING=1"),
                 /*experiment_mode_on=*/true, hat(def, "-DCOMDARE_MEASUREMENT_TOOLING_WALLCLOCK=1"),
-                hat(def, "-DCOMDARE_MEASUREMENT_TOOLING_MACRO=1"), hat(def, "-DCOMDARE_MEASUREMENT_TOOLING_MICRO=1"))
+                hat(def, "-DCOMDARE_MEASUREMENT_TOOLING_MACRO=1"), hat(def, "-DCOMDARE_MEASUREMENT_TOOLING_MICRO=1"),
+                // A-12/B-5e: unabhaengig gebildet wie alle Felder daneben -- aus DEMSELBEN Define-Vektor,
+                // nicht aus der Spiegel-Funktion. Der Perm-Bau-Pfad setzt die Hybrid-Gates heute nicht;
+                // steht das Define eines Tages drin, wandert die Erwartung von selbst mit.
+                hat(def, "-DCOMDARE_HYBRID_TOOLING_MACRO=1"), hat(def, "-DCOMDARE_HYBRID_TOOLING_MICRO=1"))
                 .str();
         std::cout << "    " << legend << "  ->  " << ist << "\n";
         check_true(std::string{"(b) "} + legend + ": Vorhersage == Define-Vektor", ist == erwartet);
@@ -207,9 +212,13 @@ void fall_d_host_gegen_tu(std::string const& pfad_an, std::string const& pfad_au
     // B2: das AN-Modul setzt KEIN explizites G3-Define -- es faehrt den ERB-Fall des
     // Ableitungs-Headers (G3 folgt G2, also AN). Genau deshalb steht hier st=true: diese Wache
     // beweist die Vererbung ueber die echte .so-Grenze, nicht nur im Host-Rechenweg.
-    std::string const glied_an = cea::mess_gates_glied_komponieren(true, true, true, true, true, false, false).str();
+    // A-12/B-5e: die beiden Hybrid-Gates stehen in BEIDEN Erwartungen auf false -- die Test-Module sind
+    // Tier-Module und bestellen keine Hybrid-Defines. Das AN-Modul heisst "an" wegen der Mess-Gates,
+    // nicht wegen aller Felder; genau deshalb steht hier nicht pauschal true.
+    std::string const glied_an =
+        cea::mess_gates_glied_komponieren(true, true, true, true, true, false, false, false, false).str();
     std::string const glied_aus =
-        cea::mess_gates_glied_komponieren(false, false, false, false, false, false, false).str();
+        cea::mess_gates_glied_komponieren(false, false, false, false, false, false, false, false, false).str();
     std::cout << "    erwartetes Glied AN  = " << glied_an << "\n";
     std::cout << "    erwartetes Glied AUS = " << glied_aus << "\n";
 
