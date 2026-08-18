@@ -115,28 +115,28 @@ inline constexpr std::span<SimdFeatureFlag const> kLeereSignatur{};
 
 // -- INERTHEITS-BEWEIS: die drei Bestandsformen sind UEBERALL zugelassen, auch gegen LEER (4x3) ---
 static_assert(detail::stempel_zugelassen("1.0.0.c", Prod1Zen5Signature::signature()));
-static_assert(detail::stempel_zugelassen("1.0.0.c", Prod2RaptorLakeSignature::signature()));
+static_assert(detail::stempel_zugelassen("1.0.0.c", Prod2AlderLakeSignature::signature()));
 static_assert(detail::stempel_zugelassen("1.0.0.c", OdroidGracemontSignature::signature()));
 static_assert(detail::stempel_zugelassen("1.0.0.c", detail::kLeereSignatur));
 static_assert(detail::stempel_zugelassen("1.0.1.c", Prod1Zen5Signature::signature()));
-static_assert(detail::stempel_zugelassen("1.0.1.c", Prod2RaptorLakeSignature::signature()));
+static_assert(detail::stempel_zugelassen("1.0.1.c", Prod2AlderLakeSignature::signature()));
 static_assert(detail::stempel_zugelassen("1.0.1.c", OdroidGracemontSignature::signature()));
 static_assert(detail::stempel_zugelassen("1.0.1.c", detail::kLeereSignatur));
 static_assert(detail::stempel_zugelassen("1.0.2.c", Prod1Zen5Signature::signature()));
-static_assert(detail::stempel_zugelassen("1.0.2.c", Prod2RaptorLakeSignature::signature()));
+static_assert(detail::stempel_zugelassen("1.0.2.c", Prod2AlderLakeSignature::signature()));
 static_assert(detail::stempel_zugelassen("1.0.2.c", OdroidGracemontSignature::signature()));
 static_assert(detail::stempel_zugelassen("1.0.2.c", detail::kLeereSignatur));
 
 // -- Die FORDERNDE Form faellt, wo die Freigabe fehlt: leere Signatur und prod2 (fused-off) ------
 static_assert(!detail::stempel_zugelassen("1.0.0.c.x512{f}", detail::kLeereSignatur));
-static_assert(!detail::stempel_zugelassen("1.0.0.c.x512{f}", Prod2RaptorLakeSignature::signature()));
+static_assert(!detail::stempel_zugelassen("1.0.0.c.x512{f}", Prod2AlderLakeSignature::signature()));
 static_assert(detail::stempel_zugelassen("1.0.0.c.x512{f}", Prod1Zen5Signature::signature()));
 
 // -- DAS OWNER-BEISPIEL (algo_semver.hpp:1265, volle System-Achsen-Syntax) gegen prod1: das
 //    Ergebnis IST zugelassen (avx512f/vl/bw/dq und gfni stehen in der Zen-5-Signatur; c{p.e} und
 //    x512 sind Struktur) -- hier festgeschrieben, damit eine Signatur-/Katalog-Drift laut wird.
 static_assert(detail::stempel_zugelassen(detail::kOwnerBeispiel, Prod1Zen5Signature::signature()));
-static_assert(!detail::stempel_zugelassen(detail::kOwnerBeispiel, Prod2RaptorLakeSignature::signature()));
+static_assert(!detail::stempel_zugelassen(detail::kOwnerBeispiel, Prod2AlderLakeSignature::signature()));
 static_assert(!detail::stempel_zugelassen(detail::kOwnerBeispiel, detail::kLeereSignatur));
 
 // -- T-4-GEGENEINGANG: der VOLLAUSBAU (algo_semver.hpp:1232, 59 Knoten) ist NICHT signatur-gedeckt

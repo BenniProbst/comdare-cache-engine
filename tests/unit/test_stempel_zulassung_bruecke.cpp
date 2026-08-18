@@ -230,10 +230,10 @@ TEST(StempelZulassungBruecke, VnniDoppelgaengerLaeuftUeberDieTabelle) {
     // (prod2 traegt es NICHT) => HardwareErweiterungFehlt. Eine String-Heuristik ("vnni" ==
     // "vnni") koennte die beiden nicht unterscheiden -- nur das (token, eltern)-Paar der Tabelle.
     EXPECT_FALSE(meas::stempel_zulassung_je_achse(meas::parse_algo_semver("1.0.0.c.x256{vnni}"),
-                                                  meas::Prod2RaptorLakeSignature::signature())
+                                                  meas::Prod2AlderLakeSignature::signature())
                      .has_value());
     auto const urteil512 = meas::stempel_zulassung_je_achse(meas::parse_algo_semver("1.0.0.c.x512{vnni}"),
-                                                            meas::Prod2RaptorLakeSignature::signature());
+                                                            meas::Prod2AlderLakeSignature::signature());
     ASSERT_TRUE(urteil512.has_value());
     EXPECT_EQ(*urteil512, meas::CompilerCompilerErrorClass::HardwareErweiterungFehlt);
 
@@ -257,7 +257,7 @@ TEST(StempelZulassungBruecke, EchterBestandNullAblehnungen) {
     ASSERT_FALSE(tabelle.empty());
     std::array<std::span<meas::SimdFeatureFlag const>, 3> const welten{std::span<meas::SimdFeatureFlag const>{},
                                                                        meas::Prod1Zen5Signature::signature(),
-                                                                       meas::Prod2RaptorLakeSignature::signature()};
+                                                                       meas::Prod2AlderLakeSignature::signature()};
     std::size_t                                                 pruefungen  = 0;
     std::size_t                                                 ablehnungen = 0;
     for (ex::AxisVariantVersion const& e : tabelle) {

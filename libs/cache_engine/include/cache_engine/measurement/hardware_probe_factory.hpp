@@ -238,7 +238,7 @@ struct HardwareProbeDevice<IsaComplexAxis, MacosOperatingSystem> {
 /// laeuft -- die bestehenden String-Arrays (kAll*Ids) koennen das nicht leisten, weil eine Zelle
 /// ueber TYPEN gewaehlt wird. Die Drift-Wachen darunter binden beide Sichten aneinander, damit hier
 /// keine zweite, handgepflegte Achsen-Liste entsteht.
-using AllIsaComplexAxes      = std::tuple<Prod1Zen5TargetIsa, Prod2RaptorLakeTargetIsa>;
+using AllIsaComplexAxes      = std::tuple<Prod1Zen5TargetIsa, Prod2AlderLakeTargetIsa>;
 using AllOperatingSystemAxes = std::tuple<LinuxOperatingSystem, WindowsOperatingSystem, MacosOperatingSystem>;
 
 /// Ist die Zelle entschieden? Bei nur deklariertem primaeren Template ist der Typ unvollstaendig und

@@ -62,10 +62,10 @@ TEST(MSimdFeatureFlagCatalog, Prod1Zen5SignatureMatchesLiveVerifiedReferenceDoc)
 
 TEST(MSimdFeatureFlagCatalog, Avx512FusedOffMachinesKeep256AndCompanionsButNoAvx512) {
     // prod2 (Raptor Lake) + Odroid (Gracemont): AVX-512 fused-off/absent, 256-bit + Begleiter bleiben.
-    EXPECT_EQ(count_avx512(m::Prod2RaptorLakeSignature::signature()), 0u);
+    EXPECT_EQ(count_avx512(m::Prod2AlderLakeSignature::signature()), 0u);
     EXPECT_EQ(count_avx512(m::OdroidGracemontSignature::signature()), 0u);
-    EXPECT_TRUE(m::Prod2RaptorLakeSignature::has_flag("avx_vnni"));
-    EXPECT_FALSE(m::Prod2RaptorLakeSignature::has_flag("avx512f"));
+    EXPECT_TRUE(m::Prod2AlderLakeSignature::has_flag("avx_vnni"));
+    EXPECT_FALSE(m::Prod2AlderLakeSignature::has_flag("avx512f"));
     EXPECT_TRUE(m::OdroidGracemontSignature::has_flag("avx2"));
     EXPECT_FALSE(m::OdroidGracemontSignature::has_flag("avx512f"));
     EXPECT_TRUE(m::signature_within_catalog(m::Prod1Zen5Signature::signature()));
@@ -123,7 +123,7 @@ TEST(MSimdBuildGate, Prod1FilterRequirementFreigegebenEmitsIndividualFlags) {
 TEST(MSimdBuildGate, Prod2MissingAvx512IsHardwareErweiterungFehlt) {
     // Dasselbe filter-Organ auf prod2 (AVX-512 fused-off) -> harte Zulassung verletzt.
     auto const r = m::pruef_dock(kDemoFilterRequired, m::kSensibilityFilterFlags,
-                                 m::Prod2RaptorLakeSignature::signature(), m::SimdRoute::Avx512);
+                                 m::Prod2AlderLakeSignature::signature(), m::SimdRoute::Avx512);
     EXPECT_EQ(r.state, m::SimdGateState::Abgelehnt);
     ASSERT_TRUE(r.error.has_value());
     EXPECT_EQ(*r.error, m::CompilerCompilerErrorClass::HardwareErweiterungFehlt);
@@ -166,9 +166,9 @@ TEST(MSimdBuildGate, OrganRequirementIsEmptyTodaySoDelegationGateIsInert) {
 TEST(MSimdBuildGate, PerBinaryAdmissionEnforcesOrganSubsetMachineSignature) {
     // Section 37 Durchsetzung an der Bau-Delegation: leere Anforderung -> zulaessig; ein von der Maschine
     // nicht gefuehrtes required-Flag -> HardwareErweiterungFehlt (Log + weiter).
-    EXPECT_FALSE(m::admit_organ_on_machine({}, m::Prod2RaptorLakeSignature::signature()).has_value());
+    EXPECT_FALSE(m::admit_organ_on_machine({}, m::Prod2AlderLakeSignature::signature()).has_value());
     std::array const demo_required{m::kAvx512Vpopcntdq};
-    auto const       err = m::admit_organ_on_machine(demo_required, m::Prod2RaptorLakeSignature::signature());
+    auto const       err = m::admit_organ_on_machine(demo_required, m::Prod2AlderLakeSignature::signature());
     ASSERT_TRUE(err.has_value());
     EXPECT_EQ(*err, m::CompilerCompilerErrorClass::HardwareErweiterungFehlt);
     // dieselbe Anforderung auf prod1 (hat avx512_vpopcntdq) -> zulaessig:

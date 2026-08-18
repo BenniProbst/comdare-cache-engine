@@ -87,9 +87,18 @@ struct Prod1Zen5Signature final : MachineSimdSignature<Prod1Zen5Signature> {
     }
 };
 
-// -- prod2: Intel Core i9-14900KS (Raptor Lake) -- AVX-512 fused-off; 256-bit + Begleiter bleiben. --
-struct Prod2RaptorLakeSignature final : MachineSimdSignature<Prod2RaptorLakeSignature> {
-    [[nodiscard]] static constexpr std::string_view do_machine_id() noexcept { return "prod2_raptor_lake"; }
+// -- prod2: Intel Core i9-12900K (ALDER LAKE) -- AVX-512 fused-off; 256-bit + Begleiter bleiben. --
+// NP-11-KORREKTUR (18.08.2026, Owner V-09R): hier stand "i9-14900KS (Raptor Lake)" -- ZWEIFACH falsch,
+// im Modell UND in der Familie. Die Identitaets-Kette am Objekt: der 14900KS ist am 10.07. GESTORBEN
+// (RMA ~September), Ersatz ist ein i9-12900K, also Alder Lake. Der Kommentar hat den Tausch nie
+// mitgemacht und der Token trug den Fehler weiter -- ein Etikett, das seit fuenf Wochen die falsche
+// Maschine benennt, und zwar in einer Datei, deren einziger Zweck die IDENTITAET ist.
+// DIE RMA-RUECKKEHR WIRD NICHT UEBERSCHRIEBEN: kommt der 14900KS zurueck, bekommt er eine EIGENE,
+// DRITTE machine_id (Additivitaets-Doktrin, hier erstmals auf eine ganze Maschinen-Identitaet
+// angewandt). Zwei Maschinen, zwei Etiketten -- sonst stehen in den CSVs zwei verschiedene Hardware-
+// Staende unter demselben Namen und keine Messreihe ist mehr zuordenbar.
+struct Prod2AlderLakeSignature final : MachineSimdSignature<Prod2AlderLakeSignature> {
+    [[nodiscard]] static constexpr std::string_view do_machine_id() noexcept { return "prod2_alder_lake"; }
     [[nodiscard]] static constexpr std::string_view do_host_isa() noexcept { return Amd64HostIsaAxis::do_host_isa(); }
     [[nodiscard]] static constexpr std::span<SimdFeatureFlag const> do_signature() noexcept {
         static constexpr std::array kFlags{kAvx2, kFma, kF16c, kAvxVnni, kBmi2, kPopcnt, kGfni, kVaes, kVpclmulqdq};
@@ -109,7 +118,7 @@ struct OdroidGracemontSignature final : MachineSimdSignature<OdroidGracemontSign
 
 // -- Konzept-Erfuellung + Signatur-Wohlgeformtheit (alles compile-time) ---------------------------
 static_assert(MachineSimdSignatureConcept<Prod1Zen5Signature>);
-static_assert(MachineSimdSignatureConcept<Prod2RaptorLakeSignature>);
+static_assert(MachineSimdSignatureConcept<Prod2AlderLakeSignature>);
 static_assert(MachineSimdSignatureConcept<OdroidGracemontSignature>);
 static_assert(std::is_empty_v<Prod1Zen5Signature> && !std::is_polymorphic_v<Prod1Zen5Signature>);
 // prod1: exakt 13 avx512-Flags, KEIN fp16, VP2INTERSECT vorhanden (Zen5-Neuzugang):
@@ -118,13 +127,13 @@ static_assert(!Prod1Zen5Signature::has_flag("avx512_fp16"));
 static_assert(Prod1Zen5Signature::has_flag("avx512_vp2intersect"));
 static_assert(Prod1Zen5Signature::has_flag("avx512_vbmi2") && Prod1Zen5Signature::has_flag("gfni"));
 // prod2/odroid: AVX-512 fused-off/absent, aber avx_vnni + Begleiter bleiben:
-static_assert(count_avx512_flags(Prod2RaptorLakeSignature::signature()) == 0);
+static_assert(count_avx512_flags(Prod2AlderLakeSignature::signature()) == 0);
 static_assert(count_avx512_flags(OdroidGracemontSignature::signature()) == 0);
-static_assert(Prod2RaptorLakeSignature::has_flag("avx_vnni") && !Prod2RaptorLakeSignature::has_flag("avx512f"));
+static_assert(Prod2AlderLakeSignature::has_flag("avx_vnni") && !Prod2AlderLakeSignature::has_flag("avx512f"));
 static_assert(OdroidGracemontSignature::has_flag("avx2") && !OdroidGracemontSignature::has_flag("avx512f"));
 // jede Signatur bezieht nur Katalog-bekannte Flags (Single-Source-Kopplung):
 static_assert(signature_within_catalog(Prod1Zen5Signature::signature()));
-static_assert(signature_within_catalog(Prod2RaptorLakeSignature::signature()));
+static_assert(signature_within_catalog(Prod2AlderLakeSignature::signature()));
 static_assert(signature_within_catalog(OdroidGracemontSignature::signature()));
 
 } // namespace comdare::cache_engine::measurement

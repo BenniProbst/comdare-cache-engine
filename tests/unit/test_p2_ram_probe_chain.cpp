@@ -473,11 +473,11 @@ TEST(P2HardwareProbeFactory, JedeZelleDerVollenMatrixTraegtEinGeraet) {
     EXPECT_FALSE(
         (meas::HardwareProbeDevice<meas::Prod1Zen5TargetIsa, meas::MacosOperatingSystem>::device_id()).empty());
     EXPECT_FALSE(
-        (meas::HardwareProbeDevice<meas::Prod2RaptorLakeTargetIsa, meas::LinuxOperatingSystem>::device_id()).empty());
+        (meas::HardwareProbeDevice<meas::Prod2AlderLakeTargetIsa, meas::LinuxOperatingSystem>::device_id()).empty());
     EXPECT_FALSE(
-        (meas::HardwareProbeDevice<meas::Prod2RaptorLakeTargetIsa, meas::WindowsOperatingSystem>::device_id()).empty());
+        (meas::HardwareProbeDevice<meas::Prod2AlderLakeTargetIsa, meas::WindowsOperatingSystem>::device_id()).empty());
     EXPECT_FALSE(
-        (meas::HardwareProbeDevice<meas::Prod2RaptorLakeTargetIsa, meas::MacosOperatingSystem>::device_id()).empty());
+        (meas::HardwareProbeDevice<meas::Prod2AlderLakeTargetIsa, meas::MacosOperatingSystem>::device_id()).empty());
 }
 
 // =================================================================================================

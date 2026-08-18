@@ -55,7 +55,7 @@ struct SignaturWelt {
 [[nodiscard]] std::vector<SignaturWelt> alle_signatur_welten() {
     return {{"leer", {}},
             {"prod1_zen5", meas::Prod1Zen5Signature::signature()},
-            {"prod2_raptor_lake", meas::Prod2RaptorLakeSignature::signature()},
+            {"prod2_alder_lake", meas::Prod2AlderLakeSignature::signature()},
             {"odroid_gracemont", meas::OdroidGracemontSignature::signature()}};
 }
 

@@ -199,10 +199,10 @@ static_assert(!flag_menge_ist_teilmenge(parse_algo_semver("1.0.0.c"), AlgoSemVer
 
 // -- Die Signatur-Bruecke: Tabelle statt Heuristik, Struktur neutral, Rest fail-closed ------------
 static_assert(flag_menge_in_signatur(parse_algo_semver("1.0.0.c.x512{f.vl}"), Prod1Zen5Signature::signature()));
-static_assert(!flag_menge_in_signatur(parse_algo_semver("1.0.0.c.x512{f}"), Prod2RaptorLakeSignature::signature()));
-static_assert(flag_menge_in_signatur(parse_algo_semver("1.0.0.c{p.e}"), Prod2RaptorLakeSignature::signature()));
-static_assert(flag_menge_in_signatur(parse_algo_semver("1.0.0.c.x256{vnni}"), Prod2RaptorLakeSignature::signature()));
-static_assert(!flag_menge_in_signatur(parse_algo_semver("1.0.0.c.x512{vnni}"), Prod2RaptorLakeSignature::signature()));
+static_assert(!flag_menge_in_signatur(parse_algo_semver("1.0.0.c.x512{f}"), Prod2AlderLakeSignature::signature()));
+static_assert(flag_menge_in_signatur(parse_algo_semver("1.0.0.c{p.e}"), Prod2AlderLakeSignature::signature()));
+static_assert(flag_menge_in_signatur(parse_algo_semver("1.0.0.c.x256{vnni}"), Prod2AlderLakeSignature::signature()));
+static_assert(!flag_menge_in_signatur(parse_algo_semver("1.0.0.c.x512{vnni}"), Prod2AlderLakeSignature::signature()));
 static_assert(!flag_menge_in_signatur(parse_algo_semver("1.0.0.c.x256{vnniint8}"), Prod1Zen5Signature::signature()));
 static_assert(!flag_menge_in_signatur(parse_algo_semver("1.0.0.c.quatsch"), Prod1Zen5Signature::signature()));
 static_assert(!flag_menge_in_signatur(AlgoSemVer{}, Prod1Zen5Signature::signature()));
@@ -211,7 +211,7 @@ static_assert(!flag_menge_in_signatur(AlgoSemVer{}, Prod1Zen5Signature::signatur
 static_assert(signatur_ist_voraussetzungs_geschlossen(Prod1Zen5Signature::signature()),
               "prod1 deklariert avx512f UND alle Subsets explizit -- eine kuenftige Deklaration, die "
               "ein Subset ohne sein Fundament fuehrt, MUSS hier brechen.");
-static_assert(signatur_ist_voraussetzungs_geschlossen(Prod2RaptorLakeSignature::signature()));
+static_assert(signatur_ist_voraussetzungs_geschlossen(Prod2AlderLakeSignature::signature()));
 static_assert(signatur_ist_voraussetzungs_geschlossen(OdroidGracemontSignature::signature()));
 static_assert(ketten_ausserhalb_signatur_vokabular() == 2,
               "Die deklarierte WERKZEUG-GRENZE: genau vaes->aes und vpclmulqdq->pclmulqdq nennen ein "

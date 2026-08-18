@@ -135,8 +135,8 @@ struct Prod1Zen5TargetIsa final : TargetIsaComplexAxis<Prod1Zen5TargetIsa, X86_6
 /// prod2-Klasse: x86_64 + Intel-Fabrikation. Zwei der drei Glieder sind erhoben -- das Kern-Tupel (O-4a,
 /// Schritt 5b) und die RAM-Frequenz (P7-Nachzug, dmidecode). Es fehlt allein die CAS-Latenz, die SMBIOS
 /// nicht fuehrt; die Auspraegung stempelt deshalb weiterhin ehrlich unvollstaendig statt geschaetzt.
-struct Prod2RaptorLakeTargetIsa final : TargetIsaComplexAxis<Prod2RaptorLakeTargetIsa, X86_64TargetIsa> {
-    [[nodiscard]] static constexpr std::string_view do_complex_id() noexcept { return "prod2_raptor_lake"; }
+struct Prod2AlderLakeTargetIsa final : TargetIsaComplexAxis<Prod2AlderLakeTargetIsa, X86_64TargetIsa> {
+    [[nodiscard]] static constexpr std::string_view do_complex_id() noexcept { return "prod2_alder_lake"; }
     [[nodiscard]] static constexpr std::string_view do_cpu_fabrication_key() noexcept { return "intel_avx2"; }
     [[nodiscard]] static constexpr std::string_view do_ram_pair_key() noexcept { return "ddr5_2x32"; }
 };
@@ -146,18 +146,18 @@ using DefaultTargetIsaComplex = Prod1Zen5TargetIsa;
 
 /// Single-Source der gueltigen Rekombinations-Ids (analog kAllTargetIsaIds/kAllOperatingSystemIds).
 inline constexpr std::array<std::string_view, 2> kAllTargetIsaComplexIds = {Prod1Zen5TargetIsa::complex_id(),
-                                                                            Prod2RaptorLakeTargetIsa::complex_id()};
+                                                                            Prod2AlderLakeTargetIsa::complex_id()};
 
 static_assert(TargetIsaComplexAxisConcept<Prod1Zen5TargetIsa>);
-static_assert(TargetIsaComplexAxisConcept<Prod2RaptorLakeTargetIsa>);
+static_assert(TargetIsaComplexAxisConcept<Prod2AlderLakeTargetIsa>);
 static_assert(TargetIsaAxisTag::axis_label() == std::string_view{"target_isa"});
 
 // RF-7-WACHE: EIN Feld, nicht drei. Alle Auspraegungen des Komplexes tragen DASSELBE Achsen-Label --
 // die drei Glieder sind Inhalt EINER Achse. Wer einem Glied ein eigenes axis_label() gibt, macht aus
 // dem Komplex drei Achsen und bricht hier compile-time.
 static_assert(Prod1Zen5TargetIsa::axis_label() == TargetIsaAxisTag::axis_label());
-static_assert(Prod2RaptorLakeTargetIsa::axis_label() == TargetIsaAxisTag::axis_label());
-static_assert(Prod1Zen5TargetIsa::axis_label() == Prod2RaptorLakeTargetIsa::axis_label());
+static_assert(Prod2AlderLakeTargetIsa::axis_label() == TargetIsaAxisTag::axis_label());
+static_assert(Prod1Zen5TargetIsa::axis_label() == Prod2AlderLakeTargetIsa::axis_label());
 
 // AUFLOESUNGS-WACHE: jede Auspraegung MUSS in kDeclaredMachines landen. Ein Tippfehler im Schluessel
 // haengt die Rekombination sonst still ins Leere und stempelt lauter Nullen.
@@ -165,8 +165,8 @@ static_assert(Prod1Zen5TargetIsa::declared_machine() != nullptr,
               "Prod1Zen5TargetIsa: der Eigenschafts-Schluessel steht in keiner <machines>-Deklaration "
               "(kDeclaredMachines, machine_identity.hpp). Schluessel und Deklaration muessen zusammen "
               "gepflegt werden -- eine Maschine tritt IMMER doppelt ein.");
-static_assert(Prod2RaptorLakeTargetIsa::declared_machine() != nullptr, "Prod2RaptorLakeTargetIsa: siehe oben.");
-static_assert(Prod1Zen5TargetIsa::declared_machine() != Prod2RaptorLakeTargetIsa::declared_machine(),
+static_assert(Prod2AlderLakeTargetIsa::declared_machine() != nullptr, "Prod2AlderLakeTargetIsa: siehe oben.");
+static_assert(Prod1Zen5TargetIsa::declared_machine() != Prod2AlderLakeTargetIsa::declared_machine(),
               "Zwei Rekombinationen duerfen nicht auf dieselbe Deklarations-Zeile zeigen.");
 
 // EHRLICHKEITS-ANKER (Ist-Stand, kein Soll) -- seit P3 in PROVENIENZ-SPRACHE: sie halten fest, WELCHE
@@ -185,20 +185,20 @@ static_assert(Prod1Zen5TargetIsa::cpu_fabrication().declared,
               "prod1 hat eine erhobene CPU-Kern-Kennung (O-4, live gegengeprueft).");
 // O-8 Schritt 5b: der O-4a-Nachzug ist VOLLZOGEN -- prod2s Kern-Kennung ist erhoben und deklariert.
 // Diese Zeile stand vorher invertiert hier und hat den Nachzug erzwungen, statt ihn zu vergessen.
-static_assert(Prod2RaptorLakeTargetIsa::cpu_fabrication().declared,
+static_assert(Prod2AlderLakeTargetIsa::cpu_fabrication().declared,
               "prod2s Kern-Kennung ist mit O-4a erhoben (GenuineIntel/6/151/2). Faellt sie wieder weg, "
               "ist das ein Rueckschritt und keine Bereinigung.");
-static_assert(Prod1Zen5TargetIsa::cpu_fabrication().vendor != Prod2RaptorLakeTargetIsa::cpu_fabrication().vendor,
+static_assert(Prod1Zen5TargetIsa::cpu_fabrication().vendor != Prod2AlderLakeTargetIsa::cpu_fabrication().vendor,
               "Die beiden Rekombinationen muessen sich im CPU-Fabrikations-Glied unterscheiden -- sonst "
               "waere eine der beiden Deklarationen aus der anderen abgeschrieben.");
 // A1-MIGRATION (P3): hier stand bis P3 der Zahlen-Pin ==4800U. Er ist zum PRAESENZ-Anker geworden:
 // diese Achse bewacht, DASS prod2 eine RAM-Deklaration mit benanntem Ursprung traegt -- die ZAHL
 // bewachen Roundtrip-Byte-Gate und Laufzeit-Verdikt (siehe Kopf des Anker-Blocks). Ein CT-Pin auf
 // eine Hardware-Zahl war genau die Statik, die der Owner-KERN 27.07. abloesen laesst.
-static_assert(Prod2RaptorLakeTargetIsa::ram_frequency_mhz() != 0U,
+static_assert(Prod2AlderLakeTargetIsa::ram_frequency_mhz() != 0U,
               "prod2 traegt eine deklarierte RAM-Frequenz (eingefrorenes dmidecode-T17-Ergebnis). "
               "Faellt sie auf die 0-Marke zurueck, ist das ein Rueckschritt und keine Bereinigung.");
-static_assert(Prod2RaptorLakeTargetIsa::declared_machine()->ram_frequency_origin == DeclarationOrigin::EingefrorenesDmi,
+static_assert(Prod2AlderLakeTargetIsa::declared_machine()->ram_frequency_origin == DeclarationOrigin::EingefrorenesDmi,
               "prod2s Deklaration MUSS ihren eingefrorenen dmidecode-Ursprung als Notiz tragen (A2) -- "
               "ohne Notiz koennte eine SPD-Nennrate wieder als Match dagegen geurteilt werden (A3).");
 // F11 (Owner, 01.08.2026, DAUERHAFT): prod1 bleibt bewusst OHNE Deklaration. Die 0 pinnt die
@@ -210,10 +210,10 @@ static_assert(Prod1Zen5TargetIsa::ram_frequency_mhz() == 0U,
               "Eine Zahl hier waere eine Nachdeklaration gegen F11 und muss quittiert werden.");
 static_assert(Prod1Zen5TargetIsa::declared_machine()->ram_frequency_origin == DeclarationOrigin::Unbekannt,
               "prod1 ohne Deklaration kann keinen Deklarations-Ursprung tragen (A2-Kohaerenz).");
-static_assert(Prod1Zen5TargetIsa::cas_latency_cl() == 0U && Prod2RaptorLakeTargetIsa::cas_latency_cl() == 0U,
+static_assert(Prod1Zen5TargetIsa::cas_latency_cl() == 0U && Prod2AlderLakeTargetIsa::cas_latency_cl() == 0U,
               "Die CAS-Latenz ist fuer KEINE Maschine erhoben: SMBIOS Type 17 fuehrt sie nicht, und "
               "decode-dimms (SPD/i2c) ist auf prod2 nicht installiert.");
-static_assert(!Prod1Zen5TargetIsa::has_all_members_declared() && !Prod2RaptorLakeTargetIsa::has_all_members_declared(),
+static_assert(!Prod1Zen5TargetIsa::has_all_members_declared() && !Prod2AlderLakeTargetIsa::has_all_members_declared(),
               "Solange die CAS-Latenz fehlt, ist KEINE Rekombination vollstaendig -- bei prod2 haengt es "
               "nur noch an ihr. Wer diese Zeile bricht, hat CAS nachdeklariert; dann gehoert sie "
               "angepasst, nicht entfernt.");
