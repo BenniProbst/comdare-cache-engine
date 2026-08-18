@@ -98,12 +98,18 @@ inline constexpr int hybrid_status_max_docks_fehlt = 10; ///< enabled="true" ohn
 // aufloest (fehlt != falsch), und sie schickt den Anwender an die falsche Stelle: er sucht nach
 // einem Tippfehler, wo eine Zeile fehlt.
 inline constexpr int hybrid_status_genus_fehlt = 11; ///< <hybrid_tier> ohne genus-Attribut
+// A2.5-Fix 4 (Review #15) -- die BINDUNGS-Paarung am Proxy. ziel_binden dokumentiert "nullptr in
+// BEIDEN heisst geloest"; ein GEMISCHTES Paar (einer null, einer nicht) ist keiner der beiden
+// Zustaende und liesse Antrieb und Ziel auf VERSCHIEDENE Objekte auseinanderlaufen. Eigener Code,
+// nicht slot_leer/kein_zielfaehiges_genus: der Fehler liegt in der PAARUNG der Argumente, nicht im
+// Slot und nicht im Genus. (Der Genus-Verstoss desselben Fixes traegt den bestehenden Code 3.)
+inline constexpr int hybrid_status_bindung_inkonsistent = 12; ///< ziel_binden: antrieb/basis gemischt null
 
 /// Die EINZELQUELLE aller Status-Codes. Wer einen anhaengt, traegt ihn HIER ein -- die
 /// Namens-Totalitaets-Wache unten faengt sonst den Vergessenen. Handgefuehrte Listen IM TEST sind
 /// genau die Bauart, an der die alten Vollstaendigkeits-Wachen gescheitert sind
 /// (nachgemessen, heuristik_adapter_klassifikation.hpp:20-30).
-inline constexpr std::array<int, 12> kAlleHybridStatus{hybrid_status_ok,
+inline constexpr std::array<int, 13> kAlleHybridStatus{hybrid_status_ok,
                                                        hybrid_status_unbekannter_vertrag,
                                                        hybrid_status_contract_ohne_dock_typ,
                                                        hybrid_status_kein_zielfaehiges_genus,
@@ -114,7 +120,8 @@ inline constexpr std::array<int, 12> kAlleHybridStatus{hybrid_status_ok,
                                                        hybrid_status_max_docks_ungueltig,
                                                        hybrid_status_mehr_docks_als_deckel,
                                                        hybrid_status_max_docks_fehlt,
-                                                       hybrid_status_genus_fehlt};
+                                                       hybrid_status_genus_fehlt,
+                                                       hybrid_status_bindung_inkonsistent};
 
 [[nodiscard]] constexpr std::string_view hybrid_status_name(int s) noexcept {
     switch (s) {
@@ -130,6 +137,7 @@ inline constexpr std::array<int, 12> kAlleHybridStatus{hybrid_status_ok,
         case hybrid_status_mehr_docks_als_deckel: return "mehr_docks_als_deckel";
         case hybrid_status_max_docks_fehlt: return "max_docks_fehlt";
         case hybrid_status_genus_fehlt: return "genus_fehlt";
+        case hybrid_status_bindung_inkonsistent: return "bindung_inkonsistent";
         default: return "unknown";
     }
 }

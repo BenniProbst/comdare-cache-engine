@@ -30,8 +30,12 @@
 > `std::variant<` darin an genau einer Stelle steht.
 >
 > **Weiterhin offen:** K1 (Lager-Identitaet), K2 (Loader-/Drive-Schichtung), K5
-> (Snapshot-Aggregations-Semantik) sowie die Owner-Frage E-6 (welche Registry "22->23" meint --
-> heute steht KEINE Achsen-Registry auf 22, der Eintrag ginge in die falsche Datei).
+> (Snapshot-Aggregations-Semantik). Die hier bis zum 18.08.2026 als offen gefuehrte Owner-Frage
+> E-6 (welche Registry "22->23" meint) ist per KON118 BEANTWORTET: die "22->23" war ein
+> PHANTOM-NENNER (es stand nie eine Achsen-Registry auf 22); der echte Registry-Anteil war
+> `kGenusBuildSlotCounts` 5->6, und der IST GEBAUT -- `genus_build_admission.hpp` traegt den
+> sechsten Eintrag (Reroute-Genus, Aritaet = Dock-Deckel aus der Hybrid-Bindung) samt
+> `static_assert kGenusBuildSlotCounts.size() == 6` *(Nachtrag A2.5/seg1-04)*.
 
 ## Stand 09.08.-13.08.2026 (Historie) -- Klassifikations-Fundament
 

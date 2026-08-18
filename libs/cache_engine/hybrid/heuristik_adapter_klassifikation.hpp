@@ -25,8 +25,14 @@
 //       nachfolgendem Sammel-return. -Wswitch koennte sie fangen -- aber das Projekt uebersetzt
 //       ohne -Wall und ohne -Werror (weder CMakeLists.txt noch CMakePresets.json setzen sie), die
 //       Warnung entsteht also gar nicht erst, und selbst als Warnung waere sie nicht bindend.
-//   (3) genus_build_admission.hpp:171 prueft `kGenusBuildSlotCounts.size() == 5` -- wieder gegen
-//       ein handgefuehrtes Array, nicht gegen das Enum.
+//   (3) genus_build_admission.hpp pruefte damals (Stand 09.08., Zeile 171)
+//       `kGenusBuildSlotCounts.size() == 5` -- wieder gegen ein handgefuehrtes Array, nicht gegen
+//       das Enum. [NACHGEFUEHRT 18.08.2026, A2.5-Fix 30: Wert und Zeile sind seither Historie.
+//       Seit HY-A3 (E-6/KON118) hat die Tabelle SECHS Eintraege -- der sechste ist der
+//       Reroute-Genus, seine Aritaet kommt aus der Hybrid-Bindung (kRerouteGenusCtSlotCount,
+//       Dock-Deckel 32) --, das static_assert steht heute bei genus_build_admission.hpp:190
+//       (gemessen 18.08.2026), und die Werte sind CT aus GenusBindingTraits gezogen, nicht mehr
+//       handgepflegt. Der BEFUND dieser Zeile bleibt als Nullbefund vom 09.08. stehen.]
 // Es gab damit repo-weit KEINE Einzelquelle "alle AnatomyGenus-Werte". Diese Datei legt sie an.
 //
 // ============================================================================================

@@ -44,9 +44,11 @@
 
 #include "anatomy/anatomy_base.hpp" // IAnatomyBase / AnatomyGenus / AnatomyGattung
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
+#include <utility>
 
 namespace comdare::cache_engine::hybrid {
 
@@ -112,14 +114,46 @@ static_assert(!reroute_ziel_deklariert<anatomy::AnatomyGenus::Sequence>(),
 static_assert(!reroute_ziel_deklariert<anatomy::AnatomyGenus::Adapter>(),
               "HY-A2: Adapter ist ABI-sichtbar, aber nicht als Reroute-Ziel deklariert.");
 
-/// kDeklarierteRerouteZiele -- die Abnahme-Zahl der Ziel-Deklaration, an EINER Stelle. Sie steht
-/// hier und nicht im Test, damit ein Ziel-Zuwachs am EIGENTUEMER auffaellt und nicht erst im Lauf.
-inline constexpr std::size_t kDeklarierteRerouteZiele = 2;
+/// kDeklarierteRerouteZielListe -- die GESCHLOSSENE Whitelist der deklarierten Ziele, als DATEN.
+/// A2.5-Fix A-F6 (Review #15): vorher stand hier ein nacktes `= 2` mit einem `== 2`-Assert
+/// dagegen -- eine Zahl, die sich selbst bestaetigte (Tautologie; Wegwerf-Mutation 18.08.2026:
+/// drittes Ziel + entfernter Negativ-Assert blieben gruen, die Zahl log). Jetzt ist die LISTE die
+/// Quelle: Praedikat und Anzahl fallen aus ihr heraus, und die Deckungs-Wache unten haelt sie
+/// gegen die TATSAECHLICHEN RerouteZiel-Spezialisierungen -- in BEIDE Richtungen.
+inline constexpr std::array<anatomy::AnatomyGenus, 2> kDeklarierteRerouteZielListe{
+    anatomy::AnatomyGenus::SearchAlgorithm, anatomy::AnatomyGenus::Set};
+
+/// Das PRAEDIKAT aus der Liste -- die Werteform der Frage, deren Typform
+/// reroute_ziel_deklariert<G>() ist. detail::enthaelt kommt aus der Klassifikations-Einzelquelle.
+[[nodiscard]] constexpr bool reroute_ziel_gelistet(anatomy::AnatomyGenus g) noexcept {
+    return detail::enthaelt(kDeklarierteRerouteZielListe, g);
+}
+
+/// kDeklarierteRerouteZiele -- die Abnahme-Zahl der Ziel-Deklaration, aus der Liste ABGELEITET
+/// statt daneben gepflegt. Sie steht hier und nicht im Test, damit ein Ziel-Zuwachs am
+/// EIGENTUEMER auffaellt und nicht erst im Lauf.
+inline constexpr std::size_t kDeklarierteRerouteZiele = kDeklarierteRerouteZielListe.size();
+
+namespace detail {
+/// true gdw. fuer JEDEN Genus-Wert der Einzelquelle gilt: RerouteZiel-Spezialisierung vorhanden
+/// == in der Whitelist gelistet. NICHT tautologisierbar: die linke Seite fragt das TYPSYSTEM
+/// (existiert die Spezialisierung?), die rechte die DATEN (steht G in der Liste?) -- eine dritte
+/// Spezialisierung ohne Listen-Eintrag bricht hier, ein Listen-Eintrag ohne Spezialisierung ebenso.
+template <std::size_t... I>
+[[nodiscard]] consteval bool reroute_ziel_liste_deckt_deklarationen(std::index_sequence<I...>) noexcept {
+    return ((reroute_ziel_deklariert<kAlleGenera[I]>() == reroute_ziel_gelistet(kAlleGenera[I])) && ...);
+}
+} // namespace detail
+
+static_assert(detail::reroute_ziel_liste_deckt_deklarationen(std::make_index_sequence<kAlleGenera.size()>{}),
+              "HY-A2/F8-DoD: Whitelist und RerouteZiel-Spezialisierungen sind auseinandergelaufen. "
+              "Wer ein Ziel aufnimmt oder streicht, zieht Spezialisierung, Listen-Eintrag und den "
+              "zugehoerigen Negativ-static_assert im SELBEN Commit nach.");
 
 static_assert(kDeklarierteRerouteZiele == 2,
-              "HY-A2/F8-DoD: GENAU ZWEI plain-Tier-Ziele sind deklariert. Wer ein drittes "
-              "aufnimmt, zieht diese Zahl UND den zugehoerigen Negativ-static_assert im selben "
-              "Commit nach -- sonst behauptet die Abnahme eine Trennung, die es nicht mehr gibt.");
+              "HY-A2/F8-DoD: GENAU ZWEI plain-Tier-Ziele (SearchAlgorithm, Set). Die Zahl ist aus "
+              "der Whitelist ABGELEITET -- sie bewegt sich nur mit einem Listen-Eintrag, und den "
+              "haelt die Deckungs-Wache darueber gegen die echten Spezialisierungen.");
 
 // ------------------------------------------------------------------------------------------
 // (2) DER CT-SLOT-DECKEL DES REROUTE-GENUS
@@ -190,6 +224,15 @@ class HybridBinaryProxy final : public anatomy::IAnatomyBase {
     static_assert(MaxDocks >= 1 && MaxDocks <= kRerouteGenusCtSlotCount,
                   "HY-A2: die Dock-Zahl liegt ausserhalb von [1, Programm-Deckel]. Null Docks waere "
                   "eine Hybrid-Binary ohne Ziel -- eine Huelle, die sich wie ein Tier anfuehlt.");
+    // A2.5-Fix 6 (Review #15): der F8-Schnitt SAGT ehrlich, was er traegt. EIN ziel_-Feld traegt
+    // die GESAMTE Delegation (genus/engine_name/lifecycle/organ_count); bei MaxDocks > 1 waeren
+    // last-bind-wins beim Binden und die Komplett-Nullung beim Loesen EINES Slots still falsch.
+    // Mehr-Dock-Delegation (slotbezogene Basiszeiger) ist das HY-B/W3-Design -- wer sie braucht,
+    // baut sie DORT und loest diesen Pin als bewusste Quittung, nicht als Reibung.
+    static_assert(MaxDocks == 1,
+                  "HY-A2/F8: Mehr-Dock-Delegation ist nicht definiert -- EIN ziel_-Feld traegt die "
+                  "gesamte Delegation, mehr Docks waeren still falsch (last-bind-wins beim Binden, "
+                  "Komplett-Nullung beim Loesen). Mehr-Dock = HY-B/W3, slotbezogene Basiszeiger.");
 
 public:
     using Policy = StatischeDockArrayPolicy<MaxDocks>;
@@ -255,8 +298,18 @@ public:
     /// BEVOR das Ziel-Modul entladen wird (destroy-vor-dlclose). Ein Dock, das einen Zeiger in ein
     /// entladenes Modul behielte, waere ein use-after-dlclose mit voll plausiblem Verhalten bis zum
     /// ersten Zugriff.
+    ///
+    /// A2.5-Fix 4 (Review #15): die zwei Zusagen darueber werden ERZWUNGEN, nicht nur beschrieben.
+    /// (a) Ein GEMISCHTES Paar (einer null, einer nicht) ist keiner der beiden dokumentierten
+    ///     Zustaende -- antrieb und ziel_ zeigten fortan auf verschiedene Wahrheiten ->
+    ///     hybrid_status_bindung_inkonsistent, VOR jeder Mutation.
+    /// (b) Ein basis mit FREMDEM genus() wuerde die Loader-Riegel-Garantie (Symbol == genus()) am
+    ///     gebundenen Proxy nachtraeglich entwerten: genus() delegiert an ziel_, die Antwort
+    ///     wechselte still auf das Fremd-Genus -> hybrid_status_kein_zielfaehiges_genus.
     [[nodiscard]] int ziel_binden(std::size_t slot, anatomy::IObservableTier* antrieb,
                                   anatomy::IAnatomyBase* basis) noexcept {
+        if ((antrieb == nullptr) != (basis == nullptr)) return hybrid_status_bindung_inkonsistent;
+        if (basis != nullptr && basis->genus() != ZielGenus) return hybrid_status_kein_zielfaehiges_genus;
         int const status = docks_.antrieb_binden(slot, antrieb);
         if (status != hybrid_status_ok) return status;
         ziel_ = basis;

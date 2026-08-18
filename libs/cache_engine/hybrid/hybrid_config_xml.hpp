@@ -49,10 +49,15 @@
 //     SUPER-Repo und wird von dieser Stufe nicht editiert.
 // (2) KEIN ANSCHLUSS AN validate_profile. Der ist die Naht zum Bestands-Ladeweg und gehoert in
 //     denselben Schritt wie die Registry-Seite.
-// (3) KEIN REGISTRY-EINTRAG ("22->23"). Er haengt an der offenen Owner-Frage E-6: heute steht KEINE
-//     Achsen-Registry auf 22 (AllStrategies = 22 TYPEN, Achsen-Aggregat = 26,
-//     cache_engine_axis_registry.xml = 18 axis, system_axis_registry.xml = 3 axis). Ohne Klaerung
-//     traegt der Eintrag die Zahl in die falsche Datei -- lieber offen als falsch.
+// (3) KEIN REGISTRY-EINTRAG IN DIESER DATEI. [NACHGEFUEHRT 18.08.2026, A2.5/seg1-04: hier stand
+//     bis zum #15-Bruch "Er haengt an der offenen Owner-Frage E-6 ('22->23') ... lieber offen als
+//     falsch". E-6 ist per KON118 BEANTWORTET: die "22->23" war ein PHANTOM-NENNER -- es stand nie
+//     eine Achsen-Registry auf 22 (AllStrategies = 22 TYPEN, Achsen-Aggregat = 26,
+//     cache_engine_axis_registry.xml = 18 axis, system_axis_registry.xml = 3 axis). Der ECHTE
+//     Registry-Anteil war kGenusBuildSlotCounts 5->6, und der IST GEBAUT: genus_build_admission.hpp
+//     traegt den sechsten Eintrag (Reroute-Genus, Aritaet = Dock-Deckel aus der Hybrid-Bindung)
+//     samt static_assert size() == 6.] Dieser Parser traegt weiterhin keinen Eintrag -- die
+//     Registry-Wahrheit wohnt in der Admission, nicht im XML-Leser.
 // (4) KEINE eigene axis_error-Domaene. Der Bauplan nennt sie als HY-A3-Stichwort und benennt
 //     zugleich, dass die Fehlerklassen-Vollstaendigkeit je Algorithmus heute ungedeckt ist
 //     (organ_axis_error_classes.hpp:82-84). Diese Stufe fuehrt ihre Fehler im errno-Stil der

@@ -69,7 +69,16 @@
 // unzulaessiges Genus ist damit nicht baubar -- nicht "wird zur Laufzeit abgelehnt".
 // ------------------------------------------------------------------------------------------------
 #define COMDARE_DEFINE_HYBRID_MODULE(ZielGenusExpr)                                                                    \
-    using ComdareHybridModulProxy = ::comdare::cache_engine::hybrid::HybridBinaryProxy<(ZielGenusExpr), 1>;            \
+    /* A2.5-Fix A-F3 (Review #15): das Ziel wird GENAU EINMAL eingefroren -- als constexpr-Wert im                     \
+       Konstanten-Kontext. Vorher wurde ZielGenusExpr ZWEIMAL ausgewertet (Template-Argument und                       \
+       Laufzeit-Exports): ein kontextabhaengiger Ausdruck (std::is_constant_evaluated) passierte                       \
+       die CT-Sperre mit dem einen Wert und exportierte den anderen; der Loader fing die Luege                         \
+       erst als status_identity_mismatch (gemessen 18.08.2026: proxy.genus()=0, export=5). Jetzt                       \
+       leiten der Proxy-Typ UND beide Identitaets-Exporte aus DEMSELBEN eingefrorenen Wert ab --                       \
+       eine Divergenz ist nicht mehr formulierbar. */                                                                  \
+    constexpr ::comdare::cache_engine::anatomy::AnatomyGenus kComdareHybridModulZielGenus = (ZielGenusExpr);           \
+    using ComdareHybridModulProxy =                                                                                    \
+        ::comdare::cache_engine::hybrid::HybridBinaryProxy<kComdareHybridModulZielGenus, 1>;                           \
     extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint64_t comdare_anatomy_abi_version() noexcept {                       \
         return (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) |                                         \
                static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MINOR);                                                  \
@@ -99,8 +108,8 @@
        koennten auseinanderlaufen, eine abgeleitete kann es nicht. */                                                  \
     extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_gattung() noexcept {                            \
         return static_cast<std::uint8_t>(                                                                              \
-            ::comdare::cache_engine::anatomy::gattung_of((ZielGenusExpr)));                                            \
+            ::comdare::cache_engine::anatomy::gattung_of(kComdareHybridModulZielGenus));                               \
     }                                                                                                                  \
     extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_genus() noexcept {                              \
-        return static_cast<std::uint8_t>((ZielGenusExpr));                                                             \
+        return static_cast<std::uint8_t>(kComdareHybridModulZielGenus);                                                \
     }
