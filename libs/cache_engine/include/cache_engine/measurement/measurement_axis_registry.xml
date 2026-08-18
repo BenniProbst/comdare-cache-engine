@@ -56,7 +56,10 @@
     <dim id="inline_threshold_bytes" stage="runtime" source="resource_control_pod" value_type="uint"/>
     <!-- TODO(W2-B): repetition ist eine reine setting_label-DynDim OHNE CT-Anker -> nicht emittiert
          (kein handgeschriebenes Phantom). Erst mit einer constexpr-Namens-Single-Source reflektierbar. -->
-    <!-- TODO(W2-B, §32-F1/F7): die 3 Mess-Modi Debug/Mess/Release existieren NICHT als Typen ->
-         nicht emittiert; erst nach ihrer Typisierung als Mess-Unter-Achse reflektierbar. -->
+    <!-- work_mode (A-05/V-12): die Run-Methodik-UNTER-Achse. Single-Source ist kWorkModeRegistry
+         (run_methodology_registry.hpp); Index == WorkMode-Wert, static_assert-gesichert. Der
+         frueher hier stehende TODO ist damit eingeloest -- die Typisierung, auf die er wartete,
+         existiert. Reine Reflexion: kein handgeschriebener Wert, keine zweite Wissensquelle. -->
+    <dim id="work_mode" stage="plan" source="measurement:run_methodology" value_type="token" allowed="build,measure,compare,release"/>
   </dynamic_dims>
 </comdare_axis_registry>

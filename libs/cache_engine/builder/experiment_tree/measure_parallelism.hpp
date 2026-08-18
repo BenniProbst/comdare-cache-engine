@@ -18,10 +18,22 @@
 
 namespace comdare::cache_engine::builder::experiment {
 
-/// Leitet cfg.measure_parallelism aus der Methodik ab (siehe Datei-Kopf). Env-unparsebar/0 => nproc-Default (kein throw
-/// fuer Env-Fehler). R5: run_methodology_for_ids wirft bei >1 Methoden (Kontraktbruch, validate-gegated) -- exactly-one.
-[[nodiscard]] inline std::size_t resolve_measure_parallelism(std::vector<std::string> const& run_methodology) {
-    auto const& m = ::comdare::cache_engine::measurement::run_methodology_for_ids(run_methodology);
+/// A-05/V-12 (18.08.2026) -- DIE MECHANIK AM ZUSTAND, GETRENNT VOM TOKEN-WEG.
+///
+/// WARUM DIESE UEBERLADUNG EXISTIERT: der Gate unten verlangt (measurement_on && !single_thread). Seit dem
+/// work_mode-Umbau erfuellt das KEINE Registry-Zeile mehr -- der ausgebaute Modus "debug" war die einzige.
+/// Damit war alles hinter dem Gate (Env-Auswertung, nproc-Default) ueber den Token-Weg UNERREICHBAR: ein
+/// Zweig, den kein Test mehr betreten kann, verrottet still und meldet sich erst, wenn ihn jemand wieder
+/// scharfschaltet. Diese Ueberladung ist der Zugang, der ihn beobachtbar haelt.
+///
+/// SIE AENDERT NICHTS: die Token-Fassung unten delegiert hierher (EIGENER Name statt Ueberladung -- eine
+/// Ueberladung waere bei resolve_measure_parallelism({}) mehrdeutig gewesen, und ein Test, der sich um
+/// diese Mehrdeutigkeit herumschreiben muss, verdeckt sie nur), das Verhalten je Token ist byte-identisch,
+/// und die Ueberladung fuegt KEINE neue Politik hinzu -- sie nimmt die Registry-Zeile entgegen, statt sie
+/// selbst nachzuschlagen. Wer die Faehigkeit "misst UND laeuft parallel" wieder in Betrieb nimmt (S-8/W2
+/// --debug-Flag oder eine kuenftige Registry-Zeile), findet sie hier unveraendert vor.
+[[nodiscard]] inline std::size_t
+resolve_measure_parallelism_of_mode(::comdare::cache_engine::measurement::WorkModeInfo const& m) {
     if (!m.measurement_on || m.single_thread) return 0; // Measure/Release/undeklariert => 1-Thread (byte-neutral)
     if (char const* e = std::getenv("COMDARE_MEASURE_PARALLEL"); e != nullptr && *e != '\0') {
         std::size_t v     = 0;
@@ -38,6 +50,15 @@ namespace comdare::cache_engine::builder::experiment {
     }
     unsigned const hw = std::thread::hardware_concurrency();
     return hw > 0 ? static_cast<std::size_t>(hw) : 1; // nproc-Default; hw==0 (unbekannt) => 1
+}
+
+/// Leitet cfg.measure_parallelism aus der Methodik ab (siehe Datei-Kopf). Env-unparsebar/0 => nproc-Default (kein throw
+/// fuer Env-Fehler). R5: run_methodology_for_ids wirft bei >1 Methoden (Kontraktbruch, validate-gegated) -- exactly-one
+/// -- und seit Welle B/1 auch bei UNBEKANNTEM Token (fail-closed; der ausgebaute "debug" faellt seit V-12 darunter).
+/// Der Aufruf ist die EINE Nachschlage-Stelle; die Rechnung selbst steht in der Ueberladung oben.
+[[nodiscard]] inline std::size_t resolve_measure_parallelism(std::vector<std::string> const& run_methodology) {
+    return resolve_measure_parallelism_of_mode(
+        ::comdare::cache_engine::measurement::run_methodology_for_ids(run_methodology));
 }
 
 } // namespace comdare::cache_engine::builder::experiment
