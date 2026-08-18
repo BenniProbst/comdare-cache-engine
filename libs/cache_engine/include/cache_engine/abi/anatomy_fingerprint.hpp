@@ -1178,6 +1178,112 @@ anatomy_fingerprint_hex(MessZeile measurement, SystemZeile system, OrganZeile or
     return out;
 }
 
+/// -- B-5a/V-02R: DIE COMPOSE-BAUSTEINE DER HYBRID-MAP ---------------------------------------------------
+///
+/// WAS BISHER FEHLTE: kHybridKompositGlied oben ist ein INJIZIERTER Wert (Define, Default ""). Wer die
+/// Zeile erzeugt, tat es bis hierher AUSSERHALB dieses Headers -- die Grammatik stand nur als Beispiel im
+/// Kommentar ("12=<64hex>;44=<64hex>"). Ein Beispiel ist keine Bildung: zwei Erzeuger koennten sie
+/// verschieden lesen, und der Fingerprint saehe es nicht. Diese Bausteine machen die Grammatik zu Code.
+///
+/// DIE FORM, aus der dokumentierten Fassung abgeleitet und nicht neu erfunden (V-02R/KON103-03):
+///   key=value, ';'-getrennt, Dock-Index AUFSTEIGEND     -- die compose_organ_stamp_line-Syntax
+///   key   = stufen_id() = Layer * Nodes + Node          -- die CT-ADRESSE, nicht der RT-attach-Slot
+///   value = 64 Hex, EIGENER SHA-256 je Dock-Beitrag     -- dieselbe Linie wie E-A (Name) und V-08R
+///
+/// WARUM DER KEY DIE CT-ADRESSE IST UND NICHT DER LAUFZEIT-SLOT: DockArray::attach vergibt first-free und
+/// wiederverwendbar -- dieselbe Binary koennte je Lauf andere Slots belegen. Eine CT-Map kann keine
+/// RT-Slots tragen, ohne ihre eigene Bestaendigkeit zu verlieren. stufen_id ist dagegen aus Layer und Node
+/// gerechnet und damit fuer dieselbe Komposition immer dieselbe Zahl.
+///
+/// WARUM KEINE NAMEN ALS KEYS: Namens-Strings wie "Reroute<View>" verletzen den Glied-Zeichenvorrat
+/// (KON45-01/6) -- '<' und '>' stehen nicht in anatomy_glied_zeichen_erlaubt. Die Zahl tut es.
+namespace detail {
+
+/// Der Puffer der Komposit-Bildung: exakt das Budget, das die Rechnung oben nennt. Kein Heap, damit die
+/// Bildung in einer constant expression laufen kann -- wie bei MessGatesGliedText und aus demselben Grund.
+class KompositMapText {
+public:
+    constexpr void anhaengen(std::string_view t) {
+        for (char const c : t) puffer_.at(laenge_++) = c;
+    }
+    constexpr void                           anhaengen(char c) { puffer_.at(laenge_++) = c; }
+    [[nodiscard]] constexpr std::string_view sv() const noexcept { return std::string_view{puffer_.data(), laenge_}; }
+    [[nodiscard]] constexpr std::size_t      size() const noexcept { return laenge_; }
+
+private:
+    std::array<char, kAnatomyFingerprintKompositMax> puffer_{};
+    std::size_t                                      laenge_ = 0;
+};
+
+/// Die Dezimal-Darstellung eines stufen_id-Keys. Bewusst ohne fuehrende Nullen und ohne Vorzeichen: die
+/// Grammatik kennt nur Ziffern, und zwei Schreibweisen derselben Zahl waeren zwei Schluessel fuer dieselbe
+/// Stufe -- also zwei Preimages fuer dasselbe Binary.
+[[nodiscard]] constexpr KompositMapText komposit_key_text(std::size_t stufen_id) {
+    KompositMapText t{};
+    if (stufen_id == 0) {
+        t.anhaengen('0');
+        return t;
+    }
+    char        ziffern[kAnatomyFingerprintKompositKeyMax]{};
+    std::size_t n = 0;
+    for (std::size_t rest = stufen_id; rest > 0 && n < kAnatomyFingerprintKompositKeyMax; rest /= 10)
+        ziffern[n++] = static_cast<char>('0' + (rest % 10));
+    for (std::size_t i = n; i > 0; --i) t.anhaengen(ziffern[i - 1]);
+    return t;
+}
+
+/// Ist der Wert ein wohlgeformter 64-Hex-Digest (kleingeschrieben)? Der Value ist der EIGENE SHA-256 des
+/// eingesteckten Tiers; alles andere an dieser Stelle waere ein Wert, den niemand nachrechnen kann.
+[[nodiscard]] constexpr bool komposit_wert_ist_64hex(std::string_view v) noexcept {
+    if (v.size() != kAnatomyFingerprintKompositWertMax) return false;
+    for (char const c : v)
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
+    return true;
+}
+
+} // namespace detail
+
+/// EIN Dock-Beitrag: der Baustein, aus dem die Zeile besteht. Getrennt von der Zeilen-Bildung, damit eine
+/// einzelne Zelle fuer sich geprueft werden kann -- und damit die Zeile keinen zweiten Weg kennt, ein
+/// Segment zu schreiben.
+struct KompositBeitrag {
+    std::size_t      stufen_id{};
+    std::string_view name_hex{}; ///< 64 Hex, aus anatomy_name_hex des eingesteckten Tiers
+};
+
+/// hybrid_komposit_map_bilden(beitraege) -- DIE EINE BILDUNG der Komposit-Zeile.
+///
+/// LEER BLEIBT LEER: ohne Beitraege entsteht die leere Zeichenkette, nicht etwa ein Praefix oder ein
+/// Trenner. Das ist die K-1-/KON45-01-2-Zusage "Tier traegt ''" -- ein plain Tier rechnet damit
+/// byte-identisch zu einem Binary, das das Glied gar nicht kennt (ausser seinem Separator).
+///
+/// FAIL-LOUD statt still falsch: ein unwohlgeformter Wert, eine verletzte Ordnung oder ein doppelter Key
+/// brechen die consteval-Auswertung (throw in einer constant expression == Uebersetzungsfehler). Die
+/// Alternative waere eine Zeile, die aussieht wie eine Map und keine ist.
+[[nodiscard]] constexpr detail::KompositMapText hybrid_komposit_map_bilden(std::span<KompositBeitrag const> beitraege) {
+    detail::KompositMapText aus{};
+    for (std::size_t i = 0; i < beitraege.size(); ++i) {
+        auto const& b = beitraege[i];
+        if (!detail::komposit_wert_ist_64hex(b.name_hex))
+            throw std::invalid_argument{"B-5a/V-02R: ein Komposit-Wert ist kein 64-Hex-Digest. Der Wert je Dock "
+                                        "ist der EIGENE SHA-256 des eingesteckten Tiers (anatomy_name_hex), "
+                                        "nicht sein Name, nicht sein Pfad und nicht die ersten 64 hex seines "
+                                        "SHA-512."};
+        if (i > 0 && !(beitraege[i - 1].stufen_id < b.stufen_id))
+            throw std::invalid_argument{"B-5a/V-02R: die Dock-Beitraege stehen nicht STRENG AUFSTEIGEND nach "
+                                        "stufen_id. Aufsteigend ist die Ordnung der Map (V-02R); streng, weil "
+                                        "zwei Beitraege derselben Stufe zwei Wahrheiten ueber dieselbe Zelle "
+                                        "waeren. Beides still zu dulden hiesse, zwei verschiedene Hybride "
+                                        "koennten dieselbe Zeile erzeugen."};
+        if (i > 0) aus.anhaengen(';');
+        auto const key = detail::komposit_key_text(b.stufen_id);
+        aus.anhaengen(key.sv());
+        aus.anhaengen('=');
+        aus.anhaengen(b.name_hex);
+    }
+    return aus;
+}
+
 /// anatomy_name_hex(measurement, system, organ[, Traeger...]) -- E-A/B-6 (18.08.2026): DER NAME.
 ///
 /// EIGENER Hash, KEIN fingerprint[0:64].
