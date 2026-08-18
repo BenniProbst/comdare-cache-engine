@@ -1466,8 +1466,8 @@ TEST(MW12StampBausteine, A4AnatomyStampArraysRoundtripThroughPod) {
                                      // ans Ende getreten. Dieser Roundtrip prueft die drei ARRAY-Ebenen, nicht den
                                      // Namen -- er traegt ihn deshalb leer (""-Doktrin), statt einen Wert zu
                                      // erfinden, den keine Assertion unten liest.
-                                     .name_line               = "",
-                                     .name_len                = 0u};
+                                     .name_line = "",
+                                     .name_len  = 0u};
 
     EXPECT_TRUE(abi::stamp_pod_has_entries(v));
     EXPECT_EQ(v.stamp_layout_version, 7u);

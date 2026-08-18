@@ -51,7 +51,7 @@ inline constexpr int status_genus_symbol_missing   = 10;
 // Der KONSISTENZ-RIEGEL. Ein Modul, dessen Symbol-Wert nicht zu der Instanz passt, die seine eigene
 // Factory liefert, ist WIDERSPRUECHLICH -- und ein Widerspruch, den der Loader durchlaesst, wandert
 // als falsche Identitaet in Stempel, Lager und Messreihe. Deshalb fail-closed hier, nicht spaeter.
-inline constexpr int status_identity_mismatch      = 11;
+inline constexpr int status_identity_mismatch = 11;
 // Review #15 Fix 2 (18.08.2026) -- die WERTKLASSEN-Haelfte des Riegels, VOR der Factory: das
 // genus-Symbol darf nur ein BEKANNTES (anatomy_base.hpp genus_bekannt) UND ABI-SICHTBARES Genus
 // (hybrid::ist_abi_sichtbares_genus -- nie FunctionInterfaceReroute, Weg C) melden. Ohne dieses
@@ -59,7 +59,7 @@ inline constexpr int status_identity_mismatch      = 11;
 // auf 5) den Konsistenz-Riegel unten: der prueft nur, dass zwei Antworten GLEICH sind, nie, dass
 // ihr Wert ZULAESSIG ist. Eigener Code aus demselben Grund wie bei 9/10: die Diagnose muss sagen,
 // WAS abgelehnt wurde, nicht nur DASS.
-inline constexpr int status_genus_not_abi_visible  = 12;
+inline constexpr int status_genus_not_abi_visible = 12;
 
 [[nodiscard]] constexpr const char* status_name(int s) noexcept {
     switch (s) {

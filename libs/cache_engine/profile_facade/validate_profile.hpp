@@ -1164,11 +1164,10 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
         // SELBEN Zug (Wachen-Rueckbau gehoert zum Materialisierungs-Commit).
         if (ax.merge_mode == "merge") {
             r.ok = false;
-            r.errors.push_back(
-                "NICHT MATERIALISIERTER Merge-Modus <axes_default_lookup><axis ref=\"" + ax.ref +
-                "\" merge=\"merge\">: Verbund2_Hybrid ist nicht materialisiert (kein "
-                "PrueflingVerbundStrategy-Enum-Wert; Materialisierung deferred, merge_plan.hpp) -- bis "
-                "dahin replace/union verwenden.");
+            r.errors.push_back("NICHT MATERIALISIERTER Merge-Modus <axes_default_lookup><axis ref=\"" + ax.ref +
+                               "\" merge=\"merge\">: Verbund2_Hybrid ist nicht materialisiert (kein "
+                               "PrueflingVerbundStrategy-Enum-Wert; Materialisierung deferred, merge_plan.hpp) -- bis "
+                               "dahin replace/union verwenden.");
         }
         // KERN #48-S4 (Verdikt V-a): "union" verlangt eine Phase-3-Bindung (<phase merge="Verbund3_Union">).
         if (ax.merge_mode == "union" && !has_verbund_union_phase) {

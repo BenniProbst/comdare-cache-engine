@@ -40,8 +40,8 @@ namespace loader = comdare::cache_engine::builder::anatomy_loader;
 namespace {
 
 struct Fall {
-    char const*         pfad;
-    cea::AnatomyGenus   erwartetes_genus;
+    char const*       pfad;
+    cea::AnatomyGenus erwartetes_genus;
     // Review #15 Fix 8: UNABHAENGIGE Erwartungs-Spalte statt Selbstvergleich. Der fruehere Check
     // verglich gattung_of(anatomie->genus()) mit gattung_of(f.erwartetes_genus) -- nach bestandenem
     // Genus-Check ist das gattung_of(x) == gattung_of(x), eine Tautologie, die JEDE Zuordnungstabelle
@@ -85,8 +85,8 @@ TEST(Q2IdentitaetsRiegel, SymbolWertGleichGenusUndGattungAbgeleitet) {
         // (1) Die zwei neuen Pflicht-Symbole sind da UND der Riegel im Loader hat gehalten. Faellt der
         //     Riegel, ist status_name die Diagnose -- identity_mismatch heisst: das Modul weist eine
         //     andere Identitaet aus, als seine eigene Factory liefert.
-        ASSERT_EQ(st, loader::status_ok)
-            << f.etikett << ": load == " << loader::status_name(st) << " (Pfad " << f.pfad << ")";
+        ASSERT_EQ(st, loader::status_ok) << f.etikett << ": load == " << loader::status_name(st) << " (Pfad " << f.pfad
+                                         << ")";
 
         auto* anatomie = handle.anatomy();
         ASSERT_NE(anatomie, nullptr) << f.etikett << ": Factory lieferte nullptr";
@@ -104,8 +104,9 @@ TEST(Q2IdentitaetsRiegel, SymbolWertGleichGenusUndGattungAbgeleitet) {
         //     war nach bestandenem (2) ein Selbstvergleich und haette JEDE gattung_of-Tabelle gedeckt.
         auto const gattung = cea::gattung_of(anatomie->genus());
         EXPECT_EQ(gattung, f.erwartete_gattung)
-            << f.etikett << ": Ebene-1-Zuordnung weicht vom Tabellen-Literal ab (gattung_of="
-            << static_cast<int>(gattung) << ", erwartet " << static_cast<int>(f.erwartete_gattung) << ")";
+            << f.etikett
+            << ": Ebene-1-Zuordnung weicht vom Tabellen-Literal ab (gattung_of=" << static_cast<int>(gattung)
+            << ", erwartet " << static_cast<int>(f.erwartete_gattung) << ")";
 
         std::cout << "  RIEGEL OK: " << f.etikett << "  genus=" << static_cast<int>(anatomie->genus())
                   << "  gattung=" << static_cast<int>(gattung) << "\n";
@@ -127,8 +128,7 @@ TEST(Q2IdentitaetsRiegel, AltModuleScheiternWeiterVORDerSymbolStufe) {
     };
     AltFall const alt[] = {
         {COMDARE_Q2_MODUL_ALT_MAJOR7, loader::status_magic_mismatch, "alt_major7 (Schloss 1: Magic)"},
-        {COMDARE_Q2_MODUL_MAJOR7_NEUE_MAGIC, loader::status_abi_major_mismatch,
-         "major7_neue_magic (Schloss 2: Major)"},
+        {COMDARE_Q2_MODUL_MAJOR7_NEUE_MAGIC, loader::status_abi_major_mismatch, "major7_neue_magic (Schloss 2: Major)"},
         {COMDARE_Q2_MODUL_ALT_MAGIC_OHNE_SYMBOLE, loader::status_magic_mismatch,
          "alt_magic_ohne_symbole (Schloss 1 schlaegt VOR der Symbol-Stufe zu -- Reihenfolge-Pin)"},
     };
@@ -179,8 +179,8 @@ TEST(Q2IdentitaetsRiegel, RiegelUndSymbolPflichtBeissenAmEchtenLadeweg) {
     // damit die Zaehler den Loader-Lauf UEBERLEBEN (der Loader schliesst sein Handle im Fehlerpfad).
     void* sonde = ::dlopen(COMDARE_Q2_MODUL_LUEGNER, RTLD_NOW | RTLD_LOCAL);
     ASSERT_NE(sonde, nullptr) << "Sonden-dlopen der Luegner-.so scheiterte: " << ::dlerror();
-    using PfnZaehler   = std::uint64_t (*)();
-    auto* pfn_create_n = reinterpret_cast<PfnZaehler>(::dlsym(sonde, "comdare_q2_testonly_create_count"));
+    using PfnZaehler    = std::uint64_t (*)();
+    auto* pfn_create_n  = reinterpret_cast<PfnZaehler>(::dlsym(sonde, "comdare_q2_testonly_create_count"));
     auto* pfn_destroy_n = reinterpret_cast<PfnZaehler>(::dlsym(sonde, "comdare_q2_testonly_destroy_count"));
     ASSERT_NE(pfn_create_n, nullptr);
     ASSERT_NE(pfn_destroy_n, nullptr);

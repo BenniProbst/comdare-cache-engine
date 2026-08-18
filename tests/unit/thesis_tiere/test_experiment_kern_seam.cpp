@@ -171,7 +171,7 @@ TEST(ExperimentKernSeam, MachinesWithoutOsExpectationStayEmpty) {
     // A2.5-g5 (Fix 15): merge="merge" der Fixture in-memory neutralisieren (Gate hat eigenen Beleg,
     // MergeModeMergeIsDeferredError) -- dieser Test misst die Maschinen-Zaehlung, nicht das Merge-Gate.
     ASSERT_EQ(ep->axes_default_lookup.size(), 3u);
-    ep->axes_default_lookup[2].merge_mode = "replace";
+    ep->axes_default_lookup[2].merge_mode    = "replace";
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_TRUE(vr.ok) << (vr.errors.empty() ? "" : vr.errors.front());
     EXPECT_EQ(vr.machines_checked, 2u);
@@ -218,7 +218,7 @@ TEST(ExperimentKernSeam, ValidatesOkWithNewCounters) {
     // Modi: replace, union, replace).
     ASSERT_EQ(ep->axes_default_lookup.size(), 3u);
     ASSERT_EQ(ep->axes_default_lookup[2].merge_mode, "merge");
-    ep->axes_default_lookup[2].merge_mode = "replace";
+    ep->axes_default_lookup[2].merge_mode    = "replace";
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_TRUE(vr.ok) << (vr.errors.empty() ? "" : vr.errors.front());
     EXPECT_TRUE(vr.errors.empty());
@@ -313,8 +313,8 @@ TEST(ExperimentKernSeam, IdNamespaceWithoutPrueflingWarns) {
 
 // ── (d) merge_plan-Projektion nachgezogen ────────────────────────────────────
 TEST(ExperimentKernSeam, UnionProjectsToVerbund3UnionStrategy) {
-    EXPECT_EQ(tlz::merge_mode_to_strategy("union"), "Verbund3_Union"); // §59-A(3): kombinierte Union
-    EXPECT_EQ(tlz::merge_mode_to_strategy("merge"), "Verbund2_Hybrid");      // R6/§59-A(2): Hybrid, NICHT Union
+    EXPECT_EQ(tlz::merge_mode_to_strategy("union"), "Verbund3_Union");  // §59-A(3): kombinierte Union
+    EXPECT_EQ(tlz::merge_mode_to_strategy("merge"), "Verbund2_Hybrid"); // R6/§59-A(2): Hybrid, NICHT Union
     EXPECT_EQ(tlz::merge_mode_to_strategy("replace"), "Verbund2_Replace");
 }
 

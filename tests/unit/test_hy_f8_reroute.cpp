@@ -235,11 +235,9 @@ TEST(HyF8Reroute, ZielBindenWeistGemischtesPaarUndFremdGenusAb) {
 
     // (a) GEMISCHTES PAAR, beide Richtungen: "nullptr in BEIDEN heisst geloest" -- einer allein ist
     // keiner der zwei dokumentierten Zustaende und muss VOR jeder Mutation abgewiesen werden.
-    EXPECT_EQ(proxy.ziel_binden(static_cast<std::size_t>(slot), nullptr, &ziel),
-              hy::hybrid_status_bindung_inkonsistent)
+    EXPECT_EQ(proxy.ziel_binden(static_cast<std::size_t>(slot), nullptr, &ziel), hy::hybrid_status_bindung_inkonsistent)
         << "antrieb=nullptr bei gesetzter basis: antrieb und ziel_ zeigten fortan auf verschiedene Wahrheiten";
-    EXPECT_EQ(proxy.ziel_binden(static_cast<std::size_t>(slot), obs, nullptr),
-              hy::hybrid_status_bindung_inkonsistent)
+    EXPECT_EQ(proxy.ziel_binden(static_cast<std::size_t>(slot), obs, nullptr), hy::hybrid_status_bindung_inkonsistent)
         << "basis=nullptr bei gesetztem antrieb: die Gegenrichtung desselben Verstosses";
     EXPECT_FALSE(proxy.ist_gebunden()) << "die Ablehnung kam NACH einer Mutation -- ziel_ wurde beschrieben";
     EXPECT_EQ(proxy.antrieb(static_cast<std::size_t>(slot)), nullptr)

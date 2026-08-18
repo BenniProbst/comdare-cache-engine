@@ -585,8 +585,7 @@ static_assert(kAnatomyFingerprintKompositKeyDeckel == 99'999'999,
         if (i >= glied.size() || glied[i] != '=') return false;
         ++i;
         std::size_t const wert_beginn = i;
-        while (i < glied.size() && ((glied[i] >= '0' && glied[i] <= '9') || (glied[i] >= 'a' && glied[i] <= 'f')))
-            ++i;
+        while (i < glied.size() && ((glied[i] >= '0' && glied[i] <= '9') || (glied[i] >= 'a' && glied[i] <= 'f'))) ++i;
         if (i - wert_beginn != kAnatomyFingerprintKompositWertMax) return false;
         voriger_key = key;
         ++segmente;
@@ -602,7 +601,7 @@ static_assert(kAnatomyFingerprintKompositKeyDeckel == 99'999'999,
 static_assert(komposit_glied_ist_grammatisch("") &&
                   komposit_glied_ist_grammatisch("0=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
               "A2.5-Fix 11: leer und ein kanonisches Ein-Segment muessen wohlgeformt sein.");
-static_assert(!komposit_glied_ist_grammatisch("1=x;2=y") &&        // mehrdeutige Kurz-Werte
+static_assert(!komposit_glied_ist_grammatisch("1=x;2=y") &&          // mehrdeutige Kurz-Werte
                   !komposit_glied_ist_grammatisch("12=abc;44=xy") && // Erheber-Tafel: zu kurze Hex-Werte
                   !komposit_glied_ist_grammatisch("a==b") &&         // kein Dezimal-Key
                   !komposit_glied_ist_grammatisch(";x=1"),           // ';' am Segment-Anfang
@@ -878,17 +877,17 @@ static_assert(kAnatomyFingerprintBudgetSum == 6057,
 /// Array-Vergleich in Glied-Ordnung [0..9] statt zehn Einzel-Asserts, damit die Soll-Reihe an EINER
 /// Stelle lesbar bleibt. Wer ein Glied-Budget bewusst aendert, zieht Reihe, Summe und Beleg-Absatz
 /// in EINEM Zug nach.
-static_assert(std::array<std::size_t, kAnatomyFingerprintGliedCount>{
-                  kAnatomyFingerprintFormatMax, kAnatomyFingerprintMeasurementMax, kAnatomyFingerprintSystemMax,
-                  kAnatomyFingerprintOrganMax, kAnatomyFingerprintValuesetMax, kAnatomyFingerprintToolchainMax,
-                  kAnatomyFingerprintBvsetMax, kAnatomyFingerprintOverlayMax, kAnatomyFingerprintMessGatesMax,
-                  kAnatomyFingerprintKompositMax} ==
-                  std::array<std::size_t, kAnatomyFingerprintGliedCount>{32, 256, 256, 768, 128, 512, 1536, 128, 64,
-                                                                         2368},
-              "A2.5/B-F7 BUDGET-REIHE: ein Einzel-Budget ist gewandert (Reihe in Glied-Ordnung "
-              "[Format, Mess, System, Organ, Werteset, Toolchain, bvset, Overlay, mess-gates, "
-              "komposit]). Die Soll-Reihe, die Summe 6057 und den Beleg-Absatz gemeinsam nachziehen -- "
-              "kompensierende Verschiebungen duerfen nie still bleiben.");
+static_assert(
+    std::array<std::size_t, kAnatomyFingerprintGliedCount>{
+        kAnatomyFingerprintFormatMax, kAnatomyFingerprintMeasurementMax, kAnatomyFingerprintSystemMax,
+        kAnatomyFingerprintOrganMax, kAnatomyFingerprintValuesetMax, kAnatomyFingerprintToolchainMax,
+        kAnatomyFingerprintBvsetMax, kAnatomyFingerprintOverlayMax, kAnatomyFingerprintMessGatesMax,
+        kAnatomyFingerprintKompositMax} ==
+        std::array<std::size_t, kAnatomyFingerprintGliedCount>{32, 256, 256, 768, 128, 512, 1536, 128, 64, 2368},
+    "A2.5/B-F7 BUDGET-REIHE: ein Einzel-Budget ist gewandert (Reihe in Glied-Ordnung "
+    "[Format, Mess, System, Organ, Werteset, Toolchain, bvset, Overlay, mess-gates, "
+    "komposit]). Die Soll-Reihe, die Summe 6057 und den Beleg-Absatz gemeinsam nachziehen -- "
+    "kompensierende Verschiebungen duerfen nie still bleiben.");
 
 static_assert(kAnatomyFingerprintBudgetSum <= kAnatomyFingerprintPreimageMax,
               "O-2/C-2 BUDGET: die Summe der Glied-Obergrenzen plus Separatoren passt nicht mehr in "
@@ -1210,10 +1209,10 @@ static_assert(anatomy_fingerprint_glieder(MessZeile{"M"}, SystemZeile{"S"}, Orga
 /// Traeger, und "KM" war keine Map (die Probe haette den Traeger selbst gebrochen).
 inline constexpr std::string_view kKompositPositionsProbeMap =
     "1=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-static_assert(anatomy_fingerprint_glieder(
-                  MessZeile{"M"}, SystemZeile{"S"}, OrganZeile{"O"}, ToolchainGlied{"TC"}, BvsetGlied{"BV"},
-                  OverlayHash{"OV"}, MessGatesGlied{"MG"},
-                  KompositMapGlied{kKompositPositionsProbeMap})[kAnatomyFingerprintKompositGlied] ==
+static_assert(anatomy_fingerprint_glieder(MessZeile{"M"}, SystemZeile{"S"}, OrganZeile{"O"}, ToolchainGlied{"TC"},
+                                          BvsetGlied{"BV"}, OverlayHash{"OV"}, MessGatesGlied{"MG"},
+                                          KompositMapGlied{
+                                              kKompositPositionsProbeMap})[kAnatomyFingerprintKompositGlied] ==
                   kKompositPositionsProbeMap,
               "kAnatomyFingerprintKompositGlied zeigt nicht mehr auf das Hybrid-Komposit-Map-Glied.");
 /// R-3: das Overlay-Glied war bis Format 3 das SCHWANZ-Glied (O-2/C-2: "ein noch leeres Glied gehoert

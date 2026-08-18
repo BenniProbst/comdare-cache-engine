@@ -77,9 +77,7 @@ extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_genus() noexc
 
 /// Test-Sonden (KEINE ABI-Pflicht-Symbole; der Loader kennt sie nicht): der Test liest sie ueber
 /// sein eigenes dlopen-Handle, waehrend das Modul resident bleibt.
-extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint64_t comdare_q2_testonly_create_count() noexcept {
-    return create_count;
-}
+extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint64_t comdare_q2_testonly_create_count() noexcept { return create_count; }
 extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint64_t comdare_q2_testonly_destroy_count() noexcept {
     return destroy_count;
 }

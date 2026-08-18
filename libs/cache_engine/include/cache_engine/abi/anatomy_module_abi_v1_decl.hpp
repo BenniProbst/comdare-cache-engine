@@ -444,16 +444,15 @@ static_assert(!detail::kNimmtFelder<AnatomyVersionLines, kAnatomyVersionLinesFel
 /// Organ-Paar sind typgleich ({char const*, uint64}), die Folge sieht vor und nach der Drehung identisch
 /// aus. Das ist kein Mangel dieser Wache, sondern ihre Grenze; die Drehung faengt die
 /// Designator-Reihenfolge in den vier Aggregat-Initialisierern (s. VL-2-Block unten).
-static_assert(
-    detail::kVersionLinesNimmt<detail::FeldU32, detail::FeldU32, detail::FeldZgr, detail::FeldU64, detail::FeldZgr,
-                               detail::FeldU64, detail::FeldZgr, detail::FeldU64, detail::FeldZgr, detail::FeldU64,
-                               detail::FeldEintr, detail::FeldU64, detail::FeldEintr, detail::FeldU64,
-                               detail::FeldEintr, detail::FeldU64, detail::FeldZgr, detail::FeldU64,
-                               detail::FeldZgr, detail::FeldU64>,
-    "VL-2: AnatomyVersionLines nimmt seine 20 Felder nicht mehr in der erwarteten Typ-Folge -- ein "
-    "Feld ist ENTFALLEN oder hat seinen Typ gewechselt. kAnatomyVersionLinesFeldZahl und die vier "
-    "Aggregat-Initialisierer (decl-Probe, Makro anatomy_module_abi_v1.hpp, test_d2 mach_pod, "
-    "test_m_w12) im SELBEN Commit nachziehen.");
+static_assert(detail::kVersionLinesNimmt<detail::FeldU32, detail::FeldU32, detail::FeldZgr, detail::FeldU64,
+                                         detail::FeldZgr, detail::FeldU64, detail::FeldZgr, detail::FeldU64,
+                                         detail::FeldZgr, detail::FeldU64, detail::FeldEintr, detail::FeldU64,
+                                         detail::FeldEintr, detail::FeldU64, detail::FeldEintr, detail::FeldU64,
+                                         detail::FeldZgr, detail::FeldU64, detail::FeldZgr, detail::FeldU64>,
+              "VL-2: AnatomyVersionLines nimmt seine 20 Felder nicht mehr in der erwarteten Typ-Folge -- ein "
+              "Feld ist ENTFALLEN oder hat seinen Typ gewechselt. kAnatomyVersionLinesFeldZahl und die vier "
+              "Aggregat-Initialisierer (decl-Probe, Makro anatomy_module_abi_v1.hpp, test_d2 mach_pod, "
+              "test_m_w12) im SELBEN Commit nachziehen.");
 
 /// Loader-Gate (A4) -- A13-M3/K-4: GLEICHHEITS-Wache statt `>= 5`.
 ///
@@ -538,8 +537,8 @@ namespace detail {
                                // Nachzug. Werte nach der ""-Doktrin -- die Probe liest ohnehin nur
                                // stamp_layout_version, aber ein nullptr hier waere ein POD, den kein
                                // Konsument je so sehen darf.
-                               .name_line               = "",
-                               .name_len                = 0u};
+                               .name_line = "",
+                               .name_len  = 0u};
 }
 } // namespace detail
 

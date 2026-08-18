@@ -229,10 +229,9 @@ class HybridBinaryProxy final : public anatomy::IAnatomyBase {
     // last-bind-wins beim Binden und die Komplett-Nullung beim Loesen EINES Slots still falsch.
     // Mehr-Dock-Delegation (slotbezogene Basiszeiger) ist das HY-B/W3-Design -- wer sie braucht,
     // baut sie DORT und loest diesen Pin als bewusste Quittung, nicht als Reibung.
-    static_assert(MaxDocks == 1,
-                  "HY-A2/F8: Mehr-Dock-Delegation ist nicht definiert -- EIN ziel_-Feld traegt die "
-                  "gesamte Delegation, mehr Docks waeren still falsch (last-bind-wins beim Binden, "
-                  "Komplett-Nullung beim Loesen). Mehr-Dock = HY-B/W3, slotbezogene Basiszeiger.");
+    static_assert(MaxDocks == 1, "HY-A2/F8: Mehr-Dock-Delegation ist nicht definiert -- EIN ziel_-Feld traegt die "
+                                 "gesamte Delegation, mehr Docks waeren still falsch (last-bind-wins beim Binden, "
+                                 "Komplett-Nullung beim Loesen). Mehr-Dock = HY-B/W3, slotbezogene Basiszeiger.");
 
 public:
     using Policy = StatischeDockArrayPolicy<MaxDocks>;

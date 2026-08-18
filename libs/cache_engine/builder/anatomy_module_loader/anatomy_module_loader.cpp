@@ -139,7 +139,7 @@ int AnatomyModuleLoader::load(std::filesystem::path const& dll_path, AnatomyModu
         void*              native  = nullptr;
         ana::IAnatomyBase* anatomy = nullptr;
         PfnDestroy         destroy = nullptr;
-        void jetzt_freigeben() noexcept {
+        void               jetzt_freigeben() noexcept {
             if (anatomy != nullptr && destroy != nullptr) { destroy(anatomy); }
             anatomy = nullptr;
             destroy = nullptr;
@@ -252,8 +252,8 @@ int AnatomyModuleLoader::load(std::filesystem::path const& dll_path, AnatomyModu
         std::cerr << "[anatomy_loader] identity_mismatch: Symbol comdare_anatomy_genus meldet "
                   << static_cast<int>(modul_genus) << ", die Instanz meldet " << instanz_genus
                   << "; Symbol comdare_anatomy_gattung meldet " << static_cast<int>(modul_gattung)
-                  << ", gattung_of(genus) ergibt " << static_cast<int>(ana::gattung_of(modul_genus))
-                  << " (" << dll_path.string() << ")\n";
+                  << ", gattung_of(genus) ergibt " << static_cast<int>(ana::gattung_of(modul_genus)) << " ("
+                  << dll_path.string() << ")\n";
         return status_identity_mismatch;
     }
 

@@ -235,8 +235,8 @@ enum class AnatomyGenus : std::uint8_t {
 
 // Die Wertklassen-Pins am Ort der Funktion: alle sechs Enum-Werte JA; die erste Nicht-Enum-Zelle (6)
 // und das am Objekt verifizierte Container-Default-Byte (250) NEIN.
-static_assert(genus_bekannt(0) && genus_bekannt(1) && genus_bekannt(2) && genus_bekannt(3) &&
-              genus_bekannt(4) && genus_bekannt(5));
+static_assert(genus_bekannt(0) && genus_bekannt(1) && genus_bekannt(2) && genus_bekannt(3) && genus_bekannt(4) &&
+              genus_bekannt(5));
 static_assert(!genus_bekannt(6) && !genus_bekannt(250),
               "genus_bekannt() muss jedes Nicht-Enum-Byte abweisen -- sonst traegt eine konsistente "
               "Luege (Symbol, gattung_of und Instanz einig auf einem Phantasie-Wert) falsche "

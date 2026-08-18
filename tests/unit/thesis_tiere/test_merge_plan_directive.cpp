@@ -72,9 +72,7 @@ TEST(MergePlanDirective, UnknownMergeModeThrowsFailClosed) {
     auto meldung_von = [](std::string const& token) -> std::string {
         try {
             (void)tlz::merge_mode_to_strategy(token);
-        } catch (std::invalid_argument const& e) {
-            return e.what();
-        }
+        } catch (std::invalid_argument const& e) { return e.what(); }
         return {};
     };
     // Alt-Token "fulljoin": wirft UND nennt Token, gueltige Menge und den V-11R-Umbenennungs-Hinweis.
