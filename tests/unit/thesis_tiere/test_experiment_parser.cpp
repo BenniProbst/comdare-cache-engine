@@ -577,17 +577,29 @@ TEST(ExperimentParser, BogusPerAxisMergeModeIsError) {
     EXPECT_EQ(vr.axis_merge_checked, 1u);
 }
 
-// (k3d) K3 — ein gueltiger per-Achse Merge-Modus ("merge") wird AKZEPTIERT; leere merge (Default) zaehlt nicht mit.
+// (k3d) K3 -- ein gueltiger per-Achse Merge-Modus ("replace") wird AKZEPTIERT; leere merge (Default) zaehlt
+// nicht mit. A2.5-g5 (Review #15, Fix 15): "merge" ist zwar TOKEN-gueltig (kExperimentAxisMergeModes),
+// aber bis zur Materialisierung von Verbund2_Hybrid am Validator GESPERRT -- der Akzeptanz-Beleg faehrt
+// deshalb "replace"; das Deferred-Gate fuer "merge" pinnt der zweite Block unten.
 TEST(ExperimentParser, ValidPerAxisMergeModeIsAccepted) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
-    ep->axes_default_lookup[0].merge_mode = "merge"; // gueltig; axes[1..2] bleiben leer = replace-Default
+    ep->axes_default_lookup[0].merge_mode = "replace"; // gueltig; axes[1..2] bleiben leer = replace-Default
 
     fs::path const                        reg = make_registry_dir();
     tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
     for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
     EXPECT_TRUE(vr.ok);
     EXPECT_EQ(vr.axis_merge_checked, 1u); // nur die EINE gesetzte Achse
+
+    // Deferred-Gate: dasselbe Profil mit "merge" faellt mit dem Materialisierungs-Hinweis (kein
+    // UNGUELTIGER-Merge-Modus-Text -- das Token ist bekannt, nur nicht materialisiert).
+    ep->axes_default_lookup[0].merge_mode     = "merge";
+    tlz::ExperimentValidationResult const vr2 = tlz::validate_experiment_profile(*ep, reg);
+    EXPECT_FALSE(vr2.ok);
+    EXPECT_TRUE(any_contains(vr2.errors, "nicht materialisiert"));
+    EXPECT_FALSE(any_contains(vr2.errors, "UNGUELTIGER Merge-Modus"));
+    EXPECT_EQ(vr2.axis_merge_checked, 1u);
 
     std::error_code ec;
     fs::remove_all(reg, ec);

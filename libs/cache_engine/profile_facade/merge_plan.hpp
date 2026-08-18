@@ -2,7 +2,8 @@
 // KERN-B K5 (Section 59, 2026-07-20; User-GO "Anatomy = Stempel-Vorlage, nach Plan reparieren + weiterentwickeln")
 // -- merge_plan: die DEKLARATIVE NAHT zwischen dem geparsten ExperimentProfile (KERN-A: per-Achse merge_mode +
 // Pruefling-Identitaet, xml_config_parser.hpp) und dem direktiven-getriebenen Emitter (sota_catalog K5). KERN-A hat
-// den per-Achse merge_mode NUR geparst + validiert (validate_profile.hpp:965-980, {replace,merge}); dieses Modul
+// den per-Achse merge_mode NUR geparst + validiert (validate_profile.hpp, KERN-A-Abschnitt axes_default_lookup;
+// Mengen-Single-Source kExperimentAxisMergeModes UNTEN IN DIESER DATEI: {replace,merge,union}); dieses Modul
 // projiziert ihn auf einen expliziten Direktiven-Vektor, der den Emitter von der KATALOG-Verdrahtung (die 6 hart
 // aufgelisteten <Host>PrtVerbundN-Typen) auf eine AxisMergeDirective-getriebene MergeAxis<>-Instanziierung
 // generalisiert (Section 59-A: "kein Neubau, sondern Umverdrahtung + Schema").
@@ -28,6 +29,7 @@
 
 #include "xml_config_parser/xml_config_parser.hpp" // ExperimentProfile / ExperimentAxisDefault / ExperimentPhase
 
+#include <stdexcept> // A2.5-g5 (Review #15, Fix 16): fail-closed-Wurf des Rest-Kollektors
 #include <string>
 #include <string_view>
 #include <vector>
@@ -35,6 +37,16 @@
 namespace comdare::cache_engine::thesis_lazy {
 
 namespace mp_cx = ::comdare::builder::xml;
+
+// -- KERN-A (S4 Mess-Schema, 2026-07-20) + KERN #48-S4 (Fork 4 dritter Token, 2026-07-22): die drei erlaubten
+//    per-Achse Merge-Modi. Leer=""=replace-Default (heutiges Verhalten byte-identisch); "merge" = additiver
+//    Zusammenschluss statt Ersetzen; "union" = die EXPLIZITE, Phase-3-gebundene Union (Verdikt V-a: Section-59-A
+//    trennt Verbund-2-Hybrid und Verbund-3-Union woertlich). Single-Source der Token HIER.
+//    A2.5-g5 (Review #15, Fix 16): aus validate_profile.hpp HIERHER gezogen (die Include-Richtung ist
+//    validate -> merge_plan; der fail-closed-Kollektor unten leitet seine Fehlermenge aus DIESEM Array ab,
+//    und ein zweites Array waere die zweite Wissensquelle). validate_profile prueft weiter gegen genau
+//    dieses Symbol; der Phase-3-Bindungs-Check zu "union" lebt dort. --
+inline constexpr char const* kExperimentAxisMergeModes[] = {"replace", "merge", "union"};
 
 /// AxisMergeDirective -- EINE per-Achse Merge-Direktive (POD/Strings). Sie ersetzt die frueher hart aufgelistete
 /// (Host, Stufe)-Katalog-Wahl durch eine deklarative Achsen-Anweisung: WELCHE Achse (axis_ref) wird mit WELCHER
@@ -74,9 +86,24 @@ struct AxisMergeDirective {
 /// Section-59-A(1) Verbund1_CeOnly ist die Abwesenheit einer Pruefling-Direktive (kein axes_default_lookup-merge /
 /// self).
 [[nodiscard]] inline std::string merge_mode_to_strategy(std::string const& merge_mode) {
+    // "" (Default) und "replace" EXPLIZIT => ERSETZT-mit-Fallback (Verbund2). Kein Rest-Kollektor mehr.
+    if (merge_mode.empty() || merge_mode == "replace") return "Verbund2_Replace";
     if (merge_mode == "union") return "Verbund3_Union";  // §59-A(3): kombinierte Union CE + Pruefling
     if (merge_mode == "merge") return "Verbund2_Hybrid"; // §59-A(2): CE + Pruefling HYBRID je Pruefling (!= Union)
-    return "Verbund2_Replace"; // "" (Default) und "replace" => ERSETZT-mit-Fallback (Verbund2)
+    // A2.5-g5 (Review #15, Fix 16 / D-F3): FAIL-CLOSED statt Rest-Kollektor. Der alte Fallthrough
+    // projizierte JEDES unbekannte Token still auf Verbund2_Replace -- fuer das Alt-Token "fulljoin"
+    // (seit V-11R "union") war das eine stille SEMANTIK-INVERSION (Union -> Replace) auf dem
+    // unvalidierten Direkt-Pfad; Doktrin-Asymmetrie zum fail-closed gebauten run_methodology_for_ids.
+    // Die gueltige Menge kommt aus kExperimentAxisMergeModes (Array-Ableitung, keine Handliste).
+    std::string menge;
+    for (char const* m : kExperimentAxisMergeModes) {
+        if (!menge.empty()) menge += ", ";
+        menge += m;
+    }
+    throw std::invalid_argument{"merge_mode_to_strategy: unbekanntes merge-Token \"" + merge_mode +
+                                "\" -- gueltig sind {" + menge +
+                                "} (kExperimentAxisMergeModes; leer = replace-Default). Hinweis: "
+                                "\"fulljoin\" ist seit V-11R \"union\"."};
 }
 
 /// profile_pruefling_identity(ep) -- die Pruefling-Identitaet der Merge-Phasen des Profils. Die erste <phase>, die

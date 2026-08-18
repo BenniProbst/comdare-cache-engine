@@ -159,6 +159,25 @@ int main() {
             check_true("(2s) Gegenprobe: misst+1-Thread => 0 trotz Env=5 (das Gate lebt)",
                        ex::resolve_measure_parallelism_of_mode(misst_1thread) == 0);
             ::unsetenv("COMDARE_MEASURE_PARALLEL");
+
+            // -- A2.5-g5 (Review #15, Fix 28 + E-2): die zwei fehlenden Zellen der Env-Zahlenkante ------
+            // (i) Env="0": v>0-Kante -- dokumentierter Default-Weg ("Env-unparsebar/0 => nproc-Default").
+            ::setenv("COMDARE_MEASURE_PARALLEL", "0", 1);
+            check_true("(2s null) misst+parallel + Env=0 => nproc>0 (dokumentierter Default, kein 0-Pool)",
+                       ex::resolve_measure_parallelism_of_mode(misst_parallel) > 0);
+            // (ii) 21-stelliges Env (2^64+5 = 18446744073709551621): die Ziffern-Akkumulation ohne
+            //      Bereichsdeckel wickelte still auf den Wrap-Rest 5 -- ein PLAUSIBLER falscher Pool.
+            //      SOLL (Fix 28): Wrap-Eingaben fallen wie andere unparsebare Werte auf den nproc-Default;
+            //      gemessen als GLEICHHEIT zum Env-losen Lauf (nproc), nicht als nackte Zahl.
+            ::unsetenv("COMDARE_MEASURE_PARALLEL");
+            std::size_t const nproc_referenz = ex::resolve_measure_parallelism_of_mode(misst_parallel);
+            ::setenv("COMDARE_MEASURE_PARALLEL", "18446744073709551621", 1);
+            std::size_t const wrap_ergebnis = ex::resolve_measure_parallelism_of_mode(misst_parallel);
+            check_eq("(2s ueberlauf) 21-stelliges Env == Env-loser nproc-Default (kein 2^64-Wrap-Rest 5)",
+                     wrap_ergebnis, nproc_referenz);
+            check_true("(2s ueberlauf) und explizit NICHT der Wrap-Rest 5 (prod1: nproc=32, nie 5)",
+                       wrap_ergebnis != 5);
+            ::unsetenv("COMDARE_MEASURE_PARALLEL");
         }
 
         // (2c Welle B/1, 2026-08-07) FAIL-CLOSED: ein UNBEKANNTES Token (Tippfehler im Profil) fiel bis heute STILL

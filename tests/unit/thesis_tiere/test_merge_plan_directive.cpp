@@ -28,6 +28,7 @@
 
 #include <gtest/gtest.h>
 
+#include <stdexcept> // A2.5-g5 (Fix 16): fail-closed-Probe an merge_mode_to_strategy
 #include <string>
 #include <vector>
 
@@ -59,6 +60,36 @@ TEST(MergePlanDirective, MergeModeToStrategyMapping) {
     EXPECT_EQ(tlz::merge_mode_to_strategy("merge"), "Verbund2_Hybrid");
     // R6 (§59-A(3)): "union" = kombinierte Union, der EXPLIZITE Phase-3-Token => Verbund3_Union.
     EXPECT_EQ(tlz::merge_mode_to_strategy("union"), "Verbund3_Union");
+}
+
+// (a2n) A2.5-g5 (Review #15, Fix 16 / D-F3): der Rest-Kollektor ist FAIL-CLOSED gedreht. Ein
+// unbekanntes Token fiel bis dahin STILL auf Verbund2_Replace -- fuer das Alt-Token "fulljoin"
+// (seit V-11R "union") war das eine stille SEMANTIK-INVERSION (Union -> Replace) auf dem
+// unvalidierten Direkt-Pfad, Doktrin-Asymmetrie zum fail-closed gebauten run_methodology_for_ids.
+// Jetzt: throw mit Token + gueltiger Menge (aus kExperimentAxisMergeModes ABGELEITET, keine
+// Handliste) + fulljoin-Hinweis.
+TEST(MergePlanDirective, UnknownMergeModeThrowsFailClosed) {
+    auto meldung_von = [](std::string const& token) -> std::string {
+        try {
+            (void)tlz::merge_mode_to_strategy(token);
+        } catch (std::invalid_argument const& e) {
+            return e.what();
+        }
+        return {};
+    };
+    // Alt-Token "fulljoin": wirft UND nennt Token, gueltige Menge und den V-11R-Umbenennungs-Hinweis.
+    std::string const m1 = meldung_von("fulljoin");
+    ASSERT_FALSE(m1.empty()) << "\"fulljoin\" darf NICHT still auf Verbund2_Replace fallen (Union->Replace!)";
+    EXPECT_NE(m1.find("fulljoin"), std::string::npos) << "die Meldung nennt das Token";
+    EXPECT_NE(m1.find("replace, merge, union"), std::string::npos)
+        << "die Menge kommt aus kExperimentAxisMergeModes (Array-Ableitung, keine Handliste): " << m1;
+    EXPECT_NE(m1.find("V-11R"), std::string::npos) << "fulljoin-Hinweis: seit V-11R \"union\": " << m1;
+    // Tippfehler wirft ebenso (kein stiller replace-Ersatz).
+    EXPECT_FALSE(meldung_von("repalce").empty()) << "Tippfehler-Token muss werfen";
+    // Gegenprobe: die drei gueltigen Tokens + leer werfen NIE (byte-neutral zum validierten Pfad).
+    EXPECT_TRUE(meldung_von("").empty() && meldung_von("replace").empty() && meldung_von("merge").empty() &&
+                meldung_von("union").empty())
+        << "gueltige Tokens duerfen nicht werfen";
 }
 
 // (a3) Ein per-Achse-merge-Profil => je markierter Achse EINE Direktive mit korrekter Strategie + Pruefling.

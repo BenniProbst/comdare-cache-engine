@@ -607,6 +607,10 @@ TEST(ValidateProfileVerbundStrategie, BeliebigerFremdwertFaelltEbenfalls) {
 TEST(ValidateProfileVerbundStrategie, AlleThesisProfileImBaumValidierenSauber) {
     ex::AxisRegistry const      registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
     std::set<std::string> const known    = real_workload_ids();
+    // A2.5-g5 (Review #15, Fix 29 / E-3): eigener Nenner-Anker fuer (d) statt Verlass auf (e) im selben
+    // Binary -- ein verschobenes/leeres load_profiles/ liesse die workloads-Dimension sonst als stillen
+    // Skip durchgehen (stille-Null-Klasse), waehrend dieser Test weiter "alle Profile geprueft" meldet.
+    ASSERT_FALSE(known.empty()) << "load_profiles/ nicht gefunden -- workloads-Pruefung liefe als stiller Skip";
 
     std::size_t geprueft = 0;
     for (auto const& entry : fs::directory_iterator{thesis_profiles_dir()}) {

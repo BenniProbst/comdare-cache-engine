@@ -950,11 +950,15 @@ struct RunProfileResult {
         cfg.partial_marker_sink = a.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker (No-Op-Default)
         cfg.chunk_part_size     = a.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
         cfg.progress_sink       = a.progress_sink; // Welle 5 (E-W5-2): §38-Rueck-Kanal (No-Op-Default => byte-neutral)
-        // #45 (§16.2-M1/§61-MODI): der parallele Mess-Loop -- NUR im Debug-Modus (run_methodology). Measure/Release/
-        // undeklariert => 0 => sequentiell/1-Thread (byte-neutral). COMDARE_MEASURE_PARALLEL (getrennt vom Compile-Pool).
-        // smoke=>debug-Entkopplung (2026-07-22): ist ein METHODIK-Override gesetzt (a.methodik_run_methodology aus
-        // COMDARE_PLAN_METHODIK_PROFILE), speist DIESE Methodik den Mess-Loop (z.B. debug=parallel bei measure-Katalog);
-        // leer => aus tp.run_methodology (byte-neutral). Die Methodik bleibt profil-getrieben (facade-validiert).
+        // #45 (§16.2-M1/§61-MODI) + A-05/V-12: seit dem work_mode-Umbau misst KEIN Registry-Modus parallel
+        // (der ausgebaute debug war der einzige) -- alle 4 Modi {build,measure,compare,release} und
+        // undeklariert => 0 => sequentiell/1-Thread (byte-neutral). COMDARE_MEASURE_PARALLEL (getrennt vom
+        // Compile-Pool) wirkt erst wieder, wenn die Faehigkeit "misst UND parallel" in Betrieb geht --
+        // kuenftig via --debug-CLI-Flag (S-8/W2) bzw. Zustands-Injektion resolve_measure_parallelism_of_mode
+        // (A2.5-g5/Fix 17: hier stand als Beispiel der seit V-12 WERFENDE Token "debug").
+        // smoke=>debug-Entkopplung (2026-07-22, Ereignis-Name historisch): ist ein METHODIK-Override gesetzt
+        // (a.methodik_run_methodology aus COMDARE_PLAN_METHODIK_PROFILE), speist DIESE Methodik den
+        // Mess-Loop; leer => aus tp.run_methodology (byte-neutral). Profil-getrieben (facade-validiert).
         cfg.measure_parallelism = ex::resolve_measure_parallelism(
             a.methodik_run_methodology.empty() ? tp.run_methodology : a.methodik_run_methodology);
         // G4: informatives Feld konsistent aus <repetitions count> speisen (die echten Wiederholungen

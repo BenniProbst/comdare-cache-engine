@@ -73,7 +73,7 @@ inline constexpr std::size_t kWorkModeCount = 4;
 
 struct WorkModeInfo {
     WorkMode         methodology;
-    std::string_view id;   ///< kanonischer XML-/Legenden-Token ("debug"/"measure"/"release")
+    std::string_view id;   ///< kanonischer XML-/Legenden-Token ("build"/"measure"/"compare"/"release")
     std::string_view name; ///< exakt der Enum-Name (Doku/Reporting)
     // S5-P1 (P-VOLLZUG, Section 47/55, 2026-07-20): die Build-Semantik jeder Ablauf-Methode. Der Planer speist
     // daraus den CMAKE_BUILD_TYPE + die Mess-/Thread-Politik der emittierten Bau-/Mess-Jobs (Single-Source statt
@@ -83,18 +83,25 @@ struct WorkModeInfo {
     bool             measurement_on;   ///< misst der Lauf (golden-Zahlen) oder baut/referenziert er nur
     // §61-MODI (User-Volldefinition 2026-07-21): single_thread bezeichnet die MESS-SEQUENTIALITAET (der Mess-Loop
     // misst 1-Thread-deterministisch, Section 38.b) -- NICHT die Bau-Parallelitaet. Der BAU (DLL-Provision-Pool,
-    // COMDARE_BUILD_PARALLEL) bleibt in ALLEN Modi parallel; NUR das Messen ist bei measure/release sequentiell.
-    // Modi-Volldefinition (§61-MODI): debug = je Maschine parallel bauen + parallel MESSEN (paralleler Mess-Loop
-    // §16.2-M1 GEBAUT, #45/99a608c2: debug misst nproc-parallel via resolve_measure_parallelism + collect_ordered,
-    // measure/release strikt 0); measure = parallel bauen + sequentiell messen; release = parallel bauen + sequentiell
-    // messen -> Auslieferung (Observer-frei + Wallclock-Beweis, S7/Post-Scope). Werte hier unveraendert.
+    // COMDARE_BUILD_PARALLEL) bleibt in ALLEN Modi parallel; NUR das Messen ist sequentiell.
+    // SUPERSEDIERTES ZITAT (A2.5-g5/Fix 17; Doku-Doktrin: supersedieren, nie loeschen) -- die §61-MODI-
+    // Volldefinition beschrieb die 3er-Welt VOR A-05/V-12 (Datei-Kopf Z.19-34; debug ist AUSGEBAUT):
+    //   "debug = je Maschine parallel bauen + parallel MESSEN (paralleler Mess-Loop §16.2-M1 GEBAUT,
+    //   #45/99a608c2: debug misst nproc-parallel via resolve_measure_parallelism + collect_ordered,
+    //   measure/release strikt 0); measure = parallel bauen + sequentiell messen; release = parallel
+    //   bauen + sequentiell messen -> Auslieferung (Observer-frei + Wallclock-Beweis, S7/Post-Scope)."
+    // HEUTE (4er-Welt {build,measure,compare,release}): KEIN Modus misst parallel; die Mechanik dahinter
+    // bleibt ueber resolve_measure_parallelism_of_mode (Zustands-Injektion) beobachtbar, S-8/W2.
     bool single_thread; ///< MESS-Sequentialitaet (Mess-Loop 1-Thread, Section 38.b) -- NICHT Bau-Politik
 };
 
 /// Die EINE Registry der Run-Methodik-UNTER-Achse -- Index == WorkMode-Wert (static_assert-gesichert).
-/// S5-P1-Build-Semantik: measure = deterministischer 1-Thread-Messlauf (Release, misst); debug = paralleler
-/// Verdrahtungs-Check (Debug, misst, KEINE 1-Thread-Determinismus-Garantie); release = Referenz-Durchsatz (Release,
-/// misst NICHT). Der Emitter waehlt fuer die S5-Mess-Strecke die measure-Zeile (der Methodik-Fanout ist S6).
+/// S5-P1-Build-Semantik (4er-Welt, A2.5-g5/Fix 17): build = Bau ohne Messung (Release, misst NICHT,
+/// parallel) -- der Schritt vor jeder Messung; measure = deterministischer 1-Thread-Messlauf (Release,
+/// misst); compare = waehlbares Etikett (Release, misst NICHT; eigener Ablauf = Paket D2); release =
+/// Referenz-Durchsatz (Release, misst NICHT). Der fruehere debug (Debug, misst, parallel, KEINE
+/// 1-Thread-Determinismus-Garantie) ist per A-05/V-12 AUSGEBAUT (s. Datei-Kopf). Der Emitter waehlt
+/// fuer die S5-Mess-Strecke die measure-Zeile (der Methodik-Fanout ist S6).
 /// Lane D (Q-4/Q-5), Ordnung nach O-A (2026-08-07): compare ist die Stufe VOR release -- es LIEST das
 /// Messwertlager (eigene Optionen) und vergleicht die bereits gemessenen Sichten, erhebt aber selbst KEINE
 /// golden-Zahlen. Es baut deshalb wie release (Release, misst NICHT, parallel); die Zeile ist bewusst
@@ -123,10 +130,14 @@ static_assert(kWorkModeRegistry.size() == kWorkModeCount,
 static_assert(detail::work_mode_registry_is_complete(),
               "kWorkModeRegistry: 4 Eintraege, Index==WorkMode, id/name nie leer.");
 // Namen-Anker: Drift eines id-Tokens (Umbenennung/Vertauschung) bricht hier compile-time.
+// A2.5-g5 (D-F2): die Konjunktions-Reihenfolge folgt der ENUM-Ordnung (Compare VOR Release) -- vorher
+// stand Release vor Compare und widersprach dem eigenen "(Enum-Ordnung)"-Wortlaut. Die Registry ist die
+// Single-Source der Tokens; DIESER Anker und der Test-Cross-Pin (test_experiment_parser, "compare") sind
+// die zwei BEWUSSTEN Literal-Gegenproben nach Pin-Doktrin, keine dritte Wissensquelle.
 static_assert(kWorkModeRegistry[static_cast<std::size_t>(WorkMode::Build)].id == std::string_view{"build"} &&
                   kWorkModeRegistry[static_cast<std::size_t>(WorkMode::Measure)].id == std::string_view{"measure"} &&
-                  kWorkModeRegistry[static_cast<std::size_t>(WorkMode::Release)].id == std::string_view{"release"} &&
-                  kWorkModeRegistry[static_cast<std::size_t>(WorkMode::Compare)].id == std::string_view{"compare"},
+                  kWorkModeRegistry[static_cast<std::size_t>(WorkMode::Compare)].id == std::string_view{"compare"} &&
+                  kWorkModeRegistry[static_cast<std::size_t>(WorkMode::Release)].id == std::string_view{"release"},
               "kWorkModeRegistry: id-Tokens sind {build,measure,compare,release} (Namen-Anker, Enum-Ordnung).");
 // S5-P1 Build-Semantik-Anker: Drift der Build-/Mess-/Thread-Politik einer Methode bricht hier compile-time. Der
 // Emitter verlaesst sich auf measure == {Release, misst, 1-Thread} (die S5-Mess-Strecke); direkter Index-Zugriff,
@@ -186,11 +197,13 @@ namespace detail {
 /// falsch geschriebener Wunsch. Der Validator gated denselben Token bereits VOR dem Bau (check_measurement_sub_axis,
 /// validate_profile.hpp); diese Wache traegt den UNVALIDIERTEN Direkt-Pfad (Struct-Injektion, Entry ohne Validat).
 /// SINGLE-SOURCE fuer den Runtime-Konsum UND fuer den Planer (experiment_plan_director::build_semantic_of_run_
-/// methodology delegiert hierher) -- der Mess-Loop leitet daraus single_thread ab (debug => paralleler Mess-Loop).
+/// methodology delegiert hierher) -- der Mess-Loop leitet daraus single_thread ab (seit A-05/V-12 misst
+/// KEINE Registry-Zeile parallel; der parallele Mess-Loop bleibt ueber resolve_measure_parallelism_of_mode
+/// als Zustands-Injektion beobachtbar, S-8/W2).
 [[nodiscard]] inline WorkModeInfo const& run_methodology_for_ids(std::vector<std::string> const& ids) {
     // R5/§61-STUFEN (LED:3190): GENAU EINE Methodik je Call. >1 ist ein Kontraktbruch -- der Validator gated ihn
     // VOR dem Bau (validate_profile: run_methodology.size()>1 => nicht ok). Hier defensiv HART (statt still ids.front()),
-    // damit eine mehrdeutige 2-Modi-Liste NIE zufaellig eine Modus-Semantik (z.B. debug-Mess-Loop) waehlt.
+    // damit eine mehrdeutige 2-Modi-Liste NIE zufaellig eine Modus-Semantik (z.B. den measure-Mess-Loop) waehlt.
     if (ids.size() > 1)
         throw std::invalid_argument(
             "run_methodology_for_ids: " + std::to_string(ids.size()) +

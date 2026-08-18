@@ -21,7 +21,7 @@
 #include "stempel_baustein_trait.hpp"               // S-1: leichter Baustein-Trait (Spezialisierungen unten)
 
 #include <cstdint>
-#include <type_traits> // VL-2: die Feldzahl-Sonde + die Typ-Folge-Wache (S-6a-Nachzug, s. :286-Block)
+#include <type_traits> // VL-2: die Feldzahl-Sonde + die Typ-Folge-Wache (S-6a-Nachzug, s. VL-2-Feldzahl-Block unten)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ABI-Version + Magic-Number (Compile-Time-Konstanten fuer Module-Loader-Check)
@@ -161,9 +161,11 @@ void comdare_destroy_anatomy(::comdare::cache_engine::anatomy::IAnatomyBase* ptr
 // -----------------------------------------------------------------------------
 // Optionale Versionierungs-Stempel-Probe (W12-A2 / Section 43) -- KEIN Major-Bump
 // -----------------------------------------------------------------------------
-// Ein OPTIONALES 5. extern-"C"-Symbol, das die einkompilierten Organ-/System-Stempel-Zeilen
+// Ein OPTIONALES extern-"C"-Symbol (das 7., neben den sechs Pflicht-Symbolen; bis Q2/V-06 das 5.
+// neben vieren), das die einkompilierten Organ-/System-Stempel-Zeilen
 // (kOrganAxisVersionLine / kSystemAxisVersionLine) als POD exponiert. Der Loader verlangt weiter
-// NUR die 4 Pflicht-Symbole (comdare_create_anatomy et al.) -> KEIN ABI-Major-Bump; ein Modul ohne
+// NUR die 6 Pflicht-Symbole (comdare_create_anatomy et al. + die zwei Identitaets-Symbole, s.u.)
+// -> KEIN ABI-Major-Bump; ein Modul ohne
 // COMDARE_ANATOMY_VERSION_STAMP exportiert das Symbol schlicht nicht (dlsym/GetProcAddress findet es
 // nicht). Der POD traegt nur String-Literal-Zeiger (im Modul static constexpr), kein std::string.
 
@@ -432,8 +434,11 @@ static_assert(!detail::kNimmtFelder<AnatomyVersionLines, kAnatomyVersionLinesFel
               "kAnatomyVersionLinesFeldZahl heben.");
 
 /// Die TYP-FOLGE, als Ergaenzung zur Zahl darueber: sie faengt, was die Zaehl-Sonde nicht sehen kann --
-/// einen Feld-ENTFALL (dann sind 18 Argumente zu viel) und den TYP-WECHSEL eines Feldes. Ein 19. Feld
+/// einen Feld-ENTFALL (dann sind 20 Argumente zu viel) und den TYP-WECHSEL eines Feldes. Ein 21. Feld
 /// faengt sie ausdruecklich NICHT; das war der Lens-Fund und ist ab jetzt Sache der Sonde.
+/// A2.5-g5 (Review #15, Fix 13): das im selben Bruch appendierte name-Paar (name_line/name_len) fehlte
+/// in dieser Liste -- die Wache pruefte 18 von 20 Feldern, ein Typwechsel an den zwei Append-Feldern
+/// durchlief sie still. Seitdem stehen alle 20 Typen hier.
 ///
 /// S-6a-EHRLICHKEIT: den FELD-TAUSCH dieses Bumps faengt sie ebenfalls nicht -- Mess-, System- und
 /// Organ-Paar sind typgleich ({char const*, uint64}), die Folge sieht vor und nach der Drehung identisch
@@ -443,7 +448,8 @@ static_assert(
     detail::kVersionLinesNimmt<detail::FeldU32, detail::FeldU32, detail::FeldZgr, detail::FeldU64, detail::FeldZgr,
                                detail::FeldU64, detail::FeldZgr, detail::FeldU64, detail::FeldZgr, detail::FeldU64,
                                detail::FeldEintr, detail::FeldU64, detail::FeldEintr, detail::FeldU64,
-                               detail::FeldEintr, detail::FeldU64, detail::FeldZgr, detail::FeldU64>,
+                               detail::FeldEintr, detail::FeldU64, detail::FeldZgr, detail::FeldU64,
+                               detail::FeldZgr, detail::FeldU64>,
     "VL-2: AnatomyVersionLines nimmt seine 20 Felder nicht mehr in der erwarteten Typ-Folge -- ein "
     "Feld ist ENTFALLEN oder hat seinen Typ gewechselt. kAnatomyVersionLinesFeldZahl und die vier "
     "Aggregat-Initialisierer (decl-Probe, Makro anatomy_module_abi_v1.hpp, test_d2 mach_pod, "
@@ -492,7 +498,9 @@ static_assert(
 // aendern aber den POD -- sizeof, Layout und die Loader-Sicht ueber die ABI-Grenze. Das war Bruch-Materie
 // und gehoerte in den EINEN Bruch (Layout 6->7), nicht in die Vorstufe, die per Auftrag layout-neutral
 // blieb. Designierte Initialisierer beruehrten dort kein einziges Byte: kAnatomyVersionLinesLayout blieb 6,
-// sizeof blieb 120, die Werte waren dieselben. IN DIESEM Bruch bewegt sich beides -- Layout 7, sizeof 136.
+// sizeof blieb 120, die Werte waren dieselben. IN DIESEM Bruch bewegt sich beides -- Layout 7, sizeof 152
+// (120 -> 136 -> 152 ueber die zwei Appends (b)/(c); die frueher hier stehende 136 war der Zwischenstand
+// VOR dem name-Paar, C-F5).
 //
 // WAS SIE NICHT LOESEN, UND WAS STATTDESSEN (i) TRAEGT: gegen den APPEND helfen Designatoren nicht --
 // ein neues Feld ohne Designator bleibt still wert-initialisiert. Dafuer steht die Feldzahl-Wache unter
@@ -588,7 +596,7 @@ COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_gattung() noexcept;
 COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_genus() noexcept;
 
 /// comdare_anatomy_version_lines() -- OPTIONALES Probe-Symbol: liefert die einkompilierten Stempel-Zeilen
-/// eines Tier-Binary. NICHT Teil der 4 Loader-Pflicht-Symbole; ein ohne COMDARE_ANATOMY_VERSION_STAMP
+/// eines Tier-Binary. NICHT Teil der 6 Loader-Pflicht-Symbole; ein ohne COMDARE_ANATOMY_VERSION_STAMP
 /// gebautes Modul exportiert es gar nicht (dlsym liefert dann nullptr).
 COMDARE_ANATOMY_ABI_EXPORT
 ::comdare::cache_engine::abi::AnatomyVersionLines const* comdare_anatomy_version_lines() noexcept;
@@ -776,8 +784,10 @@ inline constexpr std::uint64_t     kAnatomyAbiMagicAbi7 = 0x434F4D444141372EULL;
 // Preimage-Grammatik, und genau dafuer ist dieser Minor da: er meldet der stale Binary, dass der Vertrag
 // sich erweitert hat. Praezedenz A13-M4/W10-M2/B14-NB4.
 // NICHT ZU VERWECHSELN mit kCebContractCodegenMinorAbi7 darunter: DAS ist ein eingefrorener Vorgaenger-
-// Wert unter Major 7 (7.2) und bleibt unangetastet. Der lebende Vertrag steht nach diesem Bump auf 8.2;
-// die beiden Bucket-Diff-Wachen (test_v41, test_w10_c4) vergleichen weiter 8.2 gegen 7.2 und halten.
+// Wert unter Major 7 (7.2) und bleibt unangetastet. Der lebende Vertrag steht nach diesem Bump auf 9.2
+// (Major automatisch aus COMDARE_ANATOMY_ABI_MAJOR == 9, NAHT-1; die frueher hier stehende 8.2 zaehlte
+// den Major der Schreib-Minute, nicht den lebenden -- test_e24_c10_g6 pinnt "9.2" literal); die beiden
+// Bucket-Diff-Wachen (test_v41, test_w10_c4) vergleichen weiter lebend gegen 7.2 und halten.
 inline constexpr std::uint32_t kCebContractCodegenMinor = 2;
 
 /// HISTORIEN-FREEZE des Vorgaenger-Minors (E-24 C8, additiv -- s. kHostAnatomyAbiVersionAbi7). Der Wert 2

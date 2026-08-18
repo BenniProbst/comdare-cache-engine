@@ -49,6 +49,8 @@
 // AUSGABE: klare Meldung je Fehler; bool-Ergebnis (true = OK). Der Host mappt true→Exit 0 (+ Zusammenfassung),
 // false→Exit != 0. Pattern: Specification/Validator (read-only Gegen-Pruefung); C++23, header-only.
 
+#include "merge_plan.hpp" // A2.5-g5 (Fix 16): kExperimentAxisMergeModes (Single-Source der Merge-Modi)
+
 #include <builder/experiment_tree/experiment_tree.hpp>         // AxisLevel
 #include <builder/experiment_tree/profile_to_tree.hpp>         // AxisRegistry (axis-ref → Werteliste)
 #include <builder/experiment_tree/axis_path_serialization.hpp> // kCompositionAxisNames (die 19 Komposition-Achsen)
@@ -510,7 +512,8 @@ inline void check_measurement_sub_axis(std::vector<std::string> const& tokens, R
     check_measurement_sub_axis(tp.run_methodology, ms::kWorkModeRegistry,
                                "<run_methodology><method value=", r.run_methodology_checked, r.ok, r.errors);
     // §61-STUFEN/(j1): GENAU EIN aktiver Modus je Profil/Call -- die Build-Semantik (build_semantic_of_run_methodology)
-    // ist damit eindeutig (debug ODER measure ODER release). >1 ist mehrdeutig; die A9-"sweepbar"-Auslegung ist per
+    // ist damit eindeutig (genau EINER von build/measure/compare/release; der fruehere debug ist per A-05/V-12
+    // ausgebaut). >1 ist mehrdeutig; die A9-"sweepbar"-Auslegung ist per
     // §61-STUFEN supersediert. LEER = Default measure (kein Fehler, byte-stabil zu Profilen ohne das Element).
     if (tp.run_methodology.size() > 1) {
         r.ok = false;
@@ -696,13 +699,11 @@ struct ExperimentValidationResult {
     std::size_t writeback_methods_checked     = 0; // A9.1: gepruefte <writeback_methods><method> (0 = keine deklariert)
 };
 
-// ── KERN-A (S4 Mess-Schema, 2026-07-20) + KERN #48-S4 (Fork 4 dritter Token, 2026-07-22): die drei erlaubten
-//    per-Achse Merge-Modi. Leer=""=replace-Default (heutiges Verhalten byte-identisch); "merge" = additiver
-//    Zusammenschluss statt Ersetzen; "union" = die EXPLIZITE, Phase-3-gebundene Union (Verdikt V-a: Section-59-A
-//    trennt Verbund-2-Hybrid und Verbund-3-Union woertlich). "union" ist NUR gueltig, wenn das Profil eine
-//    Phase-3-Bindung (eine <phase merge="Verbund3_Union">) traegt -- dieser Bindungs-Check erfolgt unten. Single-
-//    Source der Token hier. ──
-inline constexpr char const* kExperimentAxisMergeModes[] = {"replace", "merge", "union"};
+// -- KERN-A (S4 Mess-Schema) Merge-Modi-Menge: kExperimentAxisMergeModes LEBT SEIT A2.5-g5 (Review #15,
+//    Fix 16) in merge_plan.hpp (dieses Header inkludiert merge_plan.hpp seitdem oben) -- der fail-closed-Kollektor
+//    merge_mode_to_strategy leitet seine Fehlermenge dort aus demselben Array ab, und die
+//    Include-Richtung ist validate -> merge_plan. Der "union"-Phase-3-Bindungs-Check bleibt HIER
+//    (Verdikt V-a, unten im axes_default_lookup-Block). --
 
 // ── KERN-A (S4): die anerkannten CacheEngine-self-Marker fuer <phase pruefling=..> / <phase identity=..> (Fork 3).
 //    Ein so markierter Pruefling misst die CacheEngine SELBST (nicht ein SOTA-Lebewesen) => NICHT dem
@@ -1134,7 +1135,8 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
 
     // ── KERN-A (S4, Fork 4): per-Achse Merge-Modus <axes_default_lookup><axis merge=..>. Leer=""=replace-Default
     //    (heutiges Verhalten byte-identisch); "merge" = additiver Zusammenschluss statt Ersetzen. HART gegen
-    //    {replace,merge} (Single-Source kExperimentAxisMergeModes) — ein Bogus-Modus wuerde sonst still auf replace
+    //    {replace,merge,union} (Single-Source kExperimentAxisMergeModes, merge_plan.hpp) -- ein Bogus-Modus wuerde
+    //    sonst still auf replace
     //    zurueckfallen. binary_id-neutral (die Kompositions-AKTIVIERUNG von "merge" ist golden-regen-/gate-gated;
     //    hier nur die Wohlgeformtheit). Rein enum-basiert => NICHT an registry_dir gebunden. ──
     // KERN #48-S4: eine Phase-3-Bindung liegt vor, wenn das Profil eine <phase merge="Verbund3_Union"> traegt.
@@ -1152,6 +1154,21 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
             r.errors.push_back("UNGUELTIGER Merge-Modus <axes_default_lookup><axis ref=\"" + ax.ref + "\" merge=\"" +
                                ax.merge_mode +
                                "\">: kein {replace,merge,union} (KERN Fork 4; leer = replace-Default).");
+        }
+        // A2.5-g5 (Review #15, Fix 15 / D-F4b), analog V-a: "merge" ist bis zur Materialisierung von
+        // Verbund2_Hybrid GESPERRT. Das PrueflingVerbundStrategy-Enum traegt den Wert nicht
+        // (MATERIALISIERUNG DEFERRED, merge_plan.hpp) -- eine durchgelassene "merge"-Direktive am
+        // slot-hinterlegten Paar fiele erst im NACHGELAGERTEN Bau des emittierten .cpp mit kryptischem
+        // Namensfehler (fail-late). Der Validator ist die FRUEHESTE Stelle der Kette, darum faellt sie
+        // hier. Beim Materialisieren (Enum-Wert + MergeImpl-Spezialisierung) faellt dieses Gate im
+        // SELBEN Zug (Wachen-Rueckbau gehoert zum Materialisierungs-Commit).
+        if (ax.merge_mode == "merge") {
+            r.ok = false;
+            r.errors.push_back(
+                "NICHT MATERIALISIERTER Merge-Modus <axes_default_lookup><axis ref=\"" + ax.ref +
+                "\" merge=\"merge\">: Verbund2_Hybrid ist nicht materialisiert (kein "
+                "PrueflingVerbundStrategy-Enum-Wert; Materialisierung deferred, merge_plan.hpp) -- bis "
+                "dahin replace/union verwenden.");
         }
         // KERN #48-S4 (Verdikt V-a): "union" verlangt eine Phase-3-Bindung (<phase merge="Verbund3_Union">).
         if (ax.merge_mode == "union" && !has_verbund_union_phase) {

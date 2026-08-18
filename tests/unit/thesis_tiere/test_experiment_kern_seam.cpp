@@ -168,6 +168,10 @@ TEST(ExperimentKernSeam, MachinesWithoutOsExpectationStayEmpty) {
         EXPECT_TRUE(mc.os_declaration_source.empty()) << mc.id;
     }
     // Die Kern-Identitaet ist davon unberuehrt -- validate zaehlt weiterhin beide Maschinen.
+    // A2.5-g5 (Fix 15): merge="merge" der Fixture in-memory neutralisieren (Gate hat eigenen Beleg,
+    // MergeModeMergeIsDeferredError) -- dieser Test misst die Maschinen-Zaehlung, nicht das Merge-Gate.
+    ASSERT_EQ(ep->axes_default_lookup.size(), 3u);
+    ep->axes_default_lookup[2].merge_mode = "replace";
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_TRUE(vr.ok) << (vr.errors.empty() ? "" : vr.errors.front());
     EXPECT_EQ(vr.machines_checked, 2u);
@@ -207,6 +211,14 @@ TEST(ExperimentKernSeam, ParsesPhaseIdNamespace) {
 TEST(ExperimentKernSeam, ValidatesOkWithNewCounters) {
     auto ep = parse_kern();
     ASSERT_TRUE(ep.has_value());
+    // A2.5-g5 (Review #15, Fix 15): die Fixture traegt <axis merge="merge"> -- der Modus ist bis zur
+    // Materialisierung von Verbund2_Hybrid am Validator GESPERRT (eigener Negativ-Beleg unten,
+    // MergeModeMergeIsDeferredError). Fuer den GRUENEN Zaehler-Beleg dieses Tests wird die dritte
+    // Achse in-memory auf den replace-Default gedreht; axis_merge_checked bleibt 3 (drei nicht-leere
+    // Modi: replace, union, replace).
+    ASSERT_EQ(ep->axes_default_lookup.size(), 3u);
+    ASSERT_EQ(ep->axes_default_lookup[2].merge_mode, "merge");
+    ep->axes_default_lookup[2].merge_mode = "replace";
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_TRUE(vr.ok) << (vr.errors.empty() ? "" : vr.errors.front());
     EXPECT_TRUE(vr.errors.empty());
@@ -218,6 +230,24 @@ TEST(ExperimentKernSeam, ValidatesOkWithNewCounters) {
 }
 
 // ── (c) VALIDATE FEHLER -- je neuer Regel ein negativer Beleg ─────────────────
+
+// A2.5-g5 (Review #15, Fix 15 / D-F4b): "merge" ist bis zur Materialisierung von Verbund2_Hybrid am
+// EINGANG gesperrt -- das PrueflingVerbundStrategy-Enum traegt den Wert nicht (MATERIALISIERUNG
+// DEFERRED, merge_plan.hpp), eine durchgelassene "merge"-Direktive fiele erst im NACHGELAGERTEN Bau
+// des emittierten .cpp mit kryptischem Namensfehler (fail-late). Der Validator ist die frueheste
+// Stelle der Kette, darum faellt sie HIER. Die Kern-Fixture traegt genau so eine Achse (mapping/self).
+TEST(ExperimentKernSeam, MergeModeMergeIsDeferredError) {
+    auto ep = parse_kern();
+    ASSERT_TRUE(ep.has_value());
+    ASSERT_EQ(ep->axes_default_lookup.size(), 3u);
+    ASSERT_EQ(ep->axes_default_lookup[2].merge_mode, "merge") << "Fixture-Vorbedingung (mapping/self)";
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok) << "merge=\"merge\" muss bis zur Materialisierung am Validator fallen";
+    EXPECT_TRUE(has_error_containing(vr, "nicht materialisiert"));
+    EXPECT_TRUE(has_error_containing(vr, "Verbund2_Hybrid"));
+    EXPECT_TRUE(has_error_containing(vr, "replace/union")) << "die Meldung nennt den Ausweg";
+}
+
 TEST(ExperimentKernSeam, FulljoinWithoutPhase3IsError) {
     cx::ExperimentProfile     ep = make_base_ep(); // nur Verbund1-Phase => keine Phase-3-Bindung
     cx::ExperimentAxisDefault ax;
