@@ -101,7 +101,13 @@ constexpr auto kEntriesWallclock =
                                     .organ_entries           = cea::kAnatomyStampNoEntries,
                                     .organ_entry_count       = 0u,
                                     .komposit_line           = "",
-                                    .komposit_len            = 0u};
+                                    .komposit_len            = 0u,
+                                    // V-05R-NACHZUG (18.08.2026, R0): name_line/name_len sind mit der POD-Hebung
+                                    // ans Ende getreten. Der Bau-Fixture hier sagt NICHTS ueber den Namen aus --
+                                    // das Gate liest ausschliesslich die Mess-Seite -- also traegt er den
+                                    // LEEREN Namen nach der ""-Doktrin, nicht einen erfundenen.
+                                    .name_line               = "",
+                                    .name_len                = 0u};
 }
 
 /// Die eine gebaute perm-.so im Fixture-Dir finden (Loader-Konvention, uebernommen aus test_pruef_only_gate).

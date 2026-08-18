@@ -1452,7 +1452,13 @@ TEST(MW12StampBausteine, A4AnatomyStampArraysRoundtripThroughPod) {
                                      .organ_entries           = abi::stamp_entries_ptr(kOE),
                                      .organ_entry_count       = kOE.size(),
                                      .komposit_line           = "",
-                                     .komposit_len            = 0u};
+                                     .komposit_len            = 0u,
+                                     // V-05R-NACHZUG (18.08.2026, R0): name_line/name_len sind mit der POD-Hebung
+                                     // ans Ende getreten. Dieser Roundtrip prueft die drei ARRAY-Ebenen, nicht den
+                                     // Namen -- er traegt ihn deshalb leer (""-Doktrin), statt einen Wert zu
+                                     // erfinden, den keine Assertion unten liest.
+                                     .name_line               = "",
+                                     .name_len                = 0u};
 
     EXPECT_TRUE(abi::stamp_pod_has_entries(v));
     EXPECT_EQ(v.stamp_layout_version, 7u);

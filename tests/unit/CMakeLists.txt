@@ -2208,6 +2208,27 @@ target_compile_definitions(test_hy_f8_reroute PRIVATE
     COMDARE_HY_MODUL_SEARCHALGORITHM="$<TARGET_FILE:hybrid_reroute_searchalgorithm>"
     COMDARE_HY_MODUL_SET="$<TARGET_FILE:hybrid_reroute_set>")
 add_dependencies(test_hy_f8_reroute hybrid_reroute_searchalgorithm hybrid_reroute_set)
+# R1 (18.08.2026) -- WARUM DIESES TARGET SEINE SYMBOLE EXPORTIEREN MUSS. Der Test castet das ueber dlopen
+# geladene Objekt per dynamic_cast auf HybridBinaryProxy<...>, eine FINAL-Klasse. clang >= 17 nimmt per
+# -fassume-unique-vtables (Default AN) an, dass es je Prozess GENAU EINE vtable je Typ gibt, und ersetzt
+# den dynamic_cast auf einen final-Typ ab -O2 durch einen direkten vtable-ZEIGERVERGLEICH. Genau diese
+# Annahme war hier falsch: Test-Executable und .so trugen je eine EIGENE Kopie der vtable, weil ein
+# Executable seine Symbole ohne ENABLE_EXPORTS nicht in die dynamische Symboltabelle stellt -- der
+# dynamische Linker konnte also nicht deduplizieren. Ergebnis: der Zeigervergleich traf die falsche
+# Kopie, der Cast lieferte nullptr, und zwar NUR unter clang und NUR ab -O2 (gcc kennt die Optimierung
+# nicht, -O0 fuehrt sie nicht aus). Am Objekt gemessen (RTTI-Sonde, 4 Kombinationen): der Fehler haengt
+# am KONSUMIERENDEN Compiler, nicht am .so-Compiler; type_info::operator== und dynamic_cast<void*>
+# waren in allen vier Faellen intakt.
+# DIE GEWAEHLTE HEILUNG MACHT DIE ANNAHME WAHR, statt sie abzuschalten: mit ENABLE_EXPORTS (auf ELF
+# -rdynamic) bindet die .so ihre vtable-/typeinfo-Referenz an die Definition IM EXECUTABLE -- es gibt
+# wieder GENAU EINE, und clangs Vergleich trifft. Gegenprobe gemessen: typeinfo-Adresse lokal == live.
+# WARUM NICHT -fno-assume-unique-vtables (ehrlich verworfen): das haette eine korrekte Optimierung
+# abgeschaltet, um eine Voraussetzung zu kaschieren, die WIR verletzen -- und jeder kuenftige Konsument
+# haette das Flag mitschleppen muessen, ohne dass irgendwo steht, warum.
+# WER SONST NOCH BETROFFEN WAERE: nur ein dynamic_cast auf eine FINAL-Klasse ueber die dlopen-Grenze.
+# Alle anderen dynamic_cast-Stellen im Haus zielen auf INTERFACES (IObservableTier, IDriveableTier, ...),
+# die nicht final sind -- dort greift die Optimierung nicht. Am HEAD gegengeprueft: 0 weitere Stellen.
+set_target_properties(test_hy_f8_reroute PROPERTIES ENABLE_EXPORTS ON)
 
 comdare_add_test(test_hy_a1_dock_contract
     SOURCES test_hy_a1_dock_contract.cpp)

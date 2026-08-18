@@ -519,7 +519,19 @@ namespace detail {
                                .organ_entries           = nullptr,
                                .organ_entry_count       = 0u,
                                .komposit_line           = "",
-                               .komposit_len            = 0u};
+                               .komposit_len            = 0u,
+                               // V-05R-NACHZUG (18.08.2026, R0): name_line/name_len sind mit der POD-Hebung
+                               // (sizeof 136 -> 152, Feldzahl 18 -> 20) ans Ende getreten, hier aber NICHT
+                               // nachgezogen worden. Der Compiler hat es gesagt -- 110x
+                               // -Wmissing-field-initializers ueber 55 TUs aus GENAU dieser Zeile, weil die
+                               // Probe in jeder TU instanziiert wird, die den Header sieht. Das ist die
+                               // Falle (i) (POD-APPEND) aus dem Kommentar oben, im Vollzug: Designatoren
+                               // schuetzen nur gegen den TAUSCH, gegen den APPEND schuetzt nichts ausser dem
+                               // Nachzug. Werte nach der ""-Doktrin -- die Probe liest ohnehin nur
+                               // stamp_layout_version, aber ein nullptr hier waere ein POD, den kein
+                               // Konsument je so sehen darf.
+                               .name_line               = "",
+                               .name_len                = 0u};
 }
 } // namespace detail
 
