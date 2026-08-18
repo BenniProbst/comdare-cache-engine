@@ -23,6 +23,7 @@
 
 #include <concepts>
 #include <cstddef>
+#include <cstdint>
 #include <string_view>
 
 namespace comdare::cache_engine::anatomy {
@@ -203,8 +204,43 @@ enum class AnatomyGenus : std::uint8_t {
         // Concept-Gate (hybrid/heuristik_adapter_gate.hpp) leitet daraus ab, statt Werte aufzuzaehlen.
         case AnatomyGenus::FunctionInterfaceReroute: return AnatomyGattung::HeuristikAdapter;
     }
+    // Review #15 Fix 2 (18.08.2026): dieser Fallthrough ist eine reine -Wreturn-type-BERUHIGUNG fuer
+    // Bytes ausserhalb der Enum-Werte. Er darf NIE ABI-Antwortquelle sein: ein rohes uint8 von der
+    // C-ABI-Grenze wird ZUERST mit genus_bekannt() (unten) geprueft -- sonst wuerde ein unbekanntes
+    // Byte (z.B. 250) hier STILL als Container klassifiziert und liefe als in sich konsistente Luege
+    // durch jeden nachgelagerten Gleichheits-Vergleich (der Loader-Riegel prueft Konsistenz, keinen
+    // Wertebereich).
     return AnatomyGattung::Container;
 }
+
+/// genus_bekannt() -- die WERTKLASSEN-Wache fuer rohe uint8-Genus-Bytes von der C-ABI-Grenze
+/// (Review #15 Fix 2, 18.08.2026). Sie beantwortet die Frage, die KEINE Nachbar-Funktion
+/// beantwortet: "ist dieses Byte ueberhaupt ein AnatomyGenus?" -- gattung_of() ist ueber den
+/// Fallthrough oben TOTAL (defaultet unbekannte Bytes still auf Container), und
+/// hybrid::ist_abi_sichtbares_genus() leitet aus gattung_of() ab, laesst also jedes Nicht-Enum-Byte
+/// passieren (ist_abi_sichtbares_genus(250) == true). Der Loader prueft deshalb BEIDE Wertklassen
+/// nacheinander, denn jede allein liesse eine durch: genus_bekannt(5) == true (der Reroute-Wert IST
+/// ein Enum-Wert), ist_abi_sichtbares_genus(250) == true (Container-Default).
+[[nodiscard]] constexpr bool genus_bekannt(std::uint8_t roh_genus) noexcept {
+    switch (static_cast<AnatomyGenus>(roh_genus)) {
+        case AnatomyGenus::SearchAlgorithm:
+        case AnatomyGenus::Set:
+        case AnatomyGenus::Sequence:
+        case AnatomyGenus::Adapter:
+        case AnatomyGenus::View:
+        case AnatomyGenus::FunctionInterfaceReroute: return true;
+    }
+    return false;
+}
+
+// Die Wertklassen-Pins am Ort der Funktion: alle sechs Enum-Werte JA; die erste Nicht-Enum-Zelle (6)
+// und das am Objekt verifizierte Container-Default-Byte (250) NEIN.
+static_assert(genus_bekannt(0) && genus_bekannt(1) && genus_bekannt(2) && genus_bekannt(3) &&
+              genus_bekannt(4) && genus_bekannt(5));
+static_assert(!genus_bekannt(6) && !genus_bekannt(250),
+              "genus_bekannt() muss jedes Nicht-Enum-Byte abweisen -- sonst traegt eine konsistente "
+              "Luege (Symbol, gattung_of und Instanz einig auf einem Phantasie-Wert) falsche "
+              "Identitaet in Stempel, Lager und Messreihe (Review #15 Fix 2).");
 
 // ---------------------------------------------------------------------------------------------
 // E-24 C7-6 -- DIE GATTUNG WIRD ABI-SICHTBAR, OHNE EINEN NEUEN WIRE-STRING EINZUFRIEREN

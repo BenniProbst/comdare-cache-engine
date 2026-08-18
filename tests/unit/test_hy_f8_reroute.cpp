@@ -202,20 +202,21 @@ TEST(HyF8Reroute, CtSperreUnterscheidetNoch) {
 }
 
 // --------------------------------------------------------------------------------------------
-// DIE VIER ABI-PFLICHT-SYMBOLE -- am GELADENEN Objekt, nicht am Symbolnamen
+// DIE SECHS ABI-PFLICHT-SYMBOLE -- am GELADENEN Objekt, nicht am Symbolnamen
 // --------------------------------------------------------------------------------------------
 //
 // WARUM NICHT `nm`: dass ein Symbol im Export-Verzeichnis STEHT, sagt nicht, dass es das Richtige
-// tut. AnatomyModuleLoader::load ruft alle vier der Reihe nach auf und erreicht status_ok nur, wenn
+// tut. AnatomyModuleLoader::load ruft alle sechs der Reihe nach auf und erreicht status_ok nur, wenn
 // jedes davon liefert. Seine Status-Namen benennen zugleich, WELCHES Symbol versagt hat --
-// symbol_not_found (eines der vier fehlt), magic_mismatch / abi_major_mismatch (version/magic
-// antworten falsch), factory_returned_null (create liefert nichts). Ein status_ok ist damit die
-// staerkere Aussage, und sie kostet nichts, weil der Loader ohnehin existiert.
+// symbol_not_found (eines der vier Ur-Pflicht-Symbole fehlt), magic_mismatch / abi_major_mismatch
+// (version/magic antworten falsch), gattung_symbol_missing / genus_symbol_missing (eines der zwei
+// Identitaets-Symbole fehlt, Q2/V-06), factory_returned_null (create liefert nichts). Ein status_ok
+// ist damit die staerkere Aussage, und sie kostet nichts, weil der Loader ohnehin existiert.
 //
 // WAS DIESER TEST ZUSAETZLICH ZEIGT und der In-Process-Test NICHT zeigen kann: dass die Gleichheit
-// der vier Symbolnamen wirklich EINE Ladestrecke ergibt. Derselbe Loader, der die plain-Tier-.so
+// der sechs Symbolnamen wirklich EINE Ladestrecke ergibt. Derselbe Loader, der die plain-Tier-.so
 // laedt, nimmt hier eine Hybrid-.so -- ohne Fallunterscheidung, ohne Gattungs-Wissen vorab.
-TEST(HyF8Reroute, VierAbiPflichtSymboleAmGeladenenModul) {
+TEST(HyF8Reroute, SechsAbiPflichtSymboleAmGeladenenModul) {
     struct Fall {
         char const*       pfad;
         cea::AnatomyGenus erwartetes_ziel_genus;
@@ -230,7 +231,7 @@ TEST(HyF8Reroute, VierAbiPflichtSymboleAmGeladenenModul) {
         loader::AnatomyModuleHandle handle;
         int const                   st = loader::AnatomyModuleLoader::load(f.pfad, handle);
         ASSERT_EQ(st, loader::status_ok) << f.etikett << ": load == " << loader::status_name(st)
-                                         << " -- eines der vier "
+                                         << " -- eines der sechs "
                                          << "ABI-Pflicht-Symbole fehlt oder liefert nicht (Pfad " << f.pfad << ")";
 
         auto* anatomie = handle.anatomy();

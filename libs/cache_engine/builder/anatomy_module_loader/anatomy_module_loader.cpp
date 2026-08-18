@@ -6,6 +6,12 @@
 
 #include "anatomy_module_loader.hpp"
 
+// Review #15 Fix 2: die Wertklassen-Gates brauchen die Partition der Hybrid-Klassifikation
+// (ist_abi_sichtbares_genus). Die Kante builder/ -> hybrid/ ist die ERLAUBTE Richtung -- Praezedenz
+// ist der HY-A3-Include in genus_build_admission.hpp; die Schicht-Wache (lint_layer_includes.sh)
+// verbietet nur die Gegenrichtung hybrid/ -> builder/.
+#include "hybrid/heuristik_adapter_klassifikation.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -59,8 +65,9 @@ void native_unload(void* h) noexcept {
 #endif
 }
 
-// Funktion-Pointer-Typen entsprechen den 4 extern "C"-Symbolen in
-// anatomy_module_abi_v1.hpp.
+// Funktion-Pointer-Typen der SECHS Pflicht-extern-"C"-Symbole aus anatomy_module_abi_v1.hpp:
+// die vier Ur-Pflicht-Typen hier, die zwei Identitaets-Symbole (PfnGattung/PfnGenus) weiter unten,
+// dazwischen der Typ des OPTIONALEN Stempel-Symbols.
 using PfnAbiVersion = std::uint64_t (*)();
 using PfnAbiMagic   = std::uint64_t (*)();
 using PfnCreate     = ana::IAnatomyBase* (*)();
@@ -122,16 +129,42 @@ int AnatomyModuleLoader::load(std::filesystem::path const& dll_path, AnatomyModu
     void* native = native_load(dll_path);
     if (!native) { return status_load_failed; }
 
-    // 4 Pflicht-Symbole resolven
+    // A-F4 (Review #15): SCOPE-GUARD AB ERWERB. Jeder Pfad ab hier gibt Handle und -- sobald die
+    // Factory gelaufen ist -- Instanz ueber GENAU EINE Stelle frei, destroy VOR unload (der
+    // Handle-Vertrag). Vorher trug jeder Fehlerpfad sein eigenes native_unload, und der Riegel-Pfad
+    // loggte VOR dem Cleanup: dll_path.string() kann werfen (bad_alloc), und ein Wurf zwischen
+    // Erwerb und Freigabe haette Instanz+Handle gehalten (unter noexcept: terminate MIT gehaltenen
+    // Ressourcen). Diagnose gehoert deshalb NACH das Cleanup -- jetzt strukturell erzwungen.
+    struct ErwerbsGuard {
+        void*              native  = nullptr;
+        ana::IAnatomyBase* anatomy = nullptr;
+        PfnDestroy         destroy = nullptr;
+        void jetzt_freigeben() noexcept {
+            if (anatomy != nullptr && destroy != nullptr) { destroy(anatomy); }
+            anatomy = nullptr;
+            destroy = nullptr;
+            if (native != nullptr) {
+                native_unload(native);
+                native = nullptr;
+            }
+        }
+        void an_handle_uebergeben() noexcept {
+            native  = nullptr;
+            anatomy = nullptr;
+            destroy = nullptr;
+        }
+        ~ErwerbsGuard() { jetzt_freigeben(); }
+    };
+    ErwerbsGuard guard{native};
+
+    // Die vier Ur-Pflicht-Symbole resolven (die Pflicht-Symbole 5+6 -- gattung/genus -- folgen erst
+    // NACH Magic/Version, damit Alt-Module ihr altes Fehlerbild behalten; Schrittliste im Header).
     auto* sym_version = native_symbol(native, "comdare_anatomy_abi_version");
     auto* sym_magic   = native_symbol(native, "comdare_anatomy_abi_magic");
     auto* sym_create  = native_symbol(native, "comdare_create_anatomy");
     auto* sym_destroy = native_symbol(native, "comdare_destroy_anatomy");
 
-    if (!sym_version || !sym_magic || !sym_create || !sym_destroy) {
-        native_unload(native);
-        return status_symbol_not_found;
-    }
+    if (!sym_version || !sym_magic || !sym_create || !sym_destroy) { return status_symbol_not_found; }
 
     auto pfn_version = reinterpret_cast<PfnAbiVersion>(sym_version);
     auto pfn_magic   = reinterpret_cast<PfnAbiMagic>(sym_magic);
@@ -139,10 +172,7 @@ int AnatomyModuleLoader::load(std::filesystem::path const& dll_path, AnatomyModu
     auto pfn_destroy = reinterpret_cast<PfnDestroy>(sym_destroy);
 
     // Magic-Check (Pre-Version: sicherer Sanity-Check vor Version-Vergleich)
-    if (pfn_magic() != COMDARE_ANATOMY_ABI_MAGIC) {
-        native_unload(native);
-        return status_magic_mismatch;
-    }
+    if (pfn_magic() != COMDARE_ANATOMY_ABI_MAGIC) { return status_magic_mismatch; }
 
     // Version-Check ueber den EINEN benannten Vertrag (V6/P3, K-6 2026-07-19): das Gate ist
     // AnatomyAbiVersion::host_compatible_with (anatomy_module_abi_v1_decl.hpp:305-308, Major identisch +
@@ -151,7 +181,6 @@ int AnatomyModuleLoader::load(std::filesystem::path const& dll_path, AnatomyModu
     auto const module_version = abi::AnatomyAbiVersion::unpack(pfn_version());
 
     if (!abi::kHostAnatomyAbiVersion.host_compatible_with(module_version)) {
-        native_unload(native);
         return (module_version.major != abi::kHostAnatomyAbiVersion.major) ? status_abi_major_mismatch
                                                                            : status_abi_minor_too_new;
     }
@@ -163,28 +192,47 @@ int AnatomyModuleLoader::load(std::filesystem::path const& dll_path, AnatomyModu
     // Alt-Major-Fixtures (genus_module_alt_major7, genus_module_major7_neue_magic) pruefen genau diese
     // beiden Schloesser, und sie muessen sie weiter EINZELN treffen.
     // WARUM VOR DER FACTORY: hier ist noch kein Objekt gebaut. Nach pfn_create() muesste jeder
-    // Fehlerpfad das Objekt erst wieder zerstoeren -- ein Ausstieg, den man genau einmal vergisst.
+    // Fehlerpfad das Objekt erst wieder zerstoeren -- ein Ausstieg, den man genau einmal vergisst
+    // (seit A-F4 haelt der ErwerbsGuard oben zusaetzlich JEDEN Pfad dicht; die Reihenfolge hier
+    // bleibt trotzdem die fachlich richtige).
     // Und fachlich ist es der Punkt: diese beiden Symbole beantworten "was BIST du", und das gehoert
     // VOR "gib mir eine Instanz", nicht danach.
     auto* sym_gattung = native_symbol(native, "comdare_anatomy_gattung");
-    if (!sym_gattung) {
-        native_unload(native);
-        return status_gattung_symbol_missing;
-    }
+    if (!sym_gattung) { return status_gattung_symbol_missing; }
     auto* sym_genus = native_symbol(native, "comdare_anatomy_genus");
-    if (!sym_genus) {
-        native_unload(native);
-        return status_genus_symbol_missing;
-    }
-    auto const modul_gattung = static_cast<ana::AnatomyGattung>(reinterpret_cast<PfnGattung>(sym_gattung)());
-    auto const modul_genus   = static_cast<ana::AnatomyGenus>(reinterpret_cast<PfnGenus>(sym_genus)());
+    if (!sym_genus) { return status_genus_symbol_missing; }
+    std::uint8_t const roh_gattung = reinterpret_cast<PfnGattung>(sym_gattung)();
+    std::uint8_t const roh_genus   = reinterpret_cast<PfnGenus>(sym_genus)();
 
-    // Factory aufrufen
-    ana::IAnatomyBase* anatomy = pfn_create();
-    if (!anatomy) {
-        native_unload(native);
-        return status_factory_returned_null;
+    // Review #15 Fix 2 -- ZWEI WERTKLASSEN-GATES am ROHEN Byte, fail-closed, VOR der Factory.
+    // Eines allein genuegt NICHT (am Objekt verifiziert): gattung_of() defaultet unbekannte Bytes
+    // still auf Container, also ist ist_abi_sichtbares_genus(250) true -- und genus_bekannt(5) ist
+    // true, denn der Reroute-Wert IST ein Enum-Wert. Der Konsistenz-Riegel unten prueft nur, dass
+    // Symbol, Ableitung und Instanz EINIG sind, nie, ob ihr gemeinsamer Wert ZULAESSIG ist:
+    //   (a) genus_bekannt weist jedes Nicht-Enum-Byte ab (z.B. 250), BEVOR es je in einen Enum-Wert
+    //       gegossen wird oder gattung_of() erreicht;
+    //   (b) ist_abi_sichtbares_genus weist die verbotene 5 ab (FunctionInterfaceReroute, "NIE von
+    //       genus()", Weg C) -- ein Modul, das sich konsistent als Reroute ausweist, ist genau die
+    //       Luege, die der Hybrid-Schnitt verbietet.
+    if (!ana::genus_bekannt(roh_genus) ||
+        !::comdare::cache_engine::hybrid::ist_abi_sichtbares_genus(static_cast<ana::AnatomyGenus>(roh_genus))) {
+        // A-F4-Ordnung auch hier: erst freigeben (der Guard haelt nur das Handle -- kein Objekt
+        // gebaut), DANN die Diagnose mit dem werfen-koennenden dll_path.string().
+        guard.jetzt_freigeben();
+        std::cerr << "[anatomy_loader] genus_not_abi_visible: comdare_anatomy_genus meldet "
+                  << static_cast<int>(roh_genus)
+                  << " -- kein bekanntes ABI-sichtbares Genus (bekannt 0..5, 5 ist Klassifikation) ("
+                  << dll_path.string() << ")\n";
+        return status_genus_not_abi_visible;
     }
+    auto const modul_genus   = static_cast<ana::AnatomyGenus>(roh_genus);
+    auto const modul_gattung = static_cast<ana::AnatomyGattung>(roh_gattung);
+
+    // Factory aufrufen -- ab jetzt haelt der Guard AUCH die Instanz (destroy VOR unload).
+    ana::IAnatomyBase* anatomy = pfn_create();
+    if (!anatomy) { return status_factory_returned_null; }
+    guard.anatomy = anatomy;
+    guard.destroy = pfn_destroy;
 
     // Q2/V-06 -- DER KONSISTENZ-RIEGEL, am GELADENEN Objekt und nicht am Symbolnamen.
     // Das Modul hat zweimal geantwortet: einmal statisch ueber comdare_anatomy_genus (VOR der Factory)
@@ -196,26 +244,31 @@ int AnatomyModuleLoader::load(std::filesystem::path const& dll_path, AnatomyModu
     // Beim HYBRID melden beide Seiten den ZIEL-Genus (Weg C, nie FunctionInterfaceReroute) -- der
     // Riegel gilt fuer ihn unveraendert, ohne Sonderfall.
     if (anatomy->genus() != modul_genus || ana::gattung_of(modul_genus) != modul_gattung) {
+        // A-F4: erst die Diagnose-Werte RETTEN (die Instanz stirbt gleich), dann Cleanup ueber den
+        // Guard (destroy VOR unload), und ERST DANACH loggen -- dll_path.string() kann werfen und
+        // darf das erst tun, wenn nichts mehr gehalten wird.
+        int const instanz_genus = static_cast<int>(anatomy->genus());
+        guard.jetzt_freigeben();
         std::cerr << "[anatomy_loader] identity_mismatch: Symbol comdare_anatomy_genus meldet "
-                  << static_cast<int>(modul_genus) << ", die Instanz meldet "
-                  << static_cast<int>(anatomy->genus()) << "; Symbol comdare_anatomy_gattung meldet "
-                  << static_cast<int>(modul_gattung) << ", gattung_of(genus) ergibt "
-                  << static_cast<int>(ana::gattung_of(modul_genus)) << " (" << dll_path.string() << ")\n";
-        pfn_destroy(anatomy);
-        native_unload(native);
+                  << static_cast<int>(modul_genus) << ", die Instanz meldet " << instanz_genus
+                  << "; Symbol comdare_anatomy_gattung meldet " << static_cast<int>(modul_gattung)
+                  << ", gattung_of(genus) ergibt " << static_cast<int>(ana::gattung_of(modul_genus))
+                  << " (" << dll_path.string() << ")\n";
         return status_identity_mismatch;
     }
 
     // M-1/D-2: das OPTIONALE Stempel-Symbol NACH der Version-Validierung ziehen. Reihenfolge ist tragend:
     // erst wenn Magic + Major/Minor passen, ist das POD-Layout dieses Moduls ueberhaupt als das unsere
-    // lesbar. Ein Fehlen ist KEIN Lade-Fehler (der Loader kennt nur 4 Pflicht-Symbole) -- der Zeiger bleibt
-    // dann nullptr, und das Mess-Konsistenz-Gate am Pruefdock entscheidet fail-closed darueber.
+    // lesbar. Ein Fehlen ist KEIN Lade-Fehler (die SECHS Pflicht-Symbole sind an dieser Stelle alle
+    // gezogen und verriegelt; DIESES siebte Symbol ist optional) -- der Zeiger bleibt dann nullptr,
+    // und das Mess-Konsistenz-Gate am Pruefdock entscheidet fail-closed darueber.
     abi::AnatomyVersionLines const* lines = nullptr;
     if (auto* sym_lines = native_symbol(native, "comdare_anatomy_version_lines"); sym_lines != nullptr)
         lines = reinterpret_cast<PfnVersionLines>(sym_lines)();
 
-    // Handle aufbauen (RAII)
+    // Handle aufbauen (RAII) -- das Eigentum wandert vom Guard in die Handle (beides noexcept).
     handle_out = AnatomyModuleHandle{native, anatomy, pfn_destroy, module_version, lines};
+    guard.an_handle_uebergeben();
     return status_ok;
 }
 

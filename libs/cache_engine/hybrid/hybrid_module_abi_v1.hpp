@@ -49,7 +49,8 @@
 #include <new>
 
 // ------------------------------------------------------------------------------------------------
-// COMDARE_DEFINE_HYBRID_MODULE(ZielGenusExpr) -- die 4 Pflicht-extern-C-Symbole einer Hybrid-.so.
+// COMDARE_DEFINE_HYBRID_MODULE(ZielGenusExpr) -- die SECHS Pflicht-extern-C-Symbole einer
+// Hybrid-.so (vier Ur-Pflicht + comdare_anatomy_gattung/genus, NACHTRAG Q2/V-06 oben).
 //
 // EIN Argument, kein variadisches: eine Hybrid-Binary wird durch ihr REROUTE-ZIEL bestimmt, nicht
 // durch eine Achsen-Liste. Sie hat keine eigene Komposition (deshalb auch keine 12 oder 18 Achsen

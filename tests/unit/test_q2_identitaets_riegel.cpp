@@ -130,6 +130,10 @@ TEST(Q2IdentitaetsRiegel, StatusNamenSindVollstaendig) {
     EXPECT_STREQ(loader::status_name(loader::status_gattung_symbol_missing), "gattung_symbol_missing");
     EXPECT_STREQ(loader::status_name(loader::status_genus_symbol_missing), "genus_symbol_missing");
     EXPECT_STREQ(loader::status_name(loader::status_identity_mismatch), "identity_mismatch");
+    // Review #15 Fix 2: die WERTKLASSEN-Haelfte des Riegels traegt ihren eigenen Code. Ein Modul,
+    // dessen genus-Symbol ein Nicht-Enum-Byte (z.B. 250) oder den Reroute-Wert (5, NIE aus genus())
+    // liefert, wird VOR der Factory abgewiesen -- und der Ablehnungsgrund muss lesbar sein.
+    EXPECT_STREQ(loader::status_name(loader::status_genus_not_abi_visible), "genus_not_abi_visible");
     // Und die Gegenprobe: ein Code, den es NICHT gibt, muss weiterhin "unknown" liefern. Ohne sie
     // wuerde ein default-Zweig, der versehentlich einen Namen zurueckgibt, unbemerkt bleiben.
     EXPECT_STREQ(loader::status_name(99), "unknown");

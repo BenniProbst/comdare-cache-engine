@@ -6,8 +6,9 @@
 // dlopen/LoadLibrary + ABI-Version-Check.
 //
 // Aufgabe: laedt eine Anatomy-Permutations-.so/.dll die per
-// COMDARE_DEFINE_ANATOMY_MODULE generiert wurde, resolved die 4 Pflicht-Symbole
-// (comdare_anatomy_abi_version/magic/create_anatomy/destroy_anatomy), prueft
+// COMDARE_DEFINE_ANATOMY_MODULE generiert wurde, resolved die SECHS Pflicht-Symbole
+// (comdare_anatomy_abi_version/magic/create_anatomy/destroy_anatomy und -- seit Q2/V-06 -- die
+// zwei Identitaets-Symbole comdare_anatomy_gattung/comdare_anatomy_genus), prueft
 // ABI-Kompatibilitaet und instantiiert einen SearchAlgorithmAbiAdapter via
 // `comdare_create_anatomy()`.
 //
@@ -51,6 +52,14 @@ inline constexpr int status_genus_symbol_missing   = 10;
 // Factory liefert, ist WIDERSPRUECHLICH -- und ein Widerspruch, den der Loader durchlaesst, wandert
 // als falsche Identitaet in Stempel, Lager und Messreihe. Deshalb fail-closed hier, nicht spaeter.
 inline constexpr int status_identity_mismatch      = 11;
+// Review #15 Fix 2 (18.08.2026) -- die WERTKLASSEN-Haelfte des Riegels, VOR der Factory: das
+// genus-Symbol darf nur ein BEKANNTES (anatomy_base.hpp genus_bekannt) UND ABI-SICHTBARES Genus
+// (hybrid::ist_abi_sichtbares_genus -- nie FunctionInterfaceReroute, Weg C) melden. Ohne dieses
+// Gate passierte eine in sich KONSISTENTE Luege (Symbol, gattung_of und Instanz einig auf 250 oder
+// auf 5) den Konsistenz-Riegel unten: der prueft nur, dass zwei Antworten GLEICH sind, nie, dass
+// ihr Wert ZULAESSIG ist. Eigener Code aus demselben Grund wie bei 9/10: die Diagnose muss sagen,
+// WAS abgelehnt wurde, nicht nur DASS.
+inline constexpr int status_genus_not_abi_visible  = 12;
 
 [[nodiscard]] constexpr const char* status_name(int s) noexcept {
     switch (s) {
@@ -66,6 +75,7 @@ inline constexpr int status_identity_mismatch      = 11;
         case status_gattung_symbol_missing: return "gattung_symbol_missing";
         case status_genus_symbol_missing: return "genus_symbol_missing";
         case status_identity_mismatch: return "identity_mismatch";
+        case status_genus_not_abi_visible: return "genus_not_abi_visible";
         default: return "unknown";
     }
 }
@@ -150,8 +160,9 @@ public:
     ///
     /// WARUM DAS KEIN ABI-SCHRITT IST: gelesen wird ausschliesslich das bereits bestehende optionale
     /// Probe-Symbol comdare_anatomy_version_lines (anatomy_module_abi_v1_decl.hpp) und das bereits
-    /// bestehende POD-Layout 6. Der Loader verlangt weiterhin NUR die VIER Pflicht-Symbole -- ein Modul
-    /// ohne Stempel laedt unveraendert, es traegt hier eben nullptr. COMDARE_ANATOMY_ABI_MAJOR und
+    /// bestehende POD-Layout 6. Der Loader verlangt die vier Ur-Pflicht-Symbole plus (seit Q2/V-06)
+    /// die zwei Identitaets-Symbole -- DIESES Stempel-Symbol bleibt OPTIONAL: ein Modul ohne Stempel
+    /// laedt unveraendert, es traegt hier eben nullptr. COMDARE_ANATOMY_ABI_MAJOR und
     /// kAnatomyVersionLinesLayout bleiben unberuehrt.
     ///
     /// LEBENSZEIT: der POD ist im MODUL ein `static constexpr` (Makro-Materialisierung) -- er lebt, solange
@@ -182,14 +193,21 @@ public:
     /// load() — Loadet `dll_path`. Bei Erfolg: status_ok, handle_out gesetzt.
     /// Bei Misserfolg: errno-style status, handle_out unveraendert.
     ///
-    /// Validierungs-Schritte (in dieser Reihenfolge):
+    /// Validierungs-Schritte (in dieser Reihenfolge; seit Q2/V-06 sind SECHS Symbole Pflicht):
     /// 1. Datei existiert
     /// 2. dlopen/LoadLibrary erfolgreich
-    /// 3. Alle 4 Pflicht-Symbole resolvable
+    /// 3. Die vier Ur-Pflicht-Symbole resolvable (abi_version/abi_magic/create/destroy)
     /// 4. Magic-Number == COMDARE_ANATOMY_ABI_MAGIC
     /// 5. Major-Version match (Host vs Modul)
     /// 6. Modul-Minor <= Host-Minor
-    /// 7. Factory comdare_create_anatomy() liefert non-null
+    /// 7. comdare_anatomy_gattung resolvable (Pflicht-Symbol 5; NACH Magic/Version, damit
+    ///    Alt-Module ihr altes Fehlerbild behalten)
+    /// 8. comdare_anatomy_genus resolvable (Pflicht-Symbol 6)
+    /// 9. Wertklassen-Gates am rohen genus-Byte, VOR der Factory (Review #15 Fix 2):
+    ///    genus_bekannt UND hybrid::ist_abi_sichtbares_genus -- sonst status_genus_not_abi_visible
+    /// 10. Factory comdare_create_anatomy() liefert non-null
+    /// 11. Identitaets-Riegel: Instanz-genus() == Symbol-Wert UND Gattungs-Symbol ==
+    ///     gattung_of(genus) -- sonst status_identity_mismatch
     [[nodiscard]] static int load(std::filesystem::path const& dll_path, AnatomyModuleHandle& handle_out) noexcept;
 
     /// load_all() — Loadet alle anatomy-Pilot-DLLs in einem Verzeichnis.

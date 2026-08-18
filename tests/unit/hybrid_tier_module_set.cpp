@@ -5,7 +5,7 @@
 // dasteht. Ein Ziel aus einer ANDEREN Gattung als die erste (Set = Container-Gattung,
 // SearchAlgorithm = Gattung Map) belegt zugleich, dass der Reroute nicht an einer Gattung klebt.
 //
-// DASS BEIDE .so DIESELBEN VIER SYMBOLNAMEN EXPORTIEREN, ist kein Konflikt: es sind getrennte
+// DASS BEIDE .so DIESELBEN SECHS SYMBOLNAMEN EXPORTIEREN, ist kein Konflikt: es sind getrennte
 // Objekte mit getrenntem dlopen-Handle. Genau darauf beruht die eine Ladestrecke.
 
 #include <hybrid/hybrid_module_abi_v1.hpp>

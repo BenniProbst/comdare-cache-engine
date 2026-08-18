@@ -2,10 +2,11 @@
 //
 // Die MODUL-AUTOR-Seite der Gattung HeuristikAdapter: erste .so des Baums, deren
 // comdare_create_anatomy() KEIN plain Tier liefert, sondern einen Reroute-Proxy. Sie materialisiert
-// via COMDARE_DEFINE_HYBRID_MODULE die VIER extern-"C"-ABI-Pflicht-Symbole
+// via COMDARE_DEFINE_HYBRID_MODULE die SECHS extern-"C"-ABI-Pflicht-Symbole
 // (comdare_anatomy_abi_version / comdare_anatomy_abi_magic / comdare_create_anatomy /
-// comdare_destroy_anatomy) -- buchstabengleich zu denen der plain Tiere, damit derselbe
-// gattungs-agnostische AnatomyModuleLoader sie ohne Aenderung laedt (Begruendung im Makro-Header).
+// comdare_destroy_anatomy + seit Q2/V-06 comdare_anatomy_gattung / comdare_anatomy_genus) --
+// buchstabengleich zu denen der plain Tiere, damit derselbe gattungs-agnostische
+// AnatomyModuleLoader sie ohne Aenderung laedt (Begruendung im Makro-Header).
 //
 // WARUM ES ZWEI HYBRID-MODULQUELLEN GIBT (diese + hybrid_tier_module_set.cpp): der Header deklariert
 // ZWEI zulaessige Reroute-Ziele. Waere nur eines als .so gebaut, bliebe die zweite Deklaration eine

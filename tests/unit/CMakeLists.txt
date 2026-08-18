@@ -2200,8 +2200,8 @@ comdare_add_test(test_hy_f8_reroute
     SOURCES test_hy_f8_reroute.cpp)
 target_link_libraries(test_hy_f8_reroute PRIVATE comdare::ce_hybrid comdare::anatomy_module_loader)
 target_include_directories(test_hy_f8_reroute PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
-# Die VIER ABI-Pflicht-Symbole werden am GELADENEN Modul geprueft, nicht am Symbolnamen: der Loader
-# ruft alle vier der Reihe nach auf und erreicht status_ok nur, wenn jedes liefert. Die Pfade kommen
+# Die SECHS ABI-Pflicht-Symbole werden am GELADENEN Modul geprueft, nicht am Symbolnamen: der Loader
+# ruft alle sechs der Reihe nach auf und erreicht status_ok nur, wenn jedes liefert. Die Pfade kommen
 # als Generator-Ausdruck herein -- ein fest verdrahteter Pfad waere beim ersten Preset-Wechsel falsch,
 # und zwar STILL (Datei nicht da -> Ladefehler, der wie ein ABI-Fehler aussieht).
 target_compile_definitions(test_hy_f8_reroute PRIVATE
