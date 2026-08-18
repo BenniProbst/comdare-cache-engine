@@ -83,22 +83,25 @@ constexpr auto kEntriesWallclock =
                                                           std::uint64_t                   mess_len,
                                                           cea::AnatomyStampEntryV1 const* eintraege,
                                                           std::uint64_t                   eintrag_count) noexcept {
+    // S-6a (Layout 7): Feldfolge MESS, SYSTEM, ORGAN + komposit_line/len am POD-Ende.
     return cea::AnatomyVersionLines{.stamp_layout_version    = layout,
                                     .reserved                = 0u,
-                                    .organ_line              = "",
-                                    .organ_len               = 0u,
-                                    .system_line             = "",
-                                    .system_len              = 0u,
                                     .measurement_line        = mess,
                                     .measurement_len         = mess_len,
+                                    .system_line             = "",
+                                    .system_len              = 0u,
+                                    .organ_line              = "",
+                                    .organ_len               = 0u,
                                     .sha512_line             = "",
                                     .sha512_len              = 0u,
-                                    .organ_entries           = cea::kAnatomyStampNoEntries,
-                                    .organ_entry_count       = 0u,
+                                    .measurement_entries     = eintraege,
+                                    .measurement_entry_count = eintrag_count,
                                     .system_entries          = cea::kAnatomyStampNoEntries,
                                     .system_entry_count      = 0u,
-                                    .measurement_entries     = eintraege,
-                                    .measurement_entry_count = eintrag_count};
+                                    .organ_entries           = cea::kAnatomyStampNoEntries,
+                                    .organ_entry_count       = 0u,
+                                    .komposit_line           = "",
+                                    .komposit_len            = 0u};
 }
 
 /// Die eine gebaute perm-.so im Fixture-Dir finden (Loader-Konvention, uebernommen aus test_pruef_only_gate).
@@ -117,7 +120,8 @@ constexpr auto kEntriesWallclock =
 } // namespace
 
 // DIE ECHTE MAKRO-EXPANSION (Ebene A). Materialisiert comdare_anatomy_version_lines() in dieser TU.
-COMDARE_ANATOMY_VERSION_STAMP_M(COMDARE_D2_ORGAN_LIT, COMDARE_D2_SYSTEM_LIT, COMDARE_D2_MESS_VOLL)
+// S-6a: Argument-Folge MESS, SYSTEM, ORGAN.
+COMDARE_ANATOMY_VERSION_STAMP_M(COMDARE_D2_MESS_VOLL, COMDARE_D2_SYSTEM_LIT, COMDARE_D2_ORGAN_LIT)
 
 // =================================================================================================
 // (0) DIE ERWARTUNG IST NICHT BLIND -- das Literal deckt sich mit der lebenden Registry

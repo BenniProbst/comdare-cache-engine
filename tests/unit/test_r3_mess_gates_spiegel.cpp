@@ -81,7 +81,7 @@ void check_true(std::string const& was, bool ok) {
 [[nodiscard]] std::string host_fingerprint(std::string_view organ, std::string_view system,
                                            std::string_view measurement, std::string_view mess_gates) {
     auto const glieder = cea::anatomy_fingerprint_glieder(
-        cea::OrganZeile{organ}, cea::SystemZeile{system}, cea::MessZeile{measurement}, cea::ToolchainGlied{""},
+        cea::MessZeile{measurement}, cea::SystemZeile{system}, cea::OrganZeile{organ}, cea::ToolchainGlied{""},
         cea::BvsetGlied{""}, cea::OverlayHash{cea::kOverlaySourceHash}, cea::MessGatesGlied{mess_gates});
     std::string const preimage =
         cea::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder.data(), glieder.size()});
@@ -134,8 +134,8 @@ void fall_a_tu_wahrheit() {
                cea::mess_gates_feld(cea::kMessGatesTuGlied, cea::kMessGatesFeldStatistics) ==
                    (cea::kMessGatesTuStatisticsOn ? "s1" : "s0"));
     check_true("(a) die Format-Kennung ist auf 4 gebumpt",
-               cea::kAnatomyFingerprintFormat == std::string_view{"fingerprint_format=4"});
-    check_true("(a) die Glied-Folge hat NEUN Glieder", cea::kAnatomyFingerprintGliedCount == 9u);
+               cea::kAnatomyFingerprintFormat == std::string_view{"fingerprint_format=5"});
+    check_true("(a) die Glied-Folge hat ZEHN Glieder", cea::kAnatomyFingerprintGliedCount == 10u);
 }
 
 // ---------------------------------------------------------------------------------------------

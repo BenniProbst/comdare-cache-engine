@@ -123,7 +123,7 @@ TEST(R5D_CebContract, CodegenMinorIsPinnedLiterally) {
     // kAnatomyVersionLinesLayout, bricht dieser Pin und zwingt zur Entscheidung ueber den Minor. Die uebrigen
     // universellen Quellen (all_axes_umbrella / adhoc_emitter / Observer-Basis-Emission) sind damit NICHT
     // gedeckt -- fuer sie bleibt der Bump eine Disziplin-Frage, bis ein Content-Digest-Gate sie erfasst.
-    static_assert(ce_abi::kAnatomyVersionLinesLayout == 6,
+    static_assert(ce_abi::kAnatomyVersionLinesLayout == 7,
                   "A13-M4: das Stempel-POD-Layout ist an den CEB-Contract-Minor gekoppelt -- wer das Layout "
                   "bumpt, entscheidet im SELBEN Commit ueber kCebContractCodegenMinor.");
     // B14-NB4: diese beiden Laufzeit-Pins trugen die 0 ein ZWEITES Mal (neben dem static_assert oben) --

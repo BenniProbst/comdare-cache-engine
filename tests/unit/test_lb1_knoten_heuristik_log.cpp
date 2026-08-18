@@ -664,13 +664,14 @@ TEST(Lb1OverlayAbgrenzung, DasOverlayGliedIstStrukturellDaUndSeitEeBELEGT) {
     // Glied hinzugefuegt, verschoben oder entfernt (deshalb auch KEIN Format-Bump: das Layout ist
     // dasselbe, nur der Inhalt von [7] wechselt von leer auf belegt). Genau das pruefen die drei
     // folgenden Zeilen weiter -- sie sind der Beleg, dass die Scharfschaltung layout-neutral war.
-    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintGliedCount, 9u);
+    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintGliedCount, 10u);
     EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintOverlayGlied,
               comdare::cache_engine::abi::kAnatomyFingerprintMessGatesGlied - 1u)
         << "das Overlay-Glied steht unmittelbar vor dem Mess-Gates-Glied (R-3)";
-    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintMessGatesGlied,
+    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintKompositGlied,
               comdare::cache_engine::abi::kAnatomyFingerprintGliedCount - 1u)
-        << "das Mess-Gates-Glied ist per R-3 das Schwanz-Glied";
+        << "seit S-6a/KON45-01 ist das Komposit-Map-Glied das Schwanz-Glied (das Mess-Gates-Glied war es "
+           "unter Format 4) -- die Bestands-Nummern [0]..[8] sind dabei unveraendert geblieben";
     // GEGENPROBE zur Leerheit oben: das Mess-Gates-Glied ist das erste Glied, das NIEMALS leer ist --
     // sein Aus-Zustand ist ein Wert ("mg=m0;..."), keine Identitaet. Ohne diese Zeile liesse sich der
     // Test auch mit einem still leer gebliebenen neunten Glied gruen halten.

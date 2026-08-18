@@ -128,7 +128,8 @@ void check_stamp_injected(std::vector<std::string> const& g320_ids) {
     check_true("(a2) Katalog-Quelle traegt COMDARE_ANATOMY_VERSION_STAMP(", !cs.empty());
     check_true("(a2) Stempel-Zeile byte-gleich (lazy == Katalog)", ls == cs);
     check_true("(a2) Organ-Stempel in X.Y.Z-Voll-Form (@1.0.0.c)", ls.find("@1.0.0.c") != std::string::npos);
-    // Der System-Stempel (system_stamp_line) traegt die statischen System-Achsen -- als 2. Makro-Argument.
+    // Der System-Stempel (system_stamp_line) traegt die statischen System-Achsen -- seit S-6a als 1. Argument
+    // der 2-arg-Form (Kategorien-Ordnung MESS, SYSTEM, ORGAN; die Mess-Zeile ist die weggelassene erste).
     // O-8 Schritt 4 (A3-Kern): geankert auf target_isa statt auf compiler; compiler ist keine System-Haupt-Achse
     // mehr. Die Gegenprobe steht daneben, damit der Anker nicht bloss verschoben, sondern der Umbau belegt ist.
     check_true("(a2) System-Stempel-Achse target_isa=code@ eingebettet",
@@ -552,7 +553,8 @@ void check_fingerprint_drift_free(std::vector<std::string> const& g320_ids) {
     ex::SourceGenFn const          lazy          = tlz::make_lazy_adhoc_source_gen(); // 2-arg, measurement=""
     std::string const              id            = g320_ids.front();
     std::vector<std::string> const args          = quoted_args(stamp_line(lazy(id)));
-    check_true("(a3) 2-arg-Stempel traegt organ+system", args.size() >= 2);
+    // S-6a: die 2-arg-Form emittiert (system, organ) -- args[0] ist die SYSTEM-, args[1] die ORGAN-Zeile.
+    check_true("(a3) 2-arg-Stempel traegt system+organ", args.size() >= 2);
     if (args.size() < 2) return;
     // A13-M3: das Referenz-Preimage wird aus DERSELBEN Glied-Quelle gebaut wie der Provider
     // (abi::anatomy_fingerprint_glieder + '\n'-Separator). Vorher stand hier "args[0] + args[1]" -- eine
@@ -560,8 +562,8 @@ void check_fingerprint_drift_free(std::vector<std::string> const& g320_ids) {
     // kommen weiter aus dem EMITTIERTEN Quelltext (args), nicht aus dem Provider: nur so bleibt es ein
     // Drift-Beweis und keine Selbst-Bestaetigung.
     auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(
-        ::comdare::cache_engine::abi::OrganZeile{args[0]}, ::comdare::cache_engine::abi::SystemZeile{args[1]},
-        ::comdare::cache_engine::abi::MessZeile{""});
+        ::comdare::cache_engine::abi::MessZeile{""}, ::comdare::cache_engine::abi::SystemZeile{args[0]},
+        ::comdare::cache_engine::abi::OrganZeile{args[1]});
     std::string const preimage = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(
         std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = ::comdare::cache_engine::sha512::sha512(
@@ -570,7 +572,7 @@ void check_fingerprint_drift_free(std::vector<std::string> const& g320_ids) {
     std::string const emitted_fp(hex.data(), hex.size());
     std::string const provider_fp = tlz::lazy_adhoc_fingerprint_for(tables, id, version_table, /*measurement=*/{});
     check_true("(a3) FingerprintFn ist 128-hex", provider_fp.size() == 128);
-    check_eq("(a3) FingerprintFn == sha512(emittierte organ+system) -- drift-frei zum DLL-sha512_line", provider_fp,
+    check_eq("(a3) FingerprintFn == sha512(emittierte system+organ) -- drift-frei zum DLL-sha512_line", provider_fp,
              emitted_fp);
 
     // -- R-3 (07.08.2026): DAS NEUNTE GLIED REIST AUCH AUF DEM LAUFZEIT-WEG ---------------------------
@@ -584,8 +586,8 @@ void check_fingerprint_drift_free(std::vector<std::string> const& g320_ids) {
     cea::ToolchainGlied const tc{cea::kToolchainStampGlied};
     cea::BvsetGlied const     bv{cea::kBuildVariantSetSignatureGlied};
     cea::OverlayHash const    ov{cea::kOverlaySourceHash};
-    auto const        glieder_mg = cea::anatomy_fingerprint_glieder(cea::OrganZeile{args[0]}, cea::SystemZeile{args[1]},
-                                                                    cea::MessZeile{""}, tc, bv, ov, mg);
+    auto const        glieder_mg = cea::anatomy_fingerprint_glieder(cea::MessZeile{""}, cea::SystemZeile{args[0]},
+                                                                    cea::OrganZeile{args[1]}, tc, bv, ov, mg);
     std::string const preimage_mg =
         cea::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder_mg.data(), glieder_mg.size()});
     auto const digest_mg = ::comdare::cache_engine::sha512::sha512(

@@ -674,25 +674,34 @@ TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt120) {
     // sizeof-static_assert lebt in anatomy_module_abi_v1_decl.hpp und haelt build-weit -- hier zusaetzlich als
     // literaler ctest-Beweis gespiegelt. binary_id/CRC UNBERUEHRT (POD-Layout != binary_id).
     using ::comdare::cache_engine::abi::AnatomyVersionLines;
-    static_assert(sizeof(AnatomyVersionLines) == 120, "POD-Layout-Wache: 16 Felder, 8-aligned -> 120 Byte (x86_64).");
+    static_assert(sizeof(AnatomyVersionLines) == 136,
+                  "POD-Layout-Wache: 18 Felder, 8-aligned -> 136 Byte (x86_64), seit S-6a/Layout 7.");
     static_assert(alignof(AnatomyVersionLines) == 8);
-    EXPECT_EQ(sizeof(AnatomyVersionLines), 120u);
+    EXPECT_EQ(sizeof(AnatomyVersionLines), 136u);
     EXPECT_EQ(alignof(AnatomyVersionLines), 8u);
-    EXPECT_EQ(::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 6u);
-    // Die drei Zeilen-Paare bis measurement_len liegen unveraendert (der Entfall sitzt DAHINTER).
-    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_line), 8u);
+    EXPECT_EQ(::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 7u);
+    // S-6a (Layout 7): die drei Zeilen-Paare stehen in der Kategorien-Ordnung MESS, SYSTEM, ORGAN. Das ist
+    // der erste reine FELD-TAUSCH dieses POD -- sizeof und Feldzahl bleiben davon unberuehrt, ALLE Offsets
+    // wandern. Genau deshalb steht diese Offset-Tafel hier: sie ist die einzige Wache, die einen Tausch
+    // gleichtypiger Felder ueberhaupt sehen kann (der sizeof-Pin daneben sieht nur Wachstum und Entfall).
+    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_line), 8u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_len), 16u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, system_line), 24u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_line), 40u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_len), 48u);
-    // Ab hier hat der merge-Entfall alles um -16 gezogen (vorher sha512_line @72, organ_entries @88 ...).
+    EXPECT_EQ(offsetof(AnatomyVersionLines, system_len), 32u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_line), 40u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_len), 48u);
+    // Ab hier hat der merge-Entfall alles um -16 gezogen (vorher sha512_line @72, entries @88 ...).
     EXPECT_EQ(offsetof(AnatomyVersionLines, sha512_line), 56u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, sha512_len), 64u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_entries), 72u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_entry_count), 80u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_entries), 72u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_entry_count), 80u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, system_entries), 88u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, system_entry_count), 96u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_entries), 104u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_entry_count), 112u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_entries), 104u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_entry_count), 112u);
+    // KON45-01: die APPEND-Haelfte des Bumps -- komposit_line/len am POD-Ende.
+    EXPECT_EQ(offsetof(AnatomyVersionLines, komposit_line), 120u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, komposit_len), 128u);
 }
 
 TEST(MW12StampBausteine, K4StampPodHasEntriesIsEqualityNotOrder) {
@@ -700,9 +709,10 @@ TEST(MW12StampBausteine, K4StampPodHasEntriesIsEqualityNotOrder) {
     // v5-Offsets lesen (und umgekehrt) und stillen Zeiger-Muell liefern. Die CT-Negativ-Probe steht im
     // Header selbst (static_assert); hier ist sie als literaler ctest-Beweis gespiegelt.
     namespace abi = ::comdare::cache_engine::abi;
-    EXPECT_TRUE(abi::stamp_pod_has_entries(abi::detail::stamp_pod_layout_probe(6u)));
+    EXPECT_TRUE(abi::stamp_pod_has_entries(abi::detail::stamp_pod_layout_probe(7u)));
+    EXPECT_FALSE(abi::stamp_pod_has_entries(abi::detail::stamp_pod_layout_probe(6u)));
     EXPECT_FALSE(abi::stamp_pod_has_entries(abi::detail::stamp_pod_layout_probe(5u)));
-    EXPECT_FALSE(abi::stamp_pod_has_entries(abi::detail::stamp_pod_layout_probe(7u)));
+    EXPECT_FALSE(abi::stamp_pod_has_entries(abi::detail::stamp_pod_layout_probe(8u)));
 }
 
 TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
@@ -712,7 +722,7 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     // Test die Ordnung UND den Trenner beweist und nicht bloss die Funktion gegen sich selbst.
     namespace abi     = ::comdare::cache_engine::abi;
     namespace s5      = ::comdare::cache_engine::sha512;
-    constexpr auto fp = abi::anatomy_fingerprint_hex(abi::OrganZeile{"a"}, abi::SystemZeile{"b"}, abi::MessZeile{"c"});
+    constexpr auto fp = abi::anatomy_fingerprint_hex(abi::MessZeile{"c"}, abi::SystemZeile{"b"}, abi::OrganZeile{"a"});
     static_assert(fp[128] == '\0', "Fingerprint-Zeile nullterminiert");
     // O-2/C-2 (Format 3): das Referenz-Preimage traegt jetzt ACHT Glieder -- Toolchain [5] und bvset [6]
     // liegen zwischen Werteset und Overlay. Sie stehen hier BEWUSST als Konstanten und nicht als leere
@@ -720,7 +730,7 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     // ausgerechnet dann gruen bleiben, wenn die C-3-Verdrahtung sie fuellt.
     std::string ref_pre;
     ref_pre += abi::kAnatomyFingerprintFormat;
-    ref_pre += "\na\nb\nc\n";
+    ref_pre += "\nc\nb\na\n"; // S-6a: MESS, SYSTEM, ORGAN
     ref_pre += abi::kSubAxisValuesetSegment;
     ref_pre += '\n';
     ref_pre += abi::kToolchainStampGlied;
@@ -733,6 +743,10 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     // Der Separator bleibt trotzdem stehen: genau darauf beruht die Injektivitaet der Zerlegung.
     ref_pre += '\n';
     ref_pre += std::string_view{};
+    // S-6a/KON45-01: das ZEHNTE Glied. Der 3-arg-Aufruf ruft dafuer den DEFAULT kHybridKompositGlied
+    // (leer, solange kein Hybrid-Bau ihn injiziert). Der Separator bleibt auch hier stehen.
+    ref_pre += '\n';
+    ref_pre += abi::kHybridKompositGlied;
     auto const ref = s5::to_hex(s5::sha512(
         std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(ref_pre.data()), ref_pre.size()}));
     for (std::size_t i = 0; i < 128; ++i) EXPECT_EQ(fp[i], ref[i]) << "hex-Stelle " << i;
@@ -741,8 +755,8 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     // zu kollidieren) und das Werteset-Segment ein EIGENES Glied (F7-VERIFY, "schwerster Befund": sonst
     // wuerde ein Werteset-Bump unter dem SHA512-only-Skip-Gate STILL reused).
     constexpr auto glieder =
-        abi::anatomy_fingerprint_glieder(abi::OrganZeile{"a"}, abi::SystemZeile{"b"}, abi::MessZeile{"c"});
-    static_assert(glieder.size() == 9u); // O-2/C-2: 6 -> 8 (Toolchain + bvset); R-3: 8 -> 9 (Mess-Gates)
+        abi::anatomy_fingerprint_glieder(abi::MessZeile{"c"}, abi::SystemZeile{"b"}, abi::OrganZeile{"a"});
+    static_assert(glieder.size() == 10u); // O-2/C-2: 6 -> 8; R-3: 8 -> 9 (Mess-Gates); S-6a: 9 -> 10 (Komposit)
     static_assert(glieder[0] == abi::kAnatomyFingerprintFormat);
     static_assert(glieder[4] == abi::kSubAxisValuesetSegment);
     // O-2/C-2: die drei Schwanz-Glieder ueber ihre BENANNTEN Positionen adressiert -- nicht ueber nackte
@@ -755,7 +769,7 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     static_assert(glieder[abi::kAnatomyFingerprintMessGatesGlied].empty(),
                   "R-3: der Default des Mess-Gates-Glieds MUSS die leere Identitaet sein (ODR: der TU-Wert "
                   "haette in einem Default-Argument einer inline-Funktion externe Bindung).");
-    static_assert(abi::kAnatomyFingerprintFormat == std::string_view{"fingerprint_format=4"},
+    static_assert(abi::kAnatomyFingerprintFormat == std::string_view{"fingerprint_format=5"},
                   "R-3: der Format-Bump 3 -> 4 ist der Anker dieses Fensters -- er trennt den Alt-Bestand "
                   "deterministisch vom 9-Glieder-Layout (O-2/C-2 hat zuvor 2 -> 3 fuer das 8-Glieder-Layout "
                   "getan; die Begruendung ist dieselbe: Layout-Evolution mismatcht, statt still zu kollidieren).");
@@ -788,7 +802,7 @@ TEST(MW12StampBausteine, VL2PodDoktrinUndFeldzahlVomKonsumenten) {
                   "VL-2: die Feldzahl des POD stimmt nicht mehr mit kAnatomyVersionLinesFeldZahl ueberein. Wer "
                   "sie bewegt, bewegt auch die vier designierten Aggregat-Initialisierer (decl-Probe, Makro, "
                   "test_d2 mach_pod, test_m_w12).");
-    static_assert(sizeof(abi::AnatomyVersionLines) == 120, "VL-2: sizeof-Pin, vom Konsumenten aus gesehen.");
+    static_assert(sizeof(abi::AnatomyVersionLines) == 136, "VL-2: sizeof-Pin, vom Konsumenten aus gesehen.");
     static_assert(alignof(abi::AnatomyVersionLines) == 8);
 
     // Die ""-Doktrin am Probe-POD: die vier Zeichen-Zeiger tragen "" (Laenge 0), NIE nullptr. Ein
@@ -860,13 +874,14 @@ TEST(MW12StampBausteine, S6bZeilenTraegerSperrenDieTranspositionAuchBeimAufrufer
     // Preimage-Ordnung sie erwartet. Ohne sie wuerde eine Sperre, die ALLES verbietet, ebenfalls "gruen"
     // aussehen -- die drei Zeilen muessen ankommen, nicht nur unvertauschbar sein.
     constexpr auto glieder =
-        abi::anatomy_fingerprint_glieder(abi::OrganZeile{"ORGAN"}, abi::SystemZeile{"SYSTEM"}, abi::MessZeile{"MESS"});
-    static_assert(glieder[1] == std::string_view{"ORGAN"});
+        abi::anatomy_fingerprint_glieder(abi::MessZeile{"MESS"}, abi::SystemZeile{"SYSTEM"}, abi::OrganZeile{"ORGAN"});
+    // S-6a: [1] traegt seit der Kategorien-Drehung die MESS-Zeile, [3] die ORGAN-Zeile.
+    static_assert(glieder[1] == std::string_view{"MESS"});
     static_assert(glieder[abi::kAnatomyFingerprintSystemGlied] == std::string_view{"SYSTEM"});
-    static_assert(glieder[3] == std::string_view{"MESS"});
-    EXPECT_EQ(glieder[1], "ORGAN");
+    static_assert(glieder[3] == std::string_view{"ORGAN"});
+    EXPECT_EQ(glieder[1], "MESS");
     EXPECT_EQ(glieder[abi::kAnatomyFingerprintSystemGlied], "SYSTEM");
-    EXPECT_EQ(glieder[3], "MESS");
+    EXPECT_EQ(glieder[3], "ORGAN");
 }
 
 TEST(MW12StampBausteine, GA01FingerprintPreimageIsInjective) {
@@ -879,9 +894,9 @@ TEST(MW12StampBausteine, GA01FingerprintPreimageIsInjective) {
     constexpr std::string_view kX = "search_algo=k_ary@1.0.0.c";
 
     // (1) Die drei Feldgrenzen-Verschiebungen der GA-01-Demo: gleiches Zeichenmaterial, andere Zuordnung.
-    constexpr auto a = abi::anatomy_fingerprint_hex(abi::OrganZeile{""}, abi::SystemZeile{""}, abi::MessZeile{kX});
-    constexpr auto b = abi::anatomy_fingerprint_hex(abi::OrganZeile{kX}, abi::SystemZeile{""}, abi::MessZeile{""});
-    constexpr auto c = abi::anatomy_fingerprint_hex(abi::OrganZeile{""}, abi::SystemZeile{kX}, abi::MessZeile{""});
+    constexpr auto a = abi::anatomy_fingerprint_hex(abi::MessZeile{kX}, abi::SystemZeile{""}, abi::OrganZeile{""});
+    constexpr auto b = abi::anatomy_fingerprint_hex(abi::MessZeile{""}, abi::SystemZeile{""}, abi::OrganZeile{kX});
+    constexpr auto c = abi::anatomy_fingerprint_hex(abi::MessZeile{""}, abi::SystemZeile{kX}, abi::OrganZeile{""});
     static_assert(a != b, "GA-01: Mess-Zeile X vs. Organ-Zeile X muessen verschiedene Fingerprints ergeben.");
     static_assert(a != c, "GA-01: Mess-Zeile X vs. System-Zeile X muessen verschiedene Fingerprints ergeben.");
     static_assert(b != c, "GA-01: Organ-Zeile X vs. System-Zeile X muessen verschiedene Fingerprints ergeben.");
@@ -891,10 +906,10 @@ TEST(MW12StampBausteine, GA01FingerprintPreimageIsInjective) {
 
     // (2) Die EIN-ZEICHEN-Grenzverschiebung zwischen Organ- und System-Zeile (das ';' wandert ueber die
     //     Feldgrenze). Ohne Trenner ist das Preimage identisch -- mit Trenner nicht.
-    constexpr auto d = abi::anatomy_fingerprint_hex(abi::OrganZeile{"achse=algo@1.0.0.c;"},
-                                                    abi::SystemZeile{"target_isa=code@1.0.0.c"}, abi::MessZeile{""});
-    constexpr auto e = abi::anatomy_fingerprint_hex(abi::OrganZeile{"achse=algo@1.0.0.c"},
-                                                    abi::SystemZeile{";target_isa=code@1.0.0.c"}, abi::MessZeile{""});
+    constexpr auto d = abi::anatomy_fingerprint_hex(abi::MessZeile{""}, abi::SystemZeile{"target_isa=code@1.0.0.c"},
+                                                    abi::OrganZeile{"achse=algo@1.0.0.c;"});
+    constexpr auto e = abi::anatomy_fingerprint_hex(abi::MessZeile{""}, abi::SystemZeile{";target_isa=code@1.0.0.c"},
+                                                    abi::OrganZeile{"achse=algo@1.0.0.c"});
     static_assert(d != e, "GA-01: die Ein-Zeichen-Grenzverschiebung darf nicht kollabieren.");
     EXPECT_NE(std::string_view{d.data()}, std::string_view{e.data()});
 
@@ -915,11 +930,11 @@ TEST(MW12StampBausteine, GA01FingerprintPreimageIsInjective) {
     //     Probe waere der teuerste Teil des Neuankers -- die Unterscheidbarkeit von Toolchain-Wahl und
     //     Enable-Menge -- unbewiesen, und ein spaeterer Slot-Dreher faellt niemandem auf.
     constexpr std::string_view kY = "opt=O3{-O3}@1.0.0.c";
-    constexpr auto t = abi::anatomy_fingerprint_hex(abi::OrganZeile{""}, abi::SystemZeile{""}, abi::MessZeile{""},
+    constexpr auto t = abi::anatomy_fingerprint_hex(abi::MessZeile{""}, abi::SystemZeile{""}, abi::OrganZeile{""},
                                                     abi::ToolchainGlied{kY}, abi::BvsetGlied{""}, abi::OverlayHash{""});
-    constexpr auto v = abi::anatomy_fingerprint_hex(abi::OrganZeile{""}, abi::SystemZeile{""}, abi::MessZeile{""},
+    constexpr auto v = abi::anatomy_fingerprint_hex(abi::MessZeile{""}, abi::SystemZeile{""}, abi::OrganZeile{""},
                                                     abi::ToolchainGlied{""}, abi::BvsetGlied{kY}, abi::OverlayHash{""});
-    constexpr auto o = abi::anatomy_fingerprint_hex(abi::OrganZeile{""}, abi::SystemZeile{""}, abi::MessZeile{""},
+    constexpr auto o = abi::anatomy_fingerprint_hex(abi::MessZeile{""}, abi::SystemZeile{""}, abi::OrganZeile{""},
                                                     abi::ToolchainGlied{""}, abi::BvsetGlied{""}, abi::OverlayHash{kY});
     static_assert(t != v, "O-2/C-2: Toolchain-Glied X vs. bvset-Glied X muessen sich unterscheiden.");
     static_assert(t != o, "O-2/C-2: Toolchain-Glied X vs. Overlay-Glied X muessen sich unterscheiden.");
@@ -933,12 +948,12 @@ TEST(MW12StampBausteine, GA01FingerprintPreimageIsInjective) {
     //     waren diese beiden Groessen im Preimage gar nicht vertreten, zwei Baue mit anderem opt/bt oder
     //     anderer Enable-Menge hatten denselben Digest.
     constexpr auto leer =
-        abi::anatomy_fingerprint_hex(abi::OrganZeile{"ORGAN"}, abi::SystemZeile{"SYSTEM"}, abi::MessZeile{"MESS"});
+        abi::anatomy_fingerprint_hex(abi::MessZeile{"MESS"}, abi::SystemZeile{"SYSTEM"}, abi::OrganZeile{"ORGAN"});
     constexpr auto mit_tc =
-        abi::anatomy_fingerprint_hex(abi::OrganZeile{"ORGAN"}, abi::SystemZeile{"SYSTEM"}, abi::MessZeile{"MESS"},
+        abi::anatomy_fingerprint_hex(abi::MessZeile{"MESS"}, abi::SystemZeile{"SYSTEM"}, abi::OrganZeile{"ORGAN"},
                                      abi::ToolchainGlied{"tc=1;opt=O3{-O3}@1.0.0.c"});
     constexpr auto mit_bv =
-        abi::anatomy_fingerprint_hex(abi::OrganZeile{"ORGAN"}, abi::SystemZeile{"SYSTEM"}, abi::MessZeile{"MESS"},
+        abi::anatomy_fingerprint_hex(abi::MessZeile{"MESS"}, abi::SystemZeile{"SYSTEM"}, abi::OrganZeile{"ORGAN"},
                                      abi::ToolchainGlied{""}, abi::BvsetGlied{"bvset=1;bv=2;page_type[{bplus}]"});
     static_assert(leer != mit_tc, "C1: eine belegte Toolchain MUSS den Fingerprint verschieben.");
     static_assert(leer != mit_bv, "C6: eine belegte Enable-Mengen-Signatur MUSS den Fingerprint verschieben.");
@@ -1048,11 +1063,17 @@ TEST(MW12StampBausteine, FrozenFingerprintTestVectorForLagerGateB3) {
     // gibt -- der .fingerprint-Sidecar-Bestand ist literal 0 (am 07.08. ueber den gesamten Arbeitsbaum inkl.
     // Build-Verzeichnisse nachgezaehlt). Jeder Fingerprint bewegt sich ohnehin einmal, und zwar fail-closed
     // (Neubau), nicht fail-open (falscher Skip).
+    // [ZUM NAECHSTEN MAL EINGEFROREN 18.08.2026, S-6a/KON45-01 -- Format 4 -> 5. ZWEI Ursachen in EINEM
+    // Bump: (a) die Kategorien-Ordnung der Glieder [1][2][3] dreht auf MESS, SYSTEM, ORGAN (KON21-03),
+    // (b) ein ZEHNTES Glied kommt dazu (Hybrid-Komposit-Map, hier leer -- aber sein Separator zaehlt).
+    // Der neue Hex ist NICHT vorausberechnet, sondern aus dem literalen Lauf einer Probe-TU gegen genau
+    // diesen Header uebernommen (dieselbe Methode wie bei allen vorigen Ankern).
+    // Vorgaenger (Format 4, E-E-END-FORM): d53aebdbb22902f3...f20b4d84]
     constexpr std::string_view kFrozenFingerprintV1 =
-        "d53aebdbb22902f3cdbbf5947bc36ea5ba04808248fc23fa99a1b95471edda7c"
-        "f0f13be791ced93d2ded7b4906a1c5c4c2123b28322cc38378b06250f20b4d84";
-    constexpr auto fp = abi::anatomy_fingerprint_hex(abi::OrganZeile{kOrgan}, abi::SystemZeile{kSystem},
-                                                     abi::MessZeile{kMeasure}, abi::ToolchainGlied{kFrozenToolchain},
+        "1c0a8f7cd1f524535408846b9bdd41f58458a6e4ddc67a188c22ef4464bcacb1"
+        "09e6ec9043c3fef80d2d22f0d8cf2302a0728516a03c42337863a686f7b2cab7";
+    constexpr auto fp = abi::anatomy_fingerprint_hex(abi::MessZeile{kMeasure}, abi::SystemZeile{kSystem},
+                                                     abi::OrganZeile{kOrgan}, abi::ToolchainGlied{kFrozenToolchain},
                                                      abi::BvsetGlied{kFrozenBvset}, abi::OverlayHash{kFrozenOverlay});
     static_assert(fp[128] == '\0', "Fingerprint-Zeile nullterminiert");
     static_assert(std::string_view{fp.data()} == kFrozenFingerprintV1,
@@ -1408,28 +1429,31 @@ TEST(MW12StampBausteine, A4AnatomyStampArraysRoundtripThroughPod) {
     static constexpr auto kME =
         abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kMeasure})>(kMeasure);
 
-    // A13-M3: die merge-Slots ("" / 0u) sind hier ERSATZLOS entfallen (18 -> 16 Initialisierer) -- sha512_line
-    // folgt unmittelbar auf measurement_len. VL-2: die Zuordnung steht ab hier als DESIGNATOR da, nicht als
-    // Position -- ein S-6a-Feld-Tausch bricht damit laut, statt die Werte still zu vertauschen.
+    // A13-M3: die merge-Slots ("" / 0u) sind hier ERSATZLOS entfallen -- sha512_line folgt unmittelbar auf
+    // die drei Zeilen-Paare. VL-2: die Zuordnung steht als DESIGNATOR da, nicht als Position -- der
+    // S-6a-Feld-Tausch hat damit LAUT gebrochen (Designator-Reihenfolge), statt die Werte still zu
+    // vertauschen. S-6a/Layout 7: Feldfolge MESS, SYSTEM, ORGAN + komposit_line/len (16 -> 18 Designatoren).
     abi::AnatomyVersionLines const v{.stamp_layout_version    = abi::kAnatomyVersionLinesLayout,
                                      .reserved                = 0u,
-                                     .organ_line              = kOrgan,
-                                     .organ_len               = sizeof(kOrgan) - 1,
-                                     .system_line             = kSystem,
-                                     .system_len              = sizeof(kSystem) - 1,
                                      .measurement_line        = kMeasure,
                                      .measurement_len         = sizeof(kMeasure) - 1,
+                                     .system_line             = kSystem,
+                                     .system_len              = sizeof(kSystem) - 1,
+                                     .organ_line              = kOrgan,
+                                     .organ_len               = sizeof(kOrgan) - 1,
                                      .sha512_line             = "deadbeef",
                                      .sha512_len              = 8u,
-                                     .organ_entries           = abi::stamp_entries_ptr(kOE),
-                                     .organ_entry_count       = kOE.size(),
+                                     .measurement_entries     = abi::stamp_entries_ptr(kME),
+                                     .measurement_entry_count = kME.size(),
                                      .system_entries          = abi::stamp_entries_ptr(kSE),
                                      .system_entry_count      = kSE.size(),
-                                     .measurement_entries     = abi::stamp_entries_ptr(kME),
-                                     .measurement_entry_count = kME.size()};
+                                     .organ_entries           = abi::stamp_entries_ptr(kOE),
+                                     .organ_entry_count       = kOE.size(),
+                                     .komposit_line           = "",
+                                     .komposit_len            = 0u};
 
     EXPECT_TRUE(abi::stamp_pod_has_entries(v));
-    EXPECT_EQ(v.stamp_layout_version, 6u);
+    EXPECT_EQ(v.stamp_layout_version, 7u);
     EXPECT_EQ(v.organ_entry_count, 18u);
     EXPECT_EQ(v.system_entry_count, 4u); // A13-M2: 3 Haupt-Achsen + 1 geklammerte Meta-Meta
     EXPECT_EQ(v.measurement_entry_count, 4u);
@@ -1596,10 +1620,10 @@ TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
     // kein Tier-Binary, ihr Schluessel soll ruhig liegen, damit der Byte-Anker in
     // test_d4_ceb_schluessel_wahl weiter etwas aussagen kann). Stuende hier die 3-arg-Form, verglichen die
     // beiden Wege ab jetzt VERSCHIEDENE Glied-Saetze -- der Test waere rot, ohne dass etwas driftet.
-    constexpr auto host = abi::anatomy_fingerprint_hex(
-        abi::OrganZeile{""}, abi::SystemZeile{""}, abi::MessZeile{ceb::kCebMeasurementStamp},
-        abi::ToolchainGlied{abi::kToolchainStampGlied}, abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied},
-        abi::OverlayHash{""});
+    constexpr auto host =
+        abi::anatomy_fingerprint_hex(abi::MessZeile{ceb::kCebMeasurementStamp}, abi::SystemZeile{""},
+                                     abi::OrganZeile{""}, abi::ToolchainGlied{abi::kToolchainStampGlied},
+                                     abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied}, abi::OverlayHash{""});
     EXPECT_EQ(ceb::kCebFingerprint, std::string_view(host.data(), 128));
     // ceb_version_stamp() traegt beide Teile + die X.Y.Z-Form (keine rohe @v1).
     // D-4: die Vorspann-Erwartung nennt nicht mehr "wallclock" (das ist nur bei [all] das erste Tooling),
@@ -2101,10 +2125,10 @@ TEST(MW12StampBausteine, Nb3T2dTraegerLebensdauerUndVollWache) {
     std::string               wert = "tc=1";
     abi::ToolchainGlied const tc{wert}; // Konstruktor-Wache: wohlgeformt
     EXPECT_NO_THROW(
-        (void)abi::anatomy_fingerprint_glieder(abi::OrganZeile{"O"}, abi::SystemZeile{"S"}, abi::MessZeile{"M"}, tc));
+        (void)abi::anatomy_fingerprint_glieder(abi::MessZeile{"M"}, abi::SystemZeile{"S"}, abi::OrganZeile{"O"}, tc));
     wert[2] = '\n'; // der Domain-Separator, nachtraeglich eingeschleust
     EXPECT_THROW(
-        (void)abi::anatomy_fingerprint_glieder(abi::OrganZeile{"O"}, abi::SystemZeile{"S"}, abi::MessZeile{"M"}, tc),
+        (void)abi::anatomy_fingerprint_glieder(abi::MessZeile{"M"}, abi::SystemZeile{"S"}, abi::OrganZeile{"O"}, tc),
         std::invalid_argument);
 }
 
@@ -2336,7 +2360,7 @@ TEST(MW12StampBausteine, NbCx1RtInjektivitaetsWacheIstFailLoud) {
         (void)abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{kaputt.data(), kaputt.size()}),
         std::invalid_argument);
     auto const heil =
-        abi::anatomy_fingerprint_glieder(abi::OrganZeile{"ORGAN"}, abi::SystemZeile{"SYSTEM"}, abi::MessZeile{"MESS"});
+        abi::anatomy_fingerprint_glieder(abi::MessZeile{"MESS"}, abi::SystemZeile{"SYSTEM"}, abi::OrganZeile{"ORGAN"});
     EXPECT_NO_THROW(
         (void)abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{heil.data(), heil.size()}));
 }
@@ -2365,7 +2389,7 @@ TEST(MW12StampBausteine, NbCx4LiveGliederStehenImPreimage) {
 
     // (3) BEIDE stehen LITERAL im Preimage, an ihren benannten Positionen.
     auto const glieder =
-        abi::anatomy_fingerprint_glieder(abi::OrganZeile{"ORGAN"}, abi::SystemZeile{"SYSTEM"}, abi::MessZeile{"MESS"},
+        abi::anatomy_fingerprint_glieder(abi::MessZeile{"MESS"}, abi::SystemZeile{"SYSTEM"}, abi::OrganZeile{"ORGAN"},
                                          abi::ToolchainGlied{tc}, abi::BvsetGlied{bv});
     EXPECT_EQ(glieder[abi::kAnatomyFingerprintToolchainGlied], tc);
     EXPECT_EQ(glieder[abi::kAnatomyFingerprintBvsetGlied], bv);
@@ -2377,7 +2401,7 @@ TEST(MW12StampBausteine, NbCx4LiveGliederStehenImPreimage) {
     // (4) WIRKSAMKEIT: mit den Live-Gliedern ergibt sich ein ANDERER Digest als mit den leeren Defaults.
     //     Das ist die eigentliche Aussage -- vorher waren beide Wege byte-gleich.
     auto const leer =
-        abi::anatomy_fingerprint_glieder(abi::OrganZeile{"ORGAN"}, abi::SystemZeile{"SYSTEM"}, abi::MessZeile{"MESS"});
+        abi::anatomy_fingerprint_glieder(abi::MessZeile{"MESS"}, abi::SystemZeile{"SYSTEM"}, abi::OrganZeile{"ORGAN"});
     EXPECT_NE(abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{leer.data(), leer.size()}), preimage);
 
     // (5) DIE DRIFT-FREIHEIT DER NAHT: derselbe argumentlose Aufruf liefert denselben String. Genau darauf
@@ -2451,7 +2475,7 @@ TEST(MW12StampBausteine, EeOverlayGliedStehtLiveImPreimage) {
 
     // (2) Er steht LITERAL im Preimage, an seiner benannten Position.
     auto const glieder =
-        abi::anatomy_fingerprint_glieder(abi::OrganZeile{"ORGAN"}, abi::SystemZeile{"SYSTEM"}, abi::MessZeile{"MESS"},
+        abi::anatomy_fingerprint_glieder(abi::MessZeile{"MESS"}, abi::SystemZeile{"SYSTEM"}, abi::OrganZeile{"ORGAN"},
                                          abi::ToolchainGlied{""}, abi::BvsetGlied{""}, abi::OverlayHash{ovl});
     EXPECT_EQ(glieder[abi::kAnatomyFingerprintOverlayGlied], ovl);
     std::string const preimage =
@@ -2461,7 +2485,7 @@ TEST(MW12StampBausteine, EeOverlayGliedStehtLiveImPreimage) {
     // (3) WIRKSAMKEIT -- die eigentliche Aussage: mit belegtem Glied ergibt sich ein ANDERER Digest als
     //     mit leerem. Vor E-E waren beide Wege byte-gleich, weil das Glied immer leer war.
     auto const leer =
-        abi::anatomy_fingerprint_glieder(abi::OrganZeile{"ORGAN"}, abi::SystemZeile{"SYSTEM"}, abi::MessZeile{"MESS"},
+        abi::anatomy_fingerprint_glieder(abi::MessZeile{"MESS"}, abi::SystemZeile{"SYSTEM"}, abi::OrganZeile{"ORGAN"},
                                          abi::ToolchainGlied{""}, abi::BvsetGlied{""}, abi::OverlayHash{""});
     EXPECT_NE(abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{leer.data(), leer.size()}), preimage);
 
@@ -2502,9 +2526,9 @@ TEST(MW12StampBausteine, Nb22ConstevalUndLaufzeitTeilenEinePreimageQuelle) {
     // (1) consteval-Hex == SHA-512 ueber das LAUFZEIT-gebildete Preimage derselben Glieder. Vor NB2-2
     //     waren das zwei getrennte Schleifen, die nur per Sichtnaehe uebereinstimmten.
     constexpr auto fp =
-        abi::anatomy_fingerprint_hex(abi::OrganZeile{kOrgan}, abi::SystemZeile{kSystem}, abi::MessZeile{kMeasure});
+        abi::anatomy_fingerprint_hex(abi::MessZeile{kMeasure}, abi::SystemZeile{kSystem}, abi::OrganZeile{kOrgan});
     auto const glieder =
-        abi::anatomy_fingerprint_glieder(abi::OrganZeile{kOrgan}, abi::SystemZeile{kSystem}, abi::MessZeile{kMeasure});
+        abi::anatomy_fingerprint_glieder(abi::MessZeile{kMeasure}, abi::SystemZeile{kSystem}, abi::OrganZeile{kOrgan});
     std::string const pre =
         abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const rt = s5::to_hex(

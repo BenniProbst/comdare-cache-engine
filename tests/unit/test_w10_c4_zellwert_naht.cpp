@@ -83,8 +83,8 @@ void check_eq(char const* what, std::string const& got, std::string const& want)
 [[nodiscard]] std::string fingerprint_of_cell(std::string const& zellwerte) {
     std::string const system =
         cea::complete_system_stamp_line(cea::system_stamp_line(), cea::SystemCellValues{zellwerte});
-    auto const        glieder = cea::anatomy_fingerprint_glieder(cea::OrganZeile{"ORGAN-FIX"}, cea::SystemZeile{system},
-                                                                 cea::MessZeile{"MESS-FIX"});
+    auto const        glieder = cea::anatomy_fingerprint_glieder(cea::MessZeile{"MESS-FIX"}, cea::SystemZeile{system},
+                                                                 cea::OrganZeile{"ORGAN-FIX"});
     std::string const preimage =
         cea::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = ::comdare::cache_engine::sha512::sha512(

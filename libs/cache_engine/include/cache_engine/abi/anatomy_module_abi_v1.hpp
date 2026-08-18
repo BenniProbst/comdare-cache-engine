@@ -115,9 +115,10 @@
         delete ptr;                                                                                                    \
     }
 
-/// COMDARE_ANATOMY_VERSION_STAMP_M(organ_lit, system_lit, measurement_lit) -- A13-M3 (Owner-E2 02.08.2026):
+/// COMDARE_ANATOMY_VERSION_STAMP_M(measurement_lit, system_lit, organ_lit) -- A13-M3 (Owner-E2 02.08.2026):
 /// die VOLLFORM. Materialisiert das OPTIONALE extern-"C"-Probe-Symbol comdare_anatomy_version_lines() aus DREI
-/// String-Literalen (Organ-, System- und Mess-Tooling-HAUPT-Stempel). Die frueher hier stehende 4-arg-Form
+/// String-Literalen -- seit S-6a in der Kategorien-Ordnung MESS, SYSTEM, ORGAN (Mess-Tooling-HAUPT-, System-
+/// und Organ-Stempel; KON21-03 #87). Die frueher hier stehende 4-arg-Form
 /// _MERGE ist ERSATZLOS ENTFALLEN -- "Merge Zeile kann daher nicht existieren"; stehender toter Stempel-Code
 /// waere ein dritter Ableitungsweg in Wartestellung (O-8-Schritt-12-Lehre). Die Merge-DURCHFUEHRUNG bleibt
 /// unberuehrt (profile_facade/merge_plan.hpp, Owner-Q2).
@@ -159,57 +160,72 @@
 /// GOLDEN-NEUTRAL bleibt es: der EMITTIERTE Makro-CALL (2-/3-arg) ist unveraendert, der Fingerprint
 /// materialisiert weiterhin erst in der Makro-EXPANSION -- die Round-Trip-Byte-Wachen und der
 /// binary_id-CRC-Anker sehen davon nichts.
-#define COMDARE_ANATOMY_VERSION_STAMP_M(organ_lit, system_lit, measurement_lit)                                        \
+#define COMDARE_ANATOMY_VERSION_STAMP_M(measurement_lit, system_lit, organ_lit)                                        \
     extern "C" COMDARE_ANATOMY_ABI_EXPORT ::comdare::cache_engine::abi::AnatomyVersionLines const*                     \
     comdare_anatomy_version_lines() noexcept {                                                                         \
-        static constexpr char kO[] = organ_lit;                                                                        \
+        static constexpr char kM[] = measurement_lit;                                                                  \
         static constexpr auto kSC  = ::comdare::cache_engine::abi::complete_system_stamp_line_array<                   \
             ::comdare::cache_engine::abi::complete_system_stamp_line_size(                                             \
                 system_lit, ::comdare::cache_engine::abi::kSystemCellValuesFromDefine)>(                               \
             system_lit, ::comdare::cache_engine::abi::kSystemCellValuesFromDefine);                                    \
-        static constexpr char kM[] = measurement_lit;                                                                  \
+        static constexpr char kO[] = organ_lit;                                                                        \
         static constexpr auto kFP  = ::comdare::cache_engine::abi::anatomy_fingerprint_hex(                            \
-            ::comdare::cache_engine::abi::OrganZeile{organ_lit},                                                       \
-            ::comdare::cache_engine::abi::SystemZeile{kSC.view()},                                                     \
             ::comdare::cache_engine::abi::MessZeile{measurement_lit},                                                  \
+            ::comdare::cache_engine::abi::SystemZeile{kSC.view()},                                                     \
+            ::comdare::cache_engine::abi::OrganZeile{organ_lit},                                                       \
             ::comdare::cache_engine::abi::ToolchainGlied{::comdare::cache_engine::abi::kToolchainStampGlied},          \
             ::comdare::cache_engine::abi::BvsetGlied{::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied},    \
             ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash},               \
-            ::comdare::cache_engine::abi::MessGatesGlied{::comdare::cache_engine::abi::kMessGatesTuGlied});            \
-        static constexpr auto kOE =                                                                                    \
-            ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(kO)>(  \
-                kO);                                                                                                   \
-        static constexpr auto kSE =                                                                                    \
-            ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(       \
-                kSC.view())>(kSC.chars);                                                                               \
+            ::comdare::cache_engine::abi::MessGatesGlied{::comdare::cache_engine::abi::kMessGatesTuGlied},             \
+            ::comdare::cache_engine::abi::KompositMapGlied{::comdare::cache_engine::abi::kHybridKompositGlied});       \
         static constexpr auto kME =                                                                                    \
             ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(kM)>(  \
                 kM);                                                                                                   \
+        static constexpr auto kSE =                                                                                    \
+            ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(       \
+                kSC.view())>(kSC.chars);                                                                               \
+        static constexpr auto kOE =                                                                                    \
+            ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(kO)>(  \
+                kO);                                                                                                   \
         static constexpr ::comdare::cache_engine::abi::AnatomyVersionLines kL{                                         \
             .stamp_layout_version    = ::comdare::cache_engine::abi::kAnatomyVersionLinesLayout,                       \
             .reserved                = 0u,                                                                             \
-            .organ_line              = kO,                                                                             \
-            .organ_len               = sizeof(kO) - 1,                                                                 \
-            .system_line             = kSC.chars,                                                                      \
-            .system_len              = kSC.size(),                                                                     \
             .measurement_line        = kM,                                                                             \
             .measurement_len         = sizeof(kM) - 1,                                                                 \
+            .system_line             = kSC.chars,                                                                      \
+            .system_len              = kSC.size(),                                                                     \
+            .organ_line              = kO,                                                                             \
+            .organ_len               = sizeof(kO) - 1,                                                                 \
             .sha512_line             = kFP.data(),                                                                     \
             .sha512_len              = kFP.size() - 1,                                                                 \
-            .organ_entries           = ::comdare::cache_engine::abi::stamp_entries_ptr(kOE),                           \
-            .organ_entry_count       = kOE.size(),                                                                     \
+            .measurement_entries     = ::comdare::cache_engine::abi::stamp_entries_ptr(kME),                           \
+            .measurement_entry_count = kME.size(),                                                                     \
             .system_entries          = ::comdare::cache_engine::abi::stamp_entries_ptr(kSE),                           \
             .system_entry_count      = kSE.size(),                                                                     \
-            .measurement_entries     = ::comdare::cache_engine::abi::stamp_entries_ptr(kME),                           \
-            .measurement_entry_count = kME.size()};                                                                    \
+            .organ_entries           = ::comdare::cache_engine::abi::stamp_entries_ptr(kOE),                           \
+            .organ_entry_count       = kOE.size(),                                                                     \
+            .komposit_line           = ::comdare::cache_engine::abi::kHybridKompositGlied.data(),                      \
+            .komposit_len            = ::comdare::cache_engine::abi::kHybridKompositGlied.size()};                     \
         return &kL;                                                                                                    \
     }
 
-/// COMDARE_ANATOMY_VERSION_STAMP(organ_lit, system_lit) -- W12-A2 Rueckwaerts-kompatible 2-arg-Form: leitet an
-/// die 3-arg _M-Vollform mit LEEREM Mess-Tooling-Stempel weiter (measurement_line -> "", measurement_len -> 0).
+/// COMDARE_ANATOMY_VERSION_STAMP(system_lit, organ_lit) -- W12-A2 2-arg-Kurzform: leitet an die 3-arg
+/// _M-Vollform mit LEEREM Mess-Tooling-Stempel weiter (measurement_line -> "", measurement_len -> 0).
 /// Der Emitter (adhoc_emitter.hpp) haengt diese Makro-Zeile NACH COMDARE_DEFINE_ANATOMY_MODULE_ADHOC an; bis die
 /// Mess-Tooling-HAUPT-Auffaecherung (S4/P-MESSTOOL) den gewaehlten Tooling-Stempel durchreicht, bleibt das
-/// Mess-Feld leer (ehrlich: kein Tooling einkompiliert), waehrend das POD-Layout bereits final ist. Der ce-only-/
-/// Katalog-Pfad emittiert weiterhin GENAU diese 2-arg-Form -> der emittierte Quelltext bleibt byte-identisch
-/// (golden-CRC unberuehrt).
-#define COMDARE_ANATOMY_VERSION_STAMP(organ_lit, system_lit) COMDARE_ANATOMY_VERSION_STAMP_M(organ_lit, system_lit, "")
+/// Mess-Feld leer (ehrlich: kein Tooling einkompiliert), waehrend das POD-Layout bereits final ist.
+///
+/// S-6a: DIE ARGUMENT-FOLGE IST GEDREHT -- (system_lit, organ_lit) statt (organ_lit, system_lit), weil die
+/// Kategorien-Ordnung MESS, SYSTEM, ORGAN lautet (KON21-03, #87 = Makro-/Argumentfolge) und die Mess-Zeile
+/// in dieser Kurzform gerade die weggelassene ERSTE ist. Damit ist sie NICHT mehr rueckwaerts-kompatibel:
+/// der emittierte Quelltext aendert sich, und das ist der DEKLARIERTE golden-Bruch dieser Scheibe
+/// (KON5-04, Kosten-Ebene 1) -- die Byte-Identitaets-Wachen des Emitters und der golden-CRC-Anker
+/// bewegen sich mit und werden im golden-Regen-Schnitt neu gesetzt, NICHT hier.
+///
+/// ACHTUNG, WARNUNG AN JEDEN, DER EINE EIGENE EMISSION SCHREIBT: beide Argumente sind Zeichenketten, ein
+/// vertauschter Aufruf uebersetzt also. Die Sperre dagegen sitzt eine Ebene tiefer und nur fuer den
+/// Fingerprint (die Traeger-Typen MessZeile/SystemZeile/OrganZeile); der POD selbst nimmt, was er kriegt.
+/// Alle Emissions-Stellen im Haus sind mit diesem Commit gedreht (adhoc_emitter.hpp,
+/// adhoc_emitter_shaped.hpp, sota_catalog.hpp) -- wer eine vierte baut, prueft die Reihenfolge am
+/// gerenderten Stempel, nicht am Kompilieren.
+#define COMDARE_ANATOMY_VERSION_STAMP(system_lit, organ_lit) COMDARE_ANATOMY_VERSION_STAMP_M("", system_lit, organ_lit)

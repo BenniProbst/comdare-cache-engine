@@ -98,15 +98,22 @@ inline constexpr std::string_view kRefMess   = "wallclock@1.0.0.c+load_framework
 /// Digests, nicht das Verfahren. Der LEER-Digest bleibt deshalb unberuehrt (er hat keine Versionen im
 /// Preimage), und genau diese Asymmetrie ist der Beleg, dass hier die Zeilen gewandert sind und nicht
 /// die Glied-Struktur. Format-4/R-3-Referenzwert: 24ca8905...173fd194, in der git-Historie.]
-inline constexpr std::string_view kRefDigestVorC8 = "d1ddf922888c7fd15036686c76fa6ad54e6c444323377ea2bec1c828dc0cae3b"
-                                                    "35bf33915610cbce50184c43ef58f4b17e936bc99b8f2d2e59c6ca31ffbe20b0";
+/// [ZUM VIERTEN MAL EINGEFROREN 18.08.2026, S-6a/KON45-01: Format 4 -> 5. Zwei Ursachen in EINEM Bump --
+/// (a) die Kategorien-Drehung der Glieder [1][2][3] auf MESS, SYSTEM, ORGAN und (b) das zehnte Glied
+/// (Hybrid-Komposit, leer, aber sein Separator zaehlt). Diesmal bewegen sich BEIDE Digests, und das ist
+/// die erwartete Asymmetrie-Umkehr zum Flag-Grammatik-Dreh: dort wanderte nur der Referenzwert (die
+/// EINGABE aenderte sich), hier wandert auch der leere (die GLIED-STRUKTUR aendert sich). Genau das
+/// belegt, dass der Bump wirkt. Format-4-Werte: d1ddf922888c7fd1...ffbe20b0 (Referenz) und
+/// 0a74581660d2dd6d...572a0a3c (leer), in der git-Historie.]
+inline constexpr std::string_view kRefDigestVorC8 = "425f4e2cb427ae760281c4b8c86a87cbb1ce3cfcc7f8e2a712f4b1a7a7cf8d66"
+                                                    "c0e3f62e3ba2a516f334a52c9ce91b83932ec471dc5044fbddc950e7d92a2717";
 
 /// Der Digest des LEEREN Tripels -- der Zeuge der Glied-STRUKTUR (leere Glieder, aber Separatoren bleiben;
 /// das ist der GA-01-Fix, und er wuerde bei jeder Glied-Umsortierung brechen). Genau deshalb ist er der
 /// empfindlichste Wert dieser Datei: er hat sich mit dem Format-3-Bump bewegt, WEIL zwei Glieder und damit
 /// zwei Separatoren dazugekommen sind -- das ist der Beweis, dass der Bump wirkt.
-inline constexpr std::string_view kLeerDigestVorC8 = "0a74581660d2dd6d091f8696e80a60945abe97d4a270ba8e9be5db74f57d604e"
-                                                     "da47c4e8a39a4fb91be3da16501b6e630721d937b4fbc267ef54a232572a0a3c";
+inline constexpr std::string_view kLeerDigestVorC8 = "e8ca5445c569ac9eb13414cb4bd23d02b5d6acf8e05eab6edc25d68144afe544"
+                                                     "b9a1fca35d1bc794915609d2633c21ebe5c019212836bccc00ca72b09ba360af";
 
 /// Der CRC64-Anker der 2^17-golden-Menge. TABU-Wert; er steht hier als Bilanz-Zeuge, nicht als zweite
 /// Wahrheit -- die RECHNENDE Wache bleibt test_limits_entkopplung_vorstufe, die die 131072 ids
@@ -170,13 +177,13 @@ int main() {
     std::cout << "\n-- Ebene 2 (durch den ABI-MAJOR UNBEWEGT; R-3-Format-Bump nachgezogen): Stempel-Preimage "
                  "/ SHA512 --\n";
     {
-        // R-3 (07.08.2026): Format 4, NEUN Glieder. Diese beiden Zeilen sind KEINE Aussage darueber, dass
+        // S-6a/KON45-01 (18.08.2026): Format 5, ZEHN Glieder. Diese beiden Zeilen sind KEINE Aussage darueber, dass
         // die Stempel-Ebene unbeweglich waere -- sie sind der Zeuge dafuer, dass sie sich NUR durch
         // deklarierte Preimage-Ereignisse bewegt und nie durch einen ABI-Major-Dreh. Genau deshalb werden
         // sie bei jedem Format-Bump im SELBEN Commit nachgezogen (Praezedenz O-2/C-2, 05.08.).
         eq("die Preimage-FORMAT-Kennung", std::string{abi::kAnatomyFingerprintFormat},
-           std::string{"fingerprint_format=4"});
-        eq("die Zahl der Preimage-Glieder", abi::kAnatomyFingerprintGliedCount, std::size_t{9});
+           std::string{"fingerprint_format=5"});
+        eq("die Zahl der Preimage-Glieder", abi::kAnatomyFingerprintGliedCount, std::size_t{10});
         eq("die Position der System-Zeile in der Glied-Folge", abi::kAnatomyFingerprintSystemGlied, std::size_t{2});
 
         // E-E (07.08.2026): das Overlay-Glied [7] wird ab hier EXPLIZIT LEER gereicht -- und die beiden
@@ -188,8 +195,8 @@ int main() {
         // messbar -- der Zeuge wuerde durch Rauschen ersetzt. Die Wirksamkeit des LIVE-Werts beweist
         // stattdessen der Bissbeweis in test_m_w12_stamp_bausteine.cpp.
         constexpr auto kRefJetzt =
-            abi::anatomy_fingerprint_hex(abi::OrganZeile{kRefOrgan}, abi::SystemZeile{kRefSystem},
-                                         abi::MessZeile{kRefMess}, abi::ToolchainGlied{abi::kToolchainStampGlied},
+            abi::anatomy_fingerprint_hex(abi::MessZeile{kRefMess}, abi::SystemZeile{kRefSystem},
+                                         abi::OrganZeile{kRefOrgan}, abi::ToolchainGlied{abi::kToolchainStampGlied},
                                          abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied}, abi::OverlayHash{""});
         std::string const ref_jetzt{kRefJetzt.data()};
         std::cout << "  Referenz-SA-Tripel:\n    organ  = " << kRefOrgan << "\n    system = " << kRefSystem
@@ -198,7 +205,7 @@ int main() {
            std::string{kRefDigestVorC8});
 
         constexpr auto kLeerJetzt = abi::anatomy_fingerprint_hex(
-            abi::OrganZeile{""}, abi::SystemZeile{""}, abi::MessZeile{""},
+            abi::MessZeile{""}, abi::SystemZeile{""}, abi::OrganZeile{""},
             abi::ToolchainGlied{abi::kToolchainStampGlied}, abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied},
             abi::OverlayHash{""}); // E-E: s. oben
         std::string const leer_jetzt{kLeerJetzt.data()};
@@ -217,7 +224,7 @@ int main() {
         // exakt den Zustand vor der Injektion. Wer sie nach C-3 gruen halten will, muss die Bilanz neu
         // formulieren -- nicht die Wache entschaerfen.
         auto const glieder = abi::anatomy_fingerprint_glieder(
-            abi::OrganZeile{kRefOrgan}, abi::SystemZeile{kRefSystem}, abi::MessZeile{kRefMess},
+            abi::MessZeile{kRefMess}, abi::SystemZeile{kRefSystem}, abi::OrganZeile{kRefOrgan},
             abi::ToolchainGlied{abi::kToolchainStampGlied}, abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied},
             abi::OverlayHash{""}); // E-E: s. oben
         auto const major_text = std::to_string(COMDARE_ANATOMY_ABI_MAJOR);

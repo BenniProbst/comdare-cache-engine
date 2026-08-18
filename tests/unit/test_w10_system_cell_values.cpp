@@ -106,7 +106,8 @@ constexpr cea::MessGatesGlied kMgDieserTu{cea::kMessGatesTuGlied};
 // W10-C2-ORAKEL (iv): die ECHTE Makro-Expansion. Sie materialisiert das optionale Probe-Symbol
 // comdare_anatomy_version_lines() -- genau so, wie es jede emittierte Modul-Quelle tut -- und zwar in
 // dieser TU MIT gesetztem Zellwert-Define. Was hier gruen ist, ist an der realen Naht gruen.
-COMDARE_ANATOMY_VERSION_STAMP_M(COMDARE_W10_TEST_ORGAN_LIT, COMDARE_W10_TEST_SYSTEM_LIT, COMDARE_W10_TEST_MEASURE_LIT)
+// S-6a: Argument-Folge MESS, SYSTEM, ORGAN.
+COMDARE_ANATOMY_VERSION_STAMP_M(COMDARE_W10_TEST_MEASURE_LIT, COMDARE_W10_TEST_SYSTEM_LIT, COMDARE_W10_TEST_ORGAN_LIT)
 
 // =================================================================================================
 // (1) POSITIV -- die Vervollstaendigung trifft die Ziel-Zeile byte-genau (CT UND als ctest-Aussage)
@@ -302,11 +303,11 @@ TEST(W10SystemCellValues, MakroNahtVervollstaendigtDieSystemZeileUndDenFingerpri
     //     Digest OHNE Zellwerte ist damit ein ANDERER -- das ist der Kern der W10-Zusage (zwei Baue
     //     derselben Permutation auf verschiedenen OS-Familien/ISAs kollidieren nicht mehr).
     constexpr auto kFpOhne =
-        cea::anatomy_fingerprint_hex(cea::OrganZeile{kOrganLit}, cea::SystemZeile{kSystemZeileRoh},
-                                     cea::MessZeile{kMeasureLit}, kTcDefault, kBvDefault, kOvDefault, kMgDieserTu);
+        cea::anatomy_fingerprint_hex(cea::MessZeile{kMeasureLit}, cea::SystemZeile{kSystemZeileRoh},
+                                     cea::OrganZeile{kOrganLit}, kTcDefault, kBvDefault, kOvDefault, kMgDieserTu);
     constexpr auto kFpMit =
-        cea::anatomy_fingerprint_hex(cea::OrganZeile{kOrganLit}, cea::SystemZeile{kSystemZeileZiel},
-                                     cea::MessZeile{kMeasureLit}, kTcDefault, kBvDefault, kOvDefault, kMgDieserTu);
+        cea::anatomy_fingerprint_hex(cea::MessZeile{kMeasureLit}, cea::SystemZeile{kSystemZeileZiel},
+                                     cea::OrganZeile{kOrganLit}, kTcDefault, kBvDefault, kOvDefault, kMgDieserTu);
     static_assert(std::string_view{kFpOhne.data()} != std::string_view{kFpMit.data()},
                   "W10-C2: die Zellwerte MUESSEN den Fingerprint verschieben -- taeten sie es nicht, waere "
                   "die ganze W10-Zusage (Zuordbarkeit/Wiederverwendbarkeit, Owner-E3) leer.");
@@ -316,23 +317,26 @@ TEST(W10SystemCellValues, MakroNahtVervollstaendigtDieSystemZeileUndDenFingerpri
     // (3) NEGATIV-PROBE (gleiches Werte-Set => gleicher kFP): der Digest haengt an den WERTEN, nicht am
     //     Zeitpunkt oder an einer Adresse -- zwei Baue derselben Zelle bleiben identisch.
     constexpr auto kFpMitNochmal =
-        cea::anatomy_fingerprint_hex(cea::OrganZeile{kOrganLit}, cea::SystemZeile{kSystemZeileZiel},
-                                     cea::MessZeile{kMeasureLit}, kTcDefault, kBvDefault, kOvDefault, kMgDieserTu);
+        cea::anatomy_fingerprint_hex(cea::MessZeile{kMeasureLit}, cea::SystemZeile{kSystemZeileZiel},
+                                     cea::OrganZeile{kOrganLit}, kTcDefault, kBvDefault, kOvDefault, kMgDieserTu);
     static_assert(std::string_view{kFpMit.data()} == std::string_view{kFpMitNochmal.data()});
     // ... und ein FREMD-Familien-Werte-Set liefert einen ANDEREN Digest (die B1-Kollision linux==macos).
     constexpr auto kZeileMacos = cea::complete_system_stamp_line_array<cea::complete_system_stamp_line_size(
         kSystemZeileRoh, SystemCellValues{"target_isa=x86_64;operating_system=macos;simd=avx512"})>(
         kSystemZeileRoh, SystemCellValues{"target_isa=x86_64;operating_system=macos;simd=avx512"});
     constexpr auto kFpMacos =
-        cea::anatomy_fingerprint_hex(cea::OrganZeile{kOrganLit}, cea::SystemZeile{kZeileMacos.view()},
-                                     cea::MessZeile{kMeasureLit}, kTcDefault, kBvDefault, kOvDefault, kMgDieserTu);
+        cea::anatomy_fingerprint_hex(cea::MessZeile{kMeasureLit}, cea::SystemZeile{kZeileMacos.view()},
+                                     cea::OrganZeile{kOrganLit}, kTcDefault, kBvDefault, kOvDefault, kMgDieserTu);
     static_assert(std::string_view{kFpMacos.data()} != std::string_view{kFpMit.data()},
                   "linux und macos MUESSEN verschiedene Fingerprints tragen -- das ist der W10-Abnahme-Kern.");
     EXPECT_NE(std::string{kFpMacos.data()}, std::string{kFpMit.data()});
 
-    // (4) KEIN POD-/LAYOUT-ANFASSEN: die Naht bewegt Zeilen-INHALT, nie Struktur.
-    EXPECT_EQ(v->stamp_layout_version, 6u);
-    EXPECT_EQ(sizeof(cea::AnatomyVersionLines), 120u);
+    // (4) KEIN POD-/LAYOUT-ANFASSEN DURCH DIESE NAHT: die W10-Naht bewegt Zeilen-INHALT, nie Struktur.
+    //     Die beiden Zahlen daneben sind der Stand des POD, nicht die Wirkung dieser Naht -- sie wurden
+    //     mit S-6a/Layout 7 (Feldfolge MESS,SYSTEM,ORGAN + komposit_line/len) nachgezogen, weil sonst
+    //     ein FREMDER Bump diesen Test rot faerbte und die W10-Aussage im Rauschen unterginge.
+    EXPECT_EQ(v->stamp_layout_version, 7u);
+    EXPECT_EQ(sizeof(cea::AnatomyVersionLines), 136u);
     EXPECT_TRUE(cea::stamp_pod_has_entries(*v));
     EXPECT_EQ(v->system_entry_count, 4u) << "3 Haupt-Achsen + 1 geklammerte Meta-Meta -- unveraendert";
     EXPECT_EQ(v->organ_entry_count, 2u);
@@ -426,8 +430,8 @@ TEST(W10SystemCellValues, ZwillingsGleichheitConstevalMakroGegenLaufzeitLagerKey
     // R-3: MIT dem neunten Glied dieser TU -- sonst rechnet der Laufzeit-Zwilling ueber ein anderes
     // Preimage als das Makro und die EINE-Wahrheit-Zusage dieses Tests waere gebrochen.
     auto const glieder_roh =
-        cea::anatomy_fingerprint_glieder(cea::OrganZeile{kOrganLit}, cea::SystemZeile{kSystemZeileRoh},
-                                         cea::MessZeile{kMeasureLit}, kTcDefault, kBvDefault, kOvDefault, kMgDieserTu);
+        cea::anatomy_fingerprint_glieder(cea::MessZeile{kMeasureLit}, cea::SystemZeile{kSystemZeileRoh},
+                                         cea::OrganZeile{kOrganLit}, kTcDefault, kBvDefault, kOvDefault, kMgDieserTu);
     std::span<std::string_view const> const roh{glieder_roh.data(), glieder_roh.size()};
 
     // (1) MIT Zellwerten: der Laufzeit-Lager-Key == der consteval-Fingerprint der Makro-Naht (die TU
@@ -476,10 +480,10 @@ TEST(W10SystemCellValues, ZwillingsGleichheitConstevalMakroGegenLaufzeitLagerKey
     // Layout bleibt neun Glieder). Vorgaenger 88f59b9b0da85e34...96125688, in der git-Historie. Alle drei
     // Fundstellen im SELBEN Commit gedreht.]
     constexpr std::string_view kFrozenFingerprintV1 =
-        "d53aebdbb22902f3cdbbf5947bc36ea5ba04808248fc23fa99a1b95471edda7c"
-        "f0f13be791ced93d2ded7b4906a1c5c4c2123b28322cc38378b06250f20b4d84";
+        "1c0a8f7cd1f524535408846b9bdd41f58458a6e4ddc67a188c22ef4464bcacb1"
+        "09e6ec9043c3fef80d2d22f0d8cf2302a0728516a03c42337863a686f7b2cab7";
     auto const frozen_glieder = cea::anatomy_fingerprint_glieder(
-        cea::OrganZeile{kFrozenOrgan}, cea::SystemZeile{kSystemZeileRoh}, cea::MessZeile{kFrozenMeasure},
+        cea::MessZeile{kFrozenMeasure}, cea::SystemZeile{kSystemZeileRoh}, cea::OrganZeile{kFrozenOrgan},
         cea::ToolchainGlied{kFrozenToolchain}, cea::BvsetGlied{kFrozenBvset}, cea::OverlayHash{kFrozenOverlay});
     std::span<std::string_view const> const frozen{frozen_glieder.data(), frozen_glieder.size()};
     EXPECT_EQ(bl::to_hex(bl::BinaryKeyPolicy::derive_key(frozen)), std::string{kFrozenFingerprintV1})

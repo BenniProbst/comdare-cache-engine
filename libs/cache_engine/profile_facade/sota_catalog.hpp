@@ -168,9 +168,10 @@ struct SotaStampLines {
                       ">\n"
                       "COMDARE_DEFINE_ANATOMY_MODULE(" +
                       fq_type + ")\n";
+    // S-6a: Argument-Folge MESS, SYSTEM, ORGAN (Begruendung an render_adhoc_module_source).
     if (!stamp.empty())
-        src += "COMDARE_ANATOMY_VERSION_STAMP_M(\"" + stamp.organ + "\", \"" + stamp.system + "\", \"" +
-               stamp.measurement + "\")\n";
+        src += "COMDARE_ANATOMY_VERSION_STAMP_M(\"" + stamp.measurement + "\", \"" + stamp.system + "\", \"" +
+               stamp.organ + "\")\n";
     return src;
 }
 
@@ -244,9 +245,10 @@ struct DirectiveSlotTypes {
     src += "} // namespace comdare::cache_engine::thesis_lazy::directive_merge\n"
            "COMDARE_DEFINE_ANATOMY_MODULE(" +
            host_fq_type + ")\n";
+    // S-6a: Argument-Folge MESS, SYSTEM, ORGAN (Begruendung an render_adhoc_module_source).
     if (!stamp.empty())
-        src += "COMDARE_ANATOMY_VERSION_STAMP_M(\"" + stamp.organ + "\", \"" + stamp.system + "\", \"" +
-               stamp.measurement + "\")\n";
+        src += "COMDARE_ANATOMY_VERSION_STAMP_M(\"" + stamp.measurement + "\", \"" + stamp.system + "\", \"" +
+               stamp.organ + "\")\n";
     return src;
 }
 

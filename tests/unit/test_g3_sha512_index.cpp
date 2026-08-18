@@ -86,8 +86,14 @@ constexpr std::string_view kFrozenOverlay = "84250c96ec21228119ca6607154fa450e8f
 // reicht der Vektor es als LITERAL statt ueber den Default -- sonst haenge er am Quelltext-Stand des
 // Baums und waere bei jedem Commit rot. Vorgaenger: 88f59b9b0da85e34...96125688, in der git-Historie.
 // Alle drei Fundstellen dieses EINEN Vektors sind im SELBEN Commit gedreht.]
-constexpr std::string_view kFrozenFingerprintV1 = "d53aebdbb22902f3cdbbf5947bc36ea5ba04808248fc23fa99a1b95471edda7c"
-                                                  "f0f13be791ced93d2ded7b4906a1c5c4c2123b28322cc38378b06250f20b4d84";
+// [ZUM NAECHSTEN MAL EINGEFROREN 18.08.2026, S-6a/KON45-01 -- Format 4 -> 5. ZWEI Ursachen in EINEM
+// Bump: (a) die Kategorien-Ordnung der Glieder [1][2][3] dreht auf MESS, SYSTEM, ORGAN (KON21-03),
+// (b) ein ZEHNTES Glied kommt dazu (Hybrid-Komposit-Map, hier leer -- aber sein Separator zaehlt).
+// Der neue Hex ist NICHT vorausberechnet, sondern aus dem literalen Lauf einer Probe-TU gegen genau
+// diesen Header uebernommen (dieselbe Methode wie bei allen vorigen Ankern).
+// Vorgaenger (Format 4, E-E-END-FORM): d53aebdbb22902f3...f20b4d84]
+constexpr std::string_view kFrozenFingerprintV1 = "1c0a8f7cd1f524535408846b9bdd41f58458a6e4ddc67a188c22ef4464bcacb1"
+                                                  "09e6ec9043c3fef80d2d22f0d8cf2302a0728516a03c42337863a686f7b2cab7";
 
 // Die Glied-Folge kommt aus der EINEN Quelle abi::anatomy_fingerprint_glieder -- der Test darf sie NICHT
 // selbst zusammenstellen, sonst pinnt er eine zweite Ordnung fest (Lehre "gruene Tests zementieren alte
@@ -95,8 +101,8 @@ constexpr std::string_view kFrozenFingerprintV1 = "d53aebdbb22902f3cdbbf5947bc36
 // automatisch mit -- auch der O-2/C-2-Nachtrag von zwei Gliedern hat diese Funktion nicht angefasst.
 std::array<std::string_view, comdare::cache_engine::abi::kAnatomyFingerprintGliedCount> frozen_lines() {
     return comdare::cache_engine::abi::anatomy_fingerprint_glieder(
-        comdare::cache_engine::abi::OrganZeile{kOrgan}, comdare::cache_engine::abi::SystemZeile{kSystem},
-        comdare::cache_engine::abi::MessZeile{kMeasure}, comdare::cache_engine::abi::ToolchainGlied{kFrozenToolchain},
+        comdare::cache_engine::abi::MessZeile{kMeasure}, comdare::cache_engine::abi::SystemZeile{kSystem},
+        comdare::cache_engine::abi::OrganZeile{kOrgan}, comdare::cache_engine::abi::ToolchainGlied{kFrozenToolchain},
         comdare::cache_engine::abi::BvsetGlied{kFrozenBvset}, comdare::cache_engine::abi::OverlayHash{kFrozenOverlay});
 }
 

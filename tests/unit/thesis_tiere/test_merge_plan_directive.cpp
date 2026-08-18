@@ -166,13 +166,15 @@ TEST(MergePlanDirective, C1SotaQuelleTraegtVolleStempelZeilen) {
     EXPECT_EQ(tlz::render_sota_module_source(fq, header).find("COMDARE_ANATOMY_VERSION_STAMP"), std::string::npos)
         << "der Default-Aufruf darf KEINE Stempel-Zeile emittieren (byte-identisch zum Katalog-Stand)";
 
-    // (d2) Die Makro-SLOT-Ordnung ist organ, system, measurement -- literal gepinnt, damit kein Slot still
-    //      verrutscht. A13-M3/C3: der vierte (merge-)Slot ist ersatzlos entfallen.
+    // (d2) Die Makro-SLOT-Ordnung ist seit S-6a MESS, SYSTEM, ORGAN (KON21-03, #87 = Makro-/Argumentfolge)
+    //      -- literal gepinnt, damit kein Slot still verrutscht. A13-M3/C3: der vierte (merge-)Slot ist
+    //      ersatzlos entfallen. Die SotaStampLines-STRUKTUR behaelt ihre Feldnamen; gedreht ist die
+    //      Reihenfolge, in der der Emitter sie in den Makro-Call schreibt.
     tlz::SotaStampLines const stamp{"search_algo=k_ary@1.0.0.c", "target_isa=code@1.0.0.c",
                                     "measurement_tooling=wallclock@1.0.0.c"};
     std::string const         with_stamp = tlz::render_sota_module_source(fq, header, stamp);
-    EXPECT_NE(with_stamp.find("COMDARE_ANATOMY_VERSION_STAMP_M(\"search_algo=k_ary@1.0.0.c\", "
-                              "\"target_isa=code@1.0.0.c\", \"measurement_tooling=wallclock@1.0.0.c\")"),
+    EXPECT_NE(with_stamp.find("COMDARE_ANATOMY_VERSION_STAMP_M(\"measurement_tooling=wallclock@1.0.0.c\", "
+                              "\"target_isa=code@1.0.0.c\", \"search_algo=k_ary@1.0.0.c\")"),
               std::string::npos)
         << with_stamp;
 
@@ -180,8 +182,8 @@ TEST(MergePlanDirective, C1SotaQuelleTraegtVolleStempelZeilen) {
     std::vector<tlz::AxisMergeDirective> const directives{
         tlz::AxisMergeDirective{"path_compression", "Stufe2_PrueflingReplace", "prt_art", {"prt_patricia"}}};
     std::string const directive_src = tlz::render_directive_merge_module_source(fq, header, directives, stamp);
-    EXPECT_NE(directive_src.find("COMDARE_ANATOMY_VERSION_STAMP_M(\"search_algo=k_ary@1.0.0.c\", "
-                                 "\"target_isa=code@1.0.0.c\", \"measurement_tooling=wallclock@1.0.0.c\")"),
+    EXPECT_NE(directive_src.find("COMDARE_ANATOMY_VERSION_STAMP_M(\"measurement_tooling=wallclock@1.0.0.c\", "
+                                 "\"target_isa=code@1.0.0.c\", \"search_algo=k_ary@1.0.0.c\")"),
               std::string::npos)
         << directive_src;
 
@@ -196,7 +198,7 @@ TEST(MergePlanDirective, C1SotaQuelleTraegtVolleStempelZeilen) {
     ASSERT_EQ(by_id.size(), 1u);
     std::string const& src = by_id.begin()->second;
     EXPECT_FALSE(cea::system_stamp_line().empty()) << "die System-Zeile ist die reale Identitaets-Quelle von C1";
-    EXPECT_NE(src.find("COMDARE_ANATOMY_VERSION_STAMP_M(\"\", \"" + cea::system_stamp_line() + "\", \"" + meas + "\")"),
+    EXPECT_NE(src.find("COMDARE_ANATOMY_VERSION_STAMP_M(\"" + meas + "\", \"" + cea::system_stamp_line() + "\", \"\")"),
               std::string::npos)
         << src;
 }

@@ -371,9 +371,15 @@ template <class List>
     // R-3: das Overlay-Glied wird ab hier EXPLIZIT gereicht -- es ist kein Schwanz-Glied mehr und kann
     // nicht mehr per Default hinter dem Mess-Gates-Glied stehenbleiben. Der Wert ist derselbe wie zuvor
     // (der Default), also bewegt allein das neunte Glied den Digest.
+    // S-6a: die Argument-Folge ist auf MESS, SYSTEM, ORGAN gedreht -- der Zwilling MUSS dieselbe Ordnung
+    // fahren wie der consteval-Pfad, sonst rechnete er einen anderen Digest ueber dieselben Werte. Die
+    // Traeger-Typen machen die Drehung compile-hart: dieser Aufruf hat die Umstellung erzwungen.
+    // Das KOMPOSIT-Glied [9] bleibt hier beim Default (leer): der Laufzeit-Zwilling bedient den
+    // plain-Tier-Pfad (lazy adhoc), und ein plain Tier traegt "" (KON45-01/2). Der Hybrid-Zwilling
+    // entsteht mit der HY-A2-Verdrahtung, nicht hier -- ein geratener Wert waere schlimmer als keiner.
     auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(
-        ::comdare::cache_engine::abi::OrganZeile{organ}, ::comdare::cache_engine::abi::SystemZeile{system},
-        ::comdare::cache_engine::abi::MessZeile{measurement_stamp}, toolchain_glied, bvset_glied,
+        ::comdare::cache_engine::abi::MessZeile{measurement_stamp}, ::comdare::cache_engine::abi::SystemZeile{system},
+        ::comdare::cache_engine::abi::OrganZeile{organ}, toolchain_glied, bvset_glied,
         ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash}, mess_gates_glied);
     std::string const preimage = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(
         std::span<std::string_view const>{glieder.data(), glieder.size()});

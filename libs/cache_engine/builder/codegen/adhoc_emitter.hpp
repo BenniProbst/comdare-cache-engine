@@ -119,21 +119,27 @@ template <class C>
         // (make_lazy_adhoc_source_gen ohne Argument), an dem die 320er-Byte-Identitaets-Wachen haengen.
         // FUER R-3 FOLGENLOS: das neunte Preimage-Glied materialisiert INNEN in der Makro-Expansion (wie kFP
         // selbst), nicht im emittierten Quelltext -- beide Emissions-Formen bleiben byte-identisch.
+        // S-6a (18.08.2026): die EMITTIERTE Argument-Folge ist auf MESS, SYSTEM, ORGAN gedreht -- beide
+        // Formen. Die Makros heissen unveraendert, ihre Parameter-Namen NICHT (anatomy_module_abi_v1.hpp).
+        // DAS IST DER DEKLARIERTE GOLDEN-BRUCH dieser Scheibe: der emittierte Quelltext aendert sich, also
+        // bewegen sich die 320er-Byte-Identitaets-Wachen und der golden-CRC-Anker 0xF1C1F26A1232073B mit.
+        // Sie werden im golden-Regen-Schnitt neu gesetzt, NICHT hier -- ein Regen in derselben Scheibe
+        // wuerde den Beweis, dass sich genau diese Bytes bewegt haben, mit dem Beweismittel loeschen.
         if (measurement_stamp.empty()) {
-            // Default (kein Mess-Tooling) -> die bisherige 2-arg-Form (byte-identisch).
+            // Default (kein Mess-Tooling) -> die 2-arg-Kurzform, ab S-6a (system, organ).
             src += "COMDARE_ANATOMY_VERSION_STAMP(\"";
-            src += organ_stamp;
-            src += "\", \"";
             src += system_stamp;
+            src += "\", \"";
+            src += organ_stamp;
             src += "\")\n";
         } else {
-            // Mess-Tooling gewaehlt -> die 3-arg _M-Vollform.
+            // Mess-Tooling gewaehlt -> die 3-arg _M-Vollform, ab S-6a (measurement, system, organ).
             src += "COMDARE_ANATOMY_VERSION_STAMP_M(\"";
-            src += organ_stamp;
+            src += measurement_stamp;
             src += "\", \"";
             src += system_stamp;
             src += "\", \"";
-            src += measurement_stamp;
+            src += organ_stamp;
             src += "\")\n";
         }
     }
