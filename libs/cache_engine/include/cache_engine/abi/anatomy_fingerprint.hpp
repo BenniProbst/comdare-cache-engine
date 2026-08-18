@@ -7,7 +7,9 @@
 // existieren" + OF-M3-1 Option A + F7-Konsolidierung 01.08.) hat sie NEU gefasst -- die Glied-Liste steht als
 // EINE Quelle in anatomy_fingerprint_glieder() unten, alle Rechen-Stellen ziehen daraus.
 // O-2/C-2 (Owner-Entscheid abend-5, 05.08.2026 = OPTION A "Achsen-Vollstaendigkeits-Neuanker"): die Liste ist auf
-// ACHT Glieder gewachsen -- die CEB-Laufzeit-Hauptachsen (Compiler inkl. Flags, opt_level, atomic128, bt/gate/ceb)
+// ZEHN Glieder gewachsen (der Kopf nannte bis 18.08.2026 ACHT -- er war seit R-3 stale und beschrieb damit
+// ausgerechnet in DIESER Datei die eigene Glied-Zahl falsch) -- die CEB-Laufzeit-Hauptachsen (Compiler inkl.
+// Flags, opt_level, atomic128, bt/gate/ceb)
 // und die Enabled-Mengen-Signatur der Build-Achsen sind ab fingerprint_format=3 IDENTITAETS-wirksam, nicht mehr
 // bloss Provenienz im build_version-Suffix. Sie werden INJIZIERT (K-1-Traeger + Compile-Define); die Ordnung
 // bleibt an dieser einen Stelle.

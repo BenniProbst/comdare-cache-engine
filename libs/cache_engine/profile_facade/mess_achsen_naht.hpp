@@ -183,7 +183,8 @@
 // Renderer ist unangetastet und bekommt denselben Legenden-String wie zuvor
 // (resolve_live_measurement_combo_legend gibt die bisherige Aufloesung 1:1 zurueck). Es gibt keinen
 // Format-Bump 3->4: das Preimage traegt die Mess-Zeile bereits als eigenes Glied von acht
-// (kAnatomyFingerprintGliedCount = 8). Was sich aendert, ist der WERT der Compile-Kommandos -- nicht
+// (kAnatomyFingerprintGliedCount = 8 -- der Stand von M-1; heute sind es ZEHN, s. den
+// UEBERHOLT-Vermerk direkt darunter). Was sich aendert, ist der WERT der Compile-Kommandos -- nicht
 // die Form des Preimage.
 //
 // ------------------------------------------------------------------------------------------------

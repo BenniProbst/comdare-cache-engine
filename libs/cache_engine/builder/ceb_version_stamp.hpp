@@ -68,7 +68,8 @@
 //       Gate -- das ist die Lehre des D-1-Befunds in der Gegenrichtung.
 //   (b) ES GIBT NICHTS ZU UEBERSPRINGEN. Alles, was die CEB PRODUZIERT, ist bereits gegatet, und zwar von
 //       Gattern, die vollstaendig sind: die Tier-.so ueber das Preimage-Glied [3] (anatomy_fingerprint.hpp,
-//       kAnatomyFingerprintGliedCount = 9 seit R-3) mit dem fail-closed dll_is_current (build_orchestrator.hpp),
+//       kAnatomyFingerprintGliedCount = 10 seit S-6a/KON45-01; die Zahl stand hier auf 9 seit R-3) mit dem
+//       fail-closed dll_is_current (build_orchestrator.hpp),
 //       der Objekt-Cache ueber "+mtool=" (artifact_transport/artifact_cache.hpp). Eine Mess-Achsen-
 //       Aenderung erzwingt heute schon den Tier-Neubau. Ein zweites Gatter ueber dieselbe Information
 //       waere kein Gewinn, sondern eine ZWEITE WAHRHEIT, die der ersten widersprechen kann.

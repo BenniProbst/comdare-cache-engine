@@ -84,7 +84,7 @@ private:
         if (stamp_lines.size() != ::comdare::cache_engine::abi::kAnatomyFingerprintGliedCount)
             throw std::invalid_argument{"W10-C3 BinaryKeyPolicy: Zellwerte verlangen die kanonische "
                                         "Glied-Folge aus abi::anatomy_fingerprint_glieder "
-                                        "(kAnatomyFingerprintGliedCount Glieder; O-2/C-2 Format 3: acht) -- "
+                                        "(kAnatomyFingerprintGliedCount Glieder; S-6a/KON45-01 Format 5: zehn) -- "
                                         "eine fremde Komponenten-Liste hat kein System-Glied"};
         return ::comdare::cache_engine::abi::complete_system_stamp_line(
             stamp_lines[::comdare::cache_engine::abi::kAnatomyFingerprintSystemGlied], zellwerte);

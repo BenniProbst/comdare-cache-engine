@@ -724,7 +724,8 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     namespace s5      = ::comdare::cache_engine::sha512;
     constexpr auto fp = abi::anatomy_fingerprint_hex(abi::MessZeile{"c"}, abi::SystemZeile{"b"}, abi::OrganZeile{"a"});
     static_assert(fp[128] == '\0', "Fingerprint-Zeile nullterminiert");
-    // O-2/C-2 (Format 3): das Referenz-Preimage traegt jetzt ACHT Glieder -- Toolchain [5] und bvset [6]
+    // S-6a/KON45-01 (Format 5): das Referenz-Preimage traegt ZEHN Glieder (bis 18.08.2026 stand hier die
+    // Format-3-Fassung mit ACHT) -- Toolchain [5] und bvset [6]
     // liegen zwischen Werteset und Overlay. Sie stehen hier BEWUSST als Konstanten und nicht als leere
     // Literale: waeren sie hart als "" eingesetzt, wuerde dieser Test die Nicht-Injektion zementieren und
     // ausgerechnet dann gruen bleiben, wenn die C-3-Verdrahtung sie fuellt.
