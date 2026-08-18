@@ -353,13 +353,17 @@ int main() {
     // ------------------------------------------------------------------------------------------
     // Registry: select_for waehlt per IM MODUL deklarierter Gattung
     // ------------------------------------------------------------------------------------------
-    std::cout << "\n-- Registry-Auswahl ueber alle fuenf Gattungen (dieselbe Belegung wie f15_compare) --\n";
+    std::cout << "\n-- Registry-Auswahl ueber alle fuenf ABI-sichtbaren GENERA (Belegung wie f15_compare) --\n";
     {
         // E-24 C4 (d/5): DIESELBE Funktion, die apps/f15_compare/main.cpp aufruft -- es gibt keine
         // zweite, im Test nachgebildete Liste, die driften koennte.
         pd::PruefDockRegistry reg;
         pd::register_all_genus_docks(reg);
-        eq("Registry-Groesse (alle fuenf Gattungen)", reg.size(), std::size_t{5});
+        // BEGRIFFS-NACHZUG (18.08.2026, KON118): hier stand "alle fuenf Gattungen". Gattungen gibt es
+        // VIER (kAlleGattungen), Genera SECHS -- davon fuenf ABI-sichtbar. Genau diese Verwechslung
+        // trennt der HY-A3-Bau, und eine Wache, die sie im eigenen Ausgabetext fuehrt, lehrt jeden
+        // Leser den Fehler mit. Die ZAHL 5 bleibt richtig und meint die Dock-pflichtigen Genera.
+        eq("Registry-Groesse (alle fuenf ABI-sichtbaren Genera)", reg.size(), std::size_t{5});
 
         // ------------------------------------------------------------------------------------
         // NACHZUG HY-A1 (09.08.2026) -- DIESE WACHE WAR KEINE. KORREKTUR AM OBJEKT.
@@ -400,7 +404,7 @@ int main() {
                 if (d != nullptr) klassifikation_ohne_dock = false;
             }
         }
-        tr("dock_for_genus() liefert fuer JEDE ABI-sichtbare Ebene-2-Gattung ein Dock", all_genera_covered);
+        tr("dock_for_genus() liefert fuer JEDES ABI-sichtbare Ebene-2-Genus ein Dock", all_genera_covered);
         tr("ein KLASSIFIKATIONS-Genus (HeuristikAdapter) hat KEIN eigenes Dock (Weg C)", klassifikation_ohne_dock);
         eq("Zahl der ABI-sichtbaren Genera == Registry-Groesse", reg.size(), abi_sichtbare);
         eq("Zahl der ABI-sichtbaren Genera == Partitions-Konstante", abi_sichtbare,

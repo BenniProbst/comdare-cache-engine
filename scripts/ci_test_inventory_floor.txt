@@ -41,6 +41,42 @@
 # im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
 # -- NACHZUG 2026-08-17 (SERIELLE WELLEN-LANDUNG A2.1a, VIER STRAENGE, EINE NEUE REGISTRIERUNG) --
+# -- NACHZUG 2026-08-18 (HY-A2 REROUTE-PROXY, EINE NEUE REGISTRIERUNG) --------
+# 502/498/496 loest 501/497/495 ab. Der Zuwachs ist +1 in JEDER Klasse und stammt
+# vollstaendig aus dem HY-A2-Strang:
+#     test_hy_f8_reroute   (comdare_add_test -- F8-Minimal-DoD: EIN Standard-Dock,
+#                           ZWEI plain-Tier-Ziele, Roundtrip-Koeder, plus der
+#                           dlopen-Beleg der vier ABI-Pflicht-Symbole an zwei
+#                           Hybrid-.so)
+# GEMESSEN, NICHT GERECHNET (KON58-13 / Landungs-Doktrin "nie Deltas addieren"):
+# alle drei Sprossen sind an DIESEM Baum EINMAL LIVE erhoben, nicht aus der 501 fort-
+# geschrieben. Zaehlbasis war die Schlusszeile "Total Tests: N", jede Namensliste hat
+# die Gegenprobe Listenlaenge == Total bestanden (502/502, 498/498, 496/496).
+# ZWEI-SEITIGE GEGENPROBE am Objekt, LC_ALL=C comm in BEIDE Richtungen:
+#     avx512f -> avx2  verliert exakt die dokumentierten VIER
+#                      (test_ap5_simd_extension_coherence, test_buildvariant_dll_real,
+#                       test_simd_add_u64_carry_avx512, test_simd_field_sum_dispatch_avx512)
+#     avx2    -> basis verliert exakt die ZWEI
+#                      (test_simd_add_u64_carry_avx2, test_simd_field_sum_dispatch_avx2)
+#     beide Gegenrichtungen LEER -- kein verstecktes -1/+2.
+# test_hy_f8_reroute steht in ALLEN DREI Namensmengen je genau 1x und in KEINER
+# comm-Verlustliste, ist also weder ISA- noch Pruefling-gegatet -> +1 auf allen drei
+# Sprossen; die Sprossenabstaende -4 und -2 bleiben unveraendert.
+# ZWEI NEUE SHARED-TARGETS OHNE ctest-WIRKUNG, ausdruecklich benannt, damit niemand sie
+# spaeter fuer eine fehlende Registrierung haelt: hybrid_reroute_searchalgorithm und
+# hybrid_reroute_set sind .so-Bauziele (add_library SHARED), keine add_test-Eintraege --
+# sie werden VON test_hy_f8_reroute geladen und zaehlen deshalb nicht eigenstaendig.
+# MESSHOST prod1, GCC, Ninja, 2026-08-18. Bau-Baum build/gcc-release in der CI-FORM MIT
+# Pruefling (-DCOMDARE_CE_PRUEFLINGE=<repo>/tests/pruefling_fixture), J-1-Muster (erst die
+# fuenf comdare_-Werkzeuge, dann RE-KONFIGURIERT). Schalter LITERAL aus der CMakeCache.txt
+# DESSELBEN Baums: COMDARE_HOST_RUNS_AVX2:INTERNAL=1, COMDARE_HOST_RUNS_AVX512F:INTERNAL=1,
+# COMDARE_CE_PRUEFLINGE:STRING=<repo>/tests/pruefling_fixture -- die Klasse ist gemessen,
+# nicht angenommen. Beide Klassen per cmake erzwungen, danach 'cmake -U' auf BEIDE:
+# Wiederherstellung BYTE-GLEICH (cmp ohne Ausgabe, Total wieder 502).
+#     avx512f (gemessen, prod1, ctest "Total Tests")                       -> 502
+#     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                  -> 498
+#     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0       -> 496
+#
 # -- NACHZUG 2026-08-18 frueh (Welle-2-Landung xorf+f3v+a11) ------------------
 # 501/497/495 loest 500/496/494 ab. Der Zuwachs ist +1 in JEDER Klasse und stammt
 # vollstaendig aus f3v: test_flaeche3_deckung_ceb_aus_tier_an (UNBEDINGT registriert,
@@ -580,6 +616,6 @@
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
 
-avx512f 501
-avx2 497
-basis 495
+avx512f 502
+avx2 498
+basis 496

@@ -2193,6 +2193,22 @@ target_include_directories(test_hy_a1_heuristik_adapter_gattung PRIVATE
 # COMDARE_HY_QUELLVERZEICHNIS speist die Zonen-Wache: sie liest die hybrid/-Quelldateien und belegt,
 # dass std::variant< dort an GENAU EINER Stelle steht (Bauplan HY-A1, "Scope ausdruecklich
 # hybrid/-lokal" -- die system-weite Fassung des Satzes trifft heute nicht zu).
+# HY-A2 (F8-MINIMAL-DoD, 18.08.2026) -- der Reroute-Roundtrip: EIN Standard-Dock, ZWEI plain-Tier-
+# Ziele, gewuerfeltes Token durch das Dock und literal zurueck. Dazu die Delegations-Probe (der Proxy
+# fuehrt KEINEN eigenen Lebenszyklus) und die B4-Paare beider Ebenen im selben Lauf.
+comdare_add_test(test_hy_f8_reroute
+    SOURCES test_hy_f8_reroute.cpp)
+target_link_libraries(test_hy_f8_reroute PRIVATE comdare::ce_hybrid comdare::anatomy_module_loader)
+target_include_directories(test_hy_f8_reroute PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+# Die VIER ABI-Pflicht-Symbole werden am GELADENEN Modul geprueft, nicht am Symbolnamen: der Loader
+# ruft alle vier der Reihe nach auf und erreicht status_ok nur, wenn jedes liefert. Die Pfade kommen
+# als Generator-Ausdruck herein -- ein fest verdrahteter Pfad waere beim ersten Preset-Wechsel falsch,
+# und zwar STILL (Datei nicht da -> Ladefehler, der wie ein ABI-Fehler aussieht).
+target_compile_definitions(test_hy_f8_reroute PRIVATE
+    COMDARE_HY_MODUL_SEARCHALGORITHM="$<TARGET_FILE:hybrid_reroute_searchalgorithm>"
+    COMDARE_HY_MODUL_SET="$<TARGET_FILE:hybrid_reroute_set>")
+add_dependencies(test_hy_f8_reroute hybrid_reroute_searchalgorithm hybrid_reroute_set)
+
 comdare_add_test(test_hy_a1_dock_contract
     SOURCES test_hy_a1_dock_contract.cpp)
 # F-10: Include-Wurzeln kommen ab jetzt aus comdare::ce_hybrid statt handgefuehrt.
@@ -4248,8 +4264,19 @@ set(_src_perm_set_defekt_d13       genus_module_set_defekt.cpp)
 #   perm_major7_neue_magic HEUTIGE Magic + Version (Host-Major - 1) -- Isolierungs-Probe (Schloss 2).
 set(_src_perm_alt_major7           genus_module_alt_major7.cpp)
 set(_src_perm_major7_neue_magic    genus_module_major7_neue_magic.cpp)
+# HY-A2 (2026-08-18) -- die beiden HYBRID-Modulquellen. Sie haengen sich an DIESELBE Schleife wie die
+# plain-Tier-Module, und das ist die Aussage: eine Hybrid-.so wird nicht anders gebaut, nicht anders
+# benannt und nicht anders geladen als ein plain Tier. Eine Sonder-Registrierung waere ein zweiter
+# Bau-Weg fuer dieselbe Sache -- und haette zugleich behauptet, die Gattung brauche eine Sonderrolle
+# im Bau, die sie nach dem ABI-Vertrag gerade NICHT hat.
+#   hybrid_reroute_searchalgorithm  Reroute-Ziel SearchAlgorithm (Gattung Map).
+#   hybrid_reroute_set              Reroute-Ziel Set (Container-Gattung) -- belegt die ZWEITE
+#                                   Ziel-Deklaration als baubar, nicht bloss als Text.
+set(_src_hybrid_reroute_searchalgorithm hybrid_tier_module.cpp)
+set(_src_hybrid_reroute_set             hybrid_tier_module_set.cpp)
 foreach(_dll IN ITEMS perm_set_d9 perm_sequence_d10 perm_view_d11 perm_buildvariant_avx512 perm_buildvariant_avx2
-                      perm_adapter_d12 perm_set_defekt_d13 perm_alt_major7 perm_major7_neue_magic)
+                      perm_adapter_d12 perm_set_defekt_d13 perm_alt_major7 perm_major7_neue_magic
+                      hybrid_reroute_searchalgorithm hybrid_reroute_set)
     add_library(${_dll} SHARED "${_src_${_dll}}")
     target_include_directories(${_dll} PRIVATE
         "${PROJECT_SOURCE_DIR}/libs/cache_engine"
