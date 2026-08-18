@@ -73,7 +73,7 @@
 # COMDARE_CE_PRUEFLINGE:STRING=<repo>/tests/pruefling_fixture -- die Klasse ist gemessen,
 # nicht angenommen. Beide Klassen per cmake erzwungen, danach 'cmake -U' auf BEIDE:
 # Wiederherstellung BYTE-GLEICH (cmp ohne Ausgabe, Total wieder 502).
-#     avx512f (gemessen, prod1, ctest "Total Tests")                       -> 502
+#     avx512f (gemessen, prod1, ctest "Total Tests")                       -> 503
 #     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                  -> 498
 #     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0       -> 496
 #
@@ -614,8 +614,19 @@
 #
 # FORMAT: '#'-Kommentare und Leerzeilen sind erlaubt. Wertzeilen haben die Form
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
+#
+# NACHZUG 18.08.2026 (Q2/V-06/KON101-02, Bump-Bruch #15): 502/498/496 -> 503/499/497.
+# ANLASS: EINE neue ctest-Registrierung, test_q2_identitaets_riegel (der Identitaets-Riegel ueber
+# den echten dlopen-Ladeweg). Sie ist UNBEDINGT -- kein ISA-Gate, kein opt-in-Label --, also
+# bewegt sie alle drei Sprossen um dieselbe 1.
+# WIE GEMESSEN, NICHT GERECHNET: die avx512f-Sprosse ist die Klasse dieser Maschine (prod1) und
+# wurde LIVE abgelesen -- gcc-release, voller Bau ueber --target comdare_tests, ctest-Schlusszeile
+# literal "100% tests passed, 0 tests failed out of 503". Die beiden anderen Sprossen sind auf
+# dieser Klasse nicht messbar (andere Host-Klasse); fuer sie gilt die im Kopf festgehaltene
+# +1-Regel unbedingter Tests, wie beim 500er-Nachzug c3478a9c. Kein Delta-Addieren ueber mehrere
+# Aenderungen hinweg: dies ist EINE Registrierung in EINEM Zug.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
 
-avx512f 502
-avx2 498
-basis 496
+avx512f 503
+avx2 499
+basis 497
