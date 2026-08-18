@@ -2565,3 +2565,102 @@ TEST(MW12StampBausteine, Nb22ConstevalUndLaufzeitTeilenEinePreimageQuelle) {
     EXPECT_EQ(abi::BvsetGlied{std::string_view{"bvset=1"}}.wert(), std::string_view{"bvset=1"});
     EXPECT_EQ(abi::OverlayHash{std::string_view{}}.wert(), std::string_view{});
 }
+
+// -- A2.5-FIX g1 (18.08.2026): DIE KOMPOSIT-WACHEN AM LAUFZEIT-WEG -------------------------------------
+// Review #15-Bruch (Synthese w5swesjti Fixes 9-12, Lens B-F1/B-F2/B-F4): die drei SOLL-Wachen der
+// Komposit-Map (Key-Deckel, Dock-Deckel, Traeger-Grammatik samt Budget) existierten nicht. Fehlerklasse
+// jeweils: ein STILL falscher Key bzw. eine still mehrdeutige/zu grosse Map -- Duplikat-Keys und
+// Digest-Kollisionen, also genau der falsche Skip, den das Glied [9] schliessen soll.
+// T-1: diese Tests standen VOR dem Fix im Baum und waren rot (kein Wurf; das Rot-Protokoll haelt die
+// still entstandene Kollisions-Zeile literal fest).
+
+namespace {
+constexpr std::string_view kA25Hex64A = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+constexpr std::string_view kA25Hex64B = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+} // namespace
+
+TEST(MW12StampBausteine, A25G1KompositKeyDeckelWirft) {
+    namespace abi = ::comdare::cache_engine::abi;
+    // Fix 9 / B-F2: 100000001 und 200000001 trunkierten beide still auf den Key-Text "00000001" --
+    // zwei Stufen, EIN Key; die Streng-Aufsteigend-Wache vergleicht die ORIGINAL-Ids und blieb gruen.
+    std::array<abi::KompositBeitrag, 2> const beitraege{
+        {abi::KompositBeitrag{100'000'001u, kA25Hex64A}, abi::KompositBeitrag{200'000'001u, kA25Hex64B}}};
+    try {
+        auto const zeile = abi::hybrid_komposit_map_bilden(beitraege);
+        ADD_FAILURE() << "kein Wurf -- die Kollisions-Zeile entstand still: '" << std::string(zeile.sv()) << "'";
+    } catch (std::invalid_argument const& e) {
+        EXPECT_NE(std::string_view{e.what()}.find("kAnatomyFingerprintKompositKeyMax"), std::string_view::npos)
+            << e.what();
+    }
+}
+
+TEST(MW12StampBausteine, A25G1KompositDockDeckelWirft) {
+    namespace abi = ::comdare::cache_engine::abi;
+    // Fix 10 / B-F4: 33 kurze Beitraege passen in den 2368er-Puffer -- das Budget deckt den Deckel
+    // NICHT, der Deckel braucht die eigene Wache am Anfang der Bildung.
+    std::array<abi::KompositBeitrag, 33> beitraege{};
+    for (std::size_t i = 0; i < beitraege.size(); ++i) beitraege[i] = abi::KompositBeitrag{i + 1, kA25Hex64A};
+    try {
+        auto const zeile = abi::hybrid_komposit_map_bilden(beitraege);
+        ADD_FAILURE() << "kein Wurf -- 33 Beitraege ergaben still eine " << zeile.size() << "-Byte-Zeile";
+    } catch (std::invalid_argument const& e) {
+        EXPECT_NE(std::string_view{e.what()}.find("Dock-Beitraege"), std::string_view::npos) << e.what();
+    }
+}
+
+TEST(MW12StampBausteine, A25G1KompositTraegerBudgetWirft) {
+    namespace abi = ::comdare::cache_engine::abi;
+    // Fix 12: der Laufzeit-Weg in den Traeger wuchs unbegrenzt -- die Budget-Zusage (2368) war am
+    // Parameter-Eingang unwahr. 2400 im Zeichenvorrat erlaubte Bytes muessen LAUT scheitern.
+    std::string const zu_lang(2400, 'a');
+    try {
+        abi::KompositMapGlied const glied{std::string_view{zu_lang}};
+        (void)glied;
+        ADD_FAILURE() << "kein Wurf -- ein " << zu_lang.size() << "-Byte-Glied passierte den Traeger";
+    } catch (std::invalid_argument const& e) {
+        EXPECT_NE(std::string_view{e.what()}.find("Budget"), std::string_view::npos) << e.what();
+    }
+}
+
+TEST(MW12StampBausteine, A25G1KompositTraegerGrammatikWirft) {
+    namespace abi = ::comdare::cache_engine::abi;
+    // Fix 11 / B-F1: '1=x;2=y' ist als EIN-Segment-Map (Wert 'x;2=y') und als ZWEI-Segment-Map
+    // byte-identisch -- zwei Kompositionen, EIN Preimage. Der Traeger muss die Map-Grammatik pruefen,
+    // nicht nur den allgemeinen Glied-Zeichenvorrat.
+    try {
+        abi::KompositMapGlied const glied{"1=x;2=y"};
+        (void)glied;
+        ADD_FAILURE() << "kein Wurf -- die mehrdeutige Map passierte den Traeger";
+    } catch (std::invalid_argument const& e) {
+        EXPECT_NE(std::string_view{e.what()}.find("Grammatik"), std::string_view::npos) << e.what();
+    }
+}
+
+TEST(MW12StampBausteine, A25G1KompositPositivkontrolleTraegt) {
+    namespace abi = ::comdare::cache_engine::abi;
+    // Gegenprobe (K13: der Koeder muss beissen, die legitime Form muss leben): zwei Beitraege, streng
+    // aufsteigend, 64-hex-Werte -> exakt die dokumentierte Zeile, und sie passiert den Traeger.
+    std::array<abi::KompositBeitrag, 2> const beitraege{
+        {abi::KompositBeitrag{1u, kA25Hex64A}, abi::KompositBeitrag{12u, kA25Hex64B}}};
+    auto const        zeile = abi::hybrid_komposit_map_bilden(beitraege);
+    std::string const soll  = std::string("1=") + std::string(kA25Hex64A) + ";12=" + std::string(kA25Hex64B);
+    EXPECT_EQ(std::string(zeile.sv()), soll);
+    EXPECT_NO_THROW((void)abi::KompositMapGlied{zeile.sv()});
+}
+
+// B-F5 (CT-Dauerprobe): sv() auf einem Temporary ist geloescht -- die Sicht ueberlebte den Puffer
+// nicht (dangling string_view). T-1: der Wegwerf-Koeder `hybrid_komposit_map_bilden(b).sv()`
+// kompilierte VOR dem Fix mit rc=0; nach dem Fix bricht er mit 'use of deleted function', und diese
+// Probe haelt den Zustand dauerhaft fest. (Als Variablen-Template, nicht als nacktes requires: nur in
+// einem templated entity wird die geloeschte Funktion zu 'false' statt zum harten Compile-Fehler.)
+template <class T>
+inline constexpr bool a25_sv_auf_temporary_baubar = requires(T t) { std::move(t).sv(); };
+template <class T>
+inline constexpr bool a25_sv_auf_lvalue_baubar = requires(T& t) { t.sv(); };
+// Positiv-Anker (K13: die Probe muss beissen koennen): auf dem BENANNTEN Traeger lebt sv() weiter --
+// waere Typ- oder Member-Name verschrieben, fiele dieser Anker, nicht nur die Negativ-Haelfte.
+static_assert(a25_sv_auf_lvalue_baubar<::comdare::cache_engine::abi::detail::KompositMapText>,
+              "B-F5-Anker: sv() auf einem benannten KompositMapText muss baubar bleiben.");
+static_assert(!a25_sv_auf_temporary_baubar<::comdare::cache_engine::abi::detail::KompositMapText>,
+              "B-F5: sv() muss auf einem Temporary geloescht sein (const&&-Overload), sonst haengt die "
+              "zurueckgegebene Sicht nach dem Ausdrucks-Ende.");
