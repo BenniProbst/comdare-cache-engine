@@ -770,9 +770,10 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
                   "R-3: der Default des Mess-Gates-Glieds MUSS die leere Identitaet sein (ODR: der TU-Wert "
                   "haette in einem Default-Argument einer inline-Funktion externe Bindung).");
     static_assert(abi::kAnatomyFingerprintFormat == std::string_view{"fingerprint_format=5"},
-                  "R-3: der Format-Bump 3 -> 4 ist der Anker dieses Fensters -- er trennt den Alt-Bestand "
-                  "deterministisch vom 9-Glieder-Layout (O-2/C-2 hat zuvor 2 -> 3 fuer das 8-Glieder-Layout "
-                  "getan; die Begruendung ist dieselbe: Layout-Evolution mismatcht, statt still zu kollidieren).");
+                  "S-6a/KON45-01: der Format-Bump 4 -> 5 ist der Anker dieses Fensters -- er trennt den "
+                  "Alt-Bestand deterministisch vom 10-Glieder-Layout (R-3 hat zuvor 3 -> 4 fuer das "
+                  "9-Glieder-Layout getan, O-2/C-2 davor 2 -> 3 fuer das 8-Glieder-Layout; die Begruendung "
+                  "ist jedes Mal dieselbe: Layout-Evolution mismatcht, statt still zu kollidieren).");
     // Dass diese consteval-Quelle byte-gleich zur .algos-Laufzeit-Quelle ist, prueft die schwere TU
     // test_reflect_versions_all17 (dort liegt build_axis_variant_version_table; diese TU bleibt leicht).
 }
