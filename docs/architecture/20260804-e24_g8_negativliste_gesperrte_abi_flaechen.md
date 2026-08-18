@@ -281,3 +281,49 @@ Je Commit gefuehrt, hier zusammengefasst (`git diff --stat 19adba05..HEAD`):
 ---
 
 ENDE. Diese Datei ist die verbindliche Negativ-Liste; sie wird NICHT geloescht, nur fortgeschrieben.
+
+---
+
+## NACHTRAG 2026-08-18 (S-6a / KON45-01, #15-Bump-Buendel): ABSCHNITT 1.4 IST UEBERHOLT
+
+Fortschreibung, kein Loeschen -- der Text oben bleibt als Stand vom 04.08.2026 stehen.
+
+**WAS SICH GEAENDERT HAT, UND WARUM DIE SPERRE FIEL.** Abschnitt 1.4 sperrt die Fingerprint-Flaeche
+"bis nach der Abgabe". Die BEGRUENDUNG dieser Sperre steht in Abschnitt 0 und ist arithmetisch:
+"nach dem Voll-Bau-4 haengen ~1,57 Mio Tier-Binaries an genau einem Anker". Genau diese Praemisse
+ist am Objekt NICHT eingetreten -- der Voll-Bau-4 wurde nie gefahren, und der
+`.fingerprint`-Sidecar-Bestand ist bis heute literal 0 (mehrfach nachgezaehlt, zuletzt 07.08.). Ein
+Bruch kostet damit HEUTE nichts und nach dem ersten golden-Batch einen Voll-Neubau plus
+Messdaten-Entwertung. Deshalb liegt der Bruch VOR F2 (21.08.2026) und nicht dahinter.
+
+**DIE ENTSCHEIDUNGS-KETTE (nicht Lead-Ermessen):** KON21-03 (Owner: "Ja genau, meint auch #87 und
+#78") setzt die Kategorien-Ordnung MESS, SYSTEM, ORGAN fuer alle drei Aussen-Ebenen -
+KON45-01/KON103-03 setzen das zehnte Glied (Hybrid-Komposit-Map); KON96-01 KORB A buendelt beides
+mit dem ohnehin faelligen Layout-Bump in EIN Fenster ("sonst steht der teuerste Bruch spaeter
+erneut an").
+
+**DIE ZAHLEN DES ABSCHNITTS 1.4 WAREN AUSSERDEM SEIT LANGEM STALE.** Er nennt
+`fingerprint_format=2` und "6 Glieder"; lebend waren zum Zeitpunkt dieses Nachtrags bereits Format 4
+und neun Glieder (Format 3 = O-2/C-2 am 05.08., Format 4 = R-3 am 07.08. -- beide NACH dem
+G8-Stand). Die Liste hat diese zwei Bewegungen nicht mitbekommen. Das ist der eigentliche Befund an
+dieser Stelle: eine Sperre, die ihre eigene Flaeche nicht mehr korrekt beschreibt, sperrt nichts.
+
+**LEBENDER STAND nach dem #15-Buendel** (Quelle ist und bleibt `abi/anatomy_fingerprint.hpp`, nicht
+diese Liste):
+
+| Flaeche | lebender Wert |
+|---|---|
+| `fingerprint_format` | `fingerprint_format=5` |
+| Glied-Zahl | 10 (`kAnatomyFingerprintGliedCount`) |
+| Glied-Ordnung [1][2][3] | Mess-Tooling, System, Organ (vorher organ, system, measurement) |
+| System-Glied-Position | unveraendert 2 (`kAnatomyFingerprintSystemGlied`) |
+| Preimage-Budget | 8192 (vorher 4096), Summen-Beleg 6057 |
+| POD-Layout | `kAnatomyVersionLinesLayout = 7`, `sizeof == 136` (vorher 6 / 120) |
+
+**WAS WEITER GESPERRT BLEIBT** (dieser Bruch hat es nicht angefasst und darf es nicht):
+die Lager-Kaskaden (D-12), `kOrganGruppen*`, `kSystemAxisOrder`, `kCompositionAxisNames`, die
+Hash-Mechanik (`src/sha512/ctsha512.hpp`) und das Messwert-2-Tupel -- die S-6-VERBOTSZONEN aus
+KON20-02/KON21-03. Abschnitt 1.4 gilt fuer diese Flaechen unveraendert fort.
+
+**AB WANN WIEDER HART:** mit F2 (21.08.2026) schliesst das Fenster. Danach gilt Abschnitt 0 wieder
+im vollen Wortlaut -- und dann mit einer Praemisse, die dann auch zutrifft.

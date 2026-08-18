@@ -8,7 +8,7 @@
 #
 # DER BEFUND, GEGEN DEN SIE GEBAUT IST (am Objekt gemessen, 08.08.2026):
 # libs/cache_engine/hybrid/README.md:50 sagte "die bestehende Anatomy-ABI (Major 7,
-# anatomy_module_abi_v1_decl.hpp:62)". Der Decl-Header sagt seit E-24 C8 (04.08.2026,
+# anatomy_module_abi_v1_decl.hpp:63)". Der Decl-Header sagt seit E-24 C8 (04.08.2026,
 # ce 4f569051) Major 8, Magic .A8. Das als bindend markierte Design-Dokument
 # docs/architecture/20260802-hybrid_tier_stufe_soll_design.md:62-63 trug DENSELBEN
 # Satz. Wer die Hybrid-Doku liest und ihr folgt, baut gegen eine ABI-Major, die es

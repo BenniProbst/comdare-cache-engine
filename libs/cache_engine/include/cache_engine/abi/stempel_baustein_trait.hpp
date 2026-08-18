@@ -29,7 +29,7 @@ enum class StempelBausteinRolle : std::uint8_t {
 /// Primaertrait: KEIN Baustein. Die Anbindung ist je Typ eine Spezialisierung UNTER seiner Definition --
 /// OHNE Basisklassen-Einbau: alle fuenf KON6-03-Strukturen sind positional-init-Aggregate bzw.
 /// NTTP-Traeger; eine leere Basis fraesse den ERSTEN positionellen Initialisierer (Pins
-/// anatomy_module_abi_v1_decl.hpp:191/:254/:261; Feld-Ordnungs-Wache toolchain_stamp_glied.hpp:300-311
+/// anatomy_module_abi_v1_decl.hpp:192/:254/:261; Feld-Ordnungs-Wache toolchain_stamp_glied.hpp:300-311
 /// bleibt dadurch UNVERAENDERT).
 template <class T>
 struct ist_stempel_baustein {

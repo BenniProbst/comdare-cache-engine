@@ -32,7 +32,7 @@ Die **Observer+Tier-Schnittstelle** (`IObservableTier` + `ComdareTierObserverSna
 ABI, sondern eine **tier-unterklassen-spezialisierte Erweiterung der Anatomy-ABI** (korr. 2026-06-03, s. Doc 30 §8.0 — vorher
 „gattungs-spezialisiert"; die Spezialisierung sitzt auf der **Lebewesen-Unterklassen**-Ebene, dem festen 17-Achsen-Satz, nicht auf der
 Gattungs-/Interface-Ebene): Ein Lebewesen-Modul exportiert genau vier
-extern-`C`-Symbole (Factory/Destroy/Version/Magic, `anatomy_module_abi_v1_decl.hpp:61-74`) und liefert über
+extern-`C`-Symbole (Factory/Destroy/Version/Magic, `anatomy_module_abi_v1_decl.hpp:62-75`) und liefert über
 `comdare_create_anatomy()` einen `IAnatomyBase*`. Erst *nach* dem Laden fragt der Host per `dynamic_cast<IObservableTier*>`
 ab, ob dieses konkrete Modul über die ABI-Grenze zusätzlich den Pfad-B-Antrieb (`tier_insert/lookup/erase/observe`) **exportiert** —
 das ist eine reine ABI-Exposure-Frage (welche Achsen-Treiber die .dll-Grenze queren), KEINE Aussage darüber, ob das Lebewesen diese
@@ -89,7 +89,7 @@ DLL-Kontext liegen, und der Snapshot-Transport würde von der Lebenszyklus-Verwa
         │  COMDARE_DEFINE_ANATOMY_MODULE(C)              │            │       ▼
         ▼                                                │            │   LOADER  AnatomyModuleLoader::load()
  FACTORY    extern "C" 4 Symbole  ━━━━━━━━━━━━━━━━━━━━━━━━┿━ Symbole ━━┿━►   anatomy_module_loader.hpp:149
-   anatomy_module_abi_v1_decl.hpp:61-74                  │            │     resolve: magic→major→minor
+   anatomy_module_abi_v1_decl.hpp:62-75                  │            │     resolve: magic→major→minor
    create / destroy / abi_version / abi_magic            │            │     → AnatomyModuleHandle (RAII, :76)
                                                          │            │       │ destroy_fn DANN dlclose
  SNAPSHOT   ComdareTierObserverSnapshotV1  ━━━━━━━━━━━━━━━┿━ POD memcpy┿━►   PRÜF-DOCK  PruefDockRegistry
@@ -209,11 +209,11 @@ DLL-Kontext liegen, und der Snapshot-Transport würde von der Lebenszyklus-Verwa
 | `IObservableTier` | interface | `observable_tier.hpp:80` | **ja** — optionales Sub-Interface |
 | `IMeasurableWorkload` | interface | `measurable_workload.hpp:20` | **ja** — optionales Sub-Interface |
 | `SearchAlgorithmAbiAdapter<A>` | class | `abi_adapter.hpp:75` | Dreifach-Vererbung, in DLL instantiiert |
-| `AnatomyAbiVersion` | struct | `anatomy_module_abi_v1_decl.hpp:85` | Host-seitiger Versions-Unpacker |
-| `comdare_anatomy_abi_version` | fn | `anatomy_module_abi_v1_decl.hpp:61` | extern-C |
-| `comdare_anatomy_abi_magic` | fn | `anatomy_module_abi_v1_decl.hpp:64` | extern-C (`0x434F4D444141312E`) |
-| `comdare_create_anatomy` | fn | `anatomy_module_abi_v1_decl.hpp:66` | extern-C Factory |
-| `comdare_destroy_anatomy` | fn | `anatomy_module_abi_v1_decl.hpp:73` | extern-C Dtor |
+| `AnatomyAbiVersion` | struct | `anatomy_module_abi_v1_decl.hpp:86` | Host-seitiger Versions-Unpacker |
+| `comdare_anatomy_abi_version` | fn | `anatomy_module_abi_v1_decl.hpp:62` | extern-C |
+| `comdare_anatomy_abi_magic` | fn | `anatomy_module_abi_v1_decl.hpp:65` | extern-C (`0x434F4D444141312E`) |
+| `comdare_create_anatomy` | fn | `anatomy_module_abi_v1_decl.hpp:67` | extern-C Factory |
+| `comdare_destroy_anatomy` | fn | `anatomy_module_abi_v1_decl.hpp:74` | extern-C Dtor |
 | `IPruefDock` | interface | `pruef_dock.hpp:51` | **nein** — nur Builder-Binary |
 | `SearchAlgorithmDock` | class | `search_algorithm_dock.hpp:22` | nein |
 | `PruefDockRegistry` | class | `pruef_dock_registry.hpp:22` | nein |
@@ -246,7 +246,7 @@ Zwei getrennte ABI-Ebenen treffen sich hier:
 
 | # | Name | Datei:Zeile | Heutiges Layout / Signatur | Ebene | Status |
 |---|---|---|---|---|---|
-| 1 | `comdare_create_anatomy` | `anatomy_module_abi_v1_decl.hpp:66` | `() -> IAnatomyBase*` (Ownership zum Caller) | module_abi_v1 | **lebend** |
+| 1 | `comdare_create_anatomy` | `anatomy_module_abi_v1_decl.hpp:67` | `() -> IAnatomyBase*` (Ownership zum Caller) | module_abi_v1 | **lebend** |
 | 2 | `comdare_destroy_anatomy` | `…:73` | `(IAnatomyBase*) -> void` (muss in gleicher DLL) | module_abi_v1 | **lebend** |
 | 3 | `comdare_anatomy_abi_version` | `…:61` | `() -> uint64_t` (`major<<32 \| minor`) | module_abi_v1 | **lebend** |
 | 4 | `comdare_anatomy_abi_magic` | `…:64` | `() -> uint64_t` = `0x434F4D444141312E` | module_abi_v1 | **lebend** |
@@ -264,7 +264,7 @@ Zwei getrennte ABI-Ebenen treffen sich hier:
 
 **Kritische Reihenfolge-Invariante:** `AnatomyModuleHandle::unload()` ruft `destroy_fn` **vor** `dlclose` (`anatomy_module_loader.hpp:76`). Umgekehrt = UAF + Heap-Corruption.
 
-**Versions-Logik:** `AnatomyAbiVersion::host_compatible_with(module)` = `major==host.major && module.minor <= host.minor` (`anatomy_module_abi_v1_decl.hpp:85`). Modul darf **alt** sein, nicht zukünftig.
+**Versions-Logik:** `AnatomyAbiVersion::host_compatible_with(module)` = `major==host.major && module.minor <= host.minor` (`anatomy_module_abi_v1_decl.hpp:86`). Modul darf **alt** sein, nicht zukünftig.
 
 ---
 
@@ -281,7 +281,7 @@ tragenden Mess-POD (`…SnapshotV2`) ersetzen und `ANATOMY_ABI_MAJOR` von 1 auf 
 - [ ] **`COMDARE_ANATOMY_ABI_MAJOR`-Bump** (`anatomy_module_abi_v1_decl.hpp:28`) 1→2.
 - [ ] **Magic-Konstante** `0x434F4D444141312E` (`…:32/:64`) — bei Major-Bump auf neuen Wert (".A1." → ".A2.") setzen. **[ANNAHME: Magic kodiert Versionsstring]**
 - [ ] **`IObservableTier::tier_observe`** Signatur `observable_tier.hpp:105` auf V2-POD umstellen (oder überladenes `tier_observe_v2` zusätzlich, um alte Loader-Pfade nicht zu brechen).
-- [ ] **`AnatomyAbiVersion`/`kHostAnatomyAbiVersion`** `anatomy_module_abi_v1_decl.hpp:85,107` — `host.major` zieht auf 2 mit (keine Logik-Änderung).
+- [ ] **`AnatomyAbiVersion`/`kHostAnatomyAbiVersion`** `anatomy_module_abi_v1_decl.hpp:86,107` — `host.major` zieht auf 2 mit (keine Logik-Änderung).
 - [ ] **dormanten Zwilling auflösen:** `comdare_hw_counters_v1`/`pull_live_counters` (`module_abi_v1.hpp:45-51,114`) → in den einen POD überführen / als deprecated markieren.
 
 ### 5b. Mitzuziehende Konsumenten

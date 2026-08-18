@@ -15,7 +15,7 @@
 //   A-P4  Byte-Orakel Planer: planner_version_stamp() == PlanerStempel::gesamt_stempel(), Praefix-Anker
 //         "planner@1.0.0.c isa=x86_64 os=" (VOR der Delegation eingefroren, T-5).
 //   A-P5  Byte-Orakel CEB: ceb_version_stamp() == CebStempel::gesamt_stempel(); sha-Laenge == 128
-//         (sha512_len-Doktrin, anatomy_module_abi_v1_decl.hpp:224-225).
+//         (sha512_len-Doktrin, anatomy_module_abi_v1_decl.hpp:232-233).
 //   A-P6  Dock-Nenner == 5; jedes Literal ist VersionsLiteral-Baustein.
 //   A-P7  g1-Block: vier gelabelte Zeilen, jede non-empty; Zeile 1 == planner_version_stamp()
 //         (transitiv == PlanerStempel-Kompositum).
