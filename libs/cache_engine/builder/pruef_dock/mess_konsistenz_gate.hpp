@@ -53,7 +53,13 @@
 //                           pruefbar -- und eine unpruefbare Messkette ist kein bestandener Vertrag.
 //   (2) stempel_fehlt       Das Modul exportiert das Stempel-Symbol nicht (2-arg-Emission / Fremd-.so).
 //                           Es DEKLARIERT nichts, also kann nichts uebereinstimmen.
-//   (3) layout_fremd        stamp_layout_version != 6. Ein fremdes POD-Layout haette ANDERE Offsets
+//   (3) layout_fremd        stamp_layout_version != 7 (B-5h-Nachzug 18.08.2026: hier stand "!= 6").
+//                           DER CODE WAR NIE FALSCH, NUR DIESER SATZ: geprueft wird symbolisch ueber
+//                           stamp_pod_has_entries (:241), das seinerseits gegen kAnatomyVersionLinesLayout
+//                           haelt -- die Zahl steht an EINER Stelle und ist mit dem 6->7-Bump
+//                           mitgewandert. Ein Literal-Vergleich gegen 6 existiert im ganzen Baum nicht
+//                           (gemessen). Genau deshalb faellt so ein Kommentar auch niemandem auf: er
+//                           bricht nichts, er belehrt nur falsch. Ein fremdes POD-Layout haette ANDERE Offsets
 //                           (A13-M3/K-4 hat sie um -16 verschoben) -- weiterlesen hiesse Zeiger-Muell
 //                           interpretieren. Gleichheits-Wache, nie Ordnung.
 //   (4) deklaration_leer    measurement_len == 0 bzw. measurement_entry_count == 0: "kein Mess-Tooling
