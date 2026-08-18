@@ -545,6 +545,21 @@ namespace detail {
 /// A13-M3/K-4 CT-NEGATIV-PROBE: der Alt-Wert 5 (und jede Zukunft) MUSS false liefern. Ohne diese Probe waere
 /// ein versehentliches Zurueckdrehen auf `>=` gruen -- die Offset-Verschiebung ist unsichtbar, bis ein
 /// Konsument Muell liest.
+///
+/// A2.5-R2/C-F3 (18.08.2026) -- WAS DIESE VIER PROBEN BEWEISEN UND WAS NICHT: alle vier PODs entstehen aus
+/// stamp_pod_layout_probe und damit aus dem HEUTIGEN Layout-7-POD (sizeof 152, Layout-7-Offsets), dem nur
+/// eine fremde ZAHL eingesetzt ist. Die Proben beweisen deshalb AUSSCHLIESSLICH die numerische
+/// Gleichheits-Wache: `== 7` weist 5/6/8 ab und laesst genau 7 durch. Ein ECHTES Layout-6-POD (sizeof 120,
+/// alte Kategorien-Ordnung organ/system/measurement, ohne komposit-/name-Paar) uebt hier KEINE Zeile aus --
+/// die Probe(6u) ist ein NUR-VERSIONSZAHL-Gleichheitsbeweis, KEIN Layout-6-Offset-Beweis. Das genuegt der
+/// Wache, weil sie per Bauform nur stamp_layout_version liest (Probe-Doku oben) und fremde Layouts allein
+/// an der Zahl scheitern. Ein eingefrorener Layout-6-Spiegel-POD koennte den Beweis auch nicht verbessern:
+/// er passte nie durch stamp_pod_has_entries (die Signatur nimmt AnatomyVersionLines const&) und waere
+/// Exponat statt Beweis -- bei falsch rekonstruierter Alt-Ordnung sogar ein K-4-klassiger falscher Zeuge.
+/// Die LAYOUT-Seite von Layout 7 decken stattdessen die echten Layout-Wachen dieser Strecke:
+///   sizeof-Pin 152 + alignof 8 (:331/:334) - Feldzahl-Sonde 20 in beide Richtungen (:426/:430) -
+///   Typ-Folge aller 20 Felder (:447) - Offset-Tafel inkl. Fix-14-Pins name_line/name_len 136/144 samt
+///   K4-ctest-Spiegel (tests/unit/test_m_w12_stamp_bausteine.cpp, PodLayout-Tafel + K4-Test).
 static_assert(stamp_pod_has_entries(detail::stamp_pod_layout_probe(7u)),
               "K-4: das EIGENE Layout 7 muss die Array-Form fuehren.");
 static_assert(!stamp_pod_has_entries(detail::stamp_pod_layout_probe(6u)),
