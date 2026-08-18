@@ -2246,9 +2246,15 @@ target_compile_definitions(test_q2_identitaets_riegel PRIVATE
     COMDARE_Q2_MODUL_HYBRID_SEARCH="$<TARGET_FILE:hybrid_reroute_searchalgorithm>"
     COMDARE_Q2_MODUL_HYBRID_SET="$<TARGET_FILE:hybrid_reroute_set>"
     COMDARE_Q2_MODUL_ALT_MAJOR7="$<TARGET_FILE:perm_alt_major7>"
-    COMDARE_Q2_MODUL_MAJOR7_NEUE_MAGIC="$<TARGET_FILE:perm_major7_neue_magic>")
+    COMDARE_Q2_MODUL_MAJOR7_NEUE_MAGIC="$<TARGET_FILE:perm_major7_neue_magic>"
+    # Review #15 Fix 1 + Fix 3: die vier Negativ-Fixtures des Riegels (Registrierung = T-7-Pflicht).
+    COMDARE_Q2_MODUL_LUEGNER="$<TARGET_FILE:perm_q2_luegner>"
+    COMDARE_Q2_MODUL_OHNE_GATTUNG="$<TARGET_FILE:perm_q2_ohne_gattung>"
+    COMDARE_Q2_MODUL_OHNE_GENUS="$<TARGET_FILE:perm_q2_ohne_genus>"
+    COMDARE_Q2_MODUL_ALT_MAGIC_OHNE_SYMBOLE="$<TARGET_FILE:perm_alt_magic_ohne_symbole>")
 add_dependencies(test_q2_identitaets_riegel
     perm_set_d9 perm_sequence_d10 perm_view_d11 perm_adapter_d12 perm_alt_major7 perm_major7_neue_magic
+    perm_q2_luegner perm_q2_ohne_gattung perm_q2_ohne_genus perm_alt_magic_ohne_symbole
     hybrid_reroute_searchalgorithm hybrid_reroute_set)
 
 comdare_add_test(test_hy_a1_dock_contract
@@ -4306,6 +4312,19 @@ set(_src_perm_set_defekt_d13       genus_module_set_defekt.cpp)
 #   perm_major7_neue_magic HEUTIGE Magic + Version (Host-Major - 1) -- Isolierungs-Probe (Schloss 2).
 set(_src_perm_alt_major7           genus_module_alt_major7.cpp)
 set(_src_perm_major7_neue_magic    genus_module_major7_neue_magic.cpp)
+# Review #15 Fix 1 + Fix 3 (A2.5, 18.08.2026) -- die VIER Negativ-Fixtures des Q2/V-06-Riegels. Sie
+# haengen sich an DIESELBE Schleife wie alle anderen Modul-Quellen (kein zweiter Bau-Weg) und treiben
+# die drei neuen Statuscodes plus die Loader-Reihenfolge durch den ECHTEN dlopen-Ladeweg:
+#   perm_q2_luegner              Symbol behauptet Sequence, Factory liefert Set -> identity_mismatch (11);
+#                                traegt zusaetzlich die destroy-vor-dlclose-Zaehler-Sonden.
+#   perm_q2_ohne_gattung         comdare_anatomy_gattung fehlt -> gattung_symbol_missing (9).
+#   perm_q2_ohne_genus           comdare_anatomy_genus fehlt -> genus_symbol_missing (10).
+#   perm_alt_magic_ohne_symbole  Alt-Magic .A7. + NUR die vier alten Symbole -> magic_mismatch (4);
+#                                pinnt die Reihenfolge "Identitaets-Symbole erst NACH Magic/Version".
+set(_src_perm_q2_luegner             genus_module_q2_luegner.cpp)
+set(_src_perm_q2_ohne_gattung        genus_module_q2_ohne_gattung.cpp)
+set(_src_perm_q2_ohne_genus          genus_module_q2_ohne_genus.cpp)
+set(_src_perm_alt_magic_ohne_symbole genus_module_alt_magic_ohne_symbole.cpp)
 # HY-A2 (2026-08-18) -- die beiden HYBRID-Modulquellen. Sie haengen sich an DIESELBE Schleife wie die
 # plain-Tier-Module, und das ist die Aussage: eine Hybrid-.so wird nicht anders gebaut, nicht anders
 # benannt und nicht anders geladen als ein plain Tier. Eine Sonder-Registrierung waere ein zweiter
@@ -4318,6 +4337,7 @@ set(_src_hybrid_reroute_searchalgorithm hybrid_tier_module.cpp)
 set(_src_hybrid_reroute_set             hybrid_tier_module_set.cpp)
 foreach(_dll IN ITEMS perm_set_d9 perm_sequence_d10 perm_view_d11 perm_buildvariant_avx512 perm_buildvariant_avx2
                       perm_adapter_d12 perm_set_defekt_d13 perm_alt_major7 perm_major7_neue_magic
+                      perm_q2_luegner perm_q2_ohne_gattung perm_q2_ohne_genus perm_alt_magic_ohne_symbole
                       hybrid_reroute_searchalgorithm hybrid_reroute_set)
     add_library(${_dll} SHARED "${_src_${_dll}}")
     target_include_directories(${_dll} PRIVATE

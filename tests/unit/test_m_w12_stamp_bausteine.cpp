@@ -666,13 +666,16 @@ TEST(MW12StampBausteine, MeasurementStampLineSetFormCarriesToolingMenge) {
     EXPECT_EQ(abi::measurement_stamp_line_full_set().find("@v1"), std::string::npos);
 }
 
-TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt120) {
-    // A13-M3 (Owner-E2 02.08.2026): merge_line/merge_len sind ERSATZLOS ENTFERNT -- der ERSTE Feld-ENTFALL
-    // dieses POD (bis Layout 5 war alles append-only). Layout-Bump 5 -> 6, sizeof 136 -> 120 (-16 = 1 Zeiger +
-    // 1 uint64). Die Offsets von sha512_line und den drei {ptr,count}-Paaren verschieben sich damit um -16 --
-    // genau darum ist stamp_pod_has_entries auf die GLEICHHEITS-Wache (== 6) gezogen (K-4). Der
-    // sizeof-static_assert lebt in anatomy_module_abi_v1_decl.hpp und haelt build-weit -- hier zusaetzlich als
-    // literaler ctest-Beweis gespiegelt. binary_id/CRC UNBERUEHRT (POD-Layout != binary_id).
+TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt152) {
+    // HISTORIE (A13-M3, Owner-E2 02.08.2026 -- Stand DAMALS, Namensgeber der frueheren At120-Fassung):
+    // merge_line/merge_len wurden ERSATZLOS ENTFERNT -- der erste Feld-ENTFALL dieses POD (bis Layout 5
+    // war alles append-only). Layout-Bump 5 -> 6, sizeof 136 -> 120 (-16 = 1 Zeiger + 1 uint64); die
+    // Offsets ab sha512_line wanderten um -16. Genau darum wurde stamp_pod_has_entries auf die
+    // GLEICHHEITS-Wache gezogen (K-4; damals == 6, seit S-6a == 7). Der sizeof-static_assert lebt in
+    // anatomy_module_abi_v1_decl.hpp und haelt build-weit -- hier zusaetzlich als literaler
+    // ctest-Beweis gespiegelt. binary_id/CRC UNBERUEHRT (POD-Layout != binary_id).
+    // LEBEND (Review #15 Fix 25): der Test pinnt seit dem #15-Bruch 152 Byte (Layout 7, 20 Felder,
+    // E-A/B-6-Append name_line/name_len) -- der Name traegt die gepinnte Zahl, nicht die historische.
     using ::comdare::cache_engine::abi::AnatomyVersionLines;
     static_assert(sizeof(AnatomyVersionLines) == 152,
                   "POD-Layout-Wache: 20 Felder, 8-aligned -> 152 Byte (x86_64), seit E-A/B-6 (+name_line/len).");
@@ -702,6 +705,12 @@ TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt120) {
     // KON45-01: die APPEND-Haelfte des Bumps -- komposit_line/len am POD-Ende.
     EXPECT_EQ(offsetof(AnatomyVersionLines, komposit_line), 120u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, komposit_len), 128u);
+    // E-A/B-6 + V-05R (Review #15 Fix 14): die name-Haelfte des Appends. Die Tafel ist laut eigener
+    // Deklaration die EINZIGE Wache gegen den Tausch gleichtypiger Felder -- ohne diese zwei Pins
+    // waeren genau die zwei neuen Bruch-Felder ungedeckt (ein name/komposit-Tausch bliebe unsichtbar,
+    // sizeof und Feldzahl aendern sich dabei nicht).
+    EXPECT_EQ(offsetof(AnatomyVersionLines, name_line), 136u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, name_len), 144u);
 }
 
 TEST(MW12StampBausteine, K4StampPodHasEntriesIsEqualityNotOrder) {

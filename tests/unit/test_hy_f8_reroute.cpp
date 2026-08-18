@@ -2,11 +2,14 @@
 // auf ZWEI plain-Tier-Ziele.
 //
 // WAS DIESER TEST BEWEIST, und warum jeder Teil noetig ist:
-//   (1) ROUNDTRIP-KOEDER -- ein GEWUERFELTES Token geht durch das Dock ins Ziel und kommt literal
-//       gleich zurueck. Ein fester Wert waere kein Koeder: er koennte aus einem Default, einem
-//       Nullwert oder einem stehengebliebenen Puffer stammen und saehe genauso aus. Der Wert wird
-//       deshalb aus einem deterministisch geseedeten PRNG gezogen (reproduzierbar, aber nicht
-//       vorhersehbar aus dem Code heraus) und VOR/NACH dem Dock verglichen.
+//   (1) ROUNDTRIP-KOEDER DURCH DAS DOCK -- ein GEWUERFELTES Token laeuft ueber den Antriebs-Zeiger,
+//       den der DOCK-SLOT haelt (proxy.antrieb(slot), IObservableTier -> IDriveableTier), ins Ziel
+//       und kommt literal gleich zurueck. A2.5-Fix 5 (Review #15): vorher nahm der Koeder einen
+//       LOKALEN Stack-Zeiger auf das Ziel und lief am Dock VORBEI -- ein Dock, das den gebundenen
+//       Zeiger verliert oder nie speichert, waere gruen geblieben. Ein fester Wert waere zudem kein
+//       Koeder: er koennte aus einem Default, einem Nullwert oder einem stehengebliebenen Puffer
+//       stammen und saehe genauso aus. Der Wert wird deshalb aus einem deterministisch geseedeten
+//       PRNG gezogen (reproduzierbar, aber nicht vorhersehbar) und VOR/NACH dem Dock verglichen.
 //   (2) UMSCHALTUNG -- dasselbe Dock traegt nacheinander ZWEI verschiedene Ziele. Ohne den zweiten
 //       Durchgang bewiese der Test nur, dass irgendein Zeiger irgendwo hinzeigt; erst der Wechsel
 //       zeigt, dass der Umschaltpunkt WIRKT und das Ergebnis dem NEUEN Ziel folgt.
@@ -26,11 +29,13 @@
 
 #include <hybrid/hybrid_binary_proxy.hpp>
 
+#include <anatomy/observable_tier.hpp> // IObservableTier (Dock-Flaeche) + SnapshotSink/push_snapshot_to_visitor
 #include <builder/anatomy_module_loader/anatomy_module_loader.hpp>
 
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <iostream> // D-F8: std::cout wird hier direkt benutzt -- Include gehoert in DIESE TU
 #include <map>
 #include <random>
 #include <string_view>
@@ -43,11 +48,17 @@ namespace cee    = ::comdare::cache_engine::execution_engine;
 namespace loader = ::comdare::cache_engine::builder::anatomy_loader;
 
 /// Ein plain Tier-ZIEL. Bewusst winzig: der Test misst die REROUTE-Naht, nicht eine Anatomie. Es
-/// erfuellt genau die zwei Flaechen, die der Proxy braucht -- IAnatomyBase (Delegations-Ziel) und
-/// den funktionalen Antrieb (Dock-Ziel).
-class PlainZiel final : public cea::IAnatomyBase, public cea::IDriveableTier {
+/// erfuellt genau die zwei Flaechen, die der Proxy braucht -- IAnatomyBase (Delegations-Ziel/basis)
+/// und IObservableTier (die Antriebs-Flaeche, die der DOCK-SLOT fuehrt; sie erbt IDriveableTier,
+/// worueber der funktionale Koeder laeuft). A2.5-Fix 5: vorher erbte das Fixture nur IDriveableTier
+/// und konnte gar nicht als Antrieb gebunden werden -- der Test band (slot, nullptr, &ziel) und der
+/// Dock-Pfad blieb ungemessen. Der genus-Parameter existiert fuer die Fremd-Genus-Ablehnungs-Probe
+/// (ziel_binden-Wache (b)); der Default ist das deklarierte Reroute-Ziel dieses Tests.
+class PlainZiel final : public cea::IAnatomyBase, public cea::IObservableTier {
 public:
-    explicit PlainZiel(std::string_view name, std::size_t organe) noexcept : name_{name}, organe_{organe} {}
+    explicit PlainZiel(std::string_view name, std::size_t organe,
+                       cea::AnatomyGenus genus = cea::AnatomyGenus::SearchAlgorithm) noexcept
+        : name_{name}, organe_{organe}, genus_{genus} {}
 
     // -- IExecutionEngine (das ECHTE Eigenleben -- der Proxy hat keines) --
     [[nodiscard]] std::string_view          engine_name() const noexcept override { return name_; }
@@ -60,8 +71,22 @@ public:
     // -- IAnatomyBase --
     [[nodiscard]] std::string_view  composition_name() const noexcept override { return name_; }
     [[nodiscard]] std::string_view  paper_id() const noexcept override { return "plain-fixture"; }
-    [[nodiscard]] cea::AnatomyGenus genus() const noexcept override { return cea::AnatomyGenus::SearchAlgorithm; }
+    [[nodiscard]] cea::AnatomyGenus genus() const noexcept override { return genus_; }
     [[nodiscard]] std::size_t       organ_count() const noexcept override { return organe_; }
+
+    // -- IObservableTier: die Mess-Flaeche der Dock-Bindung, hier minimal aber EHRLICH bedient --
+    void tier_observe(cea::ComdareTierObserverSnapshot* out) const noexcept override {
+        if (out == nullptr) return;
+        *out                 = cea::ComdareTierObserverSnapshot{};
+        out->tier_fill_level = static_cast<std::uint64_t>(daten_.size());
+    }
+    void tier_measure_accept(cea::IMessVisitor& v) const noexcept override {
+        // Die EINE Umsetzung POD -> Ereignis-Strom (kein eigener Emissions-Block, s. observable_tier.hpp).
+        cea::ComdareTierObserverSnapshot s{};
+        tier_observe(&s);
+        cea::push_snapshot_to_visitor(s, v, static_cast<std::uint64_t>(genus_));
+    }
+    void tier_reset_statistics() noexcept override {} // Fixture fuehrt keine kumulativen Zaehler
 
     // -- IDriveableTier: der funktionale Antrieb, ueber den der Koeder laeuft --
     [[nodiscard]] bool tier_insert(std::uint64_t key, std::uint64_t value) noexcept override {
@@ -83,6 +108,7 @@ public:
 private:
     std::string_view                       name_;
     std::size_t                            organe_;
+    cea::AnatomyGenus                      genus_;
     cee::EngineLifecycleState              zustand_ = cee::EngineLifecycleState::Idle;
     std::map<std::uint64_t, std::uint64_t> daten_{};
 };
@@ -126,12 +152,19 @@ TEST(HyF8Reroute, EinDockZweiZieleRoundtripKoeder) {
         auto const token = gewuerfeltes_token(seed);
         auto const key   = gewuerfeltes_token(seed ^ 0x5DEECE66Dull);
 
-        ASSERT_EQ(proxy.ziel_binden(static_cast<std::size_t>(slot), nullptr, &ziel), hy::hybrid_status_ok);
-        // Der Antrieb wird als IDriveableTier gereicht -- die Op-Flaeche, ueber die der Koeder laeuft.
-        // (Der Dock-Slot fuehrt den Observer-Zeiger; fuer den funktionalen Roundtrip genuegt der
-        //  Antrieb, und genau den prueft die F8-DoD.)
-        cea::IDriveableTier* antrieb = &ziel;
-        ASSERT_NE(antrieb, nullptr);
+        // A2.5-Fix 5: BEIDE Zeiger auf DASSELBE Objekt (der Vertrag von ziel_binden) -- Antrieb als
+        // IObservableTier, Basis als IAnatomyBase. Die fruehere Bindung (slot, nullptr, &ziel) war
+        // ein GEMISCHTES Paar und wird seit Fix 4 mit hybrid_status_bindung_inkonsistent abgewiesen.
+        cea::IObservableTier* obs = &ziel;
+        ASSERT_EQ(proxy.ziel_binden(static_cast<std::size_t>(slot), obs, &ziel), hy::hybrid_status_ok);
+
+        // DER DOCK-GRIFF: der Antrieb kommt AUS DEM SLOT, nicht aus einer lokalen Variablen. Nur so
+        // misst der Koeder die Dock-Weiterleitung -- ein Slot, der den Zeiger nicht speichert oder
+        // nicht zurueckgibt, faellt HIER (frueherer toter ASSERT_NE auf &ziel ist gestrichen; diese
+        // Gleichheit ist die lebendige Fassung derselben Frage und deckt nullptr mit ab).
+        auto* am_dock = proxy.antrieb(static_cast<std::size_t>(slot));
+        ASSERT_EQ(am_dock, obs) << etikett << ": der Dock-Slot haelt NICHT den gebundenen Antrieb";
+        cea::IDriveableTier* antrieb = am_dock; // IObservableTier erbt den funktionalen Antrieb
 
         ASSERT_TRUE(antrieb->tier_insert(key, token)) << etikett << ": insert durch das Dock";
         std::uint64_t zurueck = 0;
@@ -177,12 +210,58 @@ TEST(HyF8Reroute, EinDockZweiZieleRoundtripKoeder) {
            "gibt (Weg C, Owner-Entscheid E-1 final)";
 
     // ---- LOESEN vor dem Entladen (destroy-vor-dlclose) ---------------------------------------
+    // VOR dem Loesen haelt der Slot den Antrieb des ZULETZT gebundenen Ziels -- erst dieses Paar
+    // aus Vorher- und Nachher-Messung macht die nullptr-Erwartung unten zu einem UEBERGANG statt
+    // zu einem Dauerzustand (A2.5-Fix 5: vorher war nie ein Antrieb gebunden, die Zeile mass nichts).
+    EXPECT_EQ(proxy.antrieb(static_cast<std::size_t>(slot)), static_cast<cea::IObservableTier*>(&ziel_b))
+        << "vor dem Loesen muss der Slot den Antrieb von ziel_b halten";
     ASSERT_EQ(proxy.ziel_binden(static_cast<std::size_t>(slot), nullptr, nullptr), hy::hybrid_status_ok);
     EXPECT_FALSE(proxy.ist_gebunden());
     EXPECT_EQ(proxy.antrieb(static_cast<std::size_t>(slot)), nullptr)
         << "der Slot haelt nach dem Loesen noch einen Zeiger -- das waere ein use-after-dlclose mit "
            "voll plausiblem Verhalten bis zum ersten Zugriff";
     EXPECT_EQ(proxy.organ_count(), 0u) << "ohne Ziel traegt der Proxy keine Organe";
+}
+
+TEST(HyF8Reroute, ZielBindenWeistGemischtesPaarUndFremdGenusAb) {
+    // A2.5-Fix 4/5 (Review #15, KOPPLUNG): die zwei ziel_binden-Wachen werden HIER gepinnt -- die
+    // Proxy-Haelfte (hybrid_binary_proxy.hpp) landete im selben Zug, dieser Test ist ihre Messung.
+    hy::HybridBinaryProxy<cea::AnatomyGenus::SearchAlgorithm> proxy;
+    int const                                                 slot = proxy.dock_anlegen();
+    ASSERT_GE(slot, 0);
+
+    PlainZiel             ziel{"plain_ziel_wache", 18};
+    cea::IObservableTier* obs = &ziel;
+
+    // (a) GEMISCHTES PAAR, beide Richtungen: "nullptr in BEIDEN heisst geloest" -- einer allein ist
+    // keiner der zwei dokumentierten Zustaende und muss VOR jeder Mutation abgewiesen werden.
+    EXPECT_EQ(proxy.ziel_binden(static_cast<std::size_t>(slot), nullptr, &ziel),
+              hy::hybrid_status_bindung_inkonsistent)
+        << "antrieb=nullptr bei gesetzter basis: antrieb und ziel_ zeigten fortan auf verschiedene Wahrheiten";
+    EXPECT_EQ(proxy.ziel_binden(static_cast<std::size_t>(slot), obs, nullptr),
+              hy::hybrid_status_bindung_inkonsistent)
+        << "basis=nullptr bei gesetztem antrieb: die Gegenrichtung desselben Verstosses";
+    EXPECT_FALSE(proxy.ist_gebunden()) << "die Ablehnung kam NACH einer Mutation -- ziel_ wurde beschrieben";
+    EXPECT_EQ(proxy.antrieb(static_cast<std::size_t>(slot)), nullptr)
+        << "die Ablehnung kam NACH einer Mutation -- der Dock-Slot wurde beschrieben";
+
+    // (b) FREMD-GENUS: ein basis mit genus() != ZielGenus wuerde die Loader-Riegel-Garantie
+    // (Symbol == genus()) am gebundenen Proxy nachtraeglich entwerten -- genus() delegiert an ziel_.
+    PlainZiel fremd{"plain_ziel_fremd", 13, cea::AnatomyGenus::Set};
+    EXPECT_EQ(proxy.ziel_binden(static_cast<std::size_t>(slot), static_cast<cea::IObservableTier*>(&fremd), &fremd),
+              hy::hybrid_status_kein_zielfaehiges_genus)
+        << "ein Set-Ziel am SearchAlgorithm-Proxy: genus() wechselte still auf das Fremd-Genus";
+    EXPECT_FALSE(proxy.ist_gebunden());
+    EXPECT_EQ(proxy.antrieb(static_cast<std::size_t>(slot)), nullptr);
+
+    // GEGENPROBE: das dokumentierte Paar bindet weiterhin, und das Loesen-Paar bleibt zulaessig --
+    // sonst haette die Wache mehr verboten, als der Vertrag beschreibt.
+    EXPECT_EQ(proxy.ziel_binden(static_cast<std::size_t>(slot), obs, &ziel), hy::hybrid_status_ok);
+    EXPECT_TRUE(proxy.ist_gebunden());
+    EXPECT_EQ(proxy.ziel_binden(static_cast<std::size_t>(slot), nullptr, nullptr), hy::hybrid_status_ok);
+    EXPECT_FALSE(proxy.ist_gebunden());
+    std::cout << "  ziel_binden-Wachen: gemischtes Paar -> " << hy::hybrid_status_bindung_inkonsistent
+              << ", Fremd-Genus -> " << hy::hybrid_status_kein_zielfaehiges_genus << ", Paar/Loesen -> ok\n";
 }
 
 TEST(HyF8Reroute, CtSperreUnterscheidetNoch) {
@@ -257,6 +336,14 @@ TEST(HyF8Reroute, SechsAbiPflichtSymboleAmGeladenenModul) {
             ASSERT_NE(proxy, nullptr) << f.etikett << ": das geladene Objekt ist kein HybridBinaryProxy";
             EXPECT_EQ(proxy->belegte_docks(), 1u) << f.etikett << ": GENAU EIN Standard-Dock aus der Factory";
             EXPECT_FALSE(proxy->ist_gebunden()) << f.etikett << ": frisch geladen ist kein Ziel gebunden";
+        } else {
+            // A2.5-Fix 7 (Review #15): die REST-HAZARD-Zelle des R1/ENABLE_EXPORTS-Umbaus wird
+            // GEMESSEN, nicht nur ausgefuehrt: der Cast, der NICHT treffen darf. Deterministisch
+            // unter gcc und clang, -O0 wie -O2 -- genau die Zelle, in der clangs
+            // -fassume-unique-vtables-Zeigervergleich frueher die falsche vtable-Kopie traf.
+            EXPECT_EQ(proxy, nullptr)
+                << f.etikett
+                << ": die Set-.so darf NICHT als SearchAlgorithm-Proxy casten (final-Cast ueber die dlopen-Grenze)";
         }
 
         std::cout << "  ABI-Pflicht-Symbole OK: " << f.etikett << "  genus=" << static_cast<int>(anatomie->genus())

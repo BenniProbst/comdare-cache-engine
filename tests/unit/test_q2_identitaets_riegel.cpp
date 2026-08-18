@@ -26,7 +26,13 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <iostream>
 #include <string>
+
+#if !defined(_WIN32)
+#include <dlfcn.h> // Zaehler-Sonden des Luegner-Moduls: eigenes Handle haelt die .so resident
+#endif
 
 namespace cea    = comdare::cache_engine::anatomy;
 namespace loader = comdare::cache_engine::builder::anatomy_loader;
@@ -34,9 +40,14 @@ namespace loader = comdare::cache_engine::builder::anatomy_loader;
 namespace {
 
 struct Fall {
-    char const*       pfad;
-    cea::AnatomyGenus erwartetes_genus;
-    char const*       etikett;
+    char const*         pfad;
+    cea::AnatomyGenus   erwartetes_genus;
+    // Review #15 Fix 8: UNABHAENGIGE Erwartungs-Spalte statt Selbstvergleich. Der fruehere Check
+    // verglich gattung_of(anatomie->genus()) mit gattung_of(f.erwartetes_genus) -- nach bestandenem
+    // Genus-Check ist das gattung_of(x) == gattung_of(x), eine Tautologie, die JEDE Zuordnungstabelle
+    // in gattung_of gruen liesse. Die Spalte bindet gattung_of an ein LITERAL je Fixture-Klasse.
+    cea::AnatomyGattung erwartete_gattung;
+    char const*         etikett;
 };
 
 // Die Fixture-Klassen, jede einmal: plain-Tier ueber die vier Gattungs-Makros und Hybrid ueber
@@ -55,12 +66,13 @@ struct Fall {
 // COMDARE_DEFINE_ANATOMY_MODULE_ADHOC und dieses an COMDARE_DEFINE_ANATOMY_MODULE -- die zwei neuen
 // Symbole erbt er also, ohne eigene Makro-Stelle zu sein.
 Fall const kFaelle[] = {
-    {COMDARE_Q2_MODUL_SET, cea::AnatomyGenus::Set, "plain set"},
-    {COMDARE_Q2_MODUL_SEQUENCE, cea::AnatomyGenus::Sequence, "plain sequence"},
-    {COMDARE_Q2_MODUL_VIEW, cea::AnatomyGenus::View, "plain view"},
-    {COMDARE_Q2_MODUL_ADAPTER, cea::AnatomyGenus::Adapter, "plain adapter"},
-    {COMDARE_Q2_MODUL_HYBRID_SEARCH, cea::AnatomyGenus::SearchAlgorithm, "hybrid -> searchalgorithm"},
-    {COMDARE_Q2_MODUL_HYBRID_SET, cea::AnatomyGenus::Set, "hybrid -> set"},
+    {COMDARE_Q2_MODUL_SET, cea::AnatomyGenus::Set, cea::AnatomyGattung::Container, "plain set"},
+    {COMDARE_Q2_MODUL_SEQUENCE, cea::AnatomyGenus::Sequence, cea::AnatomyGattung::Container, "plain sequence"},
+    {COMDARE_Q2_MODUL_VIEW, cea::AnatomyGenus::View, cea::AnatomyGattung::Container, "plain view"},
+    {COMDARE_Q2_MODUL_ADAPTER, cea::AnatomyGenus::Adapter, cea::AnatomyGattung::Container, "plain adapter"},
+    {COMDARE_Q2_MODUL_HYBRID_SEARCH, cea::AnatomyGenus::SearchAlgorithm, cea::AnatomyGattung::Map,
+     "hybrid -> searchalgorithm"},
+    {COMDARE_Q2_MODUL_HYBRID_SET, cea::AnatomyGenus::Set, cea::AnatomyGattung::Container, "hybrid -> set"},
 };
 
 } // namespace
@@ -86,12 +98,14 @@ TEST(Q2IdentitaetsRiegel, SymbolWertGleichGenusUndGattungAbgeleitet) {
         EXPECT_NE(anatomie->genus(), cea::AnatomyGenus::FunctionInterfaceReroute)
             << f.etikett << ": genus() liefert den Reroute-Wert -- Weg C gebrochen";
 
-        // (3) Die Gattung ist ABGELEITET, nicht getragen: gattung_of ist total und constexpr, also gibt
-        //     es zu jedem Genus genau eine Gattung. Der Test rechnet sie hier NOCH EINMAL aus und
-        //     vergleicht mit der Zuordnung, die das Modul ueber seinen Genus impliziert.
+        // (3) Die Gattung ist ABGELEITET, nicht getragen -- und die Erwartung ist ein LITERAL aus der
+        //     Tabelle (Review #15 Fix 8): Map fuer den Hybrid-Search-Fall, Container fuer die vier
+        //     plain-Klassen und hybrid-set. Der fruehere Vergleich gegen gattung_of(f.erwartetes_genus)
+        //     war nach bestandenem (2) ein Selbstvergleich und haette JEDE gattung_of-Tabelle gedeckt.
         auto const gattung = cea::gattung_of(anatomie->genus());
-        EXPECT_EQ(gattung, cea::gattung_of(f.erwartetes_genus))
-            << f.etikett << ": Ebene-1-Zuordnung weicht ab";
+        EXPECT_EQ(gattung, f.erwartete_gattung)
+            << f.etikett << ": Ebene-1-Zuordnung weicht vom Tabellen-Literal ab (gattung_of="
+            << static_cast<int>(gattung) << ", erwartet " << static_cast<int>(f.erwartete_gattung) << ")";
 
         std::cout << "  RIEGEL OK: " << f.etikett << "  genus=" << static_cast<int>(anatomie->genus())
                   << "  gattung=" << static_cast<int>(gattung) << "\n";
@@ -99,9 +113,13 @@ TEST(Q2IdentitaetsRiegel, SymbolWertGleichGenusUndGattungAbgeleitet) {
 }
 
 TEST(Q2IdentitaetsRiegel, AltModuleScheiternWeiterVORDerSymbolStufe) {
-    // DER NEGATIV-BELEG. Beide Fixtures TRAGEN die zwei neuen Symbole (mit Absicht -- sonst waere ihre
-    // Ablehnung mehrdeutig). Sie muessen trotzdem an ihrem jeweiligen ALTEN Schloss scheitern, weil der
-    // Loader die Identitaets-Symbole erst NACH Magic und Version zieht.
+    // DER NEGATIV-BELEG. Die ersten beiden Fixtures TRAGEN die zwei neuen Symbole (mit Absicht -- sonst
+    // waere ihre Ablehnung mehrdeutig). Sie muessen trotzdem an ihrem jeweiligen ALTEN Schloss
+    // scheitern, weil der Loader die Identitaets-Symbole erst NACH Magic und Version zieht.
+    // Die DRITTE Fixture (Review #15 Fix 3) traegt die Symbole ABSICHTLICH NICHT: erst an ihr ist die
+    // Reihenfolge beobachtbar. Ein Loader, der die Identitaets-Symbole VOR Magic/Version zoege, wuerde
+    // hier gattung_symbol_missing statt magic_mismatch melden -- also die Diagnose des haeufigsten
+    // Realfalls (Modul gegen alte ABI gebaut, hat die Symbole schlicht nicht) verfaelschen.
     struct AltFall {
         char const* pfad;
         int         erwarteter_status;
@@ -111,6 +129,8 @@ TEST(Q2IdentitaetsRiegel, AltModuleScheiternWeiterVORDerSymbolStufe) {
         {COMDARE_Q2_MODUL_ALT_MAJOR7, loader::status_magic_mismatch, "alt_major7 (Schloss 1: Magic)"},
         {COMDARE_Q2_MODUL_MAJOR7_NEUE_MAGIC, loader::status_abi_major_mismatch,
          "major7_neue_magic (Schloss 2: Major)"},
+        {COMDARE_Q2_MODUL_ALT_MAGIC_OHNE_SYMBOLE, loader::status_magic_mismatch,
+         "alt_magic_ohne_symbole (Schloss 1 schlaegt VOR der Symbol-Stufe zu -- Reihenfolge-Pin)"},
     };
 
     for (auto const& a : alt) {
@@ -122,6 +142,72 @@ TEST(Q2IdentitaetsRiegel, AltModuleScheiternWeiterVORDerSymbolStufe) {
             << " -- die neue Symbol-Pflicht darf das bestehende Fehlerbild NICHT verdraengen";
         std::cout << "  NEGATIV OK: " << a.etikett << " -> " << loader::status_name(st) << "\n";
     }
+}
+
+TEST(Q2IdentitaetsRiegel, RiegelUndSymbolPflichtBeissenAmEchtenLadeweg) {
+    // Review #15 Fix 1 (KRITISCH, K13): die drei neuen Statuscodes werden hier ERZEUGT, nicht nur
+    // benannt. Ohne diese Koeder bliebe ein invertierter oder toter Riegel bei ALLEN Tests gruen --
+    // der namensgebende Mechanismus des Q2/V-06-Bruchs waere unbewiesen.
+    //
+    // (a)+(b) Die zwei Symbol-Schloesser, je EINZELN: den Fixtures fehlt GENAU EIN Symbol, alles
+    // andere ist korrekt (aktuelle Magic/Version, echte Factory). Die exakte Status-Erwartung pinnt
+    // zugleich die Zuordnung 9<->gattung / 10<->genus gegen Vertauschung.
+    struct SymbolFall {
+        char const* pfad;
+        int         erwarteter_status;
+        char const* etikett;
+    };
+    SymbolFall const symbol_faelle[] = {
+        {COMDARE_Q2_MODUL_OHNE_GATTUNG, loader::status_gattung_symbol_missing, "ohne comdare_anatomy_gattung"},
+        {COMDARE_Q2_MODUL_OHNE_GENUS, loader::status_genus_symbol_missing, "ohne comdare_anatomy_genus"},
+    };
+    for (auto const& s : symbol_faelle) {
+        loader::AnatomyModuleHandle handle;
+        int const                   st = loader::AnatomyModuleLoader::load(s.pfad, handle);
+        EXPECT_EQ(st, s.erwarteter_status)
+            << s.etikett << ": erwartet " << loader::status_name(s.erwarteter_status) << ", bekommen "
+            << loader::status_name(st) << " -- das fehlende Pflicht-Symbol muss EINZELN benannt werden";
+        EXPECT_FALSE(handle.valid()) << s.etikett << ": abgelehntes Modul darf keine gueltige Handle tragen";
+        std::cout << "  NEGATIV OK: " << s.etikett << " -> " << loader::status_name(st) << "\n";
+    }
+
+    // (c) DER LUEGNER: Symbol behauptet Sequence, die Factory liefert eine Set-Instanz. Beide
+    // Wertklassen-Gates passieren (bekanntes, ABI-sichtbares Genus; Gattung konsistent abgeleitet) --
+    // NUR der Konsistenz-Riegel am geladenen Objekt kann diese Luege sehen.
+#if !defined(_WIN32)
+    // Zaehler-Sonden VOR dem Loader-Lauf verdrahten: das eigene dlopen haelt das Modul resident,
+    // damit die Zaehler den Loader-Lauf UEBERLEBEN (der Loader schliesst sein Handle im Fehlerpfad).
+    void* sonde = ::dlopen(COMDARE_Q2_MODUL_LUEGNER, RTLD_NOW | RTLD_LOCAL);
+    ASSERT_NE(sonde, nullptr) << "Sonden-dlopen der Luegner-.so scheiterte: " << ::dlerror();
+    using PfnZaehler   = std::uint64_t (*)();
+    auto* pfn_create_n = reinterpret_cast<PfnZaehler>(::dlsym(sonde, "comdare_q2_testonly_create_count"));
+    auto* pfn_destroy_n = reinterpret_cast<PfnZaehler>(::dlsym(sonde, "comdare_q2_testonly_destroy_count"));
+    ASSERT_NE(pfn_create_n, nullptr);
+    ASSERT_NE(pfn_destroy_n, nullptr);
+    ASSERT_EQ(pfn_create_n(), 0u) << "Vorbelasteter Zaehler -- die Sonde selbst darf nichts bauen";
+#endif
+
+    loader::AnatomyModuleHandle handle;
+    int const                   st = loader::AnatomyModuleLoader::load(COMDARE_Q2_MODUL_LUEGNER, handle);
+    EXPECT_EQ(st, loader::status_identity_mismatch)
+        << "Luegner-Modul: erwartet identity_mismatch, bekommen " << loader::status_name(st)
+        << " -- das Symbol behauptet Sequence, die Factory liefert Set; nur der Riegel trennt das";
+    EXPECT_FALSE(handle.valid())
+        << "Luegner-Modul: der Riegel hat abgelehnt, aber die Handle traegt trotzdem ein Modul";
+
+#if !defined(_WIN32)
+    // destroy-vor-dlclose am Fehlerpfad: die Factory lief GENAU EINMAL, und die gebaute Instanz
+    // wurde ueber comdare_destroy_anatomy DES MODULS freigegeben (ErwerbsGuard A-F4). Ein Leck
+    // (destroy==0) waere hier rot -- und unter ASan/LSan zusaetzlich als Leak sichtbar.
+    EXPECT_EQ(pfn_create_n(), 1u) << "Die Luegner-Factory lief nicht genau einmal";
+    EXPECT_EQ(pfn_destroy_n(), 1u)
+        << "destroy-vor-dlclose verletzt: die im Fehlerpfad gebaute Instanz wurde nicht freigegeben";
+    std::cout << "  LUEGNER OK: identity_mismatch, create=" << pfn_create_n() << " destroy=" << pfn_destroy_n()
+              << " (destroy-vor-dlclose am Fehlerpfad belegt)\n";
+    ::dlclose(sonde);
+#else
+    std::cout << "  LUEGNER OK: identity_mismatch (Zaehler-Sonde nur auf POSIX verdrahtet)\n";
+#endif
 }
 
 TEST(Q2IdentitaetsRiegel, StatusNamenSindVollstaendig) {
