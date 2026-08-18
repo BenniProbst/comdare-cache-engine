@@ -50,12 +50,12 @@
     <axis_sweep axis="node_type"   baseline="index0"/>
   </axis_sweeps>
 
-  <!-- SOTA-Reihen (Klein-Smoke, #178/ch4 §4.8): Stufe1 ∪ Stufe2 → Reihe A, Stufe3 → Reihe B (Reihe C ist
+  <!-- SOTA-Reihen (Klein-Smoke, #178/ch4 §4.8): Verbund1  +  Verbund2 -> Reihe A, Verbund3 -> Reihe B (Reihe C ist
        build-übergreifend, keine Stufe). Je 1 reale SOTA/PRT-ART-DLL über die Union-SourceGenFn. -->
   <sota_series_set>
-    <sota_series id="A" lebewesen="prt_art" merge="Stufe1_CeOnly"/>
-    <sota_series id="A" lebewesen="hot"     merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="B" lebewesen="masstree" merge="Stufe3_FullJoin"/>
+    <sota_series id="A" lebewesen="prt_art" merge="Verbund1_CeOnly"/>
+    <sota_series id="A" lebewesen="hot"     merge="Verbund2_Replace"/>
+    <sota_series id="B" lebewesen="masstree" merge="Verbund3_Union"/>
   </sota_series_set>
 
   <!-- EIN kleiner Working-Set-Wert (Smoke; der Voll-Sweep bleibt im m3v2_study-Profil). -->
@@ -77,7 +77,7 @@
   <run_options cap="2" platform="win-x86_64" build_version="m3v2-smoke" resume="false"/>
 
   <modes>
-    <mode name="m3v2_base" merge="Stufe1_CeOnly"
+    <mode name="m3v2_base" merge="Verbund1_CeOnly"
           active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization value_handle index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2 persistence_target"/>
   </modes>
 

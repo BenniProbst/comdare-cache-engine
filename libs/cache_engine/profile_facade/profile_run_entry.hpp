@@ -1136,8 +1136,8 @@ struct RunProfileResult {
                       << tp.sota_series.size() << " deklariert)\n";
             // M-CE-10 (Voll-Review 2026-07-13, Fix (b)): res.sota_binary_ids ist per Doku "distinkte SOTA-Reihen-
             // binary_ids, die gebaut/gemessen wurden" — NICHT die Pass-Zahl. build_sota_passes dedupliziert bereits
-            // identische Messungen (KORREKTUR F23 2026-07-16: seit der per-Host-Auffaecherung 2026-07-14 sind St2-
-            // Paesse per-Host GENUINE distinkt — "St2 = 1 HOT-Pilot" war die VOR-M-CE-10-Semantik; dedupliziert
+            // identische Messungen (KORREKTUR F23 2026-07-16: seit der per-Host-Auffaecherung 2026-07-14 sind V2-
+            // Paesse per-Host GENUINE distinkt -- "V2 = 1 HOT-Pilot" war die VOR-M-CE-10-Semantik; dedupliziert
             // werden nur noch WIRKLICH identische Deklarationen, gleicher Host + gleicher fairness_mode); dieser
             // Set-Guard fängt zusätzlich die legitimen fairness-Varianten ab (gleiche binary_id, verschiedener
             // fairness_mode ⇒ EINE reale DLL). So bleibt der Zähler exakt == Zahl der real gebauten/gemessenen
@@ -1162,9 +1162,9 @@ struct RunProfileResult {
                 if (sota_seen_bids.insert(p.view_binary_id).second) ++res.sota_binary_ids; // M-CE-10 (b): distinkt
                 // GO-5 Fork 7 + M-CE-10 (c): der tool-berechnete H2-Score wird ueber das HOST-Lebewesen (p.h2_lebewesen)
                 // aufgeloest — host-dominant (#171: "abstract" = Host fuellt 16/17 Achsen, INC-2d). KORREKTUR F23 (2026-07-16):
-                // die fruehere Aussage 'fuer St2 FIX "hot", NIE das angefragte lebewesen' beschrieb die VOR-M-CE-10-
-                // Semantik (nur der HOT-Host existierte als St2-Komposition). Seit der per-Host-Auffaecherung
-                // (2026-07-14) gilt fuer ALLE Stufen St1/St2/St3: h2_lebewesen == lebewesen (der per-Host-Replace hat
+                // die fruehere Aussage 'fuer V2 FIX "hot", NIE das angefragte lebewesen' beschrieb die VOR-M-CE-10-
+                // Semantik (nur der HOT-Host existierte als V2-Komposition). Seit der per-Host-Auffaecherung
+                // (2026-07-14) gilt fuer ALLE Stufen St1/V2/St3: h2_lebewesen == lebewesen (der per-Host-Replace hat
                 // DIESEN Host; Gate: test_sota_st2_dedup asserted EXPECT_EQ(p.h2_lebewesen, p.lebewesen), 19 Paesse).
                 // prt_art/fehlende Akte ⇒ honest "n/a" (sota-Profil-Dateistamm == Lebewesen-Name der 6 SOTA).
                 std::string const h2_score = h2_score_for(h2_akte, p.h2_lebewesen);

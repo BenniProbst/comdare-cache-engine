@@ -76,7 +76,7 @@
 
   <!-- (g) PERMUTATIONSMODUS: ce_only genuegt der F-B-Frage (eigene Allocator-Kante). -->
   <modes>
-    <mode name="ce_only" merge="Stufe1_CeOnly" active_axes="allocator alloc_hw"/>
+    <mode name="ce_only" merge="Verbund1_CeOnly" active_axes="allocator alloc_hw"/>
   </modes>
 
   <!-- (h) STATISCHE Achsen aus dem jeweiligen base_tier (Paper-Tupel). -->

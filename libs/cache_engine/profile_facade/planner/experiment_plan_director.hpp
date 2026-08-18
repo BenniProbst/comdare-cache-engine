@@ -211,7 +211,7 @@ struct PlanStep {
     std::size_t index = 0; // 0-basierter Schritt-Index INNERHALB der aktuellen Perm
     std::string kind;      // "thesis_sweep_pass" | "experiment_phase_pass"
     std::string label;     // thesis: Sweep-Achse ("" = Basis-Pass) ; experiment: Phasen-Name
-    std::string merge;     // experiment: MergeStrategy ; thesis: "-"
+    std::string merge;     // experiment: PrueflingVerbundStrategy ; thesis: "-"
     std::string
         binary_id;      // experiment: view_binary_id ; thesis: "-" (Basis-binary_ids entstehen erst in der Selektion)
     std::string series; // experiment: Reihe A/B ; thesis: "-"

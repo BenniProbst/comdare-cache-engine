@@ -111,12 +111,12 @@
 
   <!-- (g) 3 PERMUTATIONSMODI, je auf Achsen-Teilmenge beschraenkt (pruefling_merge.hpp; KF-9). -->
   <modes>
-    <mode name="ce_only"           merge="Stufe1_CeOnly"
+    <mode name="ce_only"           merge="Verbund1_CeOnly"
           active_axes="memory_layout isa simd_extension cache_traversal node_type page_type prefetch allocator cacheline"/>
-    <mode name="pruefling_replace" merge="Stufe2_PrueflingReplace"
+    <mode name="pruefling_replace" merge="Verbund2_Replace"
           pruefling="prtart" replaces_axes="page_type node_type cache_traversal value_handle allocator prefetch memory_layout"
           active_axes="isa simd_extension cacheline"/>
-    <mode name="full_join"         merge="Stufe3_FullJoin"
+    <mode name="verbund_union"         merge="Verbund3_Union"
           active_axes="memory_layout isa simd_extension cache_traversal node_type page_type prefetch allocator cacheline"/>
   </modes>
 

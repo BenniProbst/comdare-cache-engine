@@ -124,15 +124,15 @@ TEST(ExperimentParser, ParsesGoldenInstanceLiterally) {
     // 3 phases mit merge/engine/engines/pruefling.
     ASSERT_EQ(ep->phases.size(), 3u);
     EXPECT_EQ(ep->phases[0].name, "phase2_cache_engine");
-    EXPECT_EQ(ep->phases[0].merge, "Stufe1_CeOnly");
+    EXPECT_EQ(ep->phases[0].merge, "Verbund1_CeOnly");
     EXPECT_EQ(ep->phases[0].engine, "ee_ce");
     EXPECT_TRUE(ep->phases[0].engines.empty());
     EXPECT_EQ(ep->phases[1].name, "phase1_prt_art");
-    EXPECT_EQ(ep->phases[1].merge, "Stufe2_PrueflingReplace");
+    EXPECT_EQ(ep->phases[1].merge, "Verbund2_Replace");
     EXPECT_EQ(ep->phases[1].engine, "ee_prt");
     EXPECT_EQ(ep->phases[1].pruefling, "prt_art");
     EXPECT_EQ(ep->phases[2].name, "phase3_kombiniert");
-    EXPECT_EQ(ep->phases[2].merge, "Stufe3_FullJoin");
+    EXPECT_EQ(ep->phases[2].merge, "Verbund3_Union");
     EXPECT_TRUE(ep->phases[2].engine.empty());
     ASSERT_EQ(ep->phases[2].engines.size(), 2u);
     EXPECT_EQ(ep->phases[2].engines[0], "ee_ce");
@@ -205,8 +205,8 @@ TEST(ExperimentParser, ValidatesGoldenAgainstRegistries) {
     fs::remove_all(reg, ec);
 }
 
-// (c1) VALIDATE FEHLER — eine ungueltige phase.merge ist ein HARTER Fehler (kein MergeStrategy-Enum-Wert).
-TEST(ExperimentParser, InvalidMergeStrategyIsError) {
+// (c1) VALIDATE FEHLER -- eine ungueltige phase.merge ist ein HARTER Fehler (kein PrueflingVerbundStrategy-Enum-Wert).
+TEST(ExperimentParser, InvalidPrueflingVerbundStrategyIsError) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
     ep->phases[0].merge = "Stufe9_Bogus";
@@ -550,7 +550,7 @@ TEST(ExperimentParser, TemplateWithUnknownRefValidatesTolerant) {
 TEST(ExperimentParser, ParsesPerAxisMergeAndPhaseIdentity) {
     auto const ep = parse_experiment_with_system_axes(
         "  <phases>\n"
-        "    <phase name=\"self_phase\" merge=\"Stufe1_CeOnly\" identity=\"CacheEngine\"/>\n"
+        "    <phase name=\"self_phase\" merge=\"Verbund1_CeOnly\" identity=\"CacheEngine\"/>\n"
         "  </phases>\n"
         "  <axes_default_lookup enabled=\"true\">\n"
         "    <axis ref=\"mapping\" allowed_variants=\"direct_placement\" merge=\"merge\"/>\n"

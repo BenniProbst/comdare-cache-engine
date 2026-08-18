@@ -87,7 +87,7 @@ int main() {
     tp.thread_counts = {"1", "2"};
     cx::ThesisMode m;
     m.name        = "ce_only";
-    m.merge       = "Stufe1_CeOnly";
+    m.merge       = "Verbund1_CeOnly";
     m.active_axes = {"memory_layout", "cacheline"};
     tp.modes      = {m};
 

@@ -86,7 +86,7 @@ fs::path write_temp_profile(std::string const& workloads_block) {
   <base_tiers><tier id="hot" profile_ref="../sota/hot.profile.xml" paper_ref="P02"/></base_tiers>
   <permute_axes><axis ref="search_algo"><value>k_ary</value></axis></permute_axes>
 )" << workloads_block
-        << R"(  <modes><mode name="ce_only" merge="Stufe1_CeOnly" active_axes="search_algo"/></modes>
+        << R"(  <modes><mode name="ce_only" merge="Verbund1_CeOnly" active_axes="search_algo"/></modes>
   <static_axes from="base_tier"/>
 </comdare_thesis_profile>
 )";
@@ -515,4 +515,112 @@ TEST(FacadeMethodikBasename, BareBasenameResolvesUnderThesisProfilesAndLoads) {
     // Leeres Haupt-Profil (degenerate) => Basename unveraendert (keine Aufloesung moeglich).
     EXPECT_EQ(pf::resolve_methodik_profile_path("m3_smoke_coverage.profile.xml", fs::path{}),
               fs::path{"m3_smoke_coverage.profile.xml"});
+}
+
+// --------------------------------------------------------------------------
+// V-11R / P7-ce (18.08.2026) -- die <sota_series merge="..">-ENUM-WACHE
+// --------------------------------------------------------------------------
+// BEFUND, DER DIESEN TEST ERZWINGT (am Objekt erhoben, nicht vermutet): beim Verbund-Rename wurde
+// ein K13-Koeder gewuerfelt und gefahren -- in all_axes_golden.profile.xml:95 wurde EIN merge-Wert
+// auf den Alt-Namen "Stufe2_PrueflingReplace" zurueckgedreht. Der volle ctest-Lauf blieb GRUEN: es
+// gab keine einzige Wache fuer <sota_series merge="..">. Der Schwester-Fall <phase merge="..">
+// hatte seine seit KERN-A; die sota_series-Seite war die Luecke.
+//
+// WARUM DAS NICHT KOSMETISCH IST: ein unbekannter Wert faellt in sota_catalog.hpp stufe_to_reihe()
+// auf den Reihen-Tag "-" durch (der bewusste "kein Phantom-Reihen-Tag"-Zweig). Die Reihe faellt
+// damit still aus der Auswertung, ohne dass irgendwo etwas rot wird -- und genau diese Fehlerklasse
+// (ein stehen gebliebener Alt-Wert) wird durch die V-11R-Umbenennung ueberhaupt erst moeglich.
+//
+// DIESER TEST IST DER KOEDER IN DAUERFORM: er faehrt den Alt-Namen, der den Rename ausgeloest hat.
+namespace {
+fs::path write_sota_series_profile(std::string const& merge_wert) {
+    fs::path const p = fs::temp_directory_path() /
+                       ("comdare_validate_verbund_fixture_" +
+                        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    std::ofstream  out{p};
+    out << R"(<?xml version="1.0" encoding="UTF-8"?>
+<comdare_thesis_profile id="validate_verbund_fixture" schema_version="1">
+  <base_tiers><tier id="hot" profile_ref="../sota/hot.profile.xml" paper_ref="P02"/></base_tiers>
+  <permute_axes><axis ref="search_algo"><value>k_ary</value></axis></permute_axes>
+  <sota_series_set>
+    <sota_series id="A" lebewesen="hot" merge=")"
+        << merge_wert << R"("/>
+  </sota_series_set>
+  <modes><mode name="ce_only" merge="Verbund1_CeOnly" active_axes="search_algo"/></modes>
+  <static_axes from="base_tier"/>
+</comdare_thesis_profile>
+)";
+    return p;
+}
+
+tlz::ProfileValidationResult validate_sota_series(std::string const& merge_wert) {
+    fs::path const                   p = write_sota_series_profile(merge_wert);
+    cx::XmlConfigParser const        parser;
+    std::optional<cx::ThesisProfile> tp = parser.parse_thesis_profile(p);
+    std::error_code                  ec;
+    fs::remove(p, ec);
+    EXPECT_TRUE(tp.has_value()) << "Fixture muss parsen: merge=" << merge_wert;
+    if (!tp.has_value()) return {};
+    ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+    return tlz::validate_profile(*tp, registry, {});
+}
+} // namespace
+
+// (a) Die drei GUELTIGEN Verbund-Namen werden akzeptiert -- und series_checked zaehlt sie (kein
+//     stiller Durchmarsch bei leerer Menge).
+TEST(ValidateProfileVerbundStrategie, DieDreiGueltigenNamenWerdenAkzeptiert) {
+    for (char const* gut : {"Verbund1_CeOnly", "Verbund2_Replace", "Verbund3_Union"}) {
+        tlz::ProfileValidationResult const vr = validate_sota_series(gut);
+        EXPECT_EQ(vr.series_checked, 1u) << "die Reihe wurde geprueft: " << gut;
+        EXPECT_FALSE(any_contains(vr.errors, "UNGUELTIGE Verbund-Strategie"))
+            << "gueltiger Name darf nicht beanstandet werden: " << gut;
+    }
+}
+
+// (b) DER KOEDER IN DAUERFORM: der Alt-Name aus der Zeit vor V-11R MUSS ein HARTER Fehler sein.
+//     Genau dieser Wert lief am 18.08. gruen durch, bevor die Wache existierte.
+TEST(ValidateProfileVerbundStrategie, AltNameVorV11RIstEinHarterFehler) {
+    tlz::ProfileValidationResult const vr = validate_sota_series("Stufe2_PrueflingReplace");
+    EXPECT_FALSE(vr.ok) << "der Alt-Name muss ok=false erzwingen (fail-loud, nicht still auf Reihe '-')";
+    EXPECT_TRUE(any_contains(vr.errors, "UNGUELTIGE Verbund-Strategie"));
+    EXPECT_TRUE(any_contains(vr.errors, "Stufe2_PrueflingReplace")) << "die Meldung nennt den gefundenen Wert";
+    EXPECT_TRUE(any_contains(vr.errors, "Verbund2_Replace")) << "die Meldung nennt die erlaubte Menge";
+}
+
+// (c) Ein frei erfundener Wert faellt ebenso -- die Wache prueft die MENGE, nicht nur den einen
+//     Alt-Namen (sonst waere sie ein Ein-Wert-Filter statt einer Enum-Bindung).
+TEST(ValidateProfileVerbundStrategie, BeliebigerFremdwertFaelltEbenfalls) {
+    tlz::ProfileValidationResult const vr = validate_sota_series("Verbund4_GibtEsNicht");
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "Verbund4_GibtEsNicht"));
+}
+
+// (d) DECKUNGS-BEFUND desselben Koeder-Laufs: die Wache aus (b) existierte, BISS aber am echten
+//     Baum nicht -- weil RealFixedProfilesValidateAgainstRealLoadProfiles nur ZWEI der Profile in
+//     thesis_profiles/ faehrt (m3v2_smoke + m3v2_sota_pilot). Der gewuerfelte Alt-Wert lag in
+//     all_axes_golden.profile.xml und war schlicht ausserhalb jeder Pruefmenge.
+//     Dieser Test faehrt JEDES *.profile.xml im Verzeichnis. Er prueft bewusst NUR vr.ok (kein
+//     workloads-Zaehler): die Profile sind verschieden gebaut, und eine Zaehler-Erwartung waere
+//     genau die Art Zusatz-Annahme, die einen Sammel-Test wieder eng macht.
+//     NENNER: die Zahl der gefundenen Profile wird mitgeprueft -- ein leeres Verzeichnis darf nicht
+//     als GRUEN durchgehen (stille-Null-Falle).
+TEST(ValidateProfileVerbundStrategie, AlleThesisProfileImBaumValidierenSauber) {
+    ex::AxisRegistry const      registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+    std::set<std::string> const known    = real_workload_ids();
+
+    std::size_t geprueft = 0;
+    for (auto const& entry : fs::directory_iterator{thesis_profiles_dir()}) {
+        if (!entry.is_regular_file()) continue;
+        auto const name = entry.path().filename().string();
+        if (name.size() < 12 || name.rfind(".profile.xml") != name.size() - 12) continue;
+        auto const tp = tlz::load_thesis_profile(entry.path());
+        ASSERT_TRUE(tp.has_value()) << name << ": muss ladbar sein";
+        tlz::ProfileValidationResult const vr = tlz::validate_profile(*tp, registry, known);
+        for (auto const& e : vr.errors) ADD_FAILURE() << name << " [validate] " << e;
+        EXPECT_TRUE(vr.ok) << name;
+        ++geprueft;
+    }
+    EXPECT_GE(geprueft, 8u) << "thesis_profiles/ traegt die Profil-Familie -- eine leere oder fast "
+                               "leere Menge waere ein stilles Gruen (gefunden: "
+                            << geprueft << ")";
 }

@@ -3,12 +3,12 @@
 // REINE Enumerations-/Render-Schritt der Fork-A-Brücke — KEIN DLL-Bau, KEINE Messung, KEIN
 // run_lazy_static_then_dynamic. Muster: test_experiment_parser.cpp (INC-D) + test_sota_st2_dedup.cpp (M-CE-10).
 //
-// BEWEIST LITERAL (für die committete Golden-Instanz experiment_golden.xml — 3 Phasen Stufe1/2/3, 7 lebewesen):
+// BEWEIST LITERAL (fuer die committete Golden-Instanz experiment_golden.xml -- 3 Phasen Verbund1/2/3, 7 lebewesen):
 //   (a) je Phase die WÖRTLICH erwarteten view-binary_id-Keys "sota_tier=sota::<Reihe>::<Composition>"
-//       (Stufe1→Reihe A, Stufe2→Reihe A, Stufe3→Reihe B — mechanisch via stufe_to_reihe), in Reihenfolge;
+//       (Verbund1->Reihe A, Verbund2->Reihe A, Verbund3->Reihe B -- mechanisch via stufe_to_reihe), in Reihenfolge;
 //   (b) je erzeugtem Pass ein NICHT-LEERER Quelltext (render_sota_module_source), 1:1 über view_binary_id
 //       mit der Pass-Liste verknüpft, mit dem realen COMDARE_DEFINE_ANATOMY_MODULE(<FQ-Typ>)-Marker;
-//   (c) nullopt-Paare EHRLICH ausgelassen — prt_art ist unter Stufe2/Stufe3 degeneriert ⇒ KEIN Phantom-Key/-Pass
+//   (c) nullopt-Paare EHRLICH ausgelassen -- prt_art ist unter Verbund2/Verbund3 degeneriert => KEIN Phantom-Key/-Pass
 //       (6 statt 7 Pässe, kein PrtArtComposition-Key in den Merge-Phasen).
 //
 // LESE-Schicht: die Fixture experiment_golden.xml wird NUR GELESEN; kein Treiber-Lauf, keine #156-Messdaten.
@@ -47,26 +47,28 @@ std::vector<std::string> pass_view_ids(tlz::ExperimentPhaseProjection const& pp)
     return v;
 }
 
-// Erwartete Stufe1-Keys (Reihe A, isolierte Lebewesen) — golden-lebewesen-Reihenfolge (prt_art zuerst).
-std::vector<std::string> const kStufe1Keys = {
+// Erwartete Verbund1-Keys (Reihe A, isolierte Lebewesen) -- golden-lebewesen-Reihenfolge (prt_art zuerst).
+std::vector<std::string> const kVerbund1Keys = {
     "sota_tier=sota::A::PrtArtComposition",  "sota_tier=sota::A::ArtComposition",
     "sota_tier=sota::A::HotComposition",     "sota_tier=sota::A::MasstreeComposition",
     "sota_tier=sota::A::SurfComposition",    "sota_tier=sota::A::StartComposition",
     "sota_tier=sota::A::WormholeComposition"};
 
-// Erwartete Stufe2-Keys (Reihe A, per-Host-Replace) — prt_art degeneriert (ausgelassen).
-std::vector<std::string> const kStufe2Keys = {
-    "sota_tier=sota::A::ArtPrtStufe2ReplaceComposition",      "sota_tier=sota::A::HotPrtStufe2ReplaceComposition",
-    "sota_tier=sota::A::MasstreePrtStufe2ReplaceComposition", "sota_tier=sota::A::SurfPrtStufe2ReplaceComposition",
-    "sota_tier=sota::A::StartPrtStufe2ReplaceComposition",    "sota_tier=sota::A::WormholePrtStufe2ReplaceComposition"};
+// Erwartete Verbund2-Keys (Reihe A, per-Host-Replace) -- prt_art degeneriert (ausgelassen).
+std::vector<std::string> const kVerbund2Keys = {"sota_tier=sota::A::ArtPrtVerbund2ReplaceComposition",
+                                              "sota_tier=sota::A::HotPrtVerbund2ReplaceComposition",
+                                              "sota_tier=sota::A::MasstreePrtVerbund2ReplaceComposition",
+                                              "sota_tier=sota::A::SurfPrtVerbund2ReplaceComposition",
+                                              "sota_tier=sota::A::StartPrtVerbund2ReplaceComposition",
+                                              "sota_tier=sota::A::WormholePrtVerbund2ReplaceComposition"};
 
-// Erwartete Stufe3-Keys (Reihe B, per-Host-FullJoin) — prt_art degeneriert (ausgelassen).
-std::vector<std::string> const kStufe3Keys = {"sota_tier=sota::B::ArtPrtStufe3FullJoinComposition",
-                                              "sota_tier=sota::B::HotPrtStufe3FullJoinComposition",
-                                              "sota_tier=sota::B::MasstreePrtStufe3FullJoinComposition",
-                                              "sota_tier=sota::B::SurfPrtStufe3FullJoinComposition",
-                                              "sota_tier=sota::B::StartPrtStufe3FullJoinComposition",
-                                              "sota_tier=sota::B::WormholePrtStufe3FullJoinComposition"};
+// Erwartete Verbund3-Keys (Reihe B, per-Host-Union) -- prt_art degeneriert (ausgelassen).
+std::vector<std::string> const kVerbund3Keys = {"sota_tier=sota::B::ArtPrtVerbund3UnionComposition",
+                                              "sota_tier=sota::B::HotPrtVerbund3UnionComposition",
+                                              "sota_tier=sota::B::MasstreePrtVerbund3UnionComposition",
+                                              "sota_tier=sota::B::SurfPrtVerbund3UnionComposition",
+                                              "sota_tier=sota::B::StartPrtVerbund3UnionComposition",
+                                              "sota_tier=sota::B::WormholePrtVerbund3UnionComposition"};
 
 } // namespace
 
@@ -80,37 +82,37 @@ TEST(ExperimentProjection, ProjectsGoldenPhasesToLiteralSotaKeys) {
     std::vector<tlz::ExperimentPhaseProjection> const proj = tlz::project_experiment_to_sota_passes(*ep);
     ASSERT_EQ(proj.size(), 3u) << "je <phase> genau EINE Projektion";
 
-    // Phase 0 — phase2_cache_engine / Stufe1_CeOnly → Reihe A, 7 isolierte Lebewesen.
+    // Phase 0 -- phase2_cache_engine / Verbund1_CeOnly -> Reihe A, 7 isolierte Lebewesen.
     EXPECT_EQ(proj[0].phase_name, "phase2_cache_engine");
-    EXPECT_EQ(proj[0].merge, "Stufe1_CeOnly");
-    ASSERT_EQ(proj[0].passes.size(), 7u) << "Stufe1: alle 7 Lebewesen real baubar";
-    EXPECT_EQ(pass_view_ids(proj[0]), kStufe1Keys);
+    EXPECT_EQ(proj[0].merge, "Verbund1_CeOnly");
+    ASSERT_EQ(proj[0].passes.size(), 7u) << "Verbund1: alle 7 Lebewesen real baubar";
+    EXPECT_EQ(pass_view_ids(proj[0]), kVerbund1Keys);
     for (auto const& p : proj[0].passes) {
         EXPECT_EQ(p.series, "A");
         EXPECT_EQ(p.pruefling_type, "full");
     }
 
-    // Phase 1 — phase1_prt_art / Stufe2_PrueflingReplace → Reihe A (mechanisch via stufe_to_reihe), 6 per-Host.
+    // Phase 1 -- phase1_prt_art / Verbund2_Replace -> Reihe A (mechanisch via stufe_to_reihe), 6 per-Host.
     EXPECT_EQ(proj[1].phase_name, "phase1_prt_art");
-    EXPECT_EQ(proj[1].merge, "Stufe2_PrueflingReplace");
-    ASSERT_EQ(proj[1].passes.size(), 6u) << "Stufe2: prt_art degeneriert ⇒ 6 per-Host-Pässe";
-    EXPECT_EQ(pass_view_ids(proj[1]), kStufe2Keys);
+    EXPECT_EQ(proj[1].merge, "Verbund2_Replace");
+    ASSERT_EQ(proj[1].passes.size(), 6u) << "Verbund2: prt_art degeneriert => 6 per-Host-Paesse";
+    EXPECT_EQ(pass_view_ids(proj[1]), kVerbund2Keys);
     for (auto const& p : proj[1].passes) {
         EXPECT_EQ(p.series, "A");
         EXPECT_EQ(p.pruefling_type, "abstract");
     }
 
-    // Phase 2 — phase3_kombiniert / Stufe3_FullJoin → Reihe B, 6 per-Host.
+    // Phase 2 -- phase3_kombiniert / Verbund3_Union -> Reihe B, 6 per-Host.
     EXPECT_EQ(proj[2].phase_name, "phase3_kombiniert");
-    EXPECT_EQ(proj[2].merge, "Stufe3_FullJoin");
-    ASSERT_EQ(proj[2].passes.size(), 6u) << "Stufe3: prt_art degeneriert ⇒ 6 per-Host-Pässe";
-    EXPECT_EQ(pass_view_ids(proj[2]), kStufe3Keys);
+    EXPECT_EQ(proj[2].merge, "Verbund3_Union");
+    ASSERT_EQ(proj[2].passes.size(), 6u) << "Verbund3: prt_art degeneriert => 6 per-Host-Paesse";
+    EXPECT_EQ(pass_view_ids(proj[2]), kVerbund3Keys);
     for (auto const& p : proj[2].passes) {
         EXPECT_EQ(p.series, "B");
         EXPECT_EQ(p.pruefling_type, "abstract");
     }
 
-    // Gesamt-Bilanz: 7 + 6 + 6 = 19 Pässe (spiegelt m3v2_study 7 St1 + 6 St2 + 6 St3, test_sota_st2_dedup).
+    // Gesamt-Bilanz: 7 + 6 + 6 = 19 Paesse (spiegelt m3v2_study 7 St1 + 6 V2 + 6 St3, test_sota_st2_dedup).
     EXPECT_EQ(proj[0].passes.size() + proj[1].passes.size() + proj[2].passes.size(), 19u);
 }
 
@@ -137,7 +139,7 @@ TEST(ExperimentProjection, EveryPassHasNonEmptyRenderedSource) {
     }
 }
 
-// (c) nullopt-Paare EHRLICH ausgelassen — prt_art ist unter Stufe2/Stufe3 degeneriert (KEIN Phantom-Key/-Pass).
+// (c) nullopt-Paare EHRLICH ausgelassen -- prt_art ist unter Verbund2/Verbund3 degeneriert (KEIN Phantom-Key/-Pass).
 TEST(ExperimentProjection, DegeneratePrtArtPairsHonestlyOmitted) {
     auto const ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
@@ -147,18 +149,18 @@ TEST(ExperimentProjection, DegeneratePrtArtPairsHonestlyOmitted) {
     std::vector<tlz::ExperimentPhaseProjection> const proj = tlz::project_experiment_to_sota_passes(*ep);
     ASSERT_EQ(proj.size(), 3u);
 
-    // Stufe1: prt_art IST baubar (isoliert) ⇒ es existiert genau ein PrtArtComposition-Key + prt_art-Pass.
+    // Verbund1: prt_art IST baubar (isoliert) => es existiert genau ein PrtArtComposition-Key + prt_art-Pass.
     {
         std::vector<std::string> const vids = pass_view_ids(proj[0]);
         std::set<std::string> const    ids{vids.begin(), vids.end()};
-        EXPECT_TRUE(ids.count("sota_tier=sota::A::PrtArtComposition")) << "Stufe1: prt_art isoliert baubar (Reihe A)";
+        EXPECT_TRUE(ids.count("sota_tier=sota::A::PrtArtComposition")) << "Verbund1: prt_art isoliert baubar (Reihe A)";
         bool has_prt_pass = false;
         for (auto const& p : proj[0].passes)
             if (p.lebewesen == "prt_art") has_prt_pass = true;
         EXPECT_TRUE(has_prt_pass);
     }
 
-    // Stufe2 + Stufe3: prt_art-als-Host degeneriert ⇒ 6 (nicht 7) Pässe, KEIN PrtArtComposition-Key,
+    // Verbund2 + Verbund3: prt_art-als-Host degeneriert => 6 (nicht 7) Paesse, KEIN PrtArtComposition-Key,
     // KEIN prt_art-Pass, KEIN prt_art-Quellen-Key (nullopt ehrlich ausgelassen, kein Phantom).
     for (std::size_t i : {std::size_t{1}, std::size_t{2}}) {
         EXPECT_EQ(proj[i].passes.size(), 6u)
@@ -175,7 +177,7 @@ TEST(ExperimentProjection, DegeneratePrtArtPairsHonestlyOmitted) {
 }
 
 // (d) KERN-A (S4 Mess-Schema, 2026-07-20) — LEERE <phases> => der Planer LEITET die 3 Default-Stufen ab
-//     (Stufe1_CeOnly . Stufe2_PrueflingReplace . Stufe3_FullJoin, Abwesenheit = "alles messen"). Explizite Phasen
+//     (Verbund1_CeOnly . Verbund2_Replace . Verbund3_Union, Abwesenheit = "alles messen"). Explizite Phasen
 //     bleiben byte-identisch (Test (a) oben); hier: die Golden-Instanz in-memory OHNE Phasen => genau die 3
 //     abgeleiteten Stufen mit denselben Pass-Keys wie die explizite 3-Phasen-Instanz. golden-neutral (nur gelesen).
 TEST(ExperimentProjection, EmptyPhasesDerivesThreeDefaultStufen) {
@@ -187,18 +189,18 @@ TEST(ExperimentProjection, EmptyPhasesDerivesThreeDefaultStufen) {
     ASSERT_EQ(proj.size(), 3u) << "leere <phases> => 3 abgeleitete Default-Stufen";
 
     // Reihenfolge + Merge-Strategien exakt wie die KERN-Beschreibung.
-    EXPECT_EQ(proj[0].merge, "Stufe1_CeOnly");
-    EXPECT_EQ(proj[1].merge, "Stufe2_PrueflingReplace");
-    EXPECT_EQ(proj[2].merge, "Stufe3_FullJoin");
+    EXPECT_EQ(proj[0].merge, "Verbund1_CeOnly");
+    EXPECT_EQ(proj[1].merge, "Verbund2_Replace");
+    EXPECT_EQ(proj[2].merge, "Verbund3_Union");
     // Provenienz: die abgeleiteten Namen tragen den "derived_"-Praefix (nicht die Golden-Phasennamen).
-    EXPECT_EQ(proj[0].phase_name, "derived_stufe1_ce_only");
-    EXPECT_EQ(proj[1].phase_name, "derived_stufe2_pruefling_replace");
-    EXPECT_EQ(proj[2].phase_name, "derived_stufe3_fulljoin");
+    EXPECT_EQ(proj[0].phase_name, "derived_verbund1_ce_only");
+    EXPECT_EQ(proj[1].phase_name, "derived_verbund2_replace");
+    EXPECT_EQ(proj[2].phase_name, "derived_verbund3_union");
 
     // Die abgeleiteten Stufen liefern DIESELBEN Pass-Keys wie die explizite 3-Phasen-Golden-Projektion
     // (die Ableitung ist NUR die Phasen-Quelle; das merge×lebewesen-Kreuzprodukt ist unveraendert).
-    EXPECT_EQ(pass_view_ids(proj[0]), kStufe1Keys);
-    EXPECT_EQ(pass_view_ids(proj[1]), kStufe2Keys);
-    EXPECT_EQ(pass_view_ids(proj[2]), kStufe3Keys);
+    EXPECT_EQ(pass_view_ids(proj[0]), kVerbund1Keys);
+    EXPECT_EQ(pass_view_ids(proj[1]), kVerbund2Keys);
+    EXPECT_EQ(pass_view_ids(proj[2]), kVerbund3Keys);
     EXPECT_EQ(proj[0].passes.size() + proj[1].passes.size() + proj[2].passes.size(), 19u); // 7 + 6 + 6
 }

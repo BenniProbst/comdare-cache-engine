@@ -190,7 +190,7 @@ int main(int argc, char** argv) {
     p0.permute_axes = {ml};
     cx::ThesisMode m0;
     m0.name        = "ce_only";
-    m0.merge       = "Stufe1_CeOnly";
+    m0.merge       = "Verbund1_CeOnly";
     m0.active_axes = {"memory_layout"};
     p0.modes       = {m0};
 

@@ -9,6 +9,19 @@
 //
 // Pruefling-Repos (z.B. prt-art) extenden den Slot per Concept-Detection.
 //
+// NAMENS-NACHTRAG V-11R (18.08.2026, Owner "Vorschlag angenommen. Genau so."):
+// Das Wort "Stufe" oben ist der WORTLAUT der Ur-Direktive vom 26.05. und bleibt als
+// Zitat stehen (Doku-Doktrin: supersedieren, nie loeschen). Der GELTENDE Bezeichner
+// ist seit V-11R ein anderer -- KON91-01 (16.08.) hat "full join" fuer den Lager-/
+// xlsx-Sinn belegt, und "Stufe" traegt projektweit die TRAEGER-Stufe (Planer/CEB/
+// Tier/Hybrid). Beide Kollisionen raeumt die Umbenennung:
+//   Stufe 1 -> PrueflingVerbundStrategy::Verbund1_CeOnly  (Alias Verbund1Axis)
+//   Stufe 2 -> PrueflingVerbundStrategy::Verbund2_Replace (Alias Verbund2Axis)
+//   Stufe 3 -> PrueflingVerbundStrategy::Verbund3_Union   (Alias Verbund3Axis)
+// XML-Achsen-Token: "fulljoin" -> "union". Die CMake-/Artefakt-Namensfamilie
+// comdare_perms_ce / comdare_perms_<pruefling> / comdare_perms_full_join ist davon
+// NICHT beruehrt (eigene Familie, Target-Namen -- s. Bericht P7-ce).
+//
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §18-§19
 // @task #699 V41.F.6.1.R5.C
 // @related [[3-kompositionale-joins-anatomie]] [[pruefling-replace-not-extend]]
@@ -89,15 +102,15 @@ concept IsSearchAlgorithmSlot = PrueflingSlotConcept<Slot> && IsSlotOfGenus_v<Sl
 // (2) Stufe 1 — comdare_perms_ce (CE-only, KEINE Pruefling-Beteiligung)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// StufeOneAxis — identisch zur DefaultList (kein Pruefling).
+/// Verbund1Axis -- identisch zur DefaultList (kein Pruefling).
 template <class DefaultList>
-using StufeOneAxis = DefaultList;
+using Verbund1Axis = DefaultList;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // (3) Stufe 2 — comdare_perms_<pruefling> (ERSETZT-mit-Fallback)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// StufeTwoAxis — wenn Pruefling-Slot belegt: PrueflingVariants ERSETZEN DefaultList.
+/// Verbund2Axis -- wenn Pruefling-Slot belegt: PrueflingVariants ERSETZEN DefaultList.
 /// Sonst Fallback auf DefaultList.
 ///
 /// Beispiel:
@@ -107,31 +120,31 @@ using StufeOneAxis = DefaultList;
 ///           static constexpr bool has_pruefling = true;
 ///       };
 ///   }
-///   using Stufe2 = StufeTwoAxis<ce::axis_03a::DefaultVariants, prt_art::axis_03a::Slot>;
-///   // → Stufe2 = mp::mp_list<PrtArtRadix512>  (CE-Defaults ueberschrieben)
+///   using Verbund2 = Verbund2Axis<ce::axis_03a::DefaultVariants, prt_art::axis_03a::Slot>;
+///   // -> Verbund2 = mp::mp_list<PrtArtRadix512>  (CE-Defaults ueberschrieben)
 template <class DefaultList, class Slot>
-using StufeTwoAxis = std::conditional_t<HasPruefling_v<Slot>, typename Slot::PrueflingVariants, DefaultList>;
+using Verbund2Axis = std::conditional_t<HasPruefling_v<Slot>, typename Slot::PrueflingVariants, DefaultList>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // (4) Stufe 3 — comdare_perms_full_join (Union non-redundant)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// StufeThreeAxis — Union aller Default + Pruefling-Varianten, dedupliziert.
+/// Verbund3Axis -- Union aller Default + Pruefling-Varianten, dedupliziert.
 /// MP11-Idiom: mp_unique<mp_append<...>>.
 ///
-/// Identisch zu permutations::AxisFullJoin aber mit Slot-Detection statt
+/// Identisch zu permutations::AxisVerbundUnion aber mit Slot-Detection statt
 /// raw PrueflingLists.
 template <class DefaultList, class... Slots>
-using StufeThreeAxis = mp::mp_unique<mp::mp_append<DefaultList, typename Slots::PrueflingVariants...>>;
+using Verbund3Axis = mp::mp_unique<mp::mp_append<DefaultList, typename Slots::PrueflingVariants...>>;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// (5) MergeStrategy enum + dispatched Helper
+// (5) PrueflingVerbundStrategy enum + dispatched Helper
 // ─────────────────────────────────────────────────────────────────────────────
 
-enum class MergeStrategy {
-    Stufe1_CeOnly,           // KEINE Pruefling
-    Stufe2_PrueflingReplace, // ERSETZT-mit-Fallback
-    Stufe3_FullJoin          // Union non-redundant
+enum class PrueflingVerbundStrategy {
+    Verbund1_CeOnly,  // KEINE Pruefling
+    Verbund2_Replace, // ERSETZT-mit-Fallback
+    Verbund3_Union    // Union non-redundant
 };
 
 // -----------------------------------------------------------------------------
@@ -146,7 +159,7 @@ enum class MergeStrategy {
 //   Zwei BYTE-VERSCHIEDENE Merge-Binaries duerfen NIE namensgleiche Organ-Segmente rendern.
 //
 // Warum das jetzt scharf sein muss: das Organ-Segment ist "<achse>=<name()>@<X.Y.Z[flag]>". Rendern eine
-// ce-only-Binary und ihre Stufe2-Ersetzung dasselbe Segment, sind ihre Organ-Zeilen identisch -- und damit
+// ce-only-Binary und ihre Verbund2-Ersetzung dasselbe Segment, sind ihre Organ-Zeilen identisch -- und damit
 // (bei gleicher System-/Mess-Zeile) ihr SHA512-Fingerprint. Unter dem SHA512-only-Skip-Gate (F7) wuerde die
 // eine fuer die andere wiederverwendet. Solange die merge-Zeile existierte, trennte sie die beiden; ohne sie
 // ist der NAME die einzige Trennung, und die muss eine Wache sein, keine Absprache.
@@ -192,13 +205,13 @@ template <class ListA, class ListB>
 }
 
 namespace detail {
-template <MergeStrategy S, class Default, class... Slots>
+template <PrueflingVerbundStrategy S, class Default, class... Slots>
 struct MergeImpl;
 
 template <class Default, class... Slots>
-struct MergeImpl<MergeStrategy::Stufe1_CeOnly, Default, Slots...> {
-    using type = StufeOneAxis<Default>;
-    // Stufe1 ist die ce-only-Referenz: schon INNERHALB der Default-Liste darf kein Paar dasselbe Segment
+struct MergeImpl<PrueflingVerbundStrategy::Verbund1_CeOnly, Default, Slots...> {
+    using type = Verbund1Axis<Default>;
+    // Verbund1 ist die ce-only-Referenz: schon INNERHALB der Default-Liste darf kein Paar dasselbe Segment
     // rendern, sonst waeren zwei ce-Binaries untereinander ununterscheidbar.
     static_assert(merge_lists_render_distinct_segments<type, type>(),
                   "A13-M3/C5 (Owner-Q2): zwei VERSCHIEDENE Achsen-Varianten der ce-Default-Liste rendern "
@@ -208,8 +221,8 @@ struct MergeImpl<MergeStrategy::Stufe1_CeOnly, Default, Slots...> {
 };
 
 template <class Default, class Slot>
-struct MergeImpl<MergeStrategy::Stufe2_PrueflingReplace, Default, Slot> {
-    using type = StufeTwoAxis<Default, Slot>;
+struct MergeImpl<PrueflingVerbundStrategy::Verbund2_Replace, Default, Slot> {
+    using type = Verbund2Axis<Default, Slot>;
     // Der ERSETZUNGS-Fall ist der eigentliche Q2-Fall: die ce-only-Binary (Default) und die ersetzte
     // Binary (type) existieren NEBENEINANDER, obwohl die ce-Variante aus DIESER Binary verschwunden ist.
     // Ihre Segmente muessen sich unterscheiden -- KREUZWEISE, nicht nur je Liste fuer sich.
@@ -223,19 +236,19 @@ struct MergeImpl<MergeStrategy::Stufe2_PrueflingReplace, Default, Slot> {
 };
 
 template <class Default, class... Slots>
-struct MergeImpl<MergeStrategy::Stufe3_FullJoin, Default, Slots...> {
-    using type = StufeThreeAxis<Default, Slots...>;
+struct MergeImpl<PrueflingVerbundStrategy::Verbund3_Union, Default, Slots...> {
+    using type = Verbund3Axis<Default, Slots...>;
     // Die Union dedupliziert per mp_unique nur gleiche TYPEN. Zwei verschiedene Typen mit gleichem Namen
     // und gleicher Version ueberleben sie -- und ergaeben zwei Permutationen mit identischem Segment.
     static_assert(merge_lists_render_distinct_segments<type, type>(),
-                  "A13-M3/C5 (Owner-Q2): die FullJoin-Union enthaelt zwei verschiedene Varianten, die "
+                  "A13-M3/C5 (Owner-Q2): die Verbund3-Union enthaelt zwei verschiedene Varianten, die "
                   "dasselbe Organ-Segment <achse>=<name>@<version> rendern. mp_unique dedupliziert nur "
                   "gleiche TYPEN -- die Stempel-Identitaet braucht unterschiedliche NAMEN oder Versionen.");
 };
 } // namespace detail
 
 /// MergeAxis<Strategy, Default, Slots...> — disambiguated dispatch zu Stufe 1/2/3.
-template <MergeStrategy S, class Default, class... Slots>
+template <PrueflingVerbundStrategy S, class Default, class... Slots>
 using MergeAxis = typename detail::MergeImpl<S, Default, Slots...>::type;
 
 } // namespace comdare::cache_engine::anatomy::pruefling

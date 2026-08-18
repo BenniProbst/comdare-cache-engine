@@ -48,8 +48,8 @@ static_assert(!cep::HasPruefling_v<fx::SlotLeer>,
 // ---------------------------------------------------------------------------
 // (2) Stufe 2 ERSETZT -- mit Fallback.
 // ---------------------------------------------------------------------------
-using Stufe2Belegt = cep::StufeTwoAxis<fx::DefaultVariants, fx::SlotMin>;
-using Stufe2Leer   = cep::StufeTwoAxis<fx::DefaultVariants, fx::SlotLeer>;
+using Stufe2Belegt = cep::Verbund2Axis<fx::DefaultVariants, fx::SlotMin>;
+using Stufe2Leer   = cep::Verbund2Axis<fx::DefaultVariants, fx::SlotLeer>;
 
 static_assert(std::is_same_v<Stufe2Belegt, mp::mp_list<fx::FixtureNeu>>,
               "Stufe 2 hat die CE-Default-Liste nicht durch die Pruefling-Liste ersetzt.");
@@ -59,8 +59,8 @@ static_assert(std::is_same_v<Stufe2Leer, fx::DefaultVariants>,
 // ---------------------------------------------------------------------------
 // (3) Stufe 3 VEREINIGT -- und dedupliziert. Beide Richtungen, in Zahlen.
 // ---------------------------------------------------------------------------
-using Stufe3Fremd   = cep::StufeThreeAxis<fx::DefaultVariants, fx::SlotMin>;
-using Stufe3Doppelt = cep::StufeThreeAxis<fx::DefaultVariants, fx::SlotDoppelt>;
+using Stufe3Fremd   = cep::Verbund3Axis<fx::DefaultVariants, fx::SlotMin>;
+using Stufe3Doppelt = cep::Verbund3Axis<fx::DefaultVariants, fx::SlotDoppelt>;
 
 static_assert(mp::mp_size<fx::DefaultVariants>::value == 1,
               "Der Nenner stimmt nicht: die Default-Liste hat nicht 1 Element.");

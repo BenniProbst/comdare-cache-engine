@@ -4,4 +4,4 @@ search_algo=k_ary/cache_traversal=linear_fanout/node_type=node4;500;9500;0;0;0;0
 sota_tier=sota::A::ArtComposition;0;10000;0;0;0;0;16384
 sota_tier=sota::A::ArtComposition;0;10000;0;0;0;0;16384
 sota_tier=sota::A::PrtArtComposition;0;10000;0;0;0;0;16384
-sota_tier=sota::B::HotPrtStufe2ReplaceComposition;0;8000;0;0;0;0;16384
+sota_tier=sota::B::HotPrtVerbund2ReplaceComposition;0;8000;0;0;0;0;16384

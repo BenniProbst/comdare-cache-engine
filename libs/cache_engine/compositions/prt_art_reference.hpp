@@ -10,8 +10,8 @@
 // remainder-path"). Damit ist PRT-ART eine ECHT distinkte Komposition gegenüber dem reinen ART
 // (das PathCompressionNone trägt) — distinkte binary_id, eigene reale DLL.
 //
-// Diese Komposition ist der Pruefling-VARIANT, der in den SOTA-Reihen B (Stufe2_PrueflingReplace)
-// und C (Stufe3_FullJoin) den path_compression-Slot belegt (siehe prt_art_merge_reference.hpp +
+// Diese Komposition ist der Pruefling-VARIANT, der in den SOTA-Reihen B (Verbund2_Replace)
+// und C (Verbund3_Union) den path_compression-Slot belegt (siehe prt_art_merge_reference.hpp +
 // pruefling_merge.hpp MergeAxis). Die Gattung ist SearchAlgorithm (assert_pruefling_slot_genus).
 //
 // @paper PRT (Probst Redirect Tree, ART-basiert; #8 Prüfling-Einbindung)
@@ -56,7 +56,7 @@ namespace comdare::cache_engine::compositions {
 /// PathCompressionStrategy (compression_ratio()) erfüllt — der abi_adapter verlangt das Konzept im Slot.
 using PrtArtPathCompressionOrgan = nodes::axis_02_path_compression::PatriciaPathCompression;
 
-/// PrtArtComposition — PRT-ART als 17-Achsen-Komposition (Reihe-A Stufe1: das Prüfling-Lebewesen isoliert).
+/// PrtArtComposition -- PRT-ART als 17-Achsen-Komposition (Reihe-A Verbund1: das Pruefling-Lebewesen isoliert).
 /// = ArtComposition mit path_compression = PrtArtPathCompressionOrgan (Redirect/Patricia statt None).
 struct PrtArtComposition {
     using search_algo      = traversal::axis_03a_search_algo::composable::ObservableArtTrieOrgan;

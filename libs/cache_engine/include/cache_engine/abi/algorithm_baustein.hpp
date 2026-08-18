@@ -43,9 +43,18 @@ struct algorithm_axis {
 template <typename Axis, std::size_t I>
 using axis_alternative_t = std::variant_alternative_t<I, typename Axis::variant_t>;
 
-// Full-Join Pattern: Cartesian product zweier Achsen (Pruefling x SOTA)
+// Kreuzprodukt-Pattern: Cartesian product zweier Achsen (Pruefling x SOTA).
+//
+// V-11R-NACHZUG (18.08.2026, P7-ce): der fruehere Name `full_join` fiel unter die
+// KON91-Kollision und musste weichen. Er wurde NICHT auf `verbund_union` gezogen,
+// obwohl das die naheliegende Ableitung aus Verbund3_Union gewesen waere: dieser
+// Baustein bildet ein KREUZPRODUKT (pair_t ueber I x J, total = size * size), NICHT
+// die non-redundante Vereinigung von Verbund3_Union (mp_unique<mp_append<..>> in
+// anatomy/pruefling_merge.hpp). Ein Union-Name haette hier eine falsche Mechanik
+// behauptet -- genau die Sorte Fehlbenennung, die V-11R raeumt. Der Name benennt
+// jetzt, was der Baustein tut. 0 Konsumenten am Umbenennungs-Tag (grep).
 template <typename Axis1, typename Axis2>
-struct full_join {
+struct axis_cross_product {
     template <std::size_t I, std::size_t J>
     using pair_t = std::pair<axis_alternative_t<Axis1, I>, axis_alternative_t<Axis2, J>>;
 

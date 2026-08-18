@@ -241,7 +241,7 @@ template <class V>
 // Heute: Skelett-API, F.6.3 baut konkrete Pruefling-Achs-Spezialisierungen ein.
 
 /**
- * @brief AxisFullJoin — vereinigt cache-engine-Default-Variants + Pruefling-Variants
+ * @brief AxisVerbundUnion -- vereinigt cache-engine-Default-Variants + Pruefling-Variants
  *        pro Achse, non-redundant.
  *
  * MP11-Idiom: mp_append + mp_unique (siehe Boost.MP11 algorithm reference).
@@ -250,7 +250,7 @@ template <class V>
  * @tparam PrueflingLists mp_list je Pruefling (eine pro Pruefling-Repo)
  */
 template <class DefaultList, class... PrueflingLists>
-using AxisFullJoin = mp::mp_unique<mp::mp_append<DefaultList, PrueflingLists...>>;
+using AxisVerbundUnion = mp::mp_unique<mp::mp_append<DefaultList, PrueflingLists...>>;
 
 // ───────────────────────────────────────────────────────────────────────────
 // (5) Default-Predicates (Helper)

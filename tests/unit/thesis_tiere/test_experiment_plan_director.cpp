@@ -236,10 +236,10 @@ TEST(ExperimentPlanDirector, ExperimentGoldenWalksPhasesUnderEachPerm) {
     EXPECT_EQ(cb.header.source_kind, "experiment");
     ASSERT_EQ(cb.perms.size(), 4u) << "2x2 Perms";
     for (auto const& steps : cb.steps_per_perm) {
-        ASSERT_EQ(steps.size(), 19u) << "3 Phasen: Stufe1=7 + Stufe2=6 + Stufe3=6 (prt_art degeneriert)";
+        ASSERT_EQ(steps.size(), 19u) << "3 Phasen: Verbund1=7 + Verbund2=6 + Verbund3=6 (prt_art degeneriert)";
         EXPECT_EQ(steps[0].kind, "experiment_phase_pass");
         EXPECT_EQ(steps[0].label, "phase2_cache_engine");
-        EXPECT_EQ(steps[0].merge, "Stufe1_CeOnly");
+        EXPECT_EQ(steps[0].merge, "Verbund1_CeOnly");
         EXPECT_FALSE(steps[0].binary_id.empty());
         EXPECT_NE(steps[0].binary_id.find("sota_tier="), std::string::npos);
     }
@@ -3068,10 +3068,10 @@ TEST(PmcPflichtInvariante, JedeTreiberKonfigurationTraegtDasPmcFlag) {
     ASSERT_TRUE(tp.has_value());
     planner::CiYamlBuilder cb;
     director.construct(*tp, cb);
-    expect_pmc_invariant(cb.text(), "Thesis/Stufe1 CiYamlBuilder (ceb:build + ceb:emit)", amd);
+    expect_pmc_invariant(cb.text(), "Thesis/Verbund1 CiYamlBuilder (ceb:build + ceb:emit)", amd);
     planner::TierCiYamlBuilder tb;
     director.construct(*tp, tb);
-    expect_pmc_invariant(tb.text(), "Thesis/Stufe2 TierCiYamlBuilder (tier-build-batch + measure-batch)", amd);
+    expect_pmc_invariant(tb.text(), "Thesis/Verbund2 TierCiYamlBuilder (tier-build-batch + measure-batch)", amd);
 
     // (2) Derselbe Thesis-Kanal GEFANNT (drei Mess-Combos): der Fanout vervielfacht die Stufe-1-Stellen.
     //     Die Invariante darf davon nicht abhaengen -- genau das ist ihr Punkt gegenueber einer festen Zahl.
@@ -3080,20 +3080,20 @@ TEST(PmcPflichtInvariante, JedeTreiberKonfigurationTraegtDasPmcFlag) {
     tp_fan->measurement_tooling = {{"wallclock"}, {"macro"}, {"micro"}};
     planner::CiYamlBuilder cb_fan;
     director.construct(*tp_fan, cb_fan);
-    expect_pmc_invariant(cb_fan.text(), "Thesis/Stufe1 GEFANNT (3 Combos)", amd);
+    expect_pmc_invariant(cb_fan.text(), "Thesis/Verbund1 GEFANNT (3 Combos)", amd);
     planner::TierCiYamlBuilder tb_fan;
     director.construct(*tp_fan, tb_fan);
-    expect_pmc_invariant(tb_fan.text(), "Thesis/Stufe2 GEFANNT (3 Combos)", amd);
+    expect_pmc_invariant(tb_fan.text(), "Thesis/Verbund2 GEFANNT (3 Combos)", amd);
 
     // (3) Minimal-Profil: die kleinste Emission ueberhaupt. Auch sie baut den Treiber.
     auto const tp_min = parse_thesis(COMDARE_PLANNER_THESIS_MIN);
     ASSERT_TRUE(tp_min.has_value());
     planner::CiYamlBuilder cb_min;
     director.construct(*tp_min, cb_min);
-    expect_pmc_invariant(cb_min.text(), "Thesis-min/Stufe1", amd);
+    expect_pmc_invariant(cb_min.text(), "Thesis-min/Verbund1", amd);
     planner::TierCiYamlBuilder tb_min;
     director.construct(*tp_min, tb_min);
-    expect_pmc_invariant(tb_min.text(), "Thesis-min/Stufe2", amd);
+    expect_pmc_invariant(tb_min.text(), "Thesis-min/Verbund2", amd);
 
     // (4) Experiment-Kanal (eigene Schrittzahl, eigener Zwilling -- im Haus schon einmal als "Fix fehlt im
     //     Experiment-Zwilling" aufgefallen).
@@ -3101,10 +3101,10 @@ TEST(PmcPflichtInvariante, JedeTreiberKonfigurationTraegtDasPmcFlag) {
     ASSERT_TRUE(ep.has_value()) << "experiment_golden.xml nicht parsbar: " << COMDARE_EXPERIMENT_GOLDEN;
     planner::CiYamlBuilder cb_exp;
     director.construct(*ep, cb_exp);
-    expect_pmc_invariant(cb_exp.text(), "Experiment/Stufe1", amd);
+    expect_pmc_invariant(cb_exp.text(), "Experiment/Verbund1", amd);
     planner::TierCiYamlBuilder tb_exp;
     director.construct(*ep, tb_exp);
-    expect_pmc_invariant(tb_exp.text(), "Experiment/Stufe2", amd);
+    expect_pmc_invariant(tb_exp.text(), "Experiment/Verbund2", amd);
 
     // (5) DIE GEGENRICHTUNG, die es vor dem 10.08. nicht gab: ein Host OHNE benutzbare PMU bekommt KEIN
     //     Flag -- in ALLEN vier Emissionen. Ohne diese Haelfte koennte man die Erkennung wieder ausbauen
@@ -3114,10 +3114,10 @@ TEST(PmcPflichtInvariante, JedeTreiberKonfigurationTraegtDasPmcFlag) {
     director_ohne.set_pmc_befund(ohne);
     planner::CiYamlBuilder cb_ohne;
     director_ohne.construct(*tp, cb_ohne);
-    expect_pmc_invariant(cb_ohne.text(), "Thesis/Stufe1 OHNE PMU", ohne);
+    expect_pmc_invariant(cb_ohne.text(), "Thesis/Verbund1 OHNE PMU", ohne);
     planner::TierCiYamlBuilder tb_ohne;
     director_ohne.construct(*tp, tb_ohne);
-    expect_pmc_invariant(tb_ohne.text(), "Thesis/Stufe2 OHNE PMU", ohne);
+    expect_pmc_invariant(tb_ohne.text(), "Thesis/Verbund2 OHNE PMU", ohne);
 }
 
 // (M-2/B2, Zusatz) Die Invariante haengt an der SACHE, nicht an der Konfigurations-Nachbarschaft: der
@@ -3233,19 +3233,19 @@ TEST(PmcMetaMetaAchse, JedeTreiberEmissionNenntDenGemessenenHostBefund) {
     ASSERT_TRUE(tp.has_value());
     planner::CiYamlBuilder cb;
     director.construct(*tp, cb);
-    expect_pmc_befund_annotation(cb.text(), "Thesis/Stufe1 CiYamlBuilder (ceb:build + ceb:emit)");
+    expect_pmc_befund_annotation(cb.text(), "Thesis/Verbund1 CiYamlBuilder (ceb:build + ceb:emit)");
     planner::TierCiYamlBuilder tb;
     director.construct(*tp, tb);
-    expect_pmc_befund_annotation(tb.text(), "Thesis/Stufe2 TierCiYamlBuilder (tier-build-batch + measure-batch)");
+    expect_pmc_befund_annotation(tb.text(), "Thesis/Verbund2 TierCiYamlBuilder (tier-build-batch + measure-batch)");
 
     auto const ep = parse_experiment(COMDARE_EXPERIMENT_GOLDEN);
     ASSERT_TRUE(ep.has_value());
     planner::CiYamlBuilder cb_exp;
     director.construct(*ep, cb_exp);
-    expect_pmc_befund_annotation(cb_exp.text(), "Experiment/Stufe1");
+    expect_pmc_befund_annotation(cb_exp.text(), "Experiment/Verbund1");
     planner::TierCiYamlBuilder tb_exp;
     director.construct(*ep, tb_exp);
-    expect_pmc_befund_annotation(tb_exp.text(), "Experiment/Stufe2");
+    expect_pmc_befund_annotation(tb_exp.text(), "Experiment/Verbund2");
 }
 
 // ================================================================================================
@@ -4042,12 +4042,12 @@ TEST(CompilerPinInvariante, JedeTreiberKonfigurationGepinntUndJedeBauStufeMitCla
     director.construct(*tp, cb);
     std::size_t const combos_s1 = count_occurrences(cb.text(), "# JOB ceb-build combo");
     ASSERT_GT(combos_s1, 0u);
-    expect_compiler_pin_invariante(cb.text(), "Thesis/Stufe1 CiYamlBuilder", combos_s1);
+    expect_compiler_pin_invariante(cb.text(), "Thesis/Verbund1 CiYamlBuilder", combos_s1);
     planner::TierCiYamlBuilder tb;
     director.construct(*tp, tb);
     std::size_t const batches_s2 = count_occurrences(tb.text(), "# JOB tier-build-batch host=");
     ASSERT_GT(batches_s2, 0u);
-    expect_compiler_pin_invariante(tb.text(), "Thesis/Stufe2 TierCiYamlBuilder", batches_s2);
+    expect_compiler_pin_invariante(tb.text(), "Thesis/Verbund2 TierCiYamlBuilder", batches_s2);
 
     // (2) GEFANNT (3 Combos): die Invariante haengt nicht an der Stellenzahl.
     auto tp_fan = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
@@ -4055,11 +4055,11 @@ TEST(CompilerPinInvariante, JedeTreiberKonfigurationGepinntUndJedeBauStufeMitCla
     tp_fan->measurement_tooling = {{"wallclock"}, {"macro"}, {"micro"}};
     planner::CiYamlBuilder cb_fan;
     director.construct(*tp_fan, cb_fan);
-    expect_compiler_pin_invariante(cb_fan.text(), "Thesis/Stufe1 GEFANNT",
+    expect_compiler_pin_invariante(cb_fan.text(), "Thesis/Verbund1 GEFANNT",
                                    count_occurrences(cb_fan.text(), "# JOB ceb-build combo"));
     planner::TierCiYamlBuilder tb_fan;
     director.construct(*tp_fan, tb_fan);
-    expect_compiler_pin_invariante(tb_fan.text(), "Thesis/Stufe2 GEFANNT",
+    expect_compiler_pin_invariante(tb_fan.text(), "Thesis/Verbund2 GEFANNT",
                                    count_occurrences(tb_fan.text(), "# JOB tier-build-batch host="));
 
     // (3) Experiment-Kanal (eigener Zwilling -- die "Fix fehlt im Experiment-Zwilling"-Klasse).
@@ -4067,11 +4067,11 @@ TEST(CompilerPinInvariante, JedeTreiberKonfigurationGepinntUndJedeBauStufeMitCla
     ASSERT_TRUE(ep.has_value());
     planner::CiYamlBuilder cb_exp;
     director.construct(*ep, cb_exp);
-    expect_compiler_pin_invariante(cb_exp.text(), "Experiment/Stufe1",
+    expect_compiler_pin_invariante(cb_exp.text(), "Experiment/Verbund1",
                                    count_occurrences(cb_exp.text(), "# JOB ceb-build combo"));
     planner::TierCiYamlBuilder tb_exp;
     director.construct(*ep, tb_exp);
-    expect_compiler_pin_invariante(tb_exp.text(), "Experiment/Stufe2",
+    expect_compiler_pin_invariante(tb_exp.text(), "Experiment/Verbund2",
                                    count_occurrences(tb_exp.text(), "# JOB tier-build-batch host="));
 
     // (4) OHNE PMU: der Pin haengt NICHT am PMC-Befund (zwei orthogonale Invarianten).
@@ -4080,7 +4080,7 @@ TEST(CompilerPinInvariante, JedeTreiberKonfigurationGepinntUndJedeBauStufeMitCla
     director_ohne.set_pmc_befund(ohne);
     planner::CiYamlBuilder cb_ohne;
     director_ohne.construct(*tp, cb_ohne);
-    expect_compiler_pin_invariante(cb_ohne.text(), "Thesis/Stufe1 OHNE PMU",
+    expect_compiler_pin_invariante(cb_ohne.text(), "Thesis/Verbund1 OHNE PMU",
                                    count_occurrences(cb_ohne.text(), "# JOB ceb-build combo"));
 }
 
@@ -4100,7 +4100,7 @@ TEST(CompilerPinInvariante, ZwillingFolgtDemBuildTypDesProfils) {
     DebugSemantikInjektor      inj_pin{tb_dbg};
     director.construct(*tp, inj_pin, /*combo_selector=*/{}, /*methodik_run_methodology=*/{"build"});
     std::string const& ydbg = tb_dbg.text();
-    expect_compiler_pin_invariante(ydbg, "Thesis/Stufe2 (j3)-Debug",
+    expect_compiler_pin_invariante(ydbg, "Thesis/Verbund2 (j3)-Debug",
                                    count_occurrences(ydbg, "# JOB tier-build-batch host="));
     EXPECT_NE(ydbg.find("cmake -B build-clang -G Ninja -DCOMDARE_V32_ENABLE=ON"), std::string::npos);
     EXPECT_NE(ydbg.find("-DCMAKE_BUILD_TYPE=Debug"), std::string::npos)

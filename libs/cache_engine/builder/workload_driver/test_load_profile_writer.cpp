@@ -268,7 +268,7 @@ int main(int argc, char** argv) {
     // ── (b) EXTRAKTION gegen die echte Pilot-CSV je Architekturfokus ──────────────────────────────
     emit("\n=== (b) EXTRAKTION (Pilot-CSV je search_algo -> XML, re-konsumierbar) ===\n");
     std::vector<std::string> const foci      = {"k_ary", "sota::A::ArtComposition", "sota::A::PrtArtComposition",
-                                                "sota::B::HotPrtStufe2ReplaceComposition"};
+                                                "sota::B::HotPrtVerbund2ReplaceComposition"};
     int                            extracted = 0;
     for (auto const& focus : foci) {
         auto lp = wd::extract_load_profile_from_measurements(csv, focus);

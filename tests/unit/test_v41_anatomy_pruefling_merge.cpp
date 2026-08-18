@@ -94,8 +94,8 @@ TEST(R5C_PrueflingSlot, PrtArtSlotIsValidWithPrueflingFlag) {
 // §2 — Stufe 1: CE-only (KEINE Pruefling-Beteiligung)
 // ─────────────────────────────────────────────────────────────────────────────
 
-TEST(R5C_StufeOne, CeOnlyIdenticalToDefaultList) {
-    using S1 = prf::StufeOneAxis<CeDefaults>;
+TEST(R5C_Verbund1, CeOnlyIdenticalToDefaultList) {
+    using S1 = prf::Verbund1Axis<CeDefaults>;
     static_assert(std::is_same_v<S1, CeDefaults>);
     static_assert(mp::mp_size<S1>::value == 3);
     SUCCEED();
@@ -105,8 +105,8 @@ TEST(R5C_StufeOne, CeOnlyIdenticalToDefaultList) {
 // §3 — Stufe 2: ERSETZT-mit-Fallback
 // ─────────────────────────────────────────────────────────────────────────────
 
-TEST(R5C_StufeTwo, WithPrueflingSlotErsetztDefaultsKomplett) {
-    using S2 = prf::StufeTwoAxis<CeDefaults, PrtArtSlot>;
+TEST(R5C_Verbund2, WithPrueflingSlotErsetztDefaultsKomplett) {
+    using S2 = prf::Verbund2Axis<CeDefaults, PrtArtSlot>;
     // PrtArtSlot hat 2 Varianten: PrtArtRadix512, PrtArtCompact
     // Defaults werden komplett ueberschrieben (NICHT vereinigt!)
     static_assert(mp::mp_size<S2>::value == 2);
@@ -115,8 +115,8 @@ TEST(R5C_StufeTwo, WithPrueflingSlotErsetztDefaultsKomplett) {
     SUCCEED();
 }
 
-TEST(R5C_StufeTwo, WithoutPrueflingSlotFallbackZurDefaults) {
-    using S2 = prf::StufeTwoAxis<CeDefaults, EmptySlot>;
+TEST(R5C_Verbund2, WithoutPrueflingSlotFallbackZurDefaults) {
+    using S2 = prf::Verbund2Axis<CeDefaults, EmptySlot>;
     // EmptySlot hat keine Pruefling-Beteiligung → Defaults bleiben
     static_assert(std::is_same_v<S2, CeDefaults>);
     static_assert(mp::mp_size<S2>::value == 3);
@@ -127,16 +127,16 @@ TEST(R5C_StufeTwo, WithoutPrueflingSlotFallbackZurDefaults) {
 // §4 — Stufe 3: Full-Join non-redundant (mp_unique<mp_append>)
 // ─────────────────────────────────────────────────────────────────────────────
 
-TEST(R5C_StufeThree, FullJoinVereinigtAlle) {
-    using S3 = prf::StufeThreeAxis<CeDefaults, PrtArtSlot, OtherPrueflingSlot>;
+TEST(R5C_Verbund3, UnionVereinigtAlle) {
+    using S3 = prf::Verbund3Axis<CeDefaults, PrtArtSlot, OtherPrueflingSlot>;
     // CeDefaults (3) + PrtArtSlot::PrueflingVariants (2) + OtherPrueflingSlot::PrueflingVariants (1) = 6
     static_assert(mp::mp_size<S3>::value == 6);
     SUCCEED();
 }
 
-TEST(R5C_StufeThree, FullJoinIstNonRedundant) {
+TEST(R5C_Verbund3, UnionIstNonRedundant) {
     // Duplicate-Wrapper in 2 Slots (DupSlotA + DupSlotB definiert oben)
-    using S3 = prf::StufeThreeAxis<CeDefaults, DupSlotA, DupSlotB>;
+    using S3 = prf::Verbund3Axis<CeDefaults, DupSlotA, DupSlotB>;
     // CeDefaults (3 unique) + DupSlotA (CeArray256 dup, PrtArtRadix512 neu)
     // + DupSlotB (PrtArtRadix512 dup, OtherPrueflingX neu)
     // → mp_unique dedupliziert: CeArray256, CeVectorU8, CeVectorU16, PrtArtRadix512, OtherPrueflingX = 5
@@ -144,8 +144,8 @@ TEST(R5C_StufeThree, FullJoinIstNonRedundant) {
     SUCCEED();
 }
 
-TEST(R5C_StufeThree, FullJoinMitNurEmptySlots) {
-    using S3 = prf::StufeThreeAxis<CeDefaults, EmptySlot, EmptySlot>;
+TEST(R5C_Verbund3, UnionMitNurEmptySlots) {
+    using S3 = prf::Verbund3Axis<CeDefaults, EmptySlot, EmptySlot>;
     // EmptySlots tragen leere PrueflingVariants bei → nur Defaults bleiben
     static_assert(mp::mp_size<S3>::value == 3);
     static_assert(std::is_same_v<S3, CeDefaults>);
@@ -157,19 +157,19 @@ TEST(R5C_StufeThree, FullJoinMitNurEmptySlots) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5C_MergeDispatch, Stufe1CeOnly) {
-    using S = prf::MergeAxis<prf::MergeStrategy::Stufe1_CeOnly, CeDefaults>;
+    using S = prf::MergeAxis<prf::PrueflingVerbundStrategy::Verbund1_CeOnly, CeDefaults>;
     static_assert(std::is_same_v<S, CeDefaults>);
     SUCCEED();
 }
 
 TEST(R5C_MergeDispatch, Stufe2PrueflingReplace) {
-    using S = prf::MergeAxis<prf::MergeStrategy::Stufe2_PrueflingReplace, CeDefaults, PrtArtSlot>;
+    using S = prf::MergeAxis<prf::PrueflingVerbundStrategy::Verbund2_Replace, CeDefaults, PrtArtSlot>;
     static_assert(mp::mp_size<S>::value == 2); // PrtArtSlot ersetzt komplett
     SUCCEED();
 }
 
-TEST(R5C_MergeDispatch, Stufe3FullJoin) {
-    using S = prf::MergeAxis<prf::MergeStrategy::Stufe3_FullJoin, CeDefaults, PrtArtSlot, OtherPrueflingSlot>;
+TEST(R5C_MergeDispatch, Verbund3Union) {
+    using S = prf::MergeAxis<prf::PrueflingVerbundStrategy::Verbund3_Union, CeDefaults, PrtArtSlot, OtherPrueflingSlot>;
     static_assert(mp::mp_size<S>::value == 6);
     SUCCEED();
 }
@@ -214,7 +214,7 @@ struct StampPrueflingAndereVersion {
 TEST(A13M3C5MergeNamensNaht, Q2WacheTrenntByteVerschiedeneMergeBinaries) {
     using CeList = mp::mp_list<StampCeVariant>;
     // (1) NEGATIV: gleicher Name + gleiche Version -> die Wache schlaegt an. Genau diese Instanziierung
-    //     braeche als MergeAxis<Stufe2_PrueflingReplace, CeList, Slot> den Bau mit benanntem Text.
+    //     braeche als MergeAxis<Verbund2_Replace, CeList, Slot> den Bau mit benanntem Text.
     static_assert(!prf::merge_lists_render_distinct_segments<CeList, mp::mp_list<StampPrueflingKollision>>(),
                   "Q2-Wache: eine namens- UND versionsgleiche Pruefling-Variante MUSS als Kollision gelten.");
     static_assert(prf::merge_segments_collide<StampCeVariant, StampPrueflingKollision>());
@@ -241,10 +241,10 @@ namespace pe = ::comdare::cache_engine::permutations;
 
 // MSVC: TopicConfig muss ausserhalb TEST stehen damit StaticAxisVariants als using OK ist
 struct TopicConfigStufe2 {
-    using StaticAxisVariants = prf::StufeTwoAxis<CeDefaults, PrtArtSlot>; // 2
+    using StaticAxisVariants = prf::Verbund2Axis<CeDefaults, PrtArtSlot>; // 2
 };
 struct TopicConfigStufe3 {
-    using StaticAxisVariants = prf::StufeThreeAxis<CeDefaults, PrtArtSlot, OtherPrueflingSlot>; // 6
+    using StaticAxisVariants = prf::Verbund3Axis<CeDefaults, PrtArtSlot, OtherPrueflingSlot>; // 6
 };
 
 TEST(R5C_Integration, Stufe2AxisFedToPermutationEngine) {
@@ -253,7 +253,7 @@ TEST(R5C_Integration, Stufe2AxisFedToPermutationEngine) {
     SUCCEED();
 }
 
-TEST(R5C_Integration, Stufe3FullJoinFedToPermutationEngine) {
+TEST(R5C_Integration, Verbund3UnionFedToPermutationEngine) {
     using Engine = pe::PermutationEngine<TopicConfigStufe3>;
     static_assert(Engine::count() == 6);
     SUCCEED();

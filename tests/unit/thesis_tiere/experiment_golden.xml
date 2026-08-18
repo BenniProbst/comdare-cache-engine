@@ -17,11 +17,11 @@
   die konkreten Bausteine leben in den referenzierten Registries.
 
   Die 3 Phasen bilden die 3 Kompositionalen Joins (pruefling_merge.hpp) ab:
-    Stufe1_CeOnly            - CE-only (KEINE Pruefling-Beteiligung)
-    Stufe2_PrueflingReplace  - Pruefling ERSETZT-mit-Fallback pro Achse
-    Stufe3_FullJoin          - Union non-redundant (CE + Pruefling)
+    Verbund1_CeOnly            - CE-only (KEINE Pruefling-Beteiligung)
+    Verbund2_Replace  - Pruefling ERSETZT-mit-Fallback pro Achse
+    Verbund3_Union          - Union non-redundant (CE + Pruefling)
   Reihe R-C(i) (Merge/Regression alt<->neu) ist hier semantisch die
-  build-uebergreifende Kombination von Stufe1 (ee_ce) und Stufe3 (ee_ce+ee_prt).
+  build-uebergreifende Kombination von Verbund1 (ee_ce) und Verbund3 (ee_ce+ee_prt).
 -->
 <comdare_experiment version="1" id="diplomarbeit_golden"
                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -49,11 +49,11 @@
     <tier id="wormhole"/>
   </lebewesen>
 
-  <!-- Die 3 Phasen. Jede traegt NUR merge (MergeStrategy) + engine(s), KEIN baustein. -->
+  <!-- Die 3 Phasen. Jede traegt NUR merge (PrueflingVerbundStrategy) + engine(s), KEIN baustein. -->
   <phases>
-    <phase name="phase2_cache_engine" merge="Stufe1_CeOnly"           engine="ee_ce"/>
-    <phase name="phase1_prt_art"      merge="Stufe2_PrueflingReplace" engine="ee_prt"  pruefling="prt_art"/>
-    <phase name="phase3_kombiniert"   merge="Stufe3_FullJoin"         engines="ee_ce ee_prt"/>
+    <phase name="phase2_cache_engine" merge="Verbund1_CeOnly"           engine="ee_ce"/>
+    <phase name="phase1_prt_art"      merge="Verbund2_Replace" engine="ee_prt"  pruefling="prt_art"/>
+    <phase name="phase3_kombiniert"   merge="Verbund3_Union"         engines="ee_ce ee_prt"/>
   </phases>
 
   <!-- Reines LIMIT: axis ref = Registry-axis-id, allowed_variants = Teilmenge der

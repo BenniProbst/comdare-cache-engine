@@ -824,15 +824,15 @@ TEST(V41_TopicAllocatorAxis06_Stufe4, FilterAlwaysFalseIsZero) {
     static_assert(Engine::count_filtered<perms::AlwaysFalse>() == 0, "Diagnose-Counter mit AlwaysFalse muss 0 sein");
 }
 
-// (h) AxisFullJoin (Stufe 3 Skelett): mp_append + mp_unique
-TEST(V41_TopicAllocatorAxis06_Stufe4, AxisFullJoinDeduplicatesVariants) {
+// (h) AxisVerbundUnion (Stufe 3 Skelett): mp_append + mp_unique
+TEST(V41_TopicAllocatorAxis06_Stufe4, AxisVerbundUnionDeduplicatesVariants) {
     namespace mp = boost::mp11;
     // Beispiel: cache-engine Defaults + 1 Pruefling der StdMalloc auch nutzt
     using DefaultList   = mp::mp_list<axis_06::StdMalloc, axis_06::MimallocAllocator>;
     using PrueflingList = mp::mp_list<axis_06::StdMalloc, axis_06::SnmallocAllocator>; // StdMalloc doppelt
-    using Joined        = perms::AxisFullJoin<DefaultList, PrueflingList>;
+    using Joined        = perms::AxisVerbundUnion<DefaultList, PrueflingList>;
     // mp_unique entfernt das doppelte StdMalloc -> 3 statt 4
-    static_assert(mp::mp_size<Joined>::value == 3, "AxisFullJoin muss Duplikate via mp_unique entfernen");
+    static_assert(mp::mp_size<Joined>::value == 3, "AxisVerbundUnion muss Duplikate via mp_unique entfernen");
     SUCCEED();
 }
 

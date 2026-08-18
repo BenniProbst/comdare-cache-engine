@@ -889,7 +889,8 @@ int validate_experiment_profile_facade(std::filesystem::path const& profile_path
     for (auto const& w : vr.warnings) os << "  [HINWEIS] " << w << "\n";
     for (auto const& e : vr.errors) os << "  [FEHLER]  " << e << "\n";
     if (vr.ok)
-        os << "VALIDAT OK: das Experiment-Profil ist gegen die 2-Registry (ce+prt) + MergeStrategy/Kategorien "
+        os << "VALIDAT OK: das Experiment-Profil ist gegen die 2-Registry (ce+prt) + "
+              "PrueflingVerbundStrategy/Kategorien "
               "konsistent.\n";
     else
         os << "VALIDAT FEHLGESCHLAGEN: " << vr.errors.size()

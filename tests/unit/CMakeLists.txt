@@ -4000,7 +4000,7 @@ target_compile_definitions(test_experiment_parser PRIVATE
 set_tests_properties(test_experiment_parser PROPERTIES LABELS "contract;profiles;e4;incd")
 
 # KERN #48-S4 (2026-07-22) -- ctest-Gate der Minimal-Parser-/Validator-Naht der vier neuen comdare_experiment-v2-
-# Elemente (machines / axis@pruefling / merge=fulljoin / storage). ADDITIV: eigene Fixture
+# Elemente (machines / axis@pruefling / merge=union / storage). ADDITIV: eigene Fixture
 # experiment_kern_seam_fixture.xml (Weg a 2026-08-17: frueher gleichnamig mit der kanonischen super-Instanz
 # experiment_golden_kern.xml) + eigenes Source-File; beruehrt KEINEN bestehenden Parser-/Projection-/
 # Director-Pin. Fixture wird NUR GELESEN.
@@ -4122,7 +4122,7 @@ comdare_attach_generated_catalog(test_experiment_plan_director)
 set_tests_properties(test_experiment_plan_director PROPERTIES LABELS "contract;profiles;e4;planner")
 
 # M-CE-10 (Voll-Review 2026-07-13; per-Host-Auffaecherung 2026-07-14) — ctest-Gate der
-# Stufe2_PrueflingReplace-Materialisierung im sota_catalog. KORREKTUR F23 (2026-07-16): die fruehere
+# Verbund2_Replace-Materialisierung im sota_catalog. KORREKTUR F23 (2026-07-16): die fruehere
 # Beschreibung ("St2 = EINE Binary/HOT-Pilot, Dedup zu 1 Pass, h2_lebewesen == 'hot', 14 gezaehlt") war die
 # VOR-M-CE-10-Semantik — der Test asserted seit der per-Host-Auffaecherung das Gegenteil. Beweist (Wortlaut
 # test_sota_st2_dedup.cpp-Kopf): (1) PER-HOST-DISTINKT — mehrere St2-Deklarationen mit verschiedenen
