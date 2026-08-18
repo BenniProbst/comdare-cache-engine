@@ -183,6 +183,11 @@ enum class AnatomyGenus : std::uint8_t {
 }
 
 /// gattung_of() — Ebene 2 → Ebene 1: die Gattung (Außen-Interface), zu der eine Tier-Unterklasse gehört.
+/// NACHTRAG Q2/V-06 + KON101-02 (18.08.2026): diese Funktion ist ab jetzt AUCH die ABI-Wahrheit. Die
+/// Modul-Makros materialisieren comdare_anatomy_gattung NICHT aus einem zweiten Literal, sondern
+/// GENAU aus diesem Aufruf -- die Gattung reist damit nirgends als eigene Angabe, die auseinanderlaufen
+/// koennte. Der Loader prueft dieselbe Gleichung noch einmal am geladenen Modul und lehnt eine
+/// Abweichung fail-closed ab (status_identity_mismatch, anatomy_module_loader.hpp).
 /// E-24 C7-1: SearchAlgorithm -> Gattung MAP; Set/Sequence/Adapter/View -> Container-Gattung
 /// (Owner-KERN NACHTRAG 4, LEDGER:3836). Das Genus ERBT das Gattungs-Interface -- diese Funktion ist die
 /// constexpr-Form dieser Vererbungs-Zuordnung und zugleich der host-seitige Weg von genus() zur Gattung.

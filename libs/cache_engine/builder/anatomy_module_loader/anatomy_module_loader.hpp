@@ -41,6 +41,16 @@ inline constexpr int status_abi_major_mismatch    = 5;
 inline constexpr int status_abi_minor_too_new     = 6;
 inline constexpr int status_factory_returned_null = 7;
 inline constexpr int status_null_module           = 8;
+// Q2/V-06 (18.08.2026) -- die zwei IDENTITAETS-SYMBOLE sind PFLICHT. ZWEI Codes statt einem, aus
+// demselben Grund, aus dem es zwei Alt-Major-Fixtures gibt: jedes Schloss muss EINZELN beobachtbar
+// sein. Ein Sammel-Code "identitaet_fehlt" haette gesagt, DASS etwas fehlt, nicht WAS -- und genau
+// diese Auskunft braucht der, der ein Modul baut und es nicht geladen bekommt.
+inline constexpr int status_gattung_symbol_missing = 9;
+inline constexpr int status_genus_symbol_missing   = 10;
+// Der KONSISTENZ-RIEGEL. Ein Modul, dessen Symbol-Wert nicht zu der Instanz passt, die seine eigene
+// Factory liefert, ist WIDERSPRUECHLICH -- und ein Widerspruch, den der Loader durchlaesst, wandert
+// als falsche Identitaet in Stempel, Lager und Messreihe. Deshalb fail-closed hier, nicht spaeter.
+inline constexpr int status_identity_mismatch      = 11;
 
 [[nodiscard]] constexpr const char* status_name(int s) noexcept {
     switch (s) {
@@ -53,6 +63,9 @@ inline constexpr int status_null_module           = 8;
         case status_abi_minor_too_new: return "abi_minor_too_new";
         case status_factory_returned_null: return "factory_returned_null";
         case status_null_module: return "null_module";
+        case status_gattung_symbol_missing: return "gattung_symbol_missing";
+        case status_genus_symbol_missing: return "genus_symbol_missing";
+        case status_identity_mismatch: return "identity_mismatch";
         default: return "unknown";
     }
 }

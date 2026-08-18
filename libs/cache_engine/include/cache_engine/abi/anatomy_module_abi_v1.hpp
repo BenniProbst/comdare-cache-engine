@@ -63,8 +63,20 @@
     extern "C" COMDARE_ANATOMY_ABI_EXPORT void comdare_destroy_anatomy(                                                \
         ::comdare::cache_engine::anatomy::IAnatomyBase* ptr) noexcept {                                                \
         delete ptr;                                                                                                    \
+    }                                                                                                                  \
+    /* Q2/V-06 (18.08.2026): die ZWEI IDENTITAETS-SYMBOLE. Sie beantworten "was BIST du" VOR                           \
+       der Factory -- bisher ging das nur ueber create + genus(), also erst, nachdem ein Objekt                        \
+       gebaut war. Die NAMEN sind gattungs-agnostisch (jedes Modul jeder Gattung traegt genau                          \
+       diese zwei), die WERTE sind es nicht. Die Gattung wird NICHT getragen, sondern aus dem                          \
+       Genus abgeleitet (gattung_of, total + constexpr) -- zwei unabhaengig gepflegte Quellen                          \
+       koennten auseinanderlaufen, eine abgeleitete kann es nicht. */                                                  \
+    extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_gattung() noexcept {                            \
+        return static_cast<std::uint8_t>(                                                                              \
+            ::comdare::cache_engine::anatomy::gattung_of(::comdare::cache_engine::anatomy::AnatomyGenus::SearchAlgorithm));\
+    }                                                                                                                  \
+    extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_genus() noexcept {                              \
+        return static_cast<std::uint8_t>(::comdare::cache_engine::anatomy::AnatomyGenus::SearchAlgorithm);             \
     }
-
 /// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(...) — R5.G: Materialisiert eine AUTO-ENUMERIERTE Permutation
 /// (AdHocComposition) als Permutations-Binary, OHNE benannten Composition-Header. Nimmt die 17
 /// Achsen-Vendor-Typen VARIADISCH (T0..T16 — 15 Such-Achsen + queuing q1/q2, Doc 30 §8.0) und baut die
@@ -113,8 +125,20 @@
     extern "C" COMDARE_ANATOMY_ABI_EXPORT void comdare_destroy_anatomy(                                                \
         ::comdare::cache_engine::anatomy::IAnatomyBase* ptr) noexcept {                                                \
         delete ptr;                                                                                                    \
+    }                                                                                                                  \
+    /* Q2/V-06 (18.08.2026): die ZWEI IDENTITAETS-SYMBOLE. Sie beantworten "was BIST du" VOR                           \
+       der Factory -- bisher ging das nur ueber create + genus(), also erst, nachdem ein Objekt                        \
+       gebaut war. Die NAMEN sind gattungs-agnostisch (jedes Modul jeder Gattung traegt genau                          \
+       diese zwei), die WERTE sind es nicht. Die Gattung wird NICHT getragen, sondern aus dem                          \
+       Genus abgeleitet (gattung_of, total + constexpr) -- zwei unabhaengig gepflegte Quellen                          \
+       koennten auseinanderlaufen, eine abgeleitete kann es nicht. */                                                  \
+    extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_gattung() noexcept {                            \
+        return static_cast<std::uint8_t>(                                                                              \
+            ::comdare::cache_engine::anatomy::gattung_of(::comdare::cache_engine::anatomy::AnatomyGenus::SearchAlgorithm));\
+    }                                                                                                                  \
+    extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_genus() noexcept {                              \
+        return static_cast<std::uint8_t>(::comdare::cache_engine::anatomy::AnatomyGenus::SearchAlgorithm);             \
     }
-
 /// COMDARE_ANATOMY_VERSION_STAMP_M(measurement_lit, system_lit, organ_lit) -- A13-M3 (Owner-E2 02.08.2026):
 /// die VOLLFORM. Materialisiert das OPTIONALE extern-"C"-Probe-Symbol comdare_anatomy_version_lines() aus DREI
 /// String-Literalen -- seit S-6a in der Kategorien-Ordnung MESS, SYSTEM, ORGAN (Mess-Tooling-HAUPT-, System-

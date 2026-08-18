@@ -564,6 +564,29 @@ static_assert(!stamp_pod_has_entries(detail::stamp_pod_layout_probe(8u)),
 
 extern "C" {
 
+/// comdare_anatomy_gattung() / comdare_anatomy_genus() -- Q2/V-06 + KON101-02 (18.08.2026): die ZWEI
+/// IDENTITAETS-SYMBOLE, seit diesem Bruch LOADER-PFLICHT (aus vier Pflicht-Symbolen sind sechs geworden).
+/// Sie beantworten "was BIST du" OHNE Instanz -- bisher ging das nur ueber create + genus(), also erst,
+/// nachdem ein Objekt gebaut war.
+///
+/// DIE NAMEN SIND GATTUNGS-AGNOSTISCH, DIE WERTE NICHT. Genau darin liegt der Nutzen: derselbe
+/// gattungs-agnostische Loader zieht bei JEDEM Modul dieselben zwei Namen und bekommt gattungs-
+/// SPEZIFISCHE Antworten. Haetten die Namen die Gattung getragen (comdare_set_genus o.ae.), muesste der
+/// Loader die Gattung kennen, bevor er sie erfragen kann -- dasselbe Henne-Ei-Problem, gegen das schon
+/// die Gleichheit der vier Ur-Symbolnamen gebaut ist.
+///
+/// RUECKGABE ist der uint8-WERT der jeweiligen Enum (AnatomyGattung / AnatomyGenus, beide
+/// : std::uint8_t): ueber die C-ABI-Grenze reist ein Zahlentyp, die Bedeutung liegt im gemeinsamen
+/// Header. Der Aufrufer castet zurueck -- der Loader tut genau das.
+///
+/// WARUM DIE GATTUNG TROTZDEM KEIN ZWEITES DATUM IST: die Modul-Makros materialisieren
+/// comdare_anatomy_gattung NICHT aus einem eigenen Literal, sondern aus gattung_of(<Genus>) -- total und
+/// constexpr. Es gibt also nur EINE gepflegte Quelle (den Genus); die Gattung ist ihre Ableitung. Der
+/// Loader rechnet dieselbe Ableitung nach und lehnt jede Abweichung fail-closed ab
+/// (status_identity_mismatch), zusammen mit der Gegenprobe Symbol-Wert == genus() der Instanz.
+COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_gattung() noexcept;
+COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_genus() noexcept;
+
 /// comdare_anatomy_version_lines() -- OPTIONALES Probe-Symbol: liefert die einkompilierten Stempel-Zeilen
 /// eines Tier-Binary. NICHT Teil der 4 Loader-Pflicht-Symbole; ein ohne COMDARE_ANATOMY_VERSION_STAMP
 /// gebautes Modul exportiert es gar nicht (dlsym liefert dann nullptr).
@@ -742,6 +765,9 @@ inline constexpr std::uint64_t     kAnatomyAbiMagicAbi7 = 0x434F4D444141372EULL;
 ///   tests/unit/test_v41_anatomy_module_abi.cpp      -- static_assert + 2x EXPECT_EQ (der Kontroll-Pin)
 ///   tests/unit/test_e24_c10_g5_lade_wache.cpp       -- ceb_contract_version_text() + --version-Block
 ///   tests/unit/test_e24_c10_g6_identitaets_bilanz.cpp -- +ceb=-Wert, Minor-Anteil, Objekt-Store-Key
+/// Diese Liste ist NICHT abschliessend (dreimal als unvollstaendig belegt, zuletzt 18.08.2026: 7 Stellen
+/// in 5 Dateien) -- die WAHRHEIT ist der ctest-Doppellauf nach jedem Bump; die Liste nennt nur die
+/// haeufigsten Treffer.
 /// WER DIESE KONSTANTE DREHT, DREHT DIESE DREI DATEIEN MIT. Die drei Konsumenten-Tests
 /// (test_g1_binary_version_stamp, test_s1_cache_key_prefix, test_s5_artifact_cache_bounded) leiten den
 /// Wert weiterhin bewusst AB und wandern von selbst mit -- sie sind hier bewusst NICHT gelistet.

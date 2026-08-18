@@ -15,6 +15,16 @@
 //   ist deshalb keine Bequemlichkeit, sondern die Bedingung dafuer, dass es EINE Ladestrecke gibt
 //   (Doc 24 Abschnitt 8.8, dieselbe Begruendung wie bei der Container-Gattung).
 //
+// NACHTRAG Q2/V-06 + KON101-02 (18.08.2026) -- AUS VIER SYMBOLEN SIND SECHS GEWORDEN, UND DAS HAT DIE
+// OBIGE BEGRUENDUNG NICHT AUFGEWEICHT, SONDERN VOLLENDET. Neu sind comdare_anatomy_gattung und
+// comdare_anatomy_genus, ebenfalls buchstabengleich ueber alle Gattungen. Das oben beschriebene
+// Henne-Ei-Problem ("die Gattung ist erst NACH dem Laden erfragbar") war bis hierher nur DADURCH
+// entschaerft, dass der Loader sie gar nicht wissen musste; jetzt ist es aufgeloest: er kann sie
+// erfragen, BEVOR er eine Instanz baut -- ueber gattungs-agnostische NAMEN mit gattungs-spezifischen
+// WERTEN. Fuer den Hybrid gilt dabei unveraendert Weg C: comdare_anatomy_genus meldet den ZIEL-Genus
+// (das, was das Modul FUER den Aufrufer ist), niemals FunctionInterfaceReroute (das, was es INTERN
+// tut). Der Loader verriegelt beides gegeneinander (status_identity_mismatch).
+//
 // ------------------------------------------------------------------------------------------------
 // WARUM DIESER HEADER IN hybrid/ LIEGT UND NICHT IN abi/, WO DIE VIER ANDEREN MODUL-MAKROS STEHEN
 // ------------------------------------------------------------------------------------------------
@@ -79,4 +89,17 @@
     extern "C" COMDARE_ANATOMY_ABI_EXPORT void comdare_destroy_anatomy(                                                \
         ::comdare::cache_engine::anatomy::IAnatomyBase* ptr) noexcept {                                                \
         delete ptr;                                                                                                    \
+    }                                                                                                                  \
+    /* Q2/V-06 (18.08.2026): die ZWEI IDENTITAETS-SYMBOLE. Sie beantworten "was BIST du" VOR                           \
+       der Factory -- bisher ging das nur ueber create + genus(), also erst, nachdem ein Objekt                        \
+       gebaut war. Die NAMEN sind gattungs-agnostisch (jedes Modul jeder Gattung traegt genau                          \
+       diese zwei), die WERTE sind es nicht. Die Gattung wird NICHT getragen, sondern aus dem                          \
+       Genus abgeleitet (gattung_of, total + constexpr) -- zwei unabhaengig gepflegte Quellen                          \
+       koennten auseinanderlaufen, eine abgeleitete kann es nicht. */                                                  \
+    extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_gattung() noexcept {                            \
+        return static_cast<std::uint8_t>(                                                                              \
+            ::comdare::cache_engine::anatomy::gattung_of((ZielGenusExpr)));                                            \
+    }                                                                                                                  \
+    extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_genus() noexcept {                              \
+        return static_cast<std::uint8_t>((ZielGenusExpr));                                                             \
     }

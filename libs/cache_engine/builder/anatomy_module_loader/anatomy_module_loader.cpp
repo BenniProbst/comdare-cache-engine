@@ -70,6 +70,10 @@ using PfnDestroy    = void (*)(ana::IAnatomyBase*);
 // OHNE Deklaration messfaehig ist, faellt NICHT hier (der Loader ist ein reiner dlopen-Wrapper), sondern am
 // Pruefdock (mess_konsistenz_gate.hpp) -- dort fail-closed.
 using PfnVersionLines = abi::AnatomyVersionLines const* (*)();
+// Q2/V-06: die zwei Identitaets-Symbole liefern die uint8-Enum-WERTE, nicht die Enum-Typen -- ueber die
+// C-ABI-Grenze reist ein Zahlentyp, die Bedeutung liegt im Header, den beide Seiten teilen.
+using PfnGattung = std::uint8_t (*)();
+using PfnGenus   = std::uint8_t (*)();
 
 } // anonymous namespace
 
@@ -152,11 +156,54 @@ int AnatomyModuleLoader::load(std::filesystem::path const& dll_path, AnatomyModu
                                                                            : status_abi_minor_too_new;
     }
 
+    // Q2/V-06 (18.08.2026) -- DIE ZWEI IDENTITAETS-SYMBOLE, PFLICHT, an genau dieser Stelle.
+    // WARUM NACH MAGIC UND VERSION: erst wenn Magic und Major/Minor passen, ist dieses Modul
+    // ueberhaupt als unseres lesbar. Zoege der Loader die neuen Symbole VOR diesen Pruefungen, bekaeme
+    // ein echtes Alt-Modul ein Symbol-Fehlerbild statt seines Magic-/Major-Fehlerbildes -- die beiden
+    // Alt-Major-Fixtures (genus_module_alt_major7, genus_module_major7_neue_magic) pruefen genau diese
+    // beiden Schloesser, und sie muessen sie weiter EINZELN treffen.
+    // WARUM VOR DER FACTORY: hier ist noch kein Objekt gebaut. Nach pfn_create() muesste jeder
+    // Fehlerpfad das Objekt erst wieder zerstoeren -- ein Ausstieg, den man genau einmal vergisst.
+    // Und fachlich ist es der Punkt: diese beiden Symbole beantworten "was BIST du", und das gehoert
+    // VOR "gib mir eine Instanz", nicht danach.
+    auto* sym_gattung = native_symbol(native, "comdare_anatomy_gattung");
+    if (!sym_gattung) {
+        native_unload(native);
+        return status_gattung_symbol_missing;
+    }
+    auto* sym_genus = native_symbol(native, "comdare_anatomy_genus");
+    if (!sym_genus) {
+        native_unload(native);
+        return status_genus_symbol_missing;
+    }
+    auto const modul_gattung = static_cast<ana::AnatomyGattung>(reinterpret_cast<PfnGattung>(sym_gattung)());
+    auto const modul_genus   = static_cast<ana::AnatomyGenus>(reinterpret_cast<PfnGenus>(sym_genus)());
+
     // Factory aufrufen
     ana::IAnatomyBase* anatomy = pfn_create();
     if (!anatomy) {
         native_unload(native);
         return status_factory_returned_null;
+    }
+
+    // Q2/V-06 -- DER KONSISTENZ-RIEGEL, am GELADENEN Objekt und nicht am Symbolnamen.
+    // Das Modul hat zweimal geantwortet: einmal statisch ueber comdare_anatomy_genus (VOR der Factory)
+    // und einmal dynamisch ueber die Instanz, die seine Factory geliefert hat. Beide Antworten muessen
+    // dieselbe sein -- sonst traegt das Binary eine andere Identitaet, als es ausweist, und genau diese
+    // Luege wandert ungeprueft in Stempel, Lagerpfad und Messreihe.
+    // Die GATTUNG wird nicht verglichen, sondern GEPRUEFT: sie ist per gattung_of aus dem Genus
+    // ableitbar, also ist jede Abweichung ein Widerspruch in sich und keine zweite Meinung.
+    // Beim HYBRID melden beide Seiten den ZIEL-Genus (Weg C, nie FunctionInterfaceReroute) -- der
+    // Riegel gilt fuer ihn unveraendert, ohne Sonderfall.
+    if (anatomy->genus() != modul_genus || ana::gattung_of(modul_genus) != modul_gattung) {
+        std::cerr << "[anatomy_loader] identity_mismatch: Symbol comdare_anatomy_genus meldet "
+                  << static_cast<int>(modul_genus) << ", die Instanz meldet "
+                  << static_cast<int>(anatomy->genus()) << "; Symbol comdare_anatomy_gattung meldet "
+                  << static_cast<int>(modul_gattung) << ", gattung_of(genus) ergibt "
+                  << static_cast<int>(ana::gattung_of(modul_genus)) << " (" << dll_path.string() << ")\n";
+        pfn_destroy(anatomy);
+        native_unload(native);
+        return status_identity_mismatch;
     }
 
     // M-1/D-2: das OPTIONALE Stempel-Symbol NACH der Version-Validierung ziehen. Reihenfolge ist tragend:

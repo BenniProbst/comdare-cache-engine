@@ -2230,6 +2230,27 @@ add_dependencies(test_hy_f8_reroute hybrid_reroute_searchalgorithm hybrid_rerout
 # die nicht final sind -- dort greift die Optimierung nicht. Am HEAD gegengeprueft: 0 weitere Stellen.
 set_target_properties(test_hy_f8_reroute PROPERTIES ENABLE_EXPORTS ON)
 
+# Q2/V-06 + KON101-02 (18.08.2026) -- der IDENTITAETS-RIEGEL ueber ALLE Fixture-Klassen. Er haengt an
+# denselben .so wie die uebrigen Loader-Tests; die Pfade kommen als Generator-Ausdruck herein, damit ein
+# Preset-Wechsel nicht STILL auf eine nicht existierende Datei zeigt (dann saehe ein Ladefehler wie ein
+# ABI-Fehler aus). Kein ENABLE_EXPORTS noetig: dieser Test castet nirgends auf einen konkreten Typ, er
+# fragt ausschliesslich ueber das Interface -- genau der Weg, den das ABI vorsieht.
+comdare_add_test(test_q2_identitaets_riegel
+    SOURCES test_q2_identitaets_riegel.cpp)
+target_link_libraries(test_q2_identitaets_riegel PRIVATE comdare::anatomy_module_loader)
+target_compile_definitions(test_q2_identitaets_riegel PRIVATE
+    COMDARE_Q2_MODUL_SET="$<TARGET_FILE:perm_set_d9>"
+    COMDARE_Q2_MODUL_SEQUENCE="$<TARGET_FILE:perm_sequence_d10>"
+    COMDARE_Q2_MODUL_VIEW="$<TARGET_FILE:perm_view_d11>"
+    COMDARE_Q2_MODUL_ADAPTER="$<TARGET_FILE:perm_adapter_d12>"
+    COMDARE_Q2_MODUL_HYBRID_SEARCH="$<TARGET_FILE:hybrid_reroute_searchalgorithm>"
+    COMDARE_Q2_MODUL_HYBRID_SET="$<TARGET_FILE:hybrid_reroute_set>"
+    COMDARE_Q2_MODUL_ALT_MAJOR7="$<TARGET_FILE:perm_alt_major7>"
+    COMDARE_Q2_MODUL_MAJOR7_NEUE_MAGIC="$<TARGET_FILE:perm_major7_neue_magic>")
+add_dependencies(test_q2_identitaets_riegel
+    perm_set_d9 perm_sequence_d10 perm_view_d11 perm_adapter_d12 perm_alt_major7 perm_major7_neue_magic
+    hybrid_reroute_searchalgorithm hybrid_reroute_set)
+
 comdare_add_test(test_hy_a1_dock_contract
     SOURCES test_hy_a1_dock_contract.cpp)
 # F-10: Include-Wurzeln kommen ab jetzt aus comdare::ce_hybrid statt handgefuehrt.
