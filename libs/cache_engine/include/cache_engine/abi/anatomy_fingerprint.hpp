@@ -30,6 +30,7 @@
 // nicht an ihrer eigenen Naht wieder eintreten.
 #include <cache_engine/abi/overlay_source_hash_generated.hpp>
 
+#include <sha256/ctsha.hpp> // E-A/B-6: der EIGENE SHA-256 der Namensfunktion (NICHT der Fingerprint-Hash)
 #include <sha512/ctsha512.hpp>
 
 #include <array>
@@ -1175,6 +1176,103 @@ anatomy_fingerprint_hex(MessZeile measurement, SystemZeile system, OrganZeile or
     for (std::size_t i = 0; i < 128; ++i) out[i] = hex[i];
     out[128] = '\0';
     return out;
+}
+
+/// anatomy_name_hex(measurement, system, organ[, Traeger...]) -- E-A/B-6 (18.08.2026): DER NAME.
+///
+/// EIGENER Hash, KEIN fingerprint[0:64].
+///
+/// Diese Zeile ist die Bau-Auflage und zugleich die ganze Pointe. Der Name entsteht aus DEMSELBEN
+/// Preimage wie der Fingerprint -- Glied fuer Glied, ueber dieselbe EINE Konstruktion
+/// (anatomy_fingerprint_preimage_emit, inklusive ihrer Separator-Wache) --, aber er wird mit einem
+/// ANDEREN Verfahren gehasht: SHA-256 statt SHA-512. Er ist deshalb NICHT die erste Haelfte des
+/// Fingerprints und darf es nie werden.
+///
+/// WARUM DER UNTERSCHIED TRAEGT, und nicht bloss Geschmack ist: waere der Name ein Praefix des
+/// Fingerprints, traege er keine eigene Aussage -- wer den Namen kennt, wuesste 64 hex des Digests,
+/// und zwei Dinge, die getrennte Zusagen machen sollen (Identitaet vs. Bezeichnung), haetten
+/// dieselbe Quelle mit derselben Kollisionslage. Der static_assert unten haelt genau das fest: er
+/// vergleicht die beiden Ableitungen an einem realen Wert und bricht, sobald jemand die Namens-
+/// funktion auf ein Fingerprint-Praefix umstellt.
+///
+/// KONSISTENZ-LINIE (KON103-03): SHA-256 fuer Name (E-A), fuer die Hybrid-Map-Werte (V-02R) und fuer
+/// den Planer (V-08R). Die 128-hex-Festlegung einer aelteren Fassung war Lead-Distillation, kein
+/// Owner-Wort; das juengste und einzige Owner-Wort mit Bitlaenge nennt sha256.
+///
+/// Rueckgabe: 64 Hex + '\0' (array<char, 65>), analog zur 129er-Form des Fingerprints -- damit der
+/// Wert ohne Laengen-Argument in ein POD-Feld (name_line) und in generierte Literale wandern kann.
+[[nodiscard]] consteval std::array<char, 65>
+anatomy_name_hex(MessZeile measurement, SystemZeile system, OrganZeile organ,
+                 ToolchainGlied toolchain = ToolchainGlied{kToolchainStampGlied},
+                 BvsetGlied     bvset     = BvsetGlied{kBuildVariantSetSignatureGlied},
+                 OverlayHash overlay = OverlayHash{kOverlaySourceHash}, MessGatesGlied mess_gates = MessGatesGlied{""},
+                 KompositMapGlied komposit = KompositMapGlied{kHybridKompositGlied}) {
+    // DASSELBE Preimage: dieselbe Glied-Folge, dieselbe Senke, dieselbe Emit-Funktion samt Wache.
+    // Ein zweiter, eigener Aufbau waere die Drift-Klasse, gegen die anatomy_fingerprint_preimage_emit
+    // ueberhaupt erst zur EINEN Konstruktion gemacht wurde.
+    auto const glieder =
+        anatomy_fingerprint_glieder(measurement, system, organ, toolchain, bvset, overlay, mess_gates, komposit);
+    detail::PreimageBytesSenke<kAnatomyFingerprintPreimageMax> senke{};
+    anatomy_fingerprint_preimage_emit(std::span<std::string_view const>{glieder.data(), glieder.size()}, senke);
+    auto const digest =
+        ::comdare::cache_engine::sha256::sha256(std::span<const std::uint8_t>{senke.aus.data(), senke.n});
+    auto const           hex = ::comdare::cache_engine::sha256::to_hex(digest); // array<char, 64>
+    std::array<char, 65> out{};
+    for (std::size_t i = 0; i < 64; ++i) out[i] = hex[i];
+    out[64] = '\0';
+    return out;
+}
+
+namespace detail {
+/// Die Probe, an der die Ungleichheits-Wache haengt: EIN realer Wert, beide Ableitungen. Sie steht als
+/// eigenes Paar da (statt als Ausdruck im static_assert), damit im Fehlerfall sichtbar ist, WELCHE
+/// beiden Werte verglichen wurden.
+inline constexpr auto kNameProbeFingerprint =
+    anatomy_fingerprint_hex(MessZeile{"probe-mess"}, SystemZeile{"probe-system"}, OrganZeile{"probe-organ"});
+inline constexpr auto kNameProbeName =
+    anatomy_name_hex(MessZeile{"probe-mess"}, SystemZeile{"probe-system"}, OrganZeile{"probe-organ"});
+
+/// true, wenn der Name die ersten 64 hex des Fingerprints WAERE -- also genau der Zustand, den die
+/// Bau-Auflage verbietet.
+[[nodiscard]] consteval bool name_ist_fingerprint_praefix() {
+    for (std::size_t i = 0; i < 64; ++i)
+        if (kNameProbeName[i] != kNameProbeFingerprint[i]) return false;
+    return true;
+}
+} // namespace detail
+
+/// E-A/B-6 -- DIE UNGLEICHHEITS-WACHE. Sie ist der Grund, warum die Auflage "EIGENER Hash, KEIN
+/// fingerprint[0:64]" nicht bloss im Kommentar steht: ein Satz im Text haelt niemanden auf, ein
+/// static_assert schon. Wer die Namensfunktion auf ein Fingerprint-Praefix umstellt -- absichtlich oder
+/// durch ein verrutschtes sha512 statt sha256 --, bekommt DIESE Meldung, nicht einen stillen Wert.
+static_assert(!detail::name_ist_fingerprint_praefix(),
+              "E-A/B-6: der NAME ist zum Praefix des Fingerprints geworden. Das ist genau der Zustand, den "
+              "die Bau-Auflage ausschliesst ('EIGENER Hash, KEIN fingerprint[0:64]'): der Name traegt dann "
+              "keine eigene Aussage mehr, sondern verraet 64 hex des Digests, und Identitaet und Bezeichnung "
+              "haetten dieselbe Quelle mit derselben Kollisionslage. Pruefen, ob anatomy_name_hex noch "
+              "sha256 (nicht sha512) rechnet.");
+
+/// Und die Gegenrichtung, damit die Wache oben nicht bloss 'irgendetwas ungleich' feststellt: der Name
+/// ist genau 64 Hex-Zeichen lang, nullterminiert, und deterministisch (zwei Aufrufe mit denselben Zeilen
+/// liefern denselben Wert -- bei einer consteval-Funktion trivial, aber es ist die Zusage, die die
+/// Lager-/Stempel-Seite braucht).
+static_assert(detail::kNameProbeName.size() == 65 && detail::kNameProbeName[64] == '\0',
+              "E-A/B-6: der Name ist nicht 64 Hex + Nullterminierung.");
+static_assert(detail::kNameProbeName ==
+                  anatomy_name_hex(MessZeile{"probe-mess"}, SystemZeile{"probe-system"}, OrganZeile{"probe-organ"}),
+              "E-A/B-6: die Namensfunktion ist nicht deterministisch -- derselbe Eingang liefert zwei Werte.");
+
+/// K-1-SPERRE der NAMENSFUNKTION -- wortgleich zur Fingerprint-Sperre darunter und aus demselben Grund:
+/// drei nackte Zeichenketten am Anfang sind seit S-6b ein Aufruf-Fehler, nicht eine Bequemlichkeit.
+template <class... Rest>
+[[nodiscard]] consteval std::array<char, 65> anatomy_name_hex(std::string_view, std::string_view, std::string_view,
+                                                              Rest...) noexcept {
+    static_assert(detail::kFingerprintRohZeilenGesperrt<Rest...>,
+                  "S-6b/E-A: auch die NAMENS-Funktion nimmt die drei Stempel-ZEILEN als benannte Traeger -- "
+                  "MessZeile{...}, SystemZeile{...}, OrganZeile{...}, in dieser Reihenfolge. Roh gereicht "
+                  "koennten sie gegeneinander verschoben werden: es uebersetzte, und der NAME waere der eines "
+                  "anderen Binaries. Die Aufrufstelle auf die Traeger-Typen ziehen.");
+    return {};
 }
 
 /// K-1-SPERRE, ab S-6b auf DREI rohe Zeichenketten VERENGT: jeder Alt-Aufruf, der mit drei nackten

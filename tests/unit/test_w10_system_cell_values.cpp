@@ -334,9 +334,11 @@ TEST(W10SystemCellValues, MakroNahtVervollstaendigtDieSystemZeileUndDenFingerpri
     // (4) KEIN POD-/LAYOUT-ANFASSEN DURCH DIESE NAHT: die W10-Naht bewegt Zeilen-INHALT, nie Struktur.
     //     Die beiden Zahlen daneben sind der Stand des POD, nicht die Wirkung dieser Naht -- sie wurden
     //     mit S-6a/Layout 7 (Feldfolge MESS,SYSTEM,ORGAN + komposit_line/len) nachgezogen, weil sonst
-    //     ein FREMDER Bump diesen Test rot faerbte und die W10-Aussage im Rauschen unterginge.
+    //     ein FREMDER Bump diesen Test rot faerbte und die W10-Aussage im Rauschen unterginge. Genau das
+    //     ist am 18.08. wieder passiert: E-A/B-6 haengt name_line/name_len an (136 -> 152), Layout bleibt 7
+    //     (derselbe Bruch, KON5-04). Die W10-Aussage darunter ist davon unberuehrt.
     EXPECT_EQ(v->stamp_layout_version, 7u);
-    EXPECT_EQ(sizeof(cea::AnatomyVersionLines), 136u);
+    EXPECT_EQ(sizeof(cea::AnatomyVersionLines), 152u);
     EXPECT_TRUE(cea::stamp_pod_has_entries(*v));
     EXPECT_EQ(v->system_entry_count, 4u) << "3 Haupt-Achsen + 1 geklammerte Meta-Meta -- unveraendert";
     EXPECT_EQ(v->organ_entry_count, 2u);

@@ -261,14 +261,25 @@ struct AnatomyVersionLines {
     // Offset-Bruch ohne Gewinn.
     // Ein plain Tier traegt "" (nie nullptr, ""-Doktrin) und komposit_len == 0: das Feld existiert fuer ALLE
     // Binaries, nicht nur fuer Hybride (KON45-01/2).
-    // OFFEN UND HIER BENANNT STATT VERSCHWIEGEN (NP-07): die Ledger-Vorausrechnung nennt sizeof 120 -> 152,
-    // diese Fassung landet bei 136. Die Differenz sind GENAU zwei weitere Felder, naemlich die ARRAY-Form
-    // der Komposit-Zeile ({ptr,count} wie bei den drei anderen Zeilen). KON103-03 (17.08., juengstes Wort)
-    // nennt ausdruecklich nur "komposit_line/len append-only Layout 6->7", also folgt diese Fassung ihm.
-    // Kommt die Array-Form dazu, ist das ein EIGENER Layout-Bump -- und der gehoert dann in den Schnitt,
-    // der auch den Parser dafuer baut, nicht vorsorglich hierher.
+    // NP-07 AUFGELOEST (18.08.2026), und die Aufloesung ist lehrreich: die Ledger-Vorausrechnung nannte
+    // sizeof 120 -> 152; die Zwischenfassung landete bei 136 und hat die Differenz OFFEN benannt statt sie
+    // wegzurechnen. Die 152 ist jetzt erreicht -- aber NICHT durch das, was dort vermutet wurde (die
+    // ARRAY-Form der Komposit-Zeile), sondern durch name_line/name_len aus V-05R. Die Array-Form der
+    // Komposit-Zeile bleibt weiterhin AUS: sie waere ein EIGENER Layout-Bump und gehoert in den Schnitt,
+    // der auch den Parser dafuer baut. Zwei Wege zur selben Zahl -- deshalb ist eine sizeof-Vorausrechnung
+    // ohne Feldliste nie ein Beleg dafuer, dass die richtigen Felder da sind.
     char const*   komposit_line; ///< Hybrid-Komposit-Map-Zeile (nullterminiert; "" bei plain Tier)
     std::uint64_t komposit_len;  ///< komposit_line-Laenge ohne '\0'
+    // E-A/B-6 + V-05R ("Ja, integrieren", KON101): DER NAME. 64 Hex aus anatomy_name_hex -- EIGENER
+    // SHA-256 ueber DASSELBE Preimage, das den SHA-512-Fingerprint speist, ausdruecklich NICHT dessen
+    // erste 64 hex (die Ungleichheits-Wache in anatomy_fingerprint.hpp haelt das compile-hart fest).
+    // WARUM ER INS POD GEHOERT und nicht bloss in ein Symbol: der Name ist eine Eigenschaft DES
+    // BINARIES, so wie sein Fingerprint -- wer das Modul geladen hat, muss ihn ueber dieselbe eine
+    // Struktur lesen koennen wie alles andere, statt ihn aus einem zweiten Kanal zu holen. Ein Hybrid
+    // liest ihn ueber die Flaeche durch (V-04R-Durchreich-Linie), er wird nicht zweitgerechnet.
+    // Wie alle Zeilen hier: nie nullptr, ""-Doktrin -- ein Modul ohne Namen traegt "" und name_len 0.
+    char const*   name_line; ///< 64-Hex-Name (nullterminiert; EIGENER SHA-256, NICHT fingerprint[0:64])
+    std::uint64_t name_len;  ///< name_line-Laenge ohne '\0' (64 bei gesetztem Namen)
 };
 
 // -- S-1 (P2, hierher verlegt 12.08.2026): Baustein-Anbindung der beiden ABI-PODs DIREKT beim
@@ -300,10 +311,14 @@ static_assert(StempelBaustein<AnatomyVersionLines>);
 ///       Gleichheits-Wache unten plus die designierten Initialisierer (die bei falscher Reihenfolge
 ///       compile-hart melden, "designator order does not match declaration order").
 ///   (b) APPEND komposit_line/komposit_len ans POD-Ende (sizeof 120 -> 136).
+///   (c) APPEND name_line/name_len ans POD-Ende (sizeof 136 -> 152) -- E-A/B-6 + V-05R. Er faehrt im
+///       SELBEN Layout-Schritt wie (a)/(b) und bumpt die Konstante NICHT ein zweites Mal: alle drei
+///       gehoeren zu EINEM Bruch (KON5-04 "ein Bruch statt zwei"), und ein Modul, das (b) kennt, aber
+///       (c) nicht, hat es nie gegeben -- beide entstehen im selben Commit derselben Welle.
 inline constexpr std::uint32_t kAnatomyVersionLinesLayout = 7;
 
-/// POD-Layout-Wache: AnatomyVersionLines ist ein POD aus 18 Feldern (2x uint32 + 5x {char const*, uint64} +
-/// 3x {AnatomyStampEntryV1 const*, uint64}), 8-aligned -> 136 Byte auf x86_64 (8-Byte-Zeiger). Bricht dieser Wert, ist
+/// POD-Layout-Wache: AnatomyVersionLines ist ein POD aus 20 Feldern (2x uint32 + 6x {char const*, uint64} +
+/// 3x {AnatomyStampEntryV1 const*, uint64}), 8-aligned -> 152 Byte auf x86_64 (8-Byte-Zeiger). Bricht dieser Wert, ist
 /// das POD-Layout gewandert: dann kAnatomyVersionLinesLayout bumpen UND diesen erwarteten sizeof aktualisieren (die
 /// COMDARE_ANATOMY_VERSION_STAMP-Materialisierung + jeder Modul-Rebau haengen daran). KLEINES ABI-Gate, KEIN
 /// binary_id-/CRC-Bruch (das optionale Probe-Symbol ist nicht Loader-Pflicht, binary_id bleibt Organ-only).
@@ -311,9 +326,9 @@ inline constexpr std::uint32_t kAnatomyVersionLinesLayout = 7;
 /// reiner Feld-TAUSCH gleichtypiger Felder laesst sizeof unveraendert -- 120 blieb 120, als die drei Zeilen
 /// im Vorlauf probeweise vertauscht wurden. Was den Tausch faengt, sind die designierten Initialisierer
 /// (Deklarations-Reihenfolge) und die Gleichheits-Wache; der sizeof-Pin faengt nur Wachstum und Entfall.
-static_assert(sizeof(AnatomyVersionLines) == 136,
+static_assert(sizeof(AnatomyVersionLines) == 152,
               "AnatomyVersionLines-POD-Layout gewandert -- kAnatomyVersionLinesLayout bumpen + erwarteten "
-              "sizeof (136 auf x86_64) aktualisieren.");
+              "sizeof (152 auf x86_64) aktualisieren.");
 static_assert(alignof(AnatomyVersionLines) == 8, "AnatomyVersionLines: 8-Byte-Ausrichtung erwartet (Zeiger).");
 
 /// VL-2 (i) -- DIE FELDZAHL-WACHE. Der sizeof-Pin darueber faengt jede Layout-Wanderung, aber genau EINEN
@@ -374,7 +389,7 @@ static_assert(alignof(AnatomyVersionLines) == 8, "AnatomyVersionLines: 8-Byte-Au
 /// BEIDE Richtungen ab (am Objekt geprueft, 17.08.2026): ein Feld MEHR reisst das Negativ-Bein, ein Feld
 /// WENIGER das Positiv-Bein -- beim probeweisen Entfall von measurement_entries feuerten Sonde, Typ-Folge
 /// und sizeof-Pin gemeinsam. Arbeitsteilung also: Sonde = Feld-ZAHL, Typ-Folge = Feld-ART.
-inline constexpr std::uint32_t kAnatomyVersionLinesFeldZahl = 18;
+inline constexpr std::uint32_t kAnatomyVersionLinesFeldZahl = 20; // E-A/B-6: +name_line/name_len
 
 namespace detail {
 /// Kurznamen NUR fuer die Typ-Folge-Wache -- die Liste steht sonst zweimal ueber je 16 Zeilen und waere
@@ -429,7 +444,7 @@ static_assert(
                                detail::FeldU64, detail::FeldZgr, detail::FeldU64, detail::FeldZgr, detail::FeldU64,
                                detail::FeldEintr, detail::FeldU64, detail::FeldEintr, detail::FeldU64,
                                detail::FeldEintr, detail::FeldU64, detail::FeldZgr, detail::FeldU64>,
-    "VL-2: AnatomyVersionLines nimmt seine 18 Felder nicht mehr in der erwarteten Typ-Folge -- ein "
+    "VL-2: AnatomyVersionLines nimmt seine 20 Felder nicht mehr in der erwarteten Typ-Folge -- ein "
     "Feld ist ENTFALLEN oder hat seinen Typ gewechselt. kAnatomyVersionLinesFeldZahl und die vier "
     "Aggregat-Initialisierer (decl-Probe, Makro anatomy_module_abi_v1.hpp, test_d2 mach_pod, "
     "test_m_w12) im SELBEN Commit nachziehen.");
@@ -718,7 +733,14 @@ inline constexpr std::uint64_t     kAnatomyAbiMagicAbi7 = 0x434F4D444141372EULL;
 /// WER DIESE KONSTANTE DREHT, DREHT DIESE DREI DATEIEN MIT. Die drei Konsumenten-Tests
 /// (test_g1_binary_version_stamp, test_s1_cache_key_prefix, test_s5_artifact_cache_bounded) leiten den
 /// Wert weiterhin bewusst AB und wandern von selbst mit -- sie sind hier bewusst NICHT gelistet.
-inline constexpr std::uint32_t kCebContractCodegenMinor = 1;
+// A-14/B-5b (18.08.2026, Lead-Freigabe "P3 nach Bauplan (1->2)"): 1 -> 2. DEKLARIERTE Bucket-
+// Invalidierung, kein Versions-Sturm -- der Bruch bewegt das POD-Layout (Append name_line/len) und die
+// Preimage-Grammatik, und genau dafuer ist dieser Minor da: er meldet der stale Binary, dass der Vertrag
+// sich erweitert hat. Praezedenz A13-M4/W10-M2/B14-NB4.
+// NICHT ZU VERWECHSELN mit kCebContractCodegenMinorAbi7 darunter: DAS ist ein eingefrorener Vorgaenger-
+// Wert unter Major 7 (7.2) und bleibt unangetastet. Der lebende Vertrag steht nach diesem Bump auf 8.2;
+// die beiden Bucket-Diff-Wachen (test_v41, test_w10_c4) vergleichen weiter 8.2 gegen 7.2 und halten.
+inline constexpr std::uint32_t kCebContractCodegenMinor = 2;
 
 /// HISTORIEN-FREEZE des Vorgaenger-Minors (E-24 C8, additiv -- s. kHostAnatomyAbiVersionAbi7). Der Wert 2
 /// ist der W10-M2-Stand unter Major 7; er wird von den Bucket-Diff-Beweisen als "Vorgaenger-Bucket" zitiert.

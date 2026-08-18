@@ -447,7 +447,7 @@ TEST(S1StempelBasisVertrag, DockNennerIstFuenf) {
 // A-P7: der g1-Einordnungs-Block -- vier gelabelte Zeilen, jede non-empty, Zeile 1 == Planer-Rolle
 // ================================================================================================
 TEST(S1StempelBasisVertrag, G1BlockVierZeilenNonEmptyUndPlanerRolle) {
-    std::string const          block = pfg::g1_binary_version_block("+ext=avx2+cxx=gcc:15.3.0+opt=O3+ceb=9.1");
+    std::string const          block = pfg::g1_binary_version_block("+ext=avx2+cxx=gcc:15.3.0+opt=O3+ceb=9.2");
     std::array<std::string, 4> zeilen{};
     std::size_t                n     = 0;
     std::size_t                start = 0;

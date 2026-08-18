@@ -674,10 +674,10 @@ TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt120) {
     // sizeof-static_assert lebt in anatomy_module_abi_v1_decl.hpp und haelt build-weit -- hier zusaetzlich als
     // literaler ctest-Beweis gespiegelt. binary_id/CRC UNBERUEHRT (POD-Layout != binary_id).
     using ::comdare::cache_engine::abi::AnatomyVersionLines;
-    static_assert(sizeof(AnatomyVersionLines) == 136,
-                  "POD-Layout-Wache: 18 Felder, 8-aligned -> 136 Byte (x86_64), seit S-6a/Layout 7.");
+    static_assert(sizeof(AnatomyVersionLines) == 152,
+                  "POD-Layout-Wache: 20 Felder, 8-aligned -> 152 Byte (x86_64), seit E-A/B-6 (+name_line/len).");
     static_assert(alignof(AnatomyVersionLines) == 8);
-    EXPECT_EQ(sizeof(AnatomyVersionLines), 136u);
+    EXPECT_EQ(sizeof(AnatomyVersionLines), 152u); // E-A/B-6: +name_line/name_len
     EXPECT_EQ(alignof(AnatomyVersionLines), 8u);
     EXPECT_EQ(::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 7u);
     // S-6a (Layout 7): die drei Zeilen-Paare stehen in der Kategorien-Ordnung MESS, SYSTEM, ORGAN. Das ist
@@ -802,7 +802,7 @@ TEST(MW12StampBausteine, VL2PodDoktrinUndFeldzahlVomKonsumenten) {
                   "VL-2: die Feldzahl des POD stimmt nicht mehr mit kAnatomyVersionLinesFeldZahl ueberein. Wer "
                   "sie bewegt, bewegt auch die vier designierten Aggregat-Initialisierer (decl-Probe, Makro, "
                   "test_d2 mach_pod, test_m_w12).");
-    static_assert(sizeof(abi::AnatomyVersionLines) == 136, "VL-2: sizeof-Pin, vom Konsumenten aus gesehen.");
+    static_assert(sizeof(abi::AnatomyVersionLines) == 152, "VL-2: sizeof-Pin, vom Konsumenten aus gesehen.");
     static_assert(alignof(abi::AnatomyVersionLines) == 8);
 
     // Die ""-Doktrin am Probe-POD: die vier Zeichen-Zeiger tragen "" (Laenge 0), NIE nullptr. Ein

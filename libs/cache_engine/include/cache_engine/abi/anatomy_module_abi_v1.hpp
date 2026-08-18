@@ -178,6 +178,19 @@
             ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash},               \
             ::comdare::cache_engine::abi::MessGatesGlied{::comdare::cache_engine::abi::kMessGatesTuGlied},             \
             ::comdare::cache_engine::abi::KompositMapGlied{::comdare::cache_engine::abi::kHybridKompositGlied});       \
+        /* E-A/B-6 + V-05R: DER NAME, aus DENSELBEN Argumenten wie kFP -- Glied fuer Glied identisch,     */           \
+        /* nur der Hash ist ein anderer (SHA-256 statt SHA-512). Waeren die Argumente hier auch nur an    */           \
+        /* einer Stelle andere, traege das Modul einen Namen, der zu seinem eigenen Fingerprint nicht     */           \
+        /* passt -- deshalb steht der Aufruf unmittelbar unter kFP und nicht an einer dritten Stelle.     */           \
+        static constexpr auto kNM = ::comdare::cache_engine::abi::anatomy_name_hex(                                    \
+            ::comdare::cache_engine::abi::MessZeile{measurement_lit},                                                  \
+            ::comdare::cache_engine::abi::SystemZeile{kSC.view()},                                                     \
+            ::comdare::cache_engine::abi::OrganZeile{organ_lit},                                                       \
+            ::comdare::cache_engine::abi::ToolchainGlied{::comdare::cache_engine::abi::kToolchainStampGlied},          \
+            ::comdare::cache_engine::abi::BvsetGlied{::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied},    \
+            ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash},               \
+            ::comdare::cache_engine::abi::MessGatesGlied{::comdare::cache_engine::abi::kMessGatesTuGlied},             \
+            ::comdare::cache_engine::abi::KompositMapGlied{::comdare::cache_engine::abi::kHybridKompositGlied});       \
         static constexpr auto kME =                                                                                    \
             ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(kM)>(  \
                 kM);                                                                                                   \
@@ -205,7 +218,9 @@
             .organ_entries           = ::comdare::cache_engine::abi::stamp_entries_ptr(kOE),                           \
             .organ_entry_count       = kOE.size(),                                                                     \
             .komposit_line           = ::comdare::cache_engine::abi::kHybridKompositGlied.data(),                      \
-            .komposit_len            = ::comdare::cache_engine::abi::kHybridKompositGlied.size()};                     \
+            .komposit_len            = ::comdare::cache_engine::abi::kHybridKompositGlied.size(),                      \
+            .name_line               = kNM.data(),                                                                     \
+            .name_len                = kNM.size() - 1};                                                                \
         return &kL;                                                                                                    \
     }
 
