@@ -47,6 +47,11 @@
 
 #include "genus_binding_traits.hpp" // GenusBindingTraits<G> (READ-ONLY, TABU) + GenusBound<G> + cea
 
+// HY-A3 (E-6/KON118): die CT-Slot-Zahl des Reroute-Genus kommt aus der Hybrid-Bindung selbst,
+// nicht aus einer Zahl an dieser Stelle. Die Kante builder/ -> hybrid/ ist die ERLAUBTE Richtung
+// (die Schicht-Wache lint_layer_includes.sh verbietet nur die Gegenrichtung).
+#include "hybrid/hybrid_binary_proxy.hpp" // hybrid::kRerouteGenusCtSlotCount
+
 #include <cache_engine/measurement/axis_error.hpp> // CompilerCompilerErrorClass / BuildCellStatus / Etiketten
 
 #include <array>
@@ -62,12 +67,23 @@ namespace cem = ::comdare::cache_engine::measurement;
 /// kGenusBuildSlotCounts -- die Slot-Zahl je Ebene-2-Gattung, COMPILE-TIME aus der Bau-Bindung gezogen.
 /// Index == Enum-Wert (SearchAlgorithm=0 .. View=4). Handgepflegte Zahlen stuenden hier falsch: sie
 /// wuerden beim naechsten Slot-Umbau still auseinanderlaufen, und genau das faengt der Cross-Pin unten.
-inline constexpr std::array<std::size_t, 5> kGenusBuildSlotCounts = {
+/// HY-A3 (E-6/KON118, 18.08.2026): SECHSTER Eintrag -- der Reroute-Genus. Er zaehlt KEINE
+/// Kompositions-Slots (er hat keine Komposition), sondern DOCKS: seine Bau-Aritaet ist der
+/// Dock-Programm-Deckel (32, KON28-03). Die Zahl kommt aus der Hybrid-Bindung
+/// (hybrid::kRerouteGenusCtSlotCount) und nicht von Hand -- dieselbe Begruendung wie fuer die
+/// fuenf darueber. RT <= CT: eine konkrete Hybrid-Binary bestueckt weniger, nie mehr.
+///
+/// WAS DAS NICHT HEISST: der Reroute-Genus wird dadurch NICHT ABI-sichtbar. Die Dock-Registry
+/// bleibt bei FUENF (register_all_genus_docks), genus() liefert weiter das geerbte Ziel-Genus.
+/// Diese Tabelle beantwortet die BAU-Frage ("darf gebaut werden, mit welcher Aritaet"), nicht die
+/// Lade-Frage.
+inline constexpr std::array<std::size_t, 6> kGenusBuildSlotCounts = {
     GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm>::slot_count,
     GenusBindingTraits<cea::AnatomyGenus::Set>::slot_count,
     GenusBindingTraits<cea::AnatomyGenus::Sequence>::slot_count,
     GenusBindingTraits<cea::AnatomyGenus::Adapter>::slot_count,
     GenusBindingTraits<cea::AnatomyGenus::View>::slot_count,
+    ::comdare::cache_engine::hybrid::kRerouteGenusCtSlotCount,
 };
 
 /// genus_is_build_bound(g) -- traegt die Gattung in DIESEM Bau eine Bau-Bindung? Am Ist: alle FUENF
@@ -168,7 +184,14 @@ struct GenusBuildVerdict {
 // ---------------------------------------------------------------------------------------------------
 // CROSS-PINS: die Laufzeit-Tabelle IST die compile-time-Bindung (sie kann nicht daneben laufen).
 // ---------------------------------------------------------------------------------------------------
-static_assert(kGenusBuildSlotCounts.size() == 5, "Ebene 2 hat fuenf Tier-Unterklassen (anatomy_base.hpp:78-84).");
+static_assert(kGenusBuildSlotCounts.size() == 6, "Ebene 2: fuenf ABI-sichtbare Tier-Unterklassen + ein Reroute-Genus "
+                                                 "(anatomy_base.hpp:135-169).");
+static_assert(genus_build_slot_count(cea::AnatomyGenus::FunctionInterfaceReroute) ==
+                  ::comdare::cache_engine::hybrid::kRerouteGenusCtSlotCount,
+              "HY-A3: die Bau-Aritaet des Reroute-Genus IST der Dock-Deckel der Hybrid-Bindung.");
+static_assert(genus_is_build_bound(cea::AnatomyGenus::FunctionInterfaceReroute),
+              "HY-A3: der Reroute-Genus ist BAU-gebunden -- die Schleifen laufen ab hier ueber "
+              "Index 5. Das ist die BAU-Aussage; ABI-sichtbar wird er dadurch nicht.");
 static_assert(genus_build_slot_count(cea::AnatomyGenus::SearchAlgorithm) ==
               GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm>::slot_count);
 static_assert(genus_build_slot_count(cea::AnatomyGenus::Set) == GenusBindingTraits<cea::AnatomyGenus::Set>::slot_count);
