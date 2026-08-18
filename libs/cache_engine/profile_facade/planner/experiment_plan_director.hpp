@@ -2155,6 +2155,19 @@ class ExperimentPlanDirector {
 public:
     ExperimentPlanDirector() = default;
     explicit ExperimentPlanDirector(PlanRegistryTrioAnnotation trio) : trio_(std::move(trio)) {}
+
+    /// A-05/VL-3: DER EINGANG DES --debug-FLAGS (18.08.2026, Bauplan B-5d "State + --debug").
+    ///
+    /// Vor diesem Bau hatte das Flag KEINEN Weg hierher: main.cpp:624ff entfernt es aus argv ("die
+    /// Sub-Parser sehen es nie"), und build_semantic wurde ausschliesslich aus run_methodology
+    /// abgeleitet. Der (j3)-Dual-Compile-Zweig (build_semantic.cmake_build_type == "Debug") war damit
+    /// ab dem work_mode-Umbau unerreichbar -- die Faehigkeit lebte weiter, nur ihre Tuer war zu.
+    ///
+    /// SETTER STATT KONSTRUKTOR-ARGUMENT: der Director wird an mehreren Stellen ohne Kenntnis des
+    /// Flags gebaut (Tests, Stufe-2-Pfade). Ein Pflicht-Argument haette jede davon zu einer Aussage
+    /// ueber Debug gezwungen, die sie nicht treffen kann; der Default false laesst sie schweigen.
+    void               set_debug_flag(bool on) noexcept { debug_flag_ = on; }
+    [[nodiscard]] bool debug_flag() const noexcept { return debug_flag_; }
     // S3 P-RESOLVER (2026-07-20): additiver Konstruktor mit dem VOLLEN RegistryTrio. Er traegt die Achsen-Namen-
     // Mengen, die der Resolver (resolve_axis_refs_against_trio) fuer die Organ-Position-Aufloesung braucht -- die
     // reine Zaehl-Annotation (PlanRegistryTrioAnnotation) reicht dafuer NICHT. Die Zaehl-Annotation wird aus DEMSELBEN
@@ -2198,7 +2211,7 @@ public:
         // m3_smoke_coverage (parallel + (j3)-Dual-Compile). Leer => aus tp.run_methodology (BYTE-IDENTISCH). §61: die
         // Methodik bleibt profil-getrieben+exactly-one; die Env ist Profil-SELEKTOR, nicht Methodik-Wert.
         PlanBuildSemantic const build_semantic = build_semantic_of_run_methodology(
-            methodik_run_methodology.empty() ? tp.run_methodology : methodik_run_methodology);
+            methodik_run_methodology.empty() ? tp.run_methodology : methodik_run_methodology, debug_flag_);
         // Plan-Kopf v1.1: Substanz des THESIS-Profils = permutierte Achsen + Summe ihrer <value>-Eintraege
         // (dieselbe Zaehlung, die der Validat als "N Achsen, M Werte" meldet).
         PlanProfileSubstance thesis_substance;
@@ -2244,7 +2257,7 @@ public:
         // smoke=>debug-Entkopplung (2026-07-22): METHODIK-Profil-Override (s. Thesis-Overload); leer => aus
         // ep.run_methodology (BYTE-IDENTISCH). Achsen/Perms bleiben aus ep.
         PlanBuildSemantic const build_semantic = build_semantic_of_run_methodology(
-            methodik_run_methodology.empty() ? ep.run_methodology : methodik_run_methodology);
+            methodik_run_methodology.empty() ? ep.run_methodology : methodik_run_methodology, debug_flag_);
         // Plan-Kopf v1.1: Substanz des EXPERIMENT-Profils = axes_default_lookup-Eintraege + Summe ihrer
         // allowed_variants (die Default-/Limit-Schicht ist hier die Achsen-Deklaration des Anwenders).
         PlanProfileSubstance experiment_substance;
@@ -2271,6 +2284,8 @@ public:
     }
 
 private:
+    /// A-05/VL-3: die Auspraegungs-Drehung dieses Laufs. false == der work_mode entscheidet allein.
+    bool debug_flag_ = false;
     // S3 P-RESOLVER: der Organ-Position-Reject/Route-Report je Kanal. Ohne volles RegistryTrio (Default-/Annotation-
     // Konstruktor) INERT (resolved=false, 0 Rejects); mit vollem Trio klassifiziert er die permute_axes/axes_default_
     // lookup-Refs (tlz::organ_position_refs ueberladen je Profil-Art). READ-ONLY, binary_id-neutral (kein Filter).
@@ -2289,7 +2304,7 @@ private:
     // falsch (0 Leser, nachgezaehlt ueber alle header_.build_semantic-Zugriffe, s. Struct-Doku). Der Konsument ist
     // der per-Methodik-Fanout {debug,measure,release} zu N Mess-Strecken, und der ist S6.
     [[nodiscard]] static PlanBuildSemantic
-    build_semantic_of_run_methodology(std::vector<std::string> const& run_methodology) {
+    build_semantic_of_run_methodology(std::vector<std::string> const& run_methodology, bool debug_flag = false) {
         // §61-STUFEN/(j2): GENAU EIN aktiver Modus je Profil (validate erzwingt exactly-one, j1). Die Build-Semantik
         // kommt aus DIESEM Modus -- Debug={Debug,misst,parallel}, Measure={Release,misst,1-Thread}, Release={Release,
         // misst NICHT}. NICHT mehr fix measure (Vor-(j2)-Lesart). Leer => Default measure (Release, 1-Thread). Die
@@ -2306,6 +2321,14 @@ private:
         // Tippfehler im Profil emittierte damit eine vollstaendige Mess-Strecke, die niemand angefordert hat.
         // Die >1-Wache bleibt HIER (eigene, den Planer nennende Meldung); die Registry wiederholt sie nur.
         cm::WorkModeInfo const& m = cm::run_methodology_for_ids(run_methodology);
+        // A-05/VL-3: DIE AUSPRAEGUNGS-DREHUNG, und sie sitzt HIER und nur hier. Owner verbatim
+        // (main.cpp:624ff): das Flag "beeinflusst zwar die AUSPRAEGUNG der States, aber nicht ihr
+        // Verhalten der Reihenfolge oder Abhaengigkeiten". Der work_mode bleibt also, was das Profil
+        // sagt; nur Bau-Typ und Parallelitaet drehen sich. measurement_on bleibt UNBERUEHRT: OB
+        // gemessen wird, sagt der Modus -- das Flag sagt nur, WIE gebaut und mit wie vielen Threads
+        // gelaufen wird. Eine zweite Stelle, die "Debug" setzen koennte, waere die Doppel-Wahrheit,
+        // an der der j2/j3-Zweig schon einmal haengen blieb.
+        if (debug_flag) return PlanBuildSemantic{"Debug", m.measurement_on, false};
         return PlanBuildSemantic{std::string(m.cmake_build_type), m.measurement_on, m.single_thread};
     }
 

@@ -3455,6 +3455,55 @@ TEST(PmcHostProbe, RealeProbeStimmtMitProcCpuinfoUeberein) {
     std::cout << "[REALE PROBE] " << b.nenner_zeile() << "\n";
 }
 
+namespace {
+
+/// P1/A-05 (18.08.2026): DER STATE-DIREKTE EINGANG IN DIE (j3)-MECHANIK.
+///
+/// Der Emitter verzweigt ausschliesslich auf header_.build_semantic.cmake_build_type == "Debug"
+/// (experiment_plan_director.hpp: (j3)-Zweig im TierCiYamlBuilder). Bis zum work_mode-Umbau kam dieser
+/// Zustand aus dem Profil-Token "debug"; den gibt es nicht mehr (V-12), und der CLI-Eingang, der ihn
+/// kuenftig setzt, gehoert nach S-8/W2 -- er wird dort MIT eigenem End-zu-Ende-Test gebaut.
+///
+/// Der Test greift deshalb an dem Ort an, an dem die Mechanik wirklich haengt: am ZUSTANDSFELD. Dieser
+/// Decorator sitzt zwischen Director und ConcreteBuilder und dreht den Plan-Kopf auf seinem Weg nach
+/// innen an genau EINEM Feld. header_ wird im TierCiYamlBuilder ausschliesslich in begin_plan gesetzt --
+/// darum reicht dieser eine Durchgriff, um alle (j3)-Leser zu treiben.
+///
+/// WARUM NICHT EIN SETTER AM DIRECTOR: der waere Produktions-Code fuer einen Eingang, der in dieser Welle
+/// noch nicht gebaut wird -- und ein zweiter Weg, "Debug" zu setzen, ist genau die Doppel-Wahrheit, an
+/// der der j2/j3-Zweig schon einmal haengen blieb. Der Decorator lebt im Test und laesst die
+/// Produktions-Semantik unberuehrt: derselbe Director, derselbe Walk, dieselbe Emission.
+class DebugSemantikInjektor final : public planner::IPlanBuilder {
+public:
+    explicit DebugSemantikInjektor(planner::IPlanBuilder& inner) : inner_(inner) {}
+
+    void begin_plan(planner::PlanHeader const& h) override { inner_.begin_plan(auf_debug_gedreht(h)); }
+    void begin_perm(planner::PlanPerm const& p) override { inner_.begin_perm(p); }
+    void on_step(planner::PlanStep const& s) override { inner_.on_step(s); }
+    void end_perm(planner::PlanPerm const& p) override { inner_.end_perm(p); }
+    void end_plan(planner::PlanHeader const& h) override { inner_.end_plan(auf_debug_gedreht(h)); }
+    void begin_measurement_combo(planner::PlanMeasurementCombo const& c) override {
+        inner_.begin_measurement_combo(c);
+    }
+    void end_measurement_combo(planner::PlanMeasurementCombo const& c) override { inner_.end_measurement_combo(c); }
+
+private:
+    /// Die VOLLE Zeile, die der ausgebaute work_mode "debug" trug: {Debug, misst, NICHT 1-Thread}. Nur
+    /// cmake_build_type hat heute Leser (s. PlanBuildSemantic-Struct-Doku); die beiden anderen werden
+    /// trotzdem wahrheitsgemaess gesetzt, damit der injizierte Zustand nicht ein Drittel-Zustand ist,
+    /// den es so nie gab.
+    [[nodiscard]] static planner::PlanHeader auf_debug_gedreht(planner::PlanHeader h) {
+        h.build_semantic.cmake_build_type = "Debug";
+        h.build_semantic.measurement_on   = true;
+        h.build_semantic.single_thread    = false;
+        return h;
+    }
+
+    planner::IPlanBuilder& inner_;
+};
+
+} // namespace
+
 // (S6-P1 g/h) §61-MODI: der Mess-Job traegt (g) den smoke=Debug-Branch (parallel/schnell) + measure=Release (sonst),
 //       den §61-Regressions-Fix (DLL-Bau parallel statt =1) und (h) per-Host-Lanes (prod1/amd, prod2/intel; avx512
 //       nie intel). Paralleles MESSEN (debug-Ideal) bleibt UNGEBAUT (§16.2-M1) -- hier NICHT getestet (ehrliche Luecke).
@@ -3502,14 +3551,29 @@ TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
     EXPECT_EQ(planner::measure_host_lane("avx2", "[wallclock]"), "intel") << "avx2 -> intel (Combo ignoriert)";
     EXPECT_NE(planner::measure_host_lane("avx512", "[macro]"), "intel") << "avx512 landet NIE auf intel";
 
-    // DEBUG-Profil (j2: Methodik aus dem PROFIL): dieselben Achsen, run_methodology=debug -> STATISCH Debug-Build +
-    // (i) COMDARE_BUILD_TYPE=Debug-Signal (Nicht-Default => +bt=Debug an der facade-Suffix-Naht, benannter Folgepunkt).
+    // DEBUG-AUSPRAEGUNG -- MIGRIERT AUF DEN --debug-EINGANG (A-05/V-12, 18.08.2026, Bauplan B-5d
+    // "State + --debug"). Bis hierher stand hier `run_methodology = {"debug"}`: die Debug-Bau-Semantik
+    // kam aus dem PROFIL-Token. Dieser Token existiert nicht mehr -- debug war der einzige work_mode,
+    // der MASS UND DABEI PARALLEL LIEF, und ist deshalb ausgebaut.
+    //
+    // DER GEGENSTAND IST DERSELBE GEBLIEBEN, nur sein Eingang ist neu: der work_mode bleibt `build`
+    // (Reihenfolge und Enthaltungs-Ordnung unberuehrt), und das --debug-Flag dreht die AUSPRAEGUNG auf
+    // Debug-Bau + parallel. Genau diese Trennung ist der Owner-Satz zum Flag ("beeinflusst zwar die
+    // AUSPRAEGUNG der States, aber nicht ihr Verhalten der Reihenfolge oder Abhaengigkeiten").
+    // Was der Test unveraendert prueft -- (j3)-Dual-Compile, +bt-Signal, provision-only-Vorlauf --, ist
+    // deshalb weiterhin dieselbe Faehigkeit und keine nachgezogene Erwartung.
     auto dbg             = tp;
     dbg->run_methodology = {"build"};
     planner::TierCiYamlBuilder tb_dbg;
-    director.construct(*dbg, tb_dbg);
+    // EIGENER Director statt Setter auf dem gemeinsamen: der oben benutzte ist const, und das ist gut so
+    // -- ein Flag, das man einem geteilten Director nachtraeglich anschaltet, faerbt alle spaeteren
+    // Konstruktionen im selben Test mit ein. Der Debug-Lauf bekommt deshalb sein eigenes Objekt.
+    planner::ExperimentPlanDirector dbg_director;
+    dbg_director.set_debug_flag(true); // <- DER NEUE EINGANG (vorher: der Profil-Token)
+    dbg_director.construct(*dbg, tb_dbg);
     std::string const& ydbg = tb_dbg.text();
-    EXPECT_NE(ydbg.find("-DCMAKE_BUILD_TYPE=Debug"), std::string::npos) << "debug-Profil => statisch Debug (j2)";
+    EXPECT_NE(ydbg.find("-DCMAKE_BUILD_TYPE=Debug"), std::string::npos)
+        << "--debug-Flag => statisch Debug (Auspraegung, nicht Modus)";
     EXPECT_NE(ydbg.find("COMDARE_BUILD_TYPE=\"Debug\""), std::string::npos) << "(i) Nicht-Default => +bt-Signal";
 
     // (j3) §61-STUFEN Dual-Compile: der Debug-Mess-Job macht ZWEI Treiber-Aufrufe -- (1) Release provision-only
