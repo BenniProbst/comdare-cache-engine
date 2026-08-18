@@ -35,6 +35,12 @@
 
 #include "heuristik_adapter_klassifikation.hpp"  // ist_abi_sichtbares_genus / ist_klassifikations_genus
 #include "heuristik_adapter_synthese_matrix.hpp" // kHybridNodeObergrenzeDefault (Dock-Programm-Deckel)
+#include "hybrid_dock_array.hpp"                 // DockArray + StatischeDockArrayPolicy
+#include "hybrid_dock_contract.hpp"              // DockContractDescriptor + hybrid_status_*
+#include "hybrid_dock_factory.hpp"               // DockArray<Policy>::attach (Definition)
+#include "hybrid_pruef_dock.hpp"                 // StandardHybridDock
+
+#include "anatomy/observable_tier.hpp" // IObservableTier (der Antrieb am Dock)
 
 #include "anatomy/anatomy_base.hpp" // IAnatomyBase / AnatomyGenus / AnatomyGattung
 
@@ -55,13 +61,27 @@ namespace comdare::cache_engine::hybrid {
 template <anatomy::AnatomyGenus G>
 struct RerouteZiel;
 
-/// Das EINE deklarierte Ziel des F8-Minimal-Schnitts. Ein zweites kommt als weitere
-/// Spezialisierung dazu -- die Zeile ist dann der sichtbare Beleg, dass jemand die Zulaessigkeit
-/// GEPRUEFT hat, statt sie zu unterstellen.
+/// DIE ZWEI deklarierten plain-Tier-Ziele des F8-Minimal-Schnitts. Jede Zeile ist der sichtbare
+/// Beleg, dass jemand die Zulaessigkeit GEPRUEFT hat, statt sie zu unterstellen.
+///
+/// WARUM ES ZWEI SIND UND NICHT EINS: mit nur einer Spezialisierung waere nicht unterscheidbar, ob
+/// die Sperre wirklich AUSWAEHLT oder ob der Bau schlicht nur einen einzigen Fall kennt. Erst das
+/// Paar zeigt, dass der Mechanismus eine ECHTE Teilmenge bildet -- zwei zulaessige Genera stehen
+/// drei unzulaessigen gegenueber (Sequence, Adapter, View).
+///
+/// WARUM GERADE DIESE ZWEI: SearchAlgorithm ist die Gattung Map (18 Organ-Achsen, das Haupt-Tier),
+/// Set die Container-Gattung. Ein Ziel-Paar aus VERSCHIEDENEN Gattungen belegt, dass der Reroute
+/// nicht an einer Gattung klebt -- ein Paar aus zwei Container-Genera haette das offen gelassen.
 template <>
 struct RerouteZiel<anatomy::AnatomyGenus::SearchAlgorithm> {
     static constexpr anatomy::AnatomyGenus genus     = anatomy::AnatomyGenus::SearchAlgorithm;
     static constexpr std::string_view      ziel_name = "SearchAlgorithm";
+};
+
+template <>
+struct RerouteZiel<anatomy::AnatomyGenus::Set> {
+    static constexpr anatomy::AnatomyGenus genus     = anatomy::AnatomyGenus::Set;
+    static constexpr std::string_view      ziel_name = "Set";
 };
 
 /// reroute_ziel_deklariert<G>() -- die LESBARE Fassung derselben Frage. Sie existiert, damit die
@@ -71,15 +91,35 @@ template <anatomy::AnatomyGenus G>
     return requires { RerouteZiel<G>::genus; };
 }
 
+// DIE ZWEI ZULAESSIGEN --------------------------------------------------------------------------
 static_assert(reroute_ziel_deklariert<anatomy::AnatomyGenus::SearchAlgorithm>(),
-              "HY-A2: SearchAlgorithm ist das deklarierte Ziel des F8-Minimal-Schnitts.");
+              "HY-A2: SearchAlgorithm ist das erste deklarierte Ziel des F8-Minimal-Schnitts.");
+static_assert(reroute_ziel_deklariert<anatomy::AnatomyGenus::Set>(),
+              "HY-A2: Set ist das zweite deklarierte Ziel des F8-Minimal-Schnitts.");
+
+// DIE UNZULAESSIGEN -- vollzaehlig aufgezaehlt, damit die Sperre MESSBAR trennt ------------------
+// Ohne diese Zeilen bewiese der Bau nur, dass zwei Faelle gehen; er sagte nichts darueber, ob die
+// UEBRIGEN gesperrt sind. Ein Praedikat, das auf immer-wahr degeneriert, liesse jeden Enum-Wert
+// durch und faellt genau hier auf.
 static_assert(!reroute_ziel_deklariert<anatomy::AnatomyGenus::FunctionInterfaceReroute>(),
               "HY-A2/Gate S1: der Reroute-Genus selbst ist NIE ein Ziel -- ein Hybrid auf einen "
               "Hybrid haette am Ende der Kette kein ABI-Interface.");
 static_assert(!reroute_ziel_deklariert<anatomy::AnatomyGenus::View>(),
               "HY-A2: die CT-Sperre unterscheidet noch -- View ist ABI-sichtbar, aber von DIESEM Bau "
-              "nicht als Reroute-Ziel deklariert. Faellt diese Zeile, ist die Sperre auf immer-wahr "
-              "degeneriert und liesse jeden Enum-Wert durch.");
+              "nicht als Reroute-Ziel deklariert.");
+static_assert(!reroute_ziel_deklariert<anatomy::AnatomyGenus::Sequence>(),
+              "HY-A2: Sequence ist ABI-sichtbar, aber nicht als Reroute-Ziel deklariert.");
+static_assert(!reroute_ziel_deklariert<anatomy::AnatomyGenus::Adapter>(),
+              "HY-A2: Adapter ist ABI-sichtbar, aber nicht als Reroute-Ziel deklariert.");
+
+/// kDeklarierteRerouteZiele -- die Abnahme-Zahl der Ziel-Deklaration, an EINER Stelle. Sie steht
+/// hier und nicht im Test, damit ein Ziel-Zuwachs am EIGENTUEMER auffaellt und nicht erst im Lauf.
+inline constexpr std::size_t kDeklarierteRerouteZiele = 2;
+
+static_assert(kDeklarierteRerouteZiele == 2,
+              "HY-A2/F8-DoD: GENAU ZWEI plain-Tier-Ziele sind deklariert. Wer ein drittes "
+              "aufnimmt, zieht diese Zahl UND den zugehoerigen Negativ-static_assert im selben "
+              "Commit nach -- sonst behauptet die Abnahme eine Trennung, die es nicht mehr gibt.");
 
 // ------------------------------------------------------------------------------------------
 // (2) DER CT-SLOT-DECKEL DES REROUTE-GENUS
@@ -107,33 +147,137 @@ static_assert(kRerouteGenusCtSlotCount == 32,
               "genus_build_admission.hpp im SELBEN Commit nachziehen.");
 
 // ------------------------------------------------------------------------------------------
-// (3) DER PROXY -- NOCH NICHT GEBAUT, UND WARUM DIESE DATEI IHN TROTZDEM VORBEREITET
+// (3) DER PROXY -- DELEGATION AUF DEN ADAPTER, NICHT NEBEN IHN
 // ------------------------------------------------------------------------------------------
 //
-// GEMESSENER BEFUND (18.08.2026, Probe-TU gegen genau diese Header, nicht geschaetzt): eine Klasse,
-// die IAnatomyBase direkt erbt, ist ABSTRAKT -- IAnatomyBase zieht ueber
-// anatomy/../execution_engine/execution_engine_base.hpp die volle IExecutionEngine-Flaeche mit
-// (engine_name, lifecycle_state, warm_up, run, reset, ...). Der Compiler nennt sie einzeln:
-//   "cannot declare variable to be of abstract type HybridBinaryProxy<...>"
-//   "because the following virtual functions are pure: engine_name, lifecycle_state, warm_up, run,
-//    reset, ..."
+// DER BEFUND, DER DIESEN SCHNITT ERZWUNGEN HAT (18.08.2026, am Compiler gemessen): eine Klasse, die
+// IAnatomyBase erbt, muss die VOLLE IExecutionEngine-Flaeche bedienen -- engine_name,
+// lifecycle_state, warm_up, run, reset, shutdown (execution_engine_base.hpp:103-118; engine_kind()
+// ist in IAnatomyBase final und faellt weg). Der erste Entwurf liess sie offen und war abstrakt.
 //
-// WAS DARAUS FOLGT -- und das ist eine DESIGN-Aussage, keine Fleissaufgabe: der Proxy darf diese
-// Flaeche NICHT selbst nachbauen. Fuer plain Tiere loest sie der bestehende
-// SearchAlgorithmAbiAdapter (anatomy/abi_adapter.hpp), und ein zweiter, handgeschriebener
-// Lebenszyklus im Hybrid waere genau die ZWEITE WAHRHEIT, gegen die K2 gebaut ist: zwei Stellen,
-// die "warm_up" beantworten, laufen auseinander, und die Mess-Semantik haengt daran.
-// Der richtige Schnitt ist deshalb, den Proxy AUF den Adapter zu setzen (Delegation an das
-// gebundene Ziel) statt NEBEN ihn -- das ist Bau-Arbeit am Adapter-Vertrag und gehoert in einen
-// Schnitt, der ihn mit ansieht, nicht in einen Header, der ihn nur benutzen wollte.
+// DIE FALSCHE HEILUNG WAERE, SIE HIER NACHZUBAUEN. Fuer plain Tiere beantwortet sie der
+// SearchAlgorithmAbiAdapter (abi_adapter.hpp:428-443), und zwar mit einer ausdruecklichen Zusage:
+// "die Lifecycle-Methoden setzen NUR state_ (kein eigener Preheat)" (:392). Ein zweiter, hier
+// geschriebener Lebenszyklus waere die ZWEITE WAHRHEIT, gegen die K2 gebaut ist: zwei Stellen, die
+// "warm_up" beantworten, laufen auseinander -- und an warm_up haengt die Mess-Semantik (E-WARMUP:
+// ausfuehren -> zurueckrollen -> warm wiederholen). Ein Hybrid, der seinen eigenen Warmup-Zustand
+// fuehrt, meldete "warm", waehrend sein Ziel kalt ist.
 //
-// WAS HIER SCHON STEHT UND TRAEGT: die Ziel-DEKLARATION mit ihrer CT-Sperre (1) und der
-// CT-Slot-Deckel (2). Beide sind unabhaengig vom Lebenszyklus, beide sind compile-time bewiesen,
-// und (2) ist die Einzelquelle, aus der das Bau-Gate seine sechste Zeile zieht
-// (builder/experiment_tree/genus_build_admission.hpp). Sie sind damit KEIN Vorgriff, sondern der
-// Teil von HY-A2, der ohne den Adapter-Schnitt vollstaendig ist.
+// DESHALB: DELEGATION. Der Proxy haelt das gebundene Ziel als IAnatomyBase* (dasselbe Objekt, das
+// auch am Dock als IObservableTier* haengt -- der Adapter erbt beide) und reicht JEDE Frage 1:1
+// durch. Seine EIGENLEISTUNG ist genau zweierlei und sonst nichts:
+//   (a) die Reroute-BUCHFUEHRUNG (welches Ziel steckt an welchem Dock),
+//   (b) die Identitaets-Antwort, die NICHT delegiert werden darf: composition_name/paper_id nennen
+//       den HYBRID, nicht sein Ziel -- sonst waere die Hybrid-Binary im Log ununterscheidbar von
+//       einem plain Tier, und genau diese Unterscheidbarkeit ist der Zweck der Gattung.
+// genus() dagegen WIRD delegiert: das ist Weg C. Die Antwort ist damit per Konstruktion das geerbte
+// Ziel-Genus und kann gar nicht der Reroute-Wert sein.
 //
-// OFFEN (benannter Posten, nicht stillschweigend weggelassen): HybridBinaryProxy selbst, das
-// hybrid_tier_module.cpp mit den vier ABI-Pflicht-Symbolen und der F8-Reroute-Roundtrip-Test.
+// DER UNGEBUNDENE ZUSTAND ist ein ehrlicher Zustand, kein Absturz: solange kein Ziel steckt, liefert
+// der Proxy benannte Sentinels ("hybrid_ungebunden", Idle, 0 Organe). Ein Proxy, der stattdessen
+// dereferenzierte, braeche zwischen attach und Bindung -- also in genau dem Fenster, das das
+// Dock-Design ausdruecklich vorsieht (StandardHybridDock::ist_bereit trennt "Slot belegt" von
+// "Ziel gebunden").
+
+template <anatomy::AnatomyGenus ZielGenus, std::size_t MaxDocks = 1>
+class HybridBinaryProxy final : public anatomy::IAnatomyBase {
+    static_assert(reroute_ziel_deklariert<ZielGenus>(),
+                  "HY-A2: dieses Reroute-Ziel ist NICHT deklariert. Zulaessig sind ausschliesslich "
+                  "Genera mit einer RerouteZiel<G>-Spezialisierung in diesem Header. Ein "
+                  "Klassifikations-Genus (FunctionInterfaceReroute) ist NIE zulaessig -- er haette "
+                  "am Ende der Reroute-Kette kein ABI-Interface (Gate S1). Wer ein neues Ziel "
+                  "braucht, schreibt die Spezialisierung; er setzt nicht den Enum-Wert ein.");
+    static_assert(MaxDocks >= 1 && MaxDocks <= kRerouteGenusCtSlotCount,
+                  "HY-A2: die Dock-Zahl liegt ausserhalb von [1, Programm-Deckel]. Null Docks waere "
+                  "eine Hybrid-Binary ohne Ziel -- eine Huelle, die sich wie ein Tier anfuehlt.");
+
+public:
+    using Policy = StatischeDockArrayPolicy<MaxDocks>;
+
+    HybridBinaryProxy() noexcept = default;
+
+    // -- IExecutionEngine: 1:1 DELEGATION, kein eigener Zustand --------------------------------
+
+    [[nodiscard]] std::string_view engine_name() const noexcept override {
+        return ziel_ == nullptr ? std::string_view{"hybrid_ungebunden"} : ziel_->engine_name();
+    }
+    [[nodiscard]] ::comdare::cache_engine::execution_engine::EngineLifecycleState
+    lifecycle_state() const noexcept override {
+        return ziel_ == nullptr ? ::comdare::cache_engine::execution_engine::EngineLifecycleState::Idle
+                                : ziel_->lifecycle_state();
+    }
+    void warm_up() override {
+        if (ziel_ != nullptr) ziel_->warm_up();
+    }
+    void run() override {
+        if (ziel_ != nullptr) ziel_->run();
+    }
+    void reset() override {
+        if (ziel_ != nullptr) ziel_->reset();
+    }
+    void shutdown() override {
+        if (ziel_ != nullptr) ziel_->shutdown();
+    }
+
+    // -- IAnatomyBase ---------------------------------------------------------------------------
+
+    /// WEG C: das GEERBTE Ziel-Genus -- delegiert, also per Konstruktion NIE der Reroute-Wert.
+    /// Ohne Ziel die CT-Deklaration: sie ist die Zusage dieses Bau-Typs, keine Erfindung.
+    [[nodiscard]] anatomy::AnatomyGenus genus() const noexcept override {
+        return ziel_ == nullptr ? ZielGenus : ziel_->genus();
+    }
+
+    /// NICHT delegiert (Begruendung im Kopf): der Hybrid nennt sich selbst.
+    [[nodiscard]] std::string_view composition_name() const noexcept override { return "HybridBinaryProxy"; }
+    [[nodiscard]] std::string_view paper_id() const noexcept override { return "HY-A2"; }
+
+    /// Die Organ-Zahl des ZIELS -- der Proxy hat keine eigene Anatomie. Ohne Ziel: 0, und das ist
+    /// die ehrliche Antwort. Die Zahl, die das Ziel HAETTE, waere eine Behauptung ueber etwas, das
+    /// nicht da ist.
+    [[nodiscard]] std::size_t organ_count() const noexcept override {
+        return ziel_ == nullptr ? std::size_t{0} : ziel_->organ_count();
+    }
+
+    // -- Die Reroute-Naht -----------------------------------------------------------------------
+
+    /// dock_anlegen() -- legt das Standard-Dock an. Rueckgabe: Slot-Index (>= 0) oder -status.
+    /// Der Deskriptor traegt den ZIEL-Genus, nicht den Reroute-Genus: das Dock nimmt plain Tiere auf.
+    [[nodiscard]] int dock_anlegen() noexcept {
+        DockContractDescriptor const desc{static_cast<std::uint8_t>(HybridDockContract::Standard), ZielGenus};
+        return docks_.attach(desc);
+    }
+
+    /// ziel_binden(slot, antrieb, basis) -- DER UMSCHALTPUNKT. Beide Zeiger zeigen auf DASSELBE
+    /// Objekt (der Adapter erbt IObservableTier UND IAnatomyBase); sie stehen getrennt in der
+    /// Signatur, weil der Aufrufer den Cross-Cast besitzt und nicht dieser Header.
+    ///
+    /// nullptr in BEIDEN heisst GELOEST, nicht Fehler -- der Slot muss seinen Zeiger verlieren,
+    /// BEVOR das Ziel-Modul entladen wird (destroy-vor-dlclose). Ein Dock, das einen Zeiger in ein
+    /// entladenes Modul behielte, waere ein use-after-dlclose mit voll plausiblem Verhalten bis zum
+    /// ersten Zugriff.
+    [[nodiscard]] int ziel_binden(std::size_t slot, anatomy::IObservableTier* antrieb,
+                                  anatomy::IAnatomyBase* basis) noexcept {
+        int const status = docks_.antrieb_binden(slot, antrieb);
+        if (status != hybrid_status_ok) return status;
+        ziel_ = basis;
+        return hybrid_status_ok;
+    }
+
+    /// antrieb(slot) -- der OP-PFAD. Ein Zeiger-Read, kein visit, kein Cast (HY-A1-Hotpath-Anker).
+    [[nodiscard]] anatomy::IObservableTier* antrieb(std::size_t slot) const noexcept {
+        return docks_.antrieb_von(slot);
+    }
+
+    [[nodiscard]] bool                              ist_gebunden() const noexcept { return ziel_ != nullptr; }
+    [[nodiscard]] std::size_t                       belegte_docks() const noexcept { return docks_.size(); }
+    [[nodiscard]] std::size_t                       dock_kapazitaet() const noexcept { return docks_.kapazitaet(); }
+    [[nodiscard]] static constexpr std::string_view reroute_ziel_name() noexcept {
+        return RerouteZiel<ZielGenus>::ziel_name;
+    }
+
+private:
+    DockArray<Policy>      docks_{};
+    anatomy::IAnatomyBase* ziel_ = nullptr;
+};
 
 } // namespace comdare::cache_engine::hybrid
