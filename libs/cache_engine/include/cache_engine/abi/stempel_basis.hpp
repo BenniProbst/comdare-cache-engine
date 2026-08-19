@@ -396,9 +396,6 @@ consteval bool version_xyz_politik_probe(...) {
         if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
     return true;
 }
-[[nodiscard]] consteval bool ist_sha512_hex_128(std::string_view s) noexcept {
-    return ist_sha_hex(s, kFingerprintShaHexLaenge);
-}
 template <class E, StempelTraeger T,
           bool B = ist_sha_hex(std::string_view{E::fingerprint_sha()}, fingerprint_sha_hex_laenge(T))>
 consteval bool fingerprint_sha_laenge_probe(int) {

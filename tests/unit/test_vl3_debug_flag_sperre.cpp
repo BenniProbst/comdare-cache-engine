@@ -148,10 +148,11 @@ int main(int argc, char* argv[]) {
     // nicht aus irgendeinem anderen Fehler -- ohne das Literal waere der Koeder nicht fuehrbar.
     char const* const kFehlerklasse = "fehlerklasse=debug_zulassung_gesperrt";
     // Die Nadel fuer "das Subkommando ist WIRKLICH gelaufen": der Stempel-Praefix von `version`, am
-    // Objekt gemessen ("planner@1.0.0.c isa=x86_64 os=linux"), NICHT geraten. Eine Nadel, die im Bestand
-    // gar nicht vorkommt, macht die Positiv-Zusicherung unerfuellbar und die Negativ-Zusicherung
-    // trivial wahr -- beides waren Wachen, die nie beissen (V-2). Genau das ist hier beim ersten
-    // gruenen Lauf aufgefallen und korrigiert worden.
+    // Objekt gemessen ("planner@1.0.0.c isa=x86_64 os=linux sha256=<64hex>" seit V-08R; der 64-hex-
+    // Digest ist quell-abhaengig und deshalb hier nicht gepinnt), NICHT geraten. Eine Nadel, die im
+    // Bestand gar nicht vorkommt, macht die Positiv-Zusicherung unerfuellbar und die Negativ-
+    // Zusicherung trivial wahr -- beides waren Wachen, die nie beissen (V-2). Genau das ist hier
+    // beim ersten gruenen Lauf aufgefallen und korrigiert worden.
     char const* const kVersionsNadel = "planner@";
 
     // == TEIL 2: DER KOEDER -- --debug aus dem ANWENDER-Kontext MUSS abgewiesen werden ===============

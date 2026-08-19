@@ -3,7 +3,8 @@
 // Treiber-Binary (Planer- + CEB-Rolle -- EIN Binary, zwei Rollen). Header-only, rein-lesend, KEIN Bau.
 //
 // Vier gelabelte Zeilen, jede non-empty:
-//   planner@X.Y.Z isa=<isa> os=<os>   -- der Planer-Selbst-Stempel (planner_version_stamp(), selbst-gelabelt)
+//   planner@X.Y.Z isa=<isa> os=<os> sha256=<64hex> -- der Planer-Selbst-Stempel (planner_version_stamp(),
+//                                                      selbst-gelabelt; " sha256="-Schlussfeld seit V-08R/KON101)
 //   ceb-contract=<MAJOR>.<minor>      -- die CEB-Contract-Version (ABI-Major automatisch, codegen-Minor manuell)
 //   build-type=<Debug|Release>        -- die Compile-Einstellung (immer non-empty; Default Release)
 //   build-version=<system-suffix>     -- die volle System-Achsen-build_version (+ext/+cxx/+opt/+ceb[/+bt/...])
@@ -57,7 +58,7 @@ namespace comdare::cache_engine::builder::profile_facade {
 /// enthaelt bereits +ceb/+bt/+ext/+cxx/+opt) -- hereingereicht, damit der Header .cpp-frei bleibt.
 [[nodiscard]] inline std::string g1_binary_version_block(std::string_view system_build_version) {
     std::string out;
-    out += ::comdare::cache_engine::planner::planner_version_stamp(); // "planner@X.Y.Z isa=.. os=.." (selbst-gelabelt)
+    out += ::comdare::cache_engine::planner::planner_version_stamp(); // "planner@X.Y.Z isa=.. os=.. sha256=.."
     out += '\n';
     out += "ceb-contract=" + g1_ceb_contract_version() + "\n";
     out += "build-type=" + g1_build_type_label() + "\n";
