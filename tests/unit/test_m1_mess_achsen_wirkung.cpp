@@ -108,10 +108,10 @@ void fall_a_nenner() {
 // ---------------------------------------------------------------------------------------------
 void fall_b_paarweise_verschieden() {
     std::cout << "\n---- (b) BISS: paarweise VERSCHIEDENE Define-Vektoren je Mess-Achsen-Wahl ----\n";
-    // M-1/H-1: die zulaessigen Combos NENNEN wallclock. "[macro]" allein ist ab H-1 ein Wurf, weil G1
-    // (das wallclock-Instrument) auch dort einkompiliert wird -- die Gate-Aussagen unten sind deshalb an
-    // "[wallclock,macro]" bzw. "[wallclock,micro]" gefuehrt. Die Aussage von (b)/(c) ist unveraendert:
-    // sie vergleicht Mengen MIT und OHNE das Observer-Gate.
+    // [HISTORIE M-1/H-1, bis B3: "[macro]" allein war ein Wurf.] Ab B3 ERBT eine w-lose Bestellung
+    // wallclock von der CEB-Entscheidung (Fall (h)); die Gate-Aussagen hier bleiben an den kanonischen
+    // w-nennenden Formen "[wallclock,macro]" bzw. "[wallclock,micro]" gefuehrt. Die Aussage von
+    // (b)/(c) ist unveraendert: sie vergleicht Mengen MIT und OHNE das Observer-Gate.
     Lauf const wc  = ruf("[wallclock]");
     Lauf const ma  = ruf("[wallclock,macro]");
     Lauf const mi  = ruf("[wallclock,micro]");
@@ -170,18 +170,143 @@ void fall_c_gate_wirkung() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// (h) M-1/H-1: DIE DEKLARATIONS-PFLICHT FUER G1. Eine Combo, die wallclock nicht nennt, es aber
-//     unvermeidlich einbaut (G1 == das wallclock-Instrument), wird abgewiesen. Ohne diese Wache
-//     bewegte ein Versions-Sprung der wallclock-Mess-Achse das [macro]-Objekt, aber NICHT dessen
-//     Fingerprint -- dll_is_current meldete "current" ueber eine Mess-Code-Versionsgrenze hinweg (F2).
-//     VOLLSTAENDIGKEIT: die 7 nicht-leeren Teilmengen zerfallen in 4 zulaessige (wallclock genannt)
-//     und 3 abgewiesene. Beide Zahlen werden AUSGEGEBEN, nicht behauptet -- ein Test, der nur die
-//     Wuerfe zaehlt, waere auch gruen, wenn die Wache ALLES abwiese.
+// (h) B3 (KON37-01/KON34-04): DIE SCHALTER-HOHEIT LIEGT BEI DER CEB, DAS TIER ERBT.
+//     [HISTORIE M-1/H-1, bis B3: eine Combo ohne 'wallclock' wurde per Pflicht-Wurf abgewiesen --
+//     die w-Nennung wurde der TIER-Bestellung abverlangt, die Hoheit lag am Tier-Kanal.]
+//     AB B3 entscheidet die CEB die wallclock-Deklaration SELBST (G1 IST das wallclock-Instrument
+//     und wird von JEDER nicht-leeren Menge gezogen): eine Bestellung, die w nicht nennt, wird
+//     NICHT abgewiesen, sondern ERBT w -- ihr Define-Vektor ist byte-identisch zu dem ihres
+//     w-nennenden Zwillings, und die Deklaration TOOLING_WALLCLOCK ist enthalten.
+//     VOLLSTAENDIGKEIT: die 7 nicht-leeren Teilmengen zerfallen in 4 w-nennende (unbewegt) und
+//     3 w-lose (erben). Beide Zahlen werden AUSGEGEBEN, nicht behauptet -- ein Test, der nur die
+//     Erb-Faelle zaehlt, waere auch gruen, wenn die Naht ALLES gleich behandelte.
 // ---------------------------------------------------------------------------------------------
-void fall_h_g1_deklarationspflicht() {
-    std::cout << "\n---- (h) H-1: eine Combo ohne 'wallclock' wird abgewiesen (G1 ist das wallclock-Instrument) ----\n";
-    std::size_t zulaessig  = 0;
-    std::size_t abgewiesen = 0;
+void fall_h_wallclock_hoheit_der_ceb() {
+    std::cout << "\n---- (h) B3: eine Combo ohne 'wallclock' ERBT es von der CEB-Entscheidung (kein Wurf) ----\n";
+    std::string_view const wc_id =
+        cm::kMeasurementToolingRegistry[static_cast<std::size_t>(cm::MeasurementTooling::WallClock)].id;
+    std::size_t unbewegt = 0;
+    std::size_t geerbt   = 0;
+    for (unsigned mask = 1; mask < (1u << cm::kMeasurementToolingCount); ++mask) {
+        std::string inner;
+        bool        nennt_wc = false;
+        for (std::size_t i = 0; i < cm::kMeasurementToolingCount; ++i)
+            if ((mask >> i) & 1u) {
+                if (!inner.empty()) inner += ',';
+                inner += std::string{cm::kMeasurementToolingRegistry[i].id};
+                if (cm::kMeasurementToolingRegistry[i].tooling == cm::MeasurementTooling::WallClock) nennt_wc = true;
+            }
+        std::string const legend = "[" + inner + "]";
+        Lauf const        l     = ruf(legend);
+        std::cout << "    " << legend << (nennt_wc ? "  (nennt wallclock)  " : "  (nennt wallclock NICHT)  ")
+                  << (l.warf ? std::string{"WURF: "} + l.was : join(l.defs)) << "\n";
+        check_true(std::string{"(h) "} + legend + " ist baubar (kein Pflicht-Wurf mehr, B3)", !l.warf);
+        check_true(std::string{"(h) "} + legend + " traegt die wallclock-Deklaration",
+                   !l.warf && hat(l.defs, "-DCOMDARE_MEASUREMENT_TOOLING_WALLCLOCK=1"));
+        if (nennt_wc) {
+            ++unbewegt;
+        } else {
+            ++geerbt;
+            // DER KERN DES ERBENS: die w-lose Bestellung faellt auf DIESELBE Ausstattung wie ihr
+            // w-nennender Zwilling -- eine zweite, abweichende Ausstattung waere die D-1-Drift.
+            std::string const zwilling = "[" + std::string{wc_id} + "," + inner + "]";
+            Lauf const        z        = ruf(zwilling);
+            check_true(std::string{"(h) "} + legend + " == " + zwilling + " (Erbe = Zwillings-Ausstattung)",
+                       !l.warf && !z.warf && l.defs == z.defs);
+        }
+    }
+    std::cout << "  w-nennend unbewegt: " << unbewegt << " (erwartet 4), w-los geerbt: " << geerbt
+              << " (erwartet 3)\n";
+    check_true("(h) genau 4 Teilmengen nennen w selbst (der Erb-Fall ist nicht der einzige)", unbewegt == 4);
+    check_true("(h) genau 3 Teilmengen erben w (die Vererbung ist wirklich gelaufen)", geerbt == 3);
+    check_true("(h) BYTE-BILANZ: die Vollmenge [all] bleibt zulaessig -- der gesamte Bestand ist unberuehrt",
+               !ruf("[all]").warf);
+}
+
+// ---------------------------------------------------------------------------------------------
+// (i) B3, DIE LEGENDEN-FORM DES ERBES: mess_combo_legende_mit_wallclock_erbe ist die Gestalt der
+//     CEB-Entscheidung, die die EINE Aufloesung (resolve_live_measurement_combo_legend) und damit
+//     den Stempel erreicht. Drei Aussagen:
+//       (i1) w-lose spezifische Legenden bekommen w VORN ergaenzt -- byte-genau die Abhilfe-Form,
+//            die der bis B3 lebende Pflicht-Wurf dem Bediener diktierte.
+//       (i2) w-nennende, Vollmengen- und leere Legenden kommen BYTE-IDENTISCH zurueck (der gesamte
+//            Bestand ist [all] -- die Form darf kein bestehendes Stempel-Byte bewegen). Unbekannte
+//            ids verschieben ihren Wurf-Ort nicht: die Form wirft nie, der Parser weiter.
+//       (i3) KOMMUTATIVITAET mit der Mengen-Form: menge(erbe_legende(L)) == erbe_menge(menge(L))
+//            fuer alle 7 Teilmengen -- laufen die beiden Formen je auseinander, ist das die
+//            D-1-Drift (Stempel behauptet, was der Bau nicht faehrt), und diese Wache wird rot.
+// ---------------------------------------------------------------------------------------------
+void fall_i_legenden_erbe() {
+    std::cout << "\n---- (i) B3: Legenden-Erbe (Stempel-Gestalt der CEB-Entscheidung) ----\n";
+    std::string_view const wc_id =
+        cm::kMeasurementToolingRegistry[static_cast<std::size_t>(cm::MeasurementTooling::WallClock)].id;
+    // (i1) Erbe-Faelle: w vorn ergaenzt, Eingabe-Reihenfolge dahinter erhalten, Klammer-Form erhalten.
+    struct E {
+        char const* rein;
+        char const* soll;
+    };
+    E const erben[] = {
+        {"[macro]", "[wallclock,macro]"},
+        {"[micro]", "[wallclock,micro]"},
+        {"[macro,micro]", "[wallclock,macro,micro]"},
+        {"[micro,macro]", "[wallclock,micro,macro]"},
+        {"macro", "wallclock,macro"},
+    };
+    for (auto const& f : erben) {
+        std::string const ist = pf::mess_combo_legende_mit_wallclock_erbe(f.rein);
+        std::cout << "    '" << f.rein << "'  ->  '" << ist << "'\n";
+        check_true(std::string{"(i1) '"} + f.rein + "' erbt zu '" + f.soll + "'", ist == f.soll);
+    }
+    // (i2) Unbewegte Faelle: byte-identisch zurueck.
+    char const* const unbewegt[] = {"[wallclock]",       "[wallclock,macro]", "[wallclock,micro]",
+                                    "[macro,wallclock]", "[all]",             "all",
+                                    "[]",                "",                  "[wallclok]"};
+    for (char const* f : unbewegt) {
+        std::string const ist = pf::mess_combo_legende_mit_wallclock_erbe(f);
+        // "[wallclok]" (Tippfehler) traegt kein wallclock-Token und ERBT deshalb -- aber sein
+        // Bau-Wurf (unbekannte id) bleibt am Parser, s. Fall (f). Alle anderen kommen unbewegt.
+        bool const soll_unbewegt = std::string_view{f} != "[wallclok]";
+        if (soll_unbewegt)
+            check_true(std::string{"(i2) '"} + f + "' bleibt byte-identisch", ist == f);
+        else
+            check_true("(i2) '[wallclok]' erbt w, wirft aber NICHT selbst (Wurf-Ort bleibt der Parser)",
+                       ist == std::string{"["} + std::string{wc_id} + ",wallclok]");
+    }
+    // (i3) Kommutativitaet ueber alle 7 nicht-leeren Teilmengen.
+    std::size_t geprueft = 0;
+    for (unsigned mask = 1; mask < (1u << cm::kMeasurementToolingCount); ++mask) {
+        std::string legend = "[";
+        for (std::size_t i = 0; i < cm::kMeasurementToolingCount; ++i)
+            if ((mask >> i) & 1u) {
+                if (legend.size() > 1) legend += ',';
+                legend += std::string{cm::kMeasurementToolingRegistry[i].id};
+            }
+        legend += "]";
+        pf::MessToolingMenge const links =
+            pf::mess_tooling_menge_from_legend(pf::mess_combo_legende_mit_wallclock_erbe(legend));
+        pf::MessToolingMenge const rechts =
+            pf::mess_menge_mit_wallclock_erbe(pf::mess_tooling_menge_from_legend(legend));
+        ++geprueft;
+        check_true(std::string{"(i3) Kommutativitaet fuer "} + legend, links == rechts);
+    }
+    check_true("(i3) alle 7 Teilmengen geprueft (die Wache kann nicht leer gruen sein)", geprueft == 7);
+}
+
+// ---------------------------------------------------------------------------------------------
+// (d) INJEKTIVITAET (Owner-KERN F6) ueber die EFFEKTIVEN Mess-Ausstattungen. Das ist die
+//     Aussage, die der Gate-Teil ALLEIN heute nicht tragen koennte: {macro} und {micro} teilen ein
+//     Gate. Der Deklarations-Teil (COMDARE_MEASUREMENT_TOOLING_<ID>) traegt sie.
+//     B3 hat den Definitionsbereich GEDREHT: alle 7 nicht-leeren Teilmengen sind baubar, aber die
+//     3 w-losen sind seit dem wallclock-Erbe BESTELL-SYNONYME ihrer w-nennenden Zwillinge (die
+//     Gleichheit beweist Fall (h)). Injektivitaet ist die Aussage ueber VERSCHIEDENE Ausstattungen,
+//     nicht ueber Synonym-Schreibweisen -- gefahren werden deshalb die 4 kanonischen Vertreter.
+//     GEGENPROBE gegen ein trivial gruenes Ergebnis: es werden wirklich 4 Mengen gebildet und
+//     4*3/2 = 6 Paare verglichen -- beide Zahlen werden ausgegeben, nicht behauptet.
+// ---------------------------------------------------------------------------------------------
+void fall_d_injektiv() {
+    std::cout << "\n---- (d) INJEKTIVITAET (F6): die 4 effektiven Tooling-Mengen paarweise verschieden ----\n";
+    std::vector<std::string>              legenden;
+    std::vector<std::vector<std::string>> vektoren;
     for (unsigned mask = 1; mask < (1u << cm::kMeasurementToolingCount); ++mask) {
         std::string legend   = "[";
         bool        nennt_wc = false;
@@ -192,61 +317,21 @@ void fall_h_g1_deklarationspflicht() {
                 if (cm::kMeasurementToolingRegistry[i].tooling == cm::MeasurementTooling::WallClock) nennt_wc = true;
             }
         legend += "]";
-        Lauf const l = ruf(legend);
-        std::cout << "    " << legend << (nennt_wc ? "  (nennt wallclock)  " : "  (nennt wallclock NICHT)  ")
-                  << (l.warf ? std::string{"WURF"} : join(l.defs)) << "\n";
-        if (nennt_wc) {
-            ++zulaessig;
-            check_true(std::string{"(h) "} + legend + " ist zulaessig", !l.warf);
-        } else {
-            ++abgewiesen;
-            check_true(std::string{"(h) "} + legend + " wird abgewiesen", l.warf);
-            check_true(std::string{"(h) "} + legend + " meldet die Fehlerklasse",
-                       l.warf && l.was.find("fehlerklasse=konfiguration_widerspruch") != std::string::npos);
-        }
-    }
-    std::cout << "  zulaessig: " << zulaessig << " (erwartet 4), abgewiesen: " << abgewiesen << " (erwartet 3)\n";
-    check_true("(h) genau 4 Teilmengen sind zulaessig (die Wache weist nicht alles ab)", zulaessig == 4);
-    check_true("(h) genau 3 Teilmengen werden abgewiesen (die Wache laesst nicht alles durch)", abgewiesen == 3);
-    check_true("(h) BYTE-BILANZ: die Vollmenge [all] bleibt zulaessig -- der gesamte Bestand ist unberuehrt",
-               !ruf("[all]").warf);
-}
-
-// ---------------------------------------------------------------------------------------------
-// (d) INJEKTIVITAET (Owner-KERN F6) ueber alle BAUBAREN Teilmengen der Registry. Das ist die
-//     Aussage, die der Gate-Teil ALLEIN heute nicht tragen koennte: {macro} und {micro} teilen ein
-//     Gate. Der Deklarations-Teil (COMDARE_MEASUREMENT_TOOLING_<ID>) traegt sie.
-//     M-1/H-1 hat den Definitionsbereich verkleinert: von den 7 nicht-leeren Teilmengen sind die 4
-//     wallclock-tragenden baubar, die 3 uebrigen werden abgewiesen (Buchhaltung in Fall (h)).
-//     GEGENPROBE gegen ein trivial gruenes Ergebnis: es werden wirklich 4 Mengen gebildet und
-//     4*3/2 = 6 Paare verglichen -- beide Zahlen werden ausgegeben, nicht behauptet.
-// ---------------------------------------------------------------------------------------------
-void fall_d_injektiv() {
-    std::cout << "\n---- (d) INJEKTIVITAET (F6): alle 7 nicht-leeren Tooling-Mengen paarweise verschieden ----\n";
-    std::vector<std::string>              legenden;
-    std::vector<std::vector<std::string>> vektoren;
-    for (unsigned mask = 1; mask < (1u << cm::kMeasurementToolingCount); ++mask) {
-        std::string legend = "[";
-        for (std::size_t i = 0; i < cm::kMeasurementToolingCount; ++i)
-            if ((mask >> i) & 1u) {
-                if (legend.size() > 1) legend += ',';
-                legend += std::string{cm::kMeasurementToolingRegistry[i].id};
-            }
-        legend += "]";
-        Lauf const l = ruf(legend);
-        if (l.warf) {
-            // M-1/H-1: die 3 Teilmengen ohne 'wallclock' sind ab jetzt KEIN baubarer Zustand mehr (die
-            // Vollstaendigkeits-Buchhaltung dazu fuehrt Fall (h)). Injektivitaet ist die Aussage ueber die
-            // BAUBAREN Wahlen -- ueber die abgewiesenen etwas zu behaupten, waere Unsinn.
-            std::cout << "    " << legend << "  ->  ABGEWIESEN (H-1: nennt wallclock nicht)\n";
+        if (!nennt_wc) {
+            // B3: w-lose Bestellung == Zwillings-Bestellung mit w (Erbe, Fall (h)) -- als eigener
+            // Vertreter gefuehrt waere sie eine gewollte Kollision und keine F6-Aussage.
+            std::cout << "    " << legend << "  ->  SYNONYM des w-nennenden Zwillings (B3-Erbe, Fall (h))\n";
             continue;
         }
+        Lauf const l = ruf(legend);
+        check_true(std::string{"(d) "} + legend + " ist baubar", !l.warf);
+        if (l.warf) continue;
         std::cout << "    " << legend << "  ->  " << join(l.defs) << "\n";
         legenden.push_back(legend);
         vektoren.push_back(l.defs);
     }
-    std::cout << "  baubare Mengen: " << vektoren.size() << " (erwartet 4 = die wallclock-tragenden)\n";
-    check_true("(d) alle 4 baubaren Mengen aufgeloest", vektoren.size() == 4);
+    std::cout << "  kanonische Mengen: " << vektoren.size() << " (erwartet 4 = die wallclock-tragenden)\n";
+    check_true("(d) alle 4 kanonischen Mengen aufgeloest", vektoren.size() == 4);
     std::size_t paare  = 0;
     std::size_t gleich = 0;
     for (std::size_t i = 0; i < vektoren.size(); ++i)
@@ -332,7 +417,8 @@ int main() {
     fall_a_nenner();
     fall_b_paarweise_verschieden();
     fall_c_gate_wirkung();
-    fall_h_g1_deklarationspflicht(); // M-1/H-1 -- steht vor (d), weil (d) seinen Definitionsbereich nutzt
+    fall_h_wallclock_hoheit_der_ceb(); // B3 -- steht vor (d), weil (d) seinen Definitionsbereich nutzt
+    fall_i_legenden_erbe();            // B3 -- die Legenden-Form + Kommutativitaets-Wache
     fall_d_injektiv();
     fall_e_byte_bilanz();
     fall_f_fehlerklassen();
