@@ -2278,6 +2278,16 @@ comdare_add_test(test_hy_a3_hybrid_config_parser
 target_link_libraries(test_hy_a3_hybrid_config_parser PRIVATE comdare::ce_hybrid)
 target_include_directories(test_hy_a3_hybrid_config_parser PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 
+# G3/A-03 (KON45-01(6) + KON47-02) -- die RT-Seite der SHA256-Verkettung: RT-Stempel-Cache am
+# Dock (stempel_binden/stempel_von), die EINE Lesung der Komposit-Zeile (komposit_map_wert_bei)
+# als Laufzeit-Gegenprobe und die Invariante RT <= CT mit ihren drei benannten Verstoessen
+# (Codes 13-15). Dieselbe Machart wie die HY-A1/A3-Tests: comdare::ce_hybrid traegt die
+# Include-Wurzeln, die Achsen-Generate kommen fuer anatomy_fingerprint.hpp dazu.
+comdare_add_test(test_hy_a2_stempel_kette
+    SOURCES test_hy_a2_stempel_kette.cpp)
+target_link_libraries(test_hy_a2_stempel_kette PRIVATE comdare::ce_hybrid)
+target_include_directories(test_hy_a2_stempel_kette PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+
 # HY-A1 (Dock-Schicht) -- VIERTE Negativ-Compile-Fixture, nach dem in C1 benannten Muster (a)-(d).
 # Gegenstand: die Vertrags-Registry. Bauplan-Auflage HY-A1 woertlich: "ein Vertrag-Token
 # contract_f0a01c9e, der NICHT in der constexpr-Registry steht, muss compile-time laut brechen
@@ -4359,6 +4369,11 @@ foreach(_dll IN ITEMS perm_set_d9 perm_sequence_d10 perm_view_d11 perm_buildvari
     target_include_directories(${_dll} PRIVATE
         "${PROJECT_SOURCE_DIR}/libs/cache_engine"
         "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        # G3/A-03: anatomy_fingerprint.hpp zieht seit E-A/B-6 <sha256/ctsha.hpp> aus der
+        # src-Wurzel; die Hybrid-Fixtures erreichen ihn ueber die Stempel-Kette des Proxys.
+        # Die Wurzel gilt fuer ALLE DLLs dieses foreach -- eine Sonderliste nur fuer die zwei
+        # hybrid_reroute_* waere der zweite Bau-Weg, den der Block-Kommentar oben verbietet.
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
         "${PROJECT_SOURCE_DIR}/libs/common")
     target_compile_features(${_dll} PRIVATE cxx_std_23)
     target_compile_definitions(${_dll} PRIVATE COMDARE_ANATOMY_MODULE_BUILD=1)
