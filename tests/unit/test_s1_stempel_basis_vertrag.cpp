@@ -13,9 +13,11 @@
 //         ToolingListe; fremdquellige Liste, ASSERT ==10 vor der Schleife) -- und
 //         PlanRegistryTrioAnnotation bleibt AUSSEN (!ist_stempel_baustein, Explore: FAELLT RAUS).
 //   A-P4  Byte-Orakel Planer: planner_version_stamp() == PlanerStempel::gesamt_stempel(), Praefix-Anker
-//         "planner@1.0.0.c isa=x86_64 os=" (VOR der Delegation eingefroren, T-5).
+//         "planner@1.0.0.c isa=x86_64 os=" (VOR der Delegation eingefroren, T-5); seit V-08R schliesst
+//         die Zeile mit " sha256=<64-lowercase-hex>" (Schlussfeld-Klasse, s. Rot-zuerst-Protokoll).
 //   A-P5  Byte-Orakel CEB: ceb_version_stamp() == CebStempel::gesamt_stempel(); sha-Laenge == 128
-//         (sha512_len-Doktrin, anatomy_module_abi_v1_decl.hpp:224-225).
+//         (sha512_len-Doktrin, anatomy_module_abi_v1_decl.hpp:224-225); Planer-Gegenstueck == 64
+//         (V-08R/KON101, je-Traeger-Bein).
 //   A-P6  Dock-Nenner == 5; jedes Literal ist VersionsLiteral-Baustein.
 //   A-P7  g1-Block: vier gelabelte Zeilen, jede non-empty; Zeile 1 == planner_version_stamp()
 //         (transitiv == PlanerStempel-Kompositum).
@@ -48,13 +50,32 @@
 //   K11 A-P7+  g1_build_type_label() probeweise geleert: Laufzeit-ROT
 //       "Expected: (zeilen[2].size()) > (string_view{\"build-type=\"}.size()), actual: 11 vs 11".
 //
+// V-08R ROT-ZUERST-PROTOKOLL (T-1, Bau-Session 19.08.2026, gcc-release -- echtes Nachzug-Rot VOR dem
+// Bau, jede Probe literal ROT gesehen, dann durch den Bau GRUEN gedreht; kein Koeder):
+//   R1  A-P4-Byte-Orakel auf die neue Form gezogen (os nicht mehr letztes Feld; Schlussfeld " sha256="
+//       + 64er-lowercase-hex-Klasse; Praefix-Anker UNveraendert): Laufzeit-ROT am ALTEN Bau:
+//       "das Schlussfeld ' sha256=' fehlt -- rest='linux'" -> FAILED PlanerDelegiertByteIdentisch.
+//   R2  Bein-Proben VOR dem Bein: Compile-ROT am ALTEN 128-only-Vertrag -- "static assertion failed:
+//       V-08R Bein: die 64-hex-SHA-256-Form MUSS am Traeger PLANER angenommen werden (KON101)" UND
+//       "... die 128-hex-Form MUSS am 64er-PLANER-Bein abgelehnt werden" UND 4x
+//       "'fingerprint_sha_hex_laenge' is not a member of ...vertrag_detail" (Bein existierte nicht);
+//       das Bein (stempel_basis.hpp) dreht alle vier gruen. CebMit64Sha war schon am alten Vertrag
+//       wahr (64 faellt an 128) und bleibt als Dauer-Kreuz-Negativprobe stehen.
+//   R3  A-P5-Gegenstueck Planer (fingerprint_sha().size()==64): Compile-ROT am bewusst-leeren Stand:
+//       "static assertion failed: A-P5-Gegenstueck PLANER (V-08R/KON101): der Planer-Fingerprint
+//       traegt 64 hex (SHA-256-Bein)"; die Fuellung (planner_version.hpp) dreht R1+R3 gruen.
+//   Digest-GEGENPROBE (unabhaengiges Werkzeug): printf '1.0.0.c\nx86_64\nlinux' | sha256sum ==
+//   014ce7fe... == kPlanerFingerprint der --dump-plan-Zeile (byte-identisch, 19.08.2026).
+//
 // T-9: Codex-Gegenlese-Pass ist fuer die FOLGEWELLE vorgemerkt (nicht Teil dieser TU).
 //
 // DECKUNG, beide Mengen (GOAL-Pruefung 4): GEPRUEFT = Vertragsflaeche/Matrix, Riegel (organ@CEB,
-// stille Leere, Fehlgrammatik), Byte-Delegation Planer+CEB, Baustein-Bindung (10), Dock-Nenner (5),
-// g1-Ausgabeblock. NICHT GEPRUEFT (WARTE/eigene Posten, deklarierte Luecken): CEB-System-Fuellwert
-// (KON8-03), Planer-SHA-Wert, Tier-/Hybrid-ERBIN am Bestand (W-B/W-D -- die Tier-/Hybrid-Probes unten
-// pruefen NUR die Vertragsflaeche mit Test-lokalen Werten), SotaStampLines (W-A).
+// stille Leere, Fehlgrammatik), Byte-Delegation Planer+CEB, je-Traeger-sha-Bein (V-08R: Planer-64
+// positiv, Kreuz-Negative 128@Planer/64@CEB, Planer-SHA-Wert als Klasse + Laengen-Pins),
+// Baustein-Bindung (10), Dock-Nenner (5), g1-Ausgabeblock. NICHT GEPRUEFT (WARTE/eigene Posten,
+// deklarierte Luecken): CEB-System-Fuellwert (KON8-03), Tier-/Hybrid-ERBIN am Bestand (W-B/W-D --
+// die Tier-/Hybrid-Probes unten pruefen NUR die Vertragsflaeche mit Test-lokalen Werten),
+// SotaStampLines (W-A).
 
 #include <builder/ceb_version_stamp.hpp>
 #include <builder/pruef_dock/pruef_dock_version.hpp>
@@ -127,7 +148,8 @@ inline constexpr std::array<FremdZelle, kFremdZellenAnzahl> kFremdMatrix{{
     {iM, tP, V}, {iM, tC, P}, {iM, tT, P}, {iM, tH, P}, // mess_zeile CEB/Tier/Hybrid
     {iS, tP, V}, {iS, tC, P}, {iS, tT, P}, {iS, tH, P}, // system_zeile CEB/Tier/Hybrid
     {iO, tP, V}, {iO, tC, V}, {iO, tT, P}, {iO, tH, P}, // organ_zeile Tier/Hybrid (CEB=V ist der Riegel)
-    {iF, tP, P}, {iF, tC, P}, {iF, tT, P}, {iF, tH, P}, // fingerprint_sha alle vier
+    {iF, tP, P}, {iF, tC, P}, {iF, tT, P}, {iF, tH, P}, // fingerprint_sha alle vier (V-08R: WERT-identisch
+                                                        // Pflicht; das 64/128-Laengen-Bein s. Pins unten)
     {iG, tP, P}, {iG, tC, P}, {iG, tT, P}, {iG, tH, P}, // gesamt_stempel alle vier
     {iA, tP, V}, {iA, tC, V}, {iA, tT, V}, {iA, tH, P}, // angeschlossene NUR Hybrid (RT-Hook)
 }};
@@ -148,6 +170,9 @@ static_assert(
 inline constexpr char kProbeSha128[] = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                                        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 static_assert(string_view{kProbeSha128}.size() == 128);
+// V-08R (KON101): die 64-hex-Probe des PLANER-Beins (SHA-256-Form; die anderen Traeger bleiben 128).
+inline constexpr char kProbeSha64[] = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+static_assert(string_view{kProbeSha64}.size() == 64);
 
 // Test-lokale wohlgeformte Zeilen (NUR Vertragsflaechen-Probe; die ECHTEN Tier-/Hybrid-Erbinnen am
 // Bestand sind W-B/W-D und werden hier ausdruecklich NICHT gebaut).
@@ -206,6 +231,62 @@ struct PlanerOhneShaErklaerung : abi::StempelBasis<PlanerOhneShaErklaerung, abi:
 };
 static_assert(!abi::StempelVertrag<PlanerOhneShaErklaerung, abi::StempelTraeger::Planer>,
               "T-4: fehlende fingerprint_sha-Pflicht MUSS ablehnen (Koeder-Flaeche der A-P1)");
+
+// ================================================================================================
+// V-08R (KON101): das JE-TRAEGER-BEIN des sha-Vertrags -- Planer 64 hex (SHA-256), sonst 128 (SHA-512)
+// ================================================================================================
+// Laengen-Pins gegen die FREMDE Quelle (KON101-Owner-Form; nicht aus der Probe abgelesen): das Bein
+// haengt an EINER Konstante + Erbin-Fuellung und bleibt drehbar (Form-Frage 64-vs-128 = F2-Vorlage P5).
+static_assert(abi::vertrag_detail::fingerprint_sha_hex_laenge(tP) == 64 &&
+                  abi::vertrag_detail::fingerprint_sha_hex_laenge(tC) == 128 &&
+                  abi::vertrag_detail::fingerprint_sha_hex_laenge(tT) == 128 &&
+                  abi::vertrag_detail::fingerprint_sha_hex_laenge(tH) == 128,
+              "V-08R/KON101: das sha-Bein ist je Traeger -- Planer 64 (SHA-256), alle anderen 128 (SHA-512)");
+
+// POSITIV Bein: ein Planer mit 64-hex-sha MUSS angenommen werden (Rot-zuerst R2 -- am ALTEN
+// 128-only-Vertrag literal ROT gesehen, s. Protokoll im Kopf; das Bein dreht ihn gruen).
+constexpr std::array<string_view, 4> planer64_teile() noexcept {
+    return {"planner@", "1.0.0.c", " sha256=", kProbeSha64};
+}
+inline constexpr auto kPlaner64Komp = abi::stempel_kompositum<&planer64_teile>();
+struct PlanerMit64Sha : abi::StempelBasis<PlanerMit64Sha, abi::StempelTraeger::Planer> {
+    static constexpr string_view version_xyz() noexcept { return "1.0.0.c"; }
+    static constexpr string_view fingerprint_sha() noexcept { return kProbeSha64; }
+    static constexpr string_view gesamt_stempel() noexcept { return kPlaner64Komp.view(); }
+};
+static_assert(abi::StempelVertrag<PlanerMit64Sha, abi::StempelTraeger::Planer>,
+              "V-08R Bein: die 64-hex-SHA-256-Form MUSS am Traeger PLANER angenommen werden (KON101)");
+
+// KREUZ-NEGATIV 1: ein Planer mit 128-hex-sha faellt am 64er-Bein (jede andere Vertragsflaeche ist
+// erfuellt, auch die Teilstring-Pflicht -- der Typ faellt NUR an der Laenge, ##57-Klasse beachtet).
+constexpr std::array<string_view, 4> planer128_teile() noexcept {
+    return {"planner@", "1.0.0.c", " sha256=", kProbeSha128};
+}
+inline constexpr auto kPlaner128Komp = abi::stempel_kompositum<&planer128_teile>();
+struct PlanerMit128Sha : abi::StempelBasis<PlanerMit128Sha, abi::StempelTraeger::Planer> {
+    static constexpr string_view version_xyz() noexcept { return "1.0.0.c"; }
+    static constexpr string_view fingerprint_sha() noexcept { return kProbeSha128; }
+    static constexpr string_view gesamt_stempel() noexcept { return kPlaner128Komp.view(); }
+};
+static_assert(!abi::StempelVertrag<PlanerMit128Sha, abi::StempelTraeger::Planer>,
+              "V-08R Kreuz-Negativ: die 128-hex-Form MUSS am 64er-PLANER-Bein abgelehnt werden");
+
+// KREUZ-NEGATIV 2: eine CEB mit 64-hex-sha faellt am 128er-Bein (Spiegelrichtung; auch hier faellt der
+// Typ NUR an der Laenge -- mess_zeile gueltig, System-Leere deklariert, Teilstring-Pflicht erfuellt).
+constexpr std::array<string_view, 4> ceb64_teile() noexcept {
+    return {"ceb-measurement=", probe_mess_zeile(), ";sha256=", kProbeSha64};
+}
+inline constexpr auto kCeb64Komp = abi::stempel_kompositum<&ceb64_teile>();
+struct CebMit64Sha : abi::StempelBasis<CebMit64Sha, abi::StempelTraeger::Ceb> {
+    static constexpr string_view mess_zeile() noexcept { return probe_mess_zeile(); }
+    static constexpr string_view system_zeile() noexcept { return {}; }
+    static constexpr bool        kSystemZeileBewusstLeer      = true;
+    static constexpr string_view kSystemZeileBewusstLeerGrund = "Probe";
+    static constexpr string_view fingerprint_sha() noexcept { return kProbeSha64; }
+    static constexpr string_view gesamt_stempel() noexcept { return kCeb64Komp.view(); }
+};
+static_assert(!abi::StempelVertrag<CebMit64Sha, abi::StempelTraeger::Ceb>,
+              "V-08R Kreuz-Negativ: die 64-hex-Form MUSS am 128er-CEB-Bein abgelehnt werden");
 
 // NEGATIV 3: CEB MIT organ_zeile -- der KON7-07-Riegel (A-P5-Koeder+ als Dauer-Negativprobe).
 constexpr std::array<string_view, 4> ceb_neg_teile() noexcept {
@@ -376,10 +457,25 @@ TEST(S1StempelBasisVertrag, PlanerDelegiertByteIdentisch) {
     // OS-ANTEIL-PIN (Zweitlens-Befund 12.08.): der Praefix-Anker endet mit "os=" -- ohne diesen Pin
     // bliebe ein LEERER oder zeilenbrechender OS-Wert unbemerkt (der Rest des Stempels war ungepinnt).
     // Der Wert selbst ist plattformabhaengig (uname) und wird deshalb als Klasse gepinnt, nicht als Byte.
-    std::string const os_wert = stamp.substr(kPlanerPraefixAnker.size());
+    std::string const rest = stamp.substr(kPlanerPraefixAnker.size());
+    EXPECT_FALSE(rest.empty()) << "os= traegt keinen Wert -- die Planer-Zeile endet am Label";
+    EXPECT_EQ(rest.find('\n'), std::string::npos) << "die Planer-Rolle ist EINE Zeile (g1-Block-Vertrag)";
+    // V-08R (KON101): der os-Wert ist NICHT mehr das letzte Feld -- die Zeile schliesst mit GENAU EINEM
+    // weiteren Segment " sha256=<64-lowercase-hex>" (DEKLARIERTES Byte-Ereignis der --dump-plan-Zeile,
+    // Praezedenz planner_version.hpp Kopf Z.17-18). Der sha-Wert ist maschinenunabhaengig als KLASSE
+    // gepinnt (Laenge + Zeichenvorrat), sein Byte-Wert haengt am Preimage und reist als Teilstring-Pflicht
+    // (stempel_basis.hpp:503-505) ohnehin im Kompositum.
+    std::size_t const sha_label = rest.find(" sha256=");
+    ASSERT_NE(sha_label, std::string::npos) << "das Schlussfeld ' sha256=' fehlt -- rest='" << rest << "'";
+    std::string const os_wert = rest.substr(0, sha_label);
     EXPECT_FALSE(os_wert.empty()) << "os= traegt keinen Wert -- die Planer-Zeile endet am Label";
-    EXPECT_EQ(os_wert.find('\n'), std::string::npos) << "die Planer-Rolle ist EINE Zeile (g1-Block-Vertrag)";
-    EXPECT_EQ(os_wert.find(' '), std::string::npos) << "der os-Wert ist das LETZTE Feld -- kein weiteres Segment";
+    EXPECT_EQ(os_wert.find(' '), std::string::npos) << "zwischen os-Wert und sha-Feld steht kein weiteres Segment";
+    std::string const sha_wert = rest.substr(sha_label + string_view{" sha256="}.size());
+    EXPECT_EQ(sha_wert.size(), 64u) << "der Planer-sha traegt 64 hex (SHA-256-Bein, KON101)";
+    for (char const c : sha_wert)
+        EXPECT_TRUE((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))
+            << "sha-Zeichen ausserhalb [0-9a-f] lowercase: '" << c << "'";
+    EXPECT_EQ(sha_wert.find(' '), std::string::npos) << "der sha-Wert ist das LETZTE Feld -- kein weiteres Segment";
 }
 
 // ================================================================================================
@@ -387,6 +483,9 @@ TEST(S1StempelBasisVertrag, PlanerDelegiertByteIdentisch) {
 // ================================================================================================
 static_assert(ceb::CebStempel::fingerprint_sha().size() == 128,
               "A-P5: sha512_len-Doktrin (decl.hpp:224-225) -- der CEB-Fingerprint traegt 128 hex");
+// A-P5-GEGENSTUECK PLANER (V-08R, Rot-zuerst R3 -- am alten, bewusst-leeren Stand literal ROT gesehen):
+static_assert(pl::PlanerStempel::fingerprint_sha().size() == 64,
+              "A-P5-Gegenstueck PLANER (V-08R/KON101): der Planer-Fingerprint traegt 64 hex (SHA-256-Bein)");
 static_assert(ceb::CebStempel::system_zeile().empty() && ceb::CebStempel::kSystemZeileBewusstLeer &&
                   !ceb::CebStempel::kSystemZeileBewusstLeerGrund.empty(),
               "A-P5: die System-Luecke der CEB ist DEKLARIERT (W10-C3-Riegel-Konstante), nie still");

@@ -5949,6 +5949,8 @@ comdare_add_test(test_planner_version_flag_grammatik
 target_include_directories(test_planner_version_flag_grammatik PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    # V-08R: planner_version.hpp zieht <sha256/ctsha.hpp> (CT-SHA-256) -- die src-Wurzel liefert ihn.
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common"
     "${PROJECT_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
