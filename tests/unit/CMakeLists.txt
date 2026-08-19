@@ -5500,6 +5500,35 @@ add_test(NAME test_w2_combo_ct_stamp COMMAND test_w2_combo_ct_stamp)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_w2_combo_ct_stamp)
 set_tests_properties(test_w2_combo_ct_stamp PROPERTIES LABELS "w2;stempel;fehlerklassen")
 
+# B3 (19.08.2026, KON37-01/KON34-04): der CT-ZWEIG-BEWEIS des wallclock-Erbes -- die EINZIGE TU im
+# Baum mit einer w-LOSEN spezifischen Bestellung ("[macro]"). Nur hier ist der Erb-Anschluss von
+# resolve_live_measurement_combo_legend beobachtbar: W2 ("[wallclock]") und die B2-Gegen-TU
+# ("[wallclock,macro]") nennen w selbst, ihr Erbe ist ein No-op. Include-Satz wie test_w2 (die
+# Stempel-Naht wohnt in lazy_adhoc_source_gen.hpp); die TU-Defines tragen exakt den Satz, den
+# mess_achsen_defines fuer die GEERBTE Bestellung emittiert (Konsistenz-Doktrin der B2-Gegen-TU).
+# Eigene Binary => kein ODR-Konflikt zwischen den CT-Auspraegungen der inline-Funktionen.
+add_executable(test_b3_wallclock_erbe_ct
+    "test_b3_wallclock_erbe_ct.cpp")
+target_compile_features(test_b3_wallclock_erbe_ct PRIVATE cxx_std_23)
+target_include_directories(test_b3_wallclock_erbe_ct PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_b3_wallclock_erbe_ct PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_b3_wallclock_erbe_ct)
+target_compile_definitions(test_b3_wallclock_erbe_ct PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_CE_ENABLE_SEGMENT_TIMING=0
+    COMDARE_EXPERIMENT_MODE_ON=1 COMDARE_MEASUREMENT_TOOLING_WALLCLOCK=1 COMDARE_MEASUREMENT_TOOLING_MACRO=1
+    "COMDARE_MEASUREMENT_COMBO_CT=\"[macro]\"")
+comdare_attach_generated_catalog(test_b3_wallclock_erbe_ct)
+add_test(NAME test_b3_wallclock_erbe_ct COMMAND test_b3_wallclock_erbe_ct)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_b3_wallclock_erbe_ct)
+set_tests_properties(test_b3_wallclock_erbe_ct PROPERTIES LABELS "b3;messachse;stempel;fehlerklassen")
+
 # M-1/D-1 BISS (06.08.2026): die Mess-Achse WIRKT auf die Tier-Defines. Prueft die reine Abbildung
 # profile_facade/mess_achsen_naht.hpp mess_achsen_defines() -- die EINE Funktion, aus der
 # perm_mess_defines() (profile_run_facade.cpp) ihren Mess-Teil zieht.
