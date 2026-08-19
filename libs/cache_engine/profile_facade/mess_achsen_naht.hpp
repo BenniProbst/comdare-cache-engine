@@ -358,8 +358,8 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
 [[nodiscard]] inline std::string mess_combo_legende_mit_wallclock_erbe(std::string legend) {
     namespace cm = ::comdare::cache_engine::measurement;
     if (combo_legend_ist_vollmenge(legend)) return legend;
-    std::string_view inner          = legend;
-    bool const       hat_klammern   = inner.size() >= 2 && inner.front() == '[' && inner.back() == ']';
+    std::string_view inner        = legend;
+    bool const       hat_klammern = inner.size() >= 2 && inner.front() == '[' && inner.back() == ']';
     if (hat_klammern) inner = inner.substr(1, inner.size() - 2);
     std::string_view const wallclock_id =
         cm::kMeasurementToolingRegistry[static_cast<std::size_t>(cm::MeasurementTooling::WallClock)].id;

@@ -106,8 +106,8 @@ constexpr auto kEntriesWallclock =
                                     // ans Ende getreten. Der Bau-Fixture hier sagt NICHTS ueber den Namen aus --
                                     // das Gate liest ausschliesslich die Mess-Seite -- also traegt er den
                                     // LEEREN Namen nach der ""-Doktrin, nicht einen erfundenen.
-                                    .name_line               = "",
-                                    .name_len                = 0u};
+                                    .name_line = "",
+                                    .name_len  = 0u};
 }
 
 /// Die eine gebaute perm-.so im Fixture-Dir finden (Loader-Konvention, uebernommen aus test_pruef_only_gate).

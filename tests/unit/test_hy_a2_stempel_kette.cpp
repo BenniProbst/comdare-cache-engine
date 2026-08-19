@@ -43,8 +43,8 @@
 #include <string>
 #include <string_view>
 
-namespace cea = ::comdare::cache_engine::anatomy;
-namespace hy  = ::comdare::cache_engine::hybrid;
+namespace cea   = ::comdare::cache_engine::anatomy;
+namespace hy    = ::comdare::cache_engine::hybrid;
 namespace ceabi = ::comdare::cache_engine::abi; // NICHT "abi": <cxxabi.h> (via gtest) belegt den global
 
 namespace {
@@ -185,7 +185,7 @@ TEST(HyA2StempelKette, InvarianteGruenBeiTeilmengeUndLeererBelegung) {
 }
 
 TEST(HyA2StempelKette, InvarianteMeldetHalbeBindungMitSlot) {
-    Arr a{};
+    Arr       a{};
     int const slot = standard_dock_anlegen(a);
     ASSERT_GE(slot, 0);
     auto const i = static_cast<std::size_t>(slot);
@@ -206,7 +206,7 @@ TEST(HyA2StempelKette, InvarianteMeldetHalbeBindungMitSlot) {
 }
 
 TEST(HyA2StempelKette, InvarianteMeldetUnbekannteZelle) {
-    Arr a{};
+    Arr       a{};
     int const slot = standard_dock_anlegen(a);
     ASSERT_GE(slot, 0);
     auto const   i = static_cast<std::size_t>(slot);
@@ -225,20 +225,19 @@ TEST(HyA2StempelKette, InvarianteMeldetUnbekannteZelle) {
 
     // Praefix-Falle auf RT-Ebene: Zelle 4 gegen eine Nur-44-Map ist KEY-FEHLT, nie ein Treffer.
     ASSERT_EQ(a.stempel_binden(i, 4, &kPodZelle4), hy::hybrid_status_ok);
-    std::string const nur44 = std::string("44=") + kNameZelle44;
-    auto praefix = hy::hybrid_rt_ct_invariante_pruefen(nur44, a);
+    std::string const nur44   = std::string("44=") + kNameZelle44;
+    auto              praefix = hy::hybrid_rt_ct_invariante_pruefen(nur44, a);
     EXPECT_EQ(praefix.status, hy::hybrid_status_rt_ct_key_fehlt);
 
     // Ueber dem Key-Deckel: derselbe Fehler, OHNE Wurf (die Wache prueft vorab).
-    ASSERT_EQ(a.stempel_binden(i, ceabi::kAnatomyFingerprintKompositKeyDeckel + 1, &kPodZelle4),
-              hy::hybrid_status_ok);
+    ASSERT_EQ(a.stempel_binden(i, ceabi::kAnatomyFingerprintKompositKeyDeckel + 1, &kPodZelle4), hy::hybrid_status_ok);
     auto deckel = hy::hybrid_rt_ct_invariante_pruefen(kCtMap, a);
     EXPECT_EQ(deckel.status, hy::hybrid_status_rt_ct_key_fehlt);
     EXPECT_EQ(deckel.slot, i);
 }
 
 TEST(HyA2StempelKette, InvarianteMeldetFremdesTierAmDock) {
-    Arr a{};
+    Arr       a{};
     int const slot = standard_dock_anlegen(a);
     ASSERT_GE(slot, 0);
     auto const   i = static_cast<std::size_t>(slot);

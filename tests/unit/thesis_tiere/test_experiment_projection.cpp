@@ -56,19 +56,17 @@ std::vector<std::string> const kVerbund1Keys = {
 
 // Erwartete Verbund2-Keys (Reihe A, per-Host-Replace) -- prt_art degeneriert (ausgelassen).
 std::vector<std::string> const kVerbund2Keys = {"sota_tier=sota::A::ArtPrtVerbund2ReplaceComposition",
-                                              "sota_tier=sota::A::HotPrtVerbund2ReplaceComposition",
-                                              "sota_tier=sota::A::MasstreePrtVerbund2ReplaceComposition",
-                                              "sota_tier=sota::A::SurfPrtVerbund2ReplaceComposition",
-                                              "sota_tier=sota::A::StartPrtVerbund2ReplaceComposition",
-                                              "sota_tier=sota::A::WormholePrtVerbund2ReplaceComposition"};
+                                                "sota_tier=sota::A::HotPrtVerbund2ReplaceComposition",
+                                                "sota_tier=sota::A::MasstreePrtVerbund2ReplaceComposition",
+                                                "sota_tier=sota::A::SurfPrtVerbund2ReplaceComposition",
+                                                "sota_tier=sota::A::StartPrtVerbund2ReplaceComposition",
+                                                "sota_tier=sota::A::WormholePrtVerbund2ReplaceComposition"};
 
 // Erwartete Verbund3-Keys (Reihe B, per-Host-Union) -- prt_art degeneriert (ausgelassen).
-std::vector<std::string> const kVerbund3Keys = {"sota_tier=sota::B::ArtPrtVerbund3UnionComposition",
-                                              "sota_tier=sota::B::HotPrtVerbund3UnionComposition",
-                                              "sota_tier=sota::B::MasstreePrtVerbund3UnionComposition",
-                                              "sota_tier=sota::B::SurfPrtVerbund3UnionComposition",
-                                              "sota_tier=sota::B::StartPrtVerbund3UnionComposition",
-                                              "sota_tier=sota::B::WormholePrtVerbund3UnionComposition"};
+std::vector<std::string> const kVerbund3Keys = {
+    "sota_tier=sota::B::ArtPrtVerbund3UnionComposition",      "sota_tier=sota::B::HotPrtVerbund3UnionComposition",
+    "sota_tier=sota::B::MasstreePrtVerbund3UnionComposition", "sota_tier=sota::B::SurfPrtVerbund3UnionComposition",
+    "sota_tier=sota::B::StartPrtVerbund3UnionComposition",    "sota_tier=sota::B::WormholePrtVerbund3UnionComposition"};
 
 } // namespace
 

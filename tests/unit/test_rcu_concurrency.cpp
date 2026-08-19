@@ -306,8 +306,7 @@ TEST(RcuConcurrency, FenceNahtStrukturFenceUndBrueckeSindSeqCstUndBeideNahtPunkt
 
     auto zaehle = [&quelle](std::string_view muster) {
         std::size_t n = 0;
-        for (std::size_t pos = quelle.find(muster); pos != std::string::npos;
-             pos             = quelle.find(muster, pos + 1)) {
+        for (std::size_t pos = quelle.find(muster); pos != std::string::npos; pos = quelle.find(muster, pos + 1)) {
             ++n;
         }
         return n;
@@ -329,8 +328,7 @@ TEST(RcuConcurrency, FenceNahtStrukturFenceUndBrueckeSindSeqCstUndBeideNahtPunkt
     // Kommentar-Festigkeit des Entferners (Gegenprobe wie in der hy_a1-Wache: ohne sie koennte
     // er zur Identitaet degenerieren und (a)-(c) zaehlten Kommentar-Erwaehnungen mit).
     EXPECT_EQ(ohne_kommentare("// std::atomic_thread_fence im Kommentar\n"), std::string{"\n"});
-    EXPECT_NE(ohne_kommentare("store_load_fence_seq_cst();\n").find("store_load_fence_seq_cst"),
-              std::string::npos);
+    EXPECT_NE(ohne_kommentare("store_load_fence_seq_cst();\n").find("store_load_fence_seq_cst"), std::string::npos);
 }
 
 // (2) DER DETERMINISTISCHE HB-BISS ueber die ECHTE Naht-Funktion. Bauform Message-Passing:

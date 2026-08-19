@@ -49,14 +49,14 @@
 // __SANITIZE_THREAD__, Clang meldet thread_sanitizer ueber __has_feature -- beide Wege werden
 // gefragt, damit die Bruecke nicht vom Compiler abhaengt.
 #if defined(__SANITIZE_THREAD__)
-#    define COMDARE_RCU_TSAN_BRUECKE 1
+#define COMDARE_RCU_TSAN_BRUECKE 1
 #elif defined(__has_feature)
-#    if __has_feature(thread_sanitizer)
-#        define COMDARE_RCU_TSAN_BRUECKE 1
-#    endif
+#if __has_feature(thread_sanitizer)
+#define COMDARE_RCU_TSAN_BRUECKE 1
+#endif
 #endif
 #ifndef COMDARE_RCU_TSAN_BRUECKE
-#    define COMDARE_RCU_TSAN_BRUECKE 0
+#define COMDARE_RCU_TSAN_BRUECKE 0
 #endif
 
 namespace comdare::rcu {

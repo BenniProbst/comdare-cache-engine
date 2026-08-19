@@ -91,10 +91,8 @@ static_assert(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512{f.vl}
 static_assert(!m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512{f}"),
                                          m::Prod2AlderLakeSignature::signature()));
 // Token ohne cpuinfo-Feld (c, p, e, die Basen) sind zulassungs-neutral: Struktur, keine Faehigkeit.
-static_assert(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c{p.e}"),
-                                        m::Prod2AlderLakeSignature::signature()));
-static_assert(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512"),
-                                        m::Prod2AlderLakeSignature::signature()));
+static_assert(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c{p.e}"), m::Prod2AlderLakeSignature::signature()));
+static_assert(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512"), m::Prod2AlderLakeSignature::signature()));
 static_assert(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.m64"), m::Prod1Zen5Signature::signature()));
 // Der vnni-Doppelgaenger ueber die TABELLE, nie ueber String-Heuristik: x256{vnni} -> avx_vnni
 // (prod2 traegt es), x512{vnni} -> avx512_vnni (prod2 traegt es NICHT).
@@ -221,8 +219,8 @@ TEST(S3OrdnungRelation, SignaturBrueckeLaeuftUeberDieTabelle) {
         m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512{f.vl}"), m::Prod1Zen5Signature::signature()));
     EXPECT_FALSE(
         m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512{f}"), m::Prod2AlderLakeSignature::signature()));
-    EXPECT_TRUE(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x256{vnni}"),
-                                          m::Prod2AlderLakeSignature::signature()));
+    EXPECT_TRUE(
+        m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x256{vnni}"), m::Prod2AlderLakeSignature::signature()));
     EXPECT_FALSE(
         m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512{vnni}"), m::Prod2AlderLakeSignature::signature()))
         << "avx512_vnni entsteht aus der Tabelle -- eine String-Heuristik haette avx_vnni getroffen.";

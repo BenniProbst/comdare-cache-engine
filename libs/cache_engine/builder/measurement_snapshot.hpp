@@ -230,7 +230,8 @@ measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, st
            << m.bytes_allocated << ',' << m.bytes_in_use_peak << ',' << m.external_frag_milli << ','
            << m.internal_frag_milli << ',' << m.search_insert << ',' << m.search_lookup << ',' << m.search_hit << ','
            << m.search_miss << ',' << m.search_erase << ',' << m.search_peak_occupancy << ','
-           << static_cast<unsigned>(m.pmc_available) << ',' << m.branch_misses << ',' << m.throughput_ops_per_sec
+           << static_cast<unsigned>(m.pmc_available) << ',' << m.branch_misses << ','
+           << m.throughput_ops_per_sec
            // NP-23: die 7 Quell-Flags, Reihenfolge == pipeline_csv_schema.hpp (l1,l2,l3,dtlb,coh,energy,branch).
            << ',' << static_cast<unsigned>(m.cache_misses_l1_source_available) << ','
            << static_cast<unsigned>(m.cache_misses_l2_source_available) << ','

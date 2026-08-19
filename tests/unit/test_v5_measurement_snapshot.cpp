@@ -154,7 +154,7 @@ TEST(V5MeasurementSnapshot, AvailablePmcFillsHwColumns) {
     // uebrigen fuenf (B-5-Paritaet zur WIDE-Pipeline); der Mock stellt ihn wie bei M-3a mit.
     c.cache_misses_l1_source_available = true;
     c.dtlb_misses_source_available     = true;
-    auto const m = b::measurement_from_workload_result(make_result(), "ArtComposition", c);
+    auto const m                       = b::measurement_from_workload_result(make_result(), "ArtComposition", c);
     EXPECT_EQ(m.pmc_available, 1u);
     EXPECT_EQ(m.cache_misses_l1, 1111u);
     EXPECT_EQ(m.cache_misses_l3, 33u);

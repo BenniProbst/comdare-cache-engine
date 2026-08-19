@@ -85,7 +85,7 @@ struct RtCtPruefergebnis {
 /// dieser Signatur; ein noexcept hier wuerde bei einer kuenftigen Grammatik-Aenderung still zu
 /// std::terminate eskalieren statt laut nicht zu uebersetzen.
 template <class Policy>
-[[nodiscard]] RtCtPruefergebnis hybrid_rt_ct_invariante_pruefen(std::string_view          ct_komposit_glied,
+[[nodiscard]] RtCtPruefergebnis hybrid_rt_ct_invariante_pruefen(std::string_view         ct_komposit_glied,
                                                                 DockArray<Policy> const& docks) {
     for (std::size_t i = 0; i < docks.kapazitaet(); ++i) {
         DockSlot const* const s = docks.slot(i);

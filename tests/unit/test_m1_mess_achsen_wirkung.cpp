@@ -197,7 +197,7 @@ void fall_h_wallclock_hoheit_der_ceb() {
                 if (cm::kMeasurementToolingRegistry[i].tooling == cm::MeasurementTooling::WallClock) nennt_wc = true;
             }
         std::string const legend = "[" + inner + "]";
-        Lauf const        l     = ruf(legend);
+        Lauf const        l      = ruf(legend);
         std::cout << "    " << legend << (nennt_wc ? "  (nennt wallclock)  " : "  (nennt wallclock NICHT)  ")
                   << (l.warf ? std::string{"WURF: "} + l.was : join(l.defs)) << "\n";
         check_true(std::string{"(h) "} + legend + " ist baubar (kein Pflicht-Wurf mehr, B3)", !l.warf);
@@ -215,8 +215,7 @@ void fall_h_wallclock_hoheit_der_ceb() {
                        !l.warf && !z.warf && l.defs == z.defs);
         }
     }
-    std::cout << "  w-nennend unbewegt: " << unbewegt << " (erwartet 4), w-los geerbt: " << geerbt
-              << " (erwartet 3)\n";
+    std::cout << "  w-nennend unbewegt: " << unbewegt << " (erwartet 4), w-los geerbt: " << geerbt << " (erwartet 3)\n";
     check_true("(h) genau 4 Teilmengen nennen w selbst (der Erb-Fall ist nicht der einzige)", unbewegt == 4);
     check_true("(h) genau 3 Teilmengen erben w (die Vererbung ist wirklich gelaufen)", geerbt == 3);
     check_true("(h) BYTE-BILANZ: die Vollmenge [all] bleibt zulaessig -- der gesamte Bestand ist unberuehrt",
@@ -258,9 +257,9 @@ void fall_i_legenden_erbe() {
         check_true(std::string{"(i1) '"} + f.rein + "' erbt zu '" + f.soll + "'", ist == f.soll);
     }
     // (i2) Unbewegte Faelle: byte-identisch zurueck.
-    char const* const unbewegt[] = {"[wallclock]",       "[wallclock,macro]", "[wallclock,micro]",
-                                    "[macro,wallclock]", "[all]",             "all",
-                                    "[]",                "",                  "[wallclok]"};
+    char const* const unbewegt[] = {
+        "[wallclock]", "[wallclock,macro]", "[wallclock,micro]", "[macro,wallclock]", "[all]", "all", "[]", "",
+        "[wallclok]"};
     for (char const* f : unbewegt) {
         std::string const ist = pf::mess_combo_legende_mit_wallclock_erbe(f);
         // "[wallclok]" (Tippfehler) traegt kein wallclock-Token und ERBT deshalb -- aber sein

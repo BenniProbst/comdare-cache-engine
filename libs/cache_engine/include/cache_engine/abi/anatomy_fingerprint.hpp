@@ -1554,9 +1554,7 @@ static_assert(komposit_map_wert_bei(detail::kKompositLeseProbeMap, 4) == detail:
               "letztes Segment, nicht nur eines von beiden.");
 static_assert(komposit_map_wert_bei(detail::kKompositLeseProbeMap, 13).empty(),
               "G3/A-03: ein Key ohne Eintrag liefert die leere Sicht -- nie den Wert eines Nachbarn.");
-static_assert(komposit_map_wert_bei(
-                  "44=fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210", 4)
-                  .empty(),
+static_assert(komposit_map_wert_bei("44=fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210", 4).empty(),
               "G3/A-03: KEIN PRAEFIX-TREFFER -- der Key '4' darf das Segment '44=...' nicht finden. "
               "Ein Praefix-Vergleich waere ein falscher RT<=CT-Beweis fuer eine fremde Zelle.");
 

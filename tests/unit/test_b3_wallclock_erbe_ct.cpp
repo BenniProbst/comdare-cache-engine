@@ -112,9 +112,9 @@ void fall_c_stempel_fuehrt_w() {
 // ---------------------------------------------------------------------------------------------
 void fall_d_bau_erbt() {
     std::cout << "\n---- (d) BAU: live-Defines tragen die geerbte wallclock-Deklaration ----\n";
-    ScopedCombo const guard{"[macro]"};
+    ScopedCombo const              guard{"[macro]"};
     std::vector<std::string> const live = pf::live_mess_achsen_defines();
-    std::string join;
+    std::string                    join;
     for (auto const& s : live) {
         if (!join.empty()) join += ' ';
         join += s;
