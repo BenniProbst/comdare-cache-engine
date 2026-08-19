@@ -197,8 +197,15 @@ TEST(D4CebSchluesselWahl, VollmengeIstByteStabilZumVorD4Stand) {
     // zwangslaeufig mit. Der neue Wert ist wieder aus dem literalen Testlauf uebernommen, nicht
     // vorausberechnet. Die Tragbarkeit unten (null Lese-Stellen von ceb_key_sha512) gilt unveraendert.
     //   HISTORIE: Format 4 (E-E/v2) 9f8802514f7a5e5e...6f5c4fe8
-    constexpr std::string_view kFormat5Vollmenge = "99786106cf0ac2ac1bff9c6ee108cbc6d322405253cdeff986e39f94a450a7fe"
-                                                   "12ba2042a8b752dfe90e4499cfc80222994995d9d32484d698436db686053739";
+    // B-9/golden-102 (19.08.2026, Owner-Deckung KON101-02 E-B(i)) -- DIESELBE WACHE, DAS NAECHSTE
+    // DEKLARIERTE BYTE-EREIGNIS. Der Format-Bump 5 -> 6 macht build_version IDENTITAETS-wirksam
+    // (Basis-Glied [10], anatomy_fingerprint.hpp); kCebFingerprintFor rechnet ueber
+    // anatomy_fingerprint_hex und wandert zwangslaeufig mit. Der neue Wert ist wieder aus dem
+    // literalen Testlauf uebernommen, nicht vorausberechnet (Abnahme-Lauf 19.08.2026,
+    // abnahme_ctest_master_vor_nachzug_ROT.log). Die Tragbarkeit unten gilt unveraendert.
+    //   HISTORIE: Format 5 (S-6a) 99786106cf0ac2ac...86053739
+    constexpr std::string_view kFormat6Vollmenge = "74bdbb69683b5ad5e765e9da2a9541a4276feb07570618f26e5dd3b257fffeff"
+                                                   "f477e840a386eb8dc60bb92dee884eafa7bdf4b957113e016b3c7a42a1b388fe";
 #if COMDARE_CEB_HAT_PMC_GLIED
     // I-PMC-2 (Owner 10.08.2026) -- DAS DEKLARIERTE BYTE-EREIGNIS, UND SEINE GENAUE REICHWEITE.
     //
@@ -210,14 +217,14 @@ TEST(D4CebSchluesselWahl, VollmengeIstByteStabilZumVorD4Stand) {
     // WELCHER BESTAND DAVON BETROFFEN IST: KEINER. Jeder heutige Bestandslog-Eintrag stammt von einer CEB
     // OHNE Vendor-Makro (das Makro existiert erst seit dem 10.08.2026), faellt also in den #else-Zweig und
     // behaelt den Anker unten Byte fuer Byte. Alt-Records werden NIE umgeschrieben (BU additiv).
-    EXPECT_NE((ceb::kCebFingerprintFor<ceb::CebComboLegend{"[all]"}>), kFormat5Vollmenge)
+    EXPECT_NE((ceb::kCebFingerprintFor<ceb::CebComboLegend{"[all]"}>), kFormat6Vollmenge)
         << "Die PMC-CEB traegt denselben Schluessel wie die PMC-lose -- dann waere die Permutation "
            "gebaut und unsichtbar (Owner 10.08.2026: 'was die Ergebnisse wiederum NICHT VERGLEICHBAR "
            "macht'). Genau diese Ununterscheidbarkeit soll das Glied beenden.";
     // Und die AUSSAGE zum Nicht-Gleich: es liegt am Glied, nicht an irgendetwas.
     EXPECT_NE(std::string{ceb::kCebMeasurementStampFor<ceb::CebComboLegend{"[all]"}>}.find("pmc="), std::string::npos);
 #else
-    EXPECT_EQ((ceb::kCebFingerprintFor<ceb::CebComboLegend{"[all]"}>), kFormat5Vollmenge)
+    EXPECT_EQ((ceb::kCebFingerprintFor<ceb::CebComboLegend{"[all]"}>), kFormat6Vollmenge)
         << "Der Vollmengen-Schluessel ist gewandert -- damit sind ALLE bestehenden Bestandslog-Eintraege "
            "entwertet. Das ist erlaubt, aber nur als deklariertes Byte-Ereignis mit Owner-Entscheid, nie "
            "als Nebenprodukt. I-PMC-2 (10.08.2026) beruehrt DIESEN Zweig ausdruecklich NICHT: das "

@@ -664,14 +664,22 @@ TEST(Lb1OverlayAbgrenzung, DasOverlayGliedIstStrukturellDaUndSeitEeBELEGT) {
     // Glied hinzugefuegt, verschoben oder entfernt (deshalb auch KEIN Format-Bump: das Layout ist
     // dasselbe, nur der Inhalt von [7] wechselt von leer auf belegt). Genau das pruefen die drei
     // folgenden Zeilen weiter -- sie sind der Beleg, dass die Scharfschaltung layout-neutral war.
-    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintGliedCount, 10u);
+    // B-9/golden-102 (Format 5 -> 6, 19.08.2026, KON101-02 E-B(i)): 10 -> 11 Glieder
+    // (build_version-Basis [10]). Die Bestands-Nummern [0]..[9] bleiben, wo sie sind; das
+    // Komposit-Glied verliert die Schwanz-Stellung an das build_version-Glied -- die Zusagen unten
+    // sind eine Stufe weitergezogen.
+    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintGliedCount, 11u);
     EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintOverlayGlied,
               comdare::cache_engine::abi::kAnatomyFingerprintMessGatesGlied - 1u)
         << "das Overlay-Glied steht unmittelbar vor dem Mess-Gates-Glied (R-3)";
     EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintKompositGlied,
+              comdare::cache_engine::abi::kAnatomyFingerprintBuildVersionGlied - 1u)
+        << "das Komposit-Map-Glied steht unmittelbar vor dem build_version-Glied (B-9) -- die "
+           "Bestands-Nummern [0]..[9] sind unveraendert geblieben";
+    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintBuildVersionGlied,
               comdare::cache_engine::abi::kAnatomyFingerprintGliedCount - 1u)
-        << "seit S-6a/KON45-01 ist das Komposit-Map-Glied das Schwanz-Glied (das Mess-Gates-Glied war es "
-           "unter Format 4) -- die Bestands-Nummern [0]..[8] sind dabei unveraendert geblieben";
+        << "seit B-9/golden-102 ist das build_version-Basis-Glied das Schwanz-Glied (das "
+           "Komposit-Map-Glied war es unter Format 5)";
     // GEGENPROBE zur Leerheit oben: das Mess-Gates-Glied ist das erste Glied, das NIEMALS leer ist --
     // sein Aus-Zustand ist ein Wert ("mg=m0;..."), keine Identitaet. Ohne diese Zeile liesse sich der
     // Test auch mit einem still leer gebliebenen neunten Glied gruen halten.
