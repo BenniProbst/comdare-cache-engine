@@ -129,8 +129,11 @@ CE_COV_PATT_test_unit='pmc'
 CE_COV_GATE_test_unit="always"
 
 # -- Job 'sanitize:tsan' --
+# A2.5/G4 M-2 (2026-08-19): + test_rcu_concurrency -- der Naht-Test (TSan-Bruecke der
+# Fence-Naht, HB-Biss, Reader-Churn) lief vorher in keinem TSan-Job; Build-Target-Liste
+# in .gitlab-ci.yml (sanitize:tsan) im selben Zug erweitert.
 CE_COV_MODE_sanitize_tsan="-R"
-CE_COV_PATT_sanitize_tsan='^(test_concurrency_disciplines|test_rcu|test_v41_axis_08_concurrency)$'
+CE_COV_PATT_sanitize_tsan='^(test_concurrency_disciplines|test_rcu|test_rcu_concurrency|test_v41_axis_08_concurrency)$'
 CE_COV_GATE_sanitize_tsan="always"
 
 # =============================================================================

@@ -22,6 +22,11 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -103,6 +108,16 @@ TEST(RcuConcurrency, StackDomainAddressReuseGivesFreshSlot) {
 // TSan-Ergebnis deckt also den REST, diese Fence-Ordnung deckt es strukturell nicht
 // (werkzeug-bedingt, kein Lauf-Zufall). Vollstaendige Fence-Deckung = eigener Posten im
 // TSan-Ausbau (HY-A2-Umfeld), nicht durch Wiederholungslaeufe erreichbar.
+// FORTSCHREIBUNG A2.5/G4 M-2 (2026-08-19): die Grenze ist jetzt GEMESSEN
+// (g4_m2_vorher_wtsan_warnung.log: GCC 15.3 warnt an BEIDEN Naht-Punkten, read_lock:105 und
+// synchronize:125) und UEBERBRUECKT: die Naht faehrt unter TSan als seq_cst-RMW auf der
+// geteilten Bruecke (rcu.hpp, store_load_fence_seq_cst + COMDARE_RCU_TSAN_BRUECKE) -- eine
+// happens-before-Kante, die TSan VOLL modelliert; ausserhalb von TSan bleibt die Fence. Der
+// Werkzeug-Satz "TSan modelliert atomic_thread_fence nicht" gilt unveraendert, trifft die Naht
+// aber nicht mehr. Deckung seitdem STRUKTURELL statt nur dokumentiert: FenceNahtStruktur*
+// (Quelltext-Wache, beisst auf jede Schwaechung) + FenceNahtHatHappensBeforeKante*
+// (deterministischer HB-Biss ueber die echte Naht-Funktion, unten). Offen bleibt der
+// TSan-VOLLAUSBAU (alle Concurrency-Targets im sanitize-Job) als eigener Posten.
 // PRAEZISIERUNG 2026-08-17: die Teilzusage "reads>0" hing am Scheduling und fiel unter Last
 // reproduzierbar. Sie ist jetzt GESCHAERFT zu "nach dem Anlauf wird WEITER gelesen" -- das ist
 // die Nebenlaeufigkeit selbst statt einer Zahl, die auch ohne sie zustande kaeme. Beide Sperren
@@ -240,4 +255,125 @@ TEST(RcuConcurrency, WriterSyncsWhileReaderThreadsChurnNoUseAfterFree) {
     EXPECT_GT(reads.load(), 0);
     delete slot.load();
     SUCCEED();
+}
+
+// ============================================================================================
+// A2.5/G4 M-2 -- DIE FENCE-NAHT, MESSBAR: Struktur-Wache + deterministischer HB-Biss
+// ============================================================================================
+
+// (1) DIE STRUKTUR-WACHE: sie liest rcu.hpp (kommentarbereinigt, Muster der hy_a1-Zonen-Wache)
+// und haelt die Naht-Form fest. KEIN Timing: wer die Fence schwaecht, die Bruecke relaxed macht
+// oder einen der beiden Naht-Punkte am Ruf vorbeifuehrt, bricht GENAU EINE dieser Zaehlungen --
+// deterministisch, in jedem Build, ohne TSan (V7: Abhaengigkeits-/Fence-Beleg statt Lauf-Zufall).
+TEST(RcuConcurrency, FenceNahtStrukturFenceUndBrueckeSindSeqCstUndBeideNahtPunkteRufenSie) {
+    std::filesystem::path const pfad{COMDARE_RCU_HEADER_PFAD};
+    std::ifstream               ein{pfad};
+    ASSERT_TRUE(ein.is_open()) << pfad;
+    std::ostringstream puffer;
+    puffer << ein.rdbuf();
+
+    // Kommentar-Entferner -- ABSCHRIFT der kommentar-festen hy_a1-Bauform (Abschrift schlaegt
+    // Import: ein Test-Helfer-Header ueber TU-Grenzen waere eine neue Kopplung nur fuers Zaehlen).
+    auto ohne_kommentare = [](std::string const& roh) {
+        std::string        raus;
+        bool               in_block = false;
+        std::istringstream zeilen{roh};
+        std::string        z;
+        while (std::getline(zeilen, z)) {
+            std::string sauber;
+            for (std::size_t i = 0; i < z.size(); ++i) {
+                if (in_block) {
+                    if (i + 1 < z.size() && z[i] == '*' && z[i + 1] == '/') {
+                        in_block = false;
+                        ++i;
+                    }
+                    continue;
+                }
+                if (i + 1 < z.size() && z[i] == '/' && z[i + 1] == '/') break;
+                if (i + 1 < z.size() && z[i] == '/' && z[i + 1] == '*') {
+                    in_block = true;
+                    ++i;
+                    continue;
+                }
+                sauber += z[i];
+            }
+            raus += sauber;
+            raus += '\n';
+        }
+        return raus;
+    };
+    std::string const quelle = ohne_kommentare(puffer.str());
+
+    auto zaehle = [&quelle](std::string_view muster) {
+        std::size_t n = 0;
+        for (std::size_t pos = quelle.find(muster); pos != std::string::npos;
+             pos             = quelle.find(muster, pos + 1)) {
+            ++n;
+        }
+        return n;
+    };
+
+    // (a) GENAU EINE Fence im ganzen Header, und sie ist seq_cst: der Fence-Zweig der Naht-
+    //     Funktion. Eine zweite Fence waere eine Naht am Wachen-Radar vorbei; eine schwaechere
+    //     Ordnung senkte die seq_cst-Zaehlung auf 0.
+    EXPECT_EQ(zaehle("std::atomic_thread_fence"), std::size_t{1});
+    EXPECT_EQ(zaehle("std::atomic_thread_fence(std::memory_order_seq_cst)"), std::size_t{1});
+    // (b) GENAU EIN Bruecken-RMW, und er ist seq_cst: der TSan-Zweig derselben Funktion.
+    EXPECT_EQ(zaehle("g_tsan_fence_bridge.fetch_add"), std::size_t{1});
+    EXPECT_EQ(zaehle("g_tsan_fence_bridge.fetch_add(1, std::memory_order_seq_cst)"), std::size_t{1});
+    // (c) BEIDE Naht-Punkte (read_lock, synchronize) rufen DIE EINE Funktion: 2 Rufe + 1
+    //     Definition = 3 Vorkommen des Namens. Faellt ein Ruf weg (ein Naht-Punkt wieder auf
+    //     eigene Faust), wird es 2; kommt eine zweite Definition dazu, wird es 4.
+    EXPECT_EQ(zaehle("store_load_fence_seq_cst"), std::size_t{3});
+
+    // Kommentar-Festigkeit des Entferners (Gegenprobe wie in der hy_a1-Wache: ohne sie koennte
+    // er zur Identitaet degenerieren und (a)-(c) zaehlten Kommentar-Erwaehnungen mit).
+    EXPECT_EQ(ohne_kommentare("// std::atomic_thread_fence im Kommentar\n"), std::string{"\n"});
+    EXPECT_NE(ohne_kommentare("store_load_fence_seq_cst();\n").find("store_load_fence_seq_cst"),
+              std::string::npos);
+}
+
+// (2) DER DETERMINISTISCHE HB-BISS ueber die ECHTE Naht-Funktion. Bauform Message-Passing:
+//   Schreiber: payload (non-atomic) -> NAHT -> flag=1 (relaxed).
+//   Leser:     spin auf flag==1 (relaxed) -> NAHT -> payload lesen.
+// WARUM DAS DETERMINISTISCH IST UND KEIN TIMING-FLAKE: das relaxed-Flag traegt selbst KEINE
+// happens-before-Kante -- die EINZIGE Kanten-Quelle ist die Naht. Unter TSan (Bruecken-Zweig)
+// ist die Kette zwingend: der Leser-RMW laeuft in Echtzeit NACH dem Schreiber-RMW (der Leser
+// startet seinen erst nach Sicht von flag==1, das der Schreiber erst NACH seiner Naht setzt);
+// RMWs auf derselben Zelle sind echtzeit-total geordnet, der spaetere liest den Wert des
+// frueheren aus dessen Release-Sequenz -> synchronizes-with -> der payload-Read ist geordnet.
+// In JEDEM Lauf passieren beide Zugriffe; die Kante existiert oder fehlt STRUKTURELL:
+//   Bruecke seq_cst  -> TSan-Modell traegt die Kante -> gruen.
+//   Bruecke relaxed/entfernt (Wegwerf-Mutation) -> keine Kante -> TSan meldet das Race in
+//   jedem Lauf (Rot-Beleg g4_m2_t1_rot_bruecke_relaxed_tsan.log).
+// OHNE TSan prueft derselbe Fall die reale Sichtbarkeit ueber den Fence-Zweig (payload==42) --
+// er ist dann kein Race-Detektor, aber auch nie falsch-rot.
+TEST(RcuConcurrency, FenceNahtHatHappensBeforeKanteDeterministischUeberDieEchteNahtFunktion) {
+    // WARMUP-THREAD, GEMESSEN NOTWENDIG (2026-08-19, build-tsan, GCC 15.3, Bruecke testweise auf
+    // relaxed mutiert): TSan meldete das Probe-Race NUR, wenn vorher schon ein Kind-Thread eine
+    // main-Stack-Variable beschrieben hatte und gejoint war -- Probe allein 0/20 rot, nach einem
+    // solchen Vorgaengerfall 20/20 bzw. 5/5 rot, --gtest_repeat=2 5/5 rot (zweiter Durchlauf),
+    // nach dem thread-freien Vorgaenger (StackDomain) 0/5, leerer join-Thread 0/20. Die Probe
+    // stellt ihre Randbedingung deshalb SELBST her, statt von der Fall-Reihenfolge der Suite
+    // abzuhaengen. Das ist eine dokumentierte BEOBACHTUNG der TSan-Laufzeit, keine Ursachen-
+    // Behauptung ueber ihre Interna; die Biss-Messungen stehen im Rot-Log
+    // g4_m2_t1_rot_bruecke_relaxed_tsan.log.
+    int warm = 0;
+    std::thread{[&warm] { warm = 1; }}.join();
+    ASSERT_EQ(warm, 1);
+
+    int              payload = 0; // non-atomic: der Konflikt-Gegenstand, den NUR die Naht ordnet
+    std::atomic<int> flag{0};     // relaxed: Reihenfolge-Bote OHNE eigene HB-Kante
+
+    std::thread schreiber([&] {
+        payload = 42;                             // (1) der geschuetzte Wert
+        rcu::store_load_fence_seq_cst();          // (2) DIE NAHT -- einzige Kanten-Quelle
+        flag.store(1, std::memory_order_relaxed); // (3) Bote: Naht ist komplett
+    });
+
+    while (flag.load(std::memory_order_relaxed) == 0) { std::this_thread::yield(); }
+    rcu::store_load_fence_seq_cst(); // Leser-Naht: schliesst die RMW-Kette (TSan) / Fence (real)
+    EXPECT_EQ(payload, 42) << "Dekker-Sichtbarkeit ueber die Naht verletzt";
+
+    schreiber.join();
 }

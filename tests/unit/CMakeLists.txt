@@ -353,6 +353,10 @@ comdare_add_test(test_rcu
 comdare_add_test(test_rcu_concurrency
     SOURCES test_rcu_concurrency.cpp
     LIBRARIES comdare::rcu)
+# A2.5/G4 M-2: die FenceNahtStruktur-Wache liest rcu.hpp selbst (Quelltext-Praedikat ueber die
+# Naht-Form, Muster der hy_a1-Zonen-Wache) -- der Pfad kommt wie dort per Definition herein.
+target_compile_definitions(test_rcu_concurrency PRIVATE
+    "COMDARE_RCU_HEADER_PFAD=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/reclamation/rcu_reclaim/rcu.hpp\"")
 
 # Aufgabe #105 (2026-05-13): eigene SDSL-Lite-Portierung (BitVector + LOUDS)
 comdare_add_test(test_succinct
