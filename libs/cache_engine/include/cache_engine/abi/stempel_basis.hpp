@@ -89,7 +89,7 @@ enum class StempelInterface : std::uint8_t {
     MessZeile      = 1, ///< Mess-Realm-Zeile (Grammatik: der EINE Scanner stamp_line_is_wellformed)
     SystemZeile    = 2, ///< System-Realm-Zeile (dito)
     OrganZeile     = 3, ///< Organ-Realm-Zeile (dito)
-    FingerprintSha = 4, ///< SHA-512-Fingerprint, 128 hex (sha512_len-Doktrin decl.hpp:224-225)
+    FingerprintSha = 4, ///< Fingerprint-Hex, je-Traeger-Bein (KON101): Planer SHA-256/64, sonst SHA-512/128
     GesamtStempel  = 5, ///< das EINE Kompositum der Erbin (ordnungsneutral geprueft, S-6-Sperre)
     Angeschlossene = 6  ///< RT-Hook (NUR Hybrid): die angeschlossenen Stempel-Zeilen (KON47-02)
 };
@@ -236,6 +236,17 @@ namespace vertrag_detail {
 
 inline constexpr std::size_t kFingerprintShaHexLaenge = 128; // sha512_len-Doktrin (decl.hpp:224-225)
 
+/// V-08R (KON101): das PLANER-Bein des sha-Vertrags -- der Planer traegt die Owner-Form SHA-256/64-hex,
+/// die uebrigen Traeger bleiben auf dem 128-hex-SHA-512-Bein (sha512_len-Doktrin). Das Bein haengt an
+/// EINER Konstante + der Erbin-Fuellung und bleibt DREHBAR: die Form-Frage 64-vs-128 laeuft parallel als
+/// F2-Vorlage P5 -- dieser Bau praejudiziert nichts Irreversibles.
+inline constexpr std::size_t kFingerprintShaHexLaengePlaner = 64;
+
+/// Die EINE Ablese-Stelle des je-Traeger-Beins (Planer -> 64, sonst -> 128).
+[[nodiscard]] constexpr std::size_t fingerprint_sha_hex_laenge(StempelTraeger t) noexcept {
+    return t == StempelTraeger::Planer ? kFingerprintShaHexLaengePlaner : kFingerprintShaHexLaenge;
+}
+
 // -- Existenz-Formen (PFLICHT verlangt die STATISCHE, noexcept-Form; string_view-konvertibel) ----------
 template <class E>
 inline constexpr bool hat_version_xyz = requires {
@@ -375,21 +386,25 @@ consteval bool version_xyz_politik_probe(...) {
     return false;
 }
 
-// fingerprint_sha: 128 KLEINBUCHSTABEN-Hex-Zeichen ODER bewusst-leer mit Grund. Die Laenge allein
-// genuegt nicht -- 128x'g' oder NUL-Bytes erfuellten sonst den behaupteten SHA-512-Vertrag
-// (Zweitlens-Befund 12.08.). Kanonische Schreibweise der kFP-Ausgabe ist lowercase-hex
-// (anatomy_fingerprint_hex; decl.hpp:224-225 sha512_len-Doktrin).
-[[nodiscard]] consteval bool ist_sha512_hex_128(std::string_view s) noexcept {
-    if (s.size() != kFingerprintShaHexLaenge) return false;
+// fingerprint_sha: EXAKT die Traeger-Bein-Laenge in KLEINBUCHSTABEN-Hex ODER bewusst-leer mit Grund
+// (je-Traeger-Bein KON101, s. fingerprint_sha_hex_laenge oben). Die Laenge allein genuegt nicht --
+// 128x'g' oder NUL-Bytes erfuellten sonst den behaupteten SHA-Vertrag (Zweitlens-Befund 12.08.).
+// Kanonische Schreibweise ist lowercase-hex (anatomy_fingerprint_hex bzw. sha256::to_hex).
+[[nodiscard]] consteval bool ist_sha_hex(std::string_view s, std::size_t laenge) noexcept {
+    if (s.size() != laenge) return false;
     for (char const c : s)
         if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
     return true;
 }
-template <class E, bool B = ist_sha512_hex_128(std::string_view{E::fingerprint_sha()})>
+[[nodiscard]] consteval bool ist_sha512_hex_128(std::string_view s) noexcept {
+    return ist_sha_hex(s, kFingerprintShaHexLaenge);
+}
+template <class E, StempelTraeger T,
+          bool B = ist_sha_hex(std::string_view{E::fingerprint_sha()}, fingerprint_sha_hex_laenge(T))>
 consteval bool fingerprint_sha_laenge_probe(int) {
     return B;
 }
-template <class E>
+template <class E, StempelTraeger T>
 consteval bool fingerprint_sha_laenge_probe(...) {
     return false;
 }
@@ -467,12 +482,12 @@ template <class E>
         return true;
     }
 }
-template <class E>
+template <class E, StempelTraeger T>
 [[nodiscard]] consteval bool fingerprint_sha_pflicht_erfuellt() {
     if constexpr (!hat_fingerprint_sha<E>)
         return false;
     else {
-        if (fingerprint_sha_laenge_probe<E>(0)) return true;
+        if (fingerprint_sha_laenge_probe<E, T>(0)) return true;
         return fingerprint_sha_leer_probe<E>(0) && fingerprint_sha_bewusst_leer_probe<E>(0);
     }
 }
@@ -547,9 +562,9 @@ template <class E, StempelTraeger T, StempelInterface I>
         if constexpr (kZelle == StempelZulassung::Verboten)
             return !vorhanden_fingerprint_sha<E>;
         else if constexpr (kZelle == StempelZulassung::Erlaubt)
-            return !vorhanden_fingerprint_sha<E> || fingerprint_sha_pflicht_erfuellt<E>();
+            return !vorhanden_fingerprint_sha<E> || fingerprint_sha_pflicht_erfuellt<E, T>();
         else
-            return fingerprint_sha_pflicht_erfuellt<E>();
+            return fingerprint_sha_pflicht_erfuellt<E, T>();
     } else if constexpr (I == StempelInterface::GesamtStempel) {
         if constexpr (kZelle == StempelZulassung::Verboten)
             return !vorhanden_gesamt_stempel<E>;
