@@ -4395,7 +4395,13 @@ foreach(_dll IN ITEMS perm_set_d9 perm_sequence_d10 perm_view_d11 perm_buildvari
         # Die Wurzel gilt fuer ALLE DLLs dieses foreach -- eine Sonderliste nur fuer die zwei
         # hybrid_reroute_* waere der zweite Bau-Weg, den der Block-Kommentar oben verbietet.
         "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-        "${PROJECT_SOURCE_DIR}/libs/common")
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        # A-11/golden-102: der Stempel-Makro-Traeger (anatomy_module_abi_v1.hpp) zieht ueber
+        # abi_adapter die Organ-Achsen samt CMake-GENERIERTER flags.hpp -- dieselben Dirs wie bei
+        # jedem anderen Stempel-Konsumenten (test_d2 usw.), fuer ALLE DLLs dieses foreach (kein
+        # zweiter Bau-Weg).
+        "${PROJECT_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
     target_compile_features(${_dll} PRIVATE cxx_std_23)
     target_compile_definitions(${_dll} PRIVATE COMDARE_ANATOMY_MODULE_BUILD=1)
     set_target_properties(${_dll} PROPERTIES
