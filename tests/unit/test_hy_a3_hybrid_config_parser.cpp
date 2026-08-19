@@ -16,10 +16,11 @@
 //     daneben gruen (beweist, dass der Rot vom Token kommt)."
 //
 // WAS SIE NICHT KANN, ausdruecklich benannt: sie sagt nichts darueber, ob die Sektion im
-// PRODUKTIVEN Ladeweg ankommt. Der Anschluss an validate_profile und an die Registry ist NICHT
-// gebaut -- die Registry-Seite haengt an der offenen Owner-Frage E-6 (welche der Registries die
-// "22->23" meint; heute steht KEINE Achsen-Registry auf 22, der Eintrag ginge in die falsche
-// Datei). Geprueft ist hier die Parse-Flaeche, nicht ihre Verdrahtung.
+// PRODUKTIVEN Ladeweg ankommt. Der Anschluss an validate_profile ist NICHT gebaut. Die
+// Registry-Seite ist SEIT HY-A3 GEBAUT (E-6 per KON118 BEANTWORTET, 18.08.2026: die "22->23"
+// war ein PHANTOM-NENNER, es stand nie ein Registry-XML-Eintrag aus; der echte Registry-Anteil
+// ist kGenusBuildSlotCounts 5->6, genus_build_admission.hpp, sechster Eintrag = Reroute-Genus).
+// Geprueft ist hier die Parse-Flaeche, nicht ihre Verdrahtung.
 //
 // @bauplan super docs/plaene/20260809-HYBRID-bauplan-und-entscheidungsvorlage.md Abschnitt IV HY-A3
 // @design docs/architecture/20260802-hybrid_tier_stufe_soll_design.md Abschnitt 4
