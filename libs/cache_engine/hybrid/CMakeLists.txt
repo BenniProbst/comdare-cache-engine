@@ -21,6 +21,11 @@ add_library(comdare::ce_hybrid ALIAS comdare_ce_hybrid)
 target_include_directories(comdare_ce_hybrid INTERFACE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    # G3/A-03: die Stempel-Kette (hybrid_stempel_kette.hpp) zieht anatomy_fingerprint.hpp, und der
+    # traegt seit E-A/B-6 (18.08.2026) den consteval-SHA-256 (<sha256/ctsha.hpp>) -- dessen Wurzel
+    # ist libs/cache_engine/src. Sie steht HIER im Vertrag statt in den Konsumenten: vier
+    # handgefuehrte Kopien derselben Liste waren genau der F-10-Anlass dieses Targets.
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common"
     "${PROJECT_BINARY_DIR}/generated")
 

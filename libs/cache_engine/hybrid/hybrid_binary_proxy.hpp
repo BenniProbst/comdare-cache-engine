@@ -39,6 +39,7 @@
 #include "hybrid_dock_contract.hpp"              // DockContractDescriptor + hybrid_status_*
 #include "hybrid_dock_factory.hpp"               // DockArray<Policy>::attach (Definition)
 #include "hybrid_pruef_dock.hpp"                 // StandardHybridDock
+#include "hybrid_stempel_kette.hpp"              // G3/A-03: RT-Stempel-Kette + RT<=CT-Invariante
 
 #include "anatomy/observable_tier.hpp" // IObservableTier (der Antrieb am Dock)
 
@@ -318,6 +319,33 @@ public:
     /// antrieb(slot) -- der OP-PFAD. Ein Zeiger-Read, kein visit, kein Cast (HY-A1-Hotpath-Anker).
     [[nodiscard]] anatomy::IObservableTier* antrieb(std::size_t slot) const noexcept {
         return docks_.antrieb_von(slot);
+    }
+
+    // -- G3/A-03: die Stempel-Kette (KON47-02) ---------------------------------------------------
+    // Der Proxy IST die Aussenflaeche der Hybrid-Binary; ohne diese Durchreichungen waere der
+    // Dock-Cache von aussen unerreichbar (docks_ ist privat) und die Owner-Zusage "von der CEB
+    // ueber die Flaeche 2 zur Laufzeit abfragbar" bliebe ohne Gegenstand. Reine 1:1-Delegation
+    // an das Array -- die Semantik (Lebensdauer, nullptr-Loesung, EIN Voll-Raeumer detach) wohnt
+    // dort und wird hier nicht wiederholt.
+
+    /// stempel_binden(slot, stufen_id, pod) -- der zweite Aspekt des Umschaltpunkts (neben
+    /// ziel_binden). Der Aufrufer besitzt den POD-Zeiger (Stempel-ABI-Symbol des Tier-Moduls),
+    /// wie er beim Antrieb den Cross-Cast besitzt.
+    [[nodiscard]] int stempel_binden(std::size_t slot, std::size_t stufen_id,
+                                     abi::AnatomyVersionLines const* stempel) noexcept {
+        return docks_.stempel_binden(slot, stufen_id, stempel);
+    }
+
+    /// stempel_von(slot) -- die Flaeche-2-Lesung (V-04R: Durchreichung, keine Kopie).
+    [[nodiscard]] abi::AnatomyVersionLines const* stempel_von(std::size_t slot) const noexcept {
+        return docks_.stempel_von(slot);
+    }
+
+    /// rt_ct_invariante(ct_komposit_glied) -- die Wache RT <= CT ueber die EIGENEN Docks. Das
+    /// CT-Glied kommt als Parameter herein (die Begruendung steht an der freien Funktion: das
+    /// Define gehoert der Modul-TU, nicht diesem Header).
+    [[nodiscard]] RtCtPruefergebnis rt_ct_invariante(std::string_view ct_komposit_glied) const {
+        return hybrid_rt_ct_invariante_pruefen(ct_komposit_glied, docks_);
     }
 
     [[nodiscard]] bool                              ist_gebunden() const noexcept { return ziel_ != nullptr; }
