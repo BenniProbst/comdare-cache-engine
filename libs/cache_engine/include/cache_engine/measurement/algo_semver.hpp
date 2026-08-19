@@ -993,6 +993,54 @@ constexpr void for_each_flag_node(AlgoSemVer const& v, Fn&& fn) {
     return erfuellt;
 }
 
+/// DIE REDUNDANZ-WACHE (G-2-SEMANTIK #17, 17.08.2026). Owner-Grundlage KON9-09 ("Es braucht also
+/// je Achsen-Kategorie die von mir definiert freigegebene Syntax und Semantik, die jeweils nach
+/// den beschriebenen Regeln ueber 'c' hinausgeht. Das ist Pflicht und Basis fuer die Abgabe.")
+/// und KON13-03 (G-2, zweiphasig System+Organ: "Semantik muss nachgeholt werden in Reihenfolge
+/// der Achsen-Nummerierung"). Die Flag-Liste einer Version ist eine MENGE von Elementen, und das
+/// ELEMENT ist das (token, eltern)-PAAR (S-3-Doktrin, flag_menge_ordnung.hpp). Ein Element, das
+/// ZWEIMAL dasteht ("1.0.0.c.c", "1.0.0.c{p.p}", "1.0.0.x512{f.f}"), sagt nichts Zweites -- es
+/// ist Redundanz, und zwei rohe Zeichenfolgen fuer DENSELBEN Stand sind eine Alias-Identitaet
+/// (B11-Doktrin: der Stempel IST Identitaet; compose_algo_signature serialisiert VERBATIM).
+/// Diese Fehlerklasse stand im Kasten (m8) unten seit S2 ausdruecklich als NICHT GEBAUT und ist
+/// per G-1-Design M-11 (docs/plaene/20260813-DESIGN-g1-grammatik-dreiphasige-messachse.md) dem
+/// G-2-Semantik-Nachzug #17 zugewiesen -- dieser Bau ist der Nachzug.
+///
+/// GESCHWISTER-GENAU, NICHT TOKEN-GLOBAL: 'vnni' unter x256 UND 'vnni' unter x512 sind ZWEI
+/// Elemente (verschiedene CPUID-Bits, s. Katalog-Wache) -- kein Duplikat. Erst dasselbe Token
+/// unter DEMSELBEN Eltern-Token ist eines. Das deckt auch die Basis-Ebene: "c{p}.c{e}" traegt
+/// das Element ('c', "") zweimal und faellt -- eine Form, die unter R8 ("c" == "c{p}"
+/// SEMANTISCH) zwei Aussagen ueber denselben Slot mischte.
+///
+/// ABLEHNEN, NIE DEDUPLIZIEREN: die Wache ergaenzt und entfernt nichts (Identitaets-Doktrin wie
+/// bei voraussetzungen_erfuellt: ein stilles Umschreiben waere ein Byte-Ereignis). Traversal
+/// ueber die EINE Primitive for_each_flag_node, paarweise ueber den Text-Reihenfolge-Index
+/// (O(n^2) bei n <= kMaxFlagNodes == 96 -- im constexpr-Pfad kostenlos); der Sentinel traegt
+/// nie Flags (K-5) und ist vakuum-duplikatfrei; die Parsbarkeit bleibt Aufgabe von
+/// version_is_parsable_or_documented_sentinel (Arbeitsteilung wie bei flag_catalog_is_satisfied).
+[[nodiscard]] constexpr bool flag_menge_ist_duplikatfrei(AlgoSemVer const& v) noexcept {
+    bool        frei = true;
+    std::size_t i    = 0;
+    for_each_flag_node(
+        v, [&frei, &i, &v](std::string_view token, std::uint8_t /*tiefe*/, std::string_view eltern) constexpr noexcept {
+            std::size_t j = 0;
+            for_each_flag_node(v, [&frei, &i, &j, token, eltern](std::string_view t2, std::uint8_t /*tiefe2*/,
+                                                                 std::string_view e2) constexpr noexcept {
+                if (j < i && t2 == token && e2 == eltern) frei = false;
+                ++j;
+            });
+            ++i;
+        });
+    return frei;
+}
+
+/// Dieselbe Frage an ein ROHES Literal -- fuer Aufrufer ohne AlgoSemVer in der Hand. Unparsbares
+/// parst auf den Sentinel und ist damit LEER duplikatfrei (dieselbe dokumentierte Bedeutung wie
+/// bei version_flags_are_in_catalog; die Voll-Wache stellt beide Fragen nacheinander).
+[[nodiscard]] constexpr bool version_flag_menge_ist_duplikatfrei(std::string_view raw) noexcept {
+    return flag_menge_ist_duplikatfrei(parse_algo_semver(raw));
+}
+
 // == DIE POLITIK-WACHEN (B12) =====================================================================
 
 /// PFLICHT-WACHE (Owner-Q3: "Wir produzieren nur CPU code"; in der v2 als F-10 praezisiert: "ce-eigene
@@ -1030,11 +1078,13 @@ constexpr void for_each_flag_node(AlgoSemVer const& v, Fn&& fn) {
 ///   (b) wenn ueberhaupt ein Flag da ist, dann ist 'c' darunter (Owner-F-10),
 ///   (c) JEDES Flag-Token steht im KATALOG und unter SEINER Basis (S2, 07.08.2026),
 ///   (d) JEDER Knoten mit bekannter Voraussetzungs-Kette hat sein Voraussetzungs-Element in der
-///       MENGE (S-3b, 13.08.2026, KON16-02: die Compile-Seite FORDERT -- voraussetzungen_erfuellt).
+///       MENGE (S-3b, 13.08.2026, KON16-02: die Compile-Seite FORDERT -- voraussetzungen_erfuellt),
+///   (e) KEIN (token,eltern)-Element steht doppelt in der Flag-MENGE (G-2-SEMANTIK #17,
+///       17.08.2026, KON13-03/KON9-09 -- flag_menge_ist_duplikatfrei).
 /// Die Owner-PFLICHT "ein Flag MUSS da sein" ist bewusst NICHT hier, sondern im gated Zwilling unten -- so
 /// bleibt dieser ungated Teil auch fuer Alt-/Fremd-Literale nutzbar.
 ///
-/// WARUM (c) UND (d) UNGATED SIND UND NICHT HINTER COMDARE_VERSION_HW_FLAG_ENFORCE: das Define schaltet eine
+/// WARUM (c), (d) UND (e) UNGATED SIND UND NICHT HINTER COMDARE_VERSION_HW_FLAG_ENFORCE: das Define schaltet eine
 /// POLITIK ("ce-eigene Achsen MUESSEN 'c' tragen"), also eine Aussage darueber, WAS deklariert sein muss.
 /// Der Katalog ist keine Politik, sondern eine Aussage darueber, ob das Deklarierte ueberhaupt existiert.
 /// "1.0.0.c{quatsch}" ist unter JEDER Politik falsch. Eine Wache dafuer hinter ein Define zu haengen,
@@ -1042,7 +1092,9 @@ constexpr void for_each_flag_node(AlgoSemVer const& v, Fn&& fn) {
 /// Fuer (d) gilt dasselbe: "1.0.0.c.x512{vl}" ohne 'f' behauptet eine Hardware-Forderung, deren
 /// Fundament fehlt -- das ist unter jeder Politik falsch, nicht erst unter der scharfen (KON11-01:
 /// die Einhaengung hier ist der EINE Ort, alle Bestands-Verbraucher hoeren mit, NULL neue
-/// Aufrufstellen).
+/// Aufrufstellen). Und fuer (e) ebenso: "1.0.0.c.c" behauptet denselben Stand zweimal -- Redundanz
+/// ist unter jeder Politik falsch (Alias-Identitaet, B11), nicht erst unter der scharfen; die
+/// Einhaengung hier folgt exakt dem (d)-Muster (EIN Ort, alle Bestands-Verbraucher hoeren mit).
 ///
 /// ENTFALLEN GEGENUEBER DER Q3-FASSUNG: der frueher dritte Term "NIE experimentell". Er hat mit der v2
 /// keinen Gegenstand mehr -- 'e' bedeutet EFFICIENCY CORE und ist ein legitimes Flag (R7). Die alte
@@ -1054,7 +1106,8 @@ constexpr void for_each_flag_node(AlgoSemVer const& v, Fn&& fn) {
     AlgoSemVer const v = parse_algo_semver(raw);
     if (v.has_flags() && !v.has_top_level_flag("c")) return false;
     if (!flag_catalog_is_satisfied(v)) return false;
-    return voraussetzungen_erfuellt(v); // (d) S-3b: die Compile-Seite FORDERT (KON16-02)
+    if (!voraussetzungen_erfuellt(v)) return false; // (d) S-3b: die Compile-Seite FORDERT (KON16-02)
+    return flag_menge_ist_duplikatfrei(v);          // (e) G-2-Semantik #17: Redundanz ist unter jeder Politik falsch
 }
 
 /// B12 (c): der GATED Zwilling (COMDARE_VERSION_HW_FLAG_ENFORCE). Er verlangt das CPU-Flag, waehrend der
@@ -1580,6 +1633,11 @@ static_assert(!ce_owned_version_is_wellformed("quatsch"));
 //   * DOPPELUNGEN. "1.0.0.c.c" und "1.0.0.x512{f.f}" gehen durch. Jedes Token steht im Katalog und an
 //     seiner Stelle; dass es zweimal dasteht, ist eine andere Fehlerklasse (Redundanz, nicht Bedeutung)
 //     und braucht eine eigene Wache. Sie ist NICHT gebaut.
+//     [NACHGEFUEHRT 17.08.2026, G-2-SEMANTIK #17 (KON13-03/KON9-09) -- DIE WACHE IST GEBAUT:
+//     flag_menge_ist_duplikatfrei() (oben, ueber for_each_flag_node, geschwister-genau am
+//     (token,eltern)-Paar), und ce_owned_version_is_wellformed traegt sie als Term (e). Der Satz
+//     "geht durch" gilt weiterhin fuer DIESE Wache hier (flag_catalog_is_satisfied prueft das
+//     Vokabular, nicht die Menge), aber NICHT mehr fuer die B12-Voll-Wache -- Beweis-Batterie (r).]
 //   * EINE BREITEN-BASIS OHNE SUB-LISTE. "1.0.0.c.x512" geht durch. Ob eine nackte Basis eine sinnvolle
 //     Aussage ist ("gebaut fuer 512-bit, ohne zu sagen welches Subset"), ist eine Sach-Frage, die keine
 //     der Quellen beantwortet -- und strenger zu sein als die Quellen waere Raten.
@@ -1639,5 +1697,45 @@ static_assert(!ce_owned_version_is_wellformed("1.0.0.c.vpclmulqdq"));
 // (v5) FORDERN, NICHT AUFFUELLEN: die abgelehnte Form rendert BYTE-TREU zurueck -- niemand ergaenzt
 // still ein 'f' (das waere ein Identitaets-Ereignis, s. Datei-Kopf).
 static_assert(render_algo_semver(parse_algo_semver("1.0.0.c.x512{vl}")).view() == "1.0.0.c.x512{vl}");
+
+// -- (r) DIE REDUNDANZ-WACHE (G-2-Semantik #17, 17.08.2026) ---------------------------------------
+// (r1) Der Bestand und der Sentinel sind duplikatfrei -- die dokumentierten ce-Formen bleiben gruen.
+static_assert(flag_menge_ist_duplikatfrei(parse_algo_semver("1.0.0.c")));
+static_assert(flag_menge_ist_duplikatfrei(parse_algo_semver("1.0.1.c")));
+static_assert(flag_menge_ist_duplikatfrei(parse_algo_semver("1.0.2.c")));
+static_assert(flag_menge_ist_duplikatfrei(parse_algo_semver("1.0.0.c{p.e}")));
+static_assert(flag_menge_ist_duplikatfrei(parse_algo_semver("1.0.0")));
+static_assert(flag_menge_ist_duplikatfrei(AlgoSemVer{})); // Sentinel: traegt nie Flags (K-5), vakuum-frei
+// (r2) GESCHWISTER-GENAU am (token,eltern)-Paar: dasselbe Token unter VERSCHIEDENEN Eltern ist
+// KEIN Duplikat (vnni existiert als avx_vnni unter x256 UND avx512_vnni unter x512 -- zwei Elemente).
+static_assert(flag_menge_ist_duplikatfrei(parse_algo_semver("1.0.0.c.x256{vnni}.x512{f.vnni}")));
+// (r3) Die (m8)-Fehlerklasse faellt -- je Ebene einzeln: Basis doppelt, Sub doppelt, cpu_sub doppelt,
+// Basis doppelt MIT verschiedenen Klammer-Inhalten (das Element ist ('c',"") -- zweimal), Breiten-
+// Basis doppelt auf Tiefe 0.
+static_assert(!flag_menge_ist_duplikatfrei(parse_algo_semver("1.0.0.c.c")));
+static_assert(!flag_menge_ist_duplikatfrei(parse_algo_semver("1.0.0.x512{f.f}")));
+static_assert(!flag_menge_ist_duplikatfrei(parse_algo_semver("1.0.0.c{p.p}")));
+static_assert(!flag_menge_ist_duplikatfrei(parse_algo_semver("1.0.0.c{e.e}")));
+static_assert(!flag_menge_ist_duplikatfrei(parse_algo_semver("1.0.0.c{p}.c{e}")));
+static_assert(!flag_menge_ist_duplikatfrei(parse_algo_semver("1.0.0.c.x512{f}.x512{bw}")));
+// (r4) Die rohe Form: unparsbar -> Sentinel -> LEER duplikatfrei (dokumentierte Bedeutung wie bei
+// version_flags_are_in_catalog); die Voll-Wache faellt trotzdem an der Parsbar-Pflicht.
+static_assert(version_flag_menge_ist_duplikatfrei("1.0.0.c{p.e}"));
+static_assert(!version_flag_menge_ist_duplikatfrei("1.0.0.c.c"));
+static_assert(version_flag_menge_ist_duplikatfrei("v1.0.0c")); // unparsbar -> Sentinel -> LEER frei
+static_assert(!ce_owned_version_is_wellformed("v1.0.0c"));     // ... die Voll-Wache faellt dennoch
+// (r5) Die Einhaengung als Term (e): die B12-Voll-Wache lehnt die semantisch ungueltigen,
+// syntaktisch gueltigen Formen jetzt ab -- und die Positiv-Gegenprobe besteht weiter. Der
+// cpu_sub-Fall "c{p.p}" ist die per G-1 M-11 benannte G-2-Zeilen-Luecke; er ist katalog- und
+// ketten-konform und faellt AUSSCHLIESSLICH am neuen Term (Wache-greift-wirklich-Beleg).
+static_assert(!ce_owned_version_is_wellformed("1.0.0.c.c"));
+static_assert(!ce_owned_version_is_wellformed("1.0.0.c{p.p}"));
+static_assert(!ce_owned_version_is_wellformed("1.0.0.c.x512{f.f}"));
+static_assert(!ce_owned_version_is_wellformed("1.0.0.c{p}.c{e}"));
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c{p.p}")));      // Katalog allein liesse durch
+static_assert(voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c{p.p}")));       // Ketten allein auch
+static_assert(ce_owned_version_is_wellformed("1.0.0.c.x256{vnni}.x512{f.vnni}")); // Positiv-Gegenprobe
+// (r6) ABLEHNEN, NIE DEDUPLIZIEREN: die abgelehnte Form rendert BYTE-TREU zurueck (Identitaet).
+static_assert(render_algo_semver(parse_algo_semver("1.0.0.c.c")).view() == "1.0.0.c.c");
 
 } // namespace comdare::cache_engine::measurement

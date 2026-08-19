@@ -112,12 +112,17 @@ namespace detail {
 }
 } // namespace detail
 static_assert(detail::system_versionen_wohlgeformt(),
-              "System-Achsen-Code-Version verletzt die ce-Registry-Politik -- DREI moegliche Gruende: "
+              "System-Achsen-Code-Version verletzt die ce-Registry-Politik -- FUENF moegliche Gruende: "
               "(a) UNPARSBAR (und nicht der dokumentierte Sentinel \"0.0.0\") -- ein junk-Literal wuerde "
               "still als @0.0.0 in system_stamp_line stempeln; oder (b) sie traegt Flags, aber 'c' ist "
               "nicht darunter (g/f/n sind reserviert, nicht produziert -- Owner-F-10 07.08.2026); oder "
               "(c) ein Flag-Token steht NICHT im Katalog oder nicht unter SEINER Basis (S2-Katalog-Wache, "
-              "measurement/flag_grammar_catalog.hpp -- z.B. 'x512{sse2}': sse2 gehoert unter x128)");
+              "measurement/flag_grammar_catalog.hpp -- z.B. 'x512{sse2}': sse2 gehoert unter x128); oder "
+              "(d) ein Knoten mit bekannter Voraussetzungs-Kette hat sein Voraussetzungs-Element nicht "
+              "in der Menge (S-3b -- z.B. 'x512{vl}' ohne 'f'); oder (e) ein (token,eltern)-Element "
+              "steht DOPPELT in der Flag-Menge (Redundanz-Wache, G-2-Semantik #17, KON13-03: die "
+              "SYSTEM-Kategorie zieht die Semantik in Tabellen-/Nummerierungs-Ordnung [0] target_isa "
+              "[1] operating_system [2] external_utils nach -- z.B. '1.0.0.c.c')");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
 static_assert(detail::system_versionen_cpu_pflicht(),
               "System-Achsen-Code-Version ohne CPU-Flag: im CPU-only-Scope MUSS jede Version 'c' unter "

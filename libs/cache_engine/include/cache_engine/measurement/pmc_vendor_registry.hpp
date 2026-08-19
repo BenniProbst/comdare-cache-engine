@@ -77,11 +77,14 @@ namespace detail {
 }
 } // namespace detail
 static_assert(detail::pmc_vendor_versionen_wohlgeformt(),
-              "PMC-Vendor-Version verletzt die ce-Registry-Politik -- DREI moegliche Gruende: "
+              "PMC-Vendor-Version verletzt die ce-Registry-Politik -- FUENF moegliche Gruende: "
               "(a) UNPARSBAR (und nicht der dokumentierte Sentinel \"0.0.0\") -- ein junk-Literal wuerde "
               "still als @0.0.0 stempeln; oder (b) sie traegt Flags, aber 'c' ist nicht darunter; oder "
               "(c) ein Flag-Token steht NICHT im Katalog oder nicht unter SEINER Basis "
-              "(S2-Katalog-Wache, flag_grammar_catalog.hpp)");
+              "(S2-Katalog-Wache, flag_grammar_catalog.hpp); oder (d) ein Knoten mit bekannter "
+              "Voraussetzungs-Kette hat sein Voraussetzungs-Element nicht in der Menge (S-3b); oder "
+              "(e) ein (token,eltern)-Element steht DOPPELT in der Flag-Menge (Redundanz-Wache, "
+              "G-2-Semantik #17)");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
 static_assert(detail::pmc_vendor_versionen_cpu_pflicht(),
               "PMC-Vendor-Version ohne CPU-Flag: im CPU-only-Scope MUSS jede Version 'c' unter ihren Flags "

@@ -40,6 +40,38 @@
 # nicht die Commit-Granularitaet -- er erzwingt Floor-Datei und Registrierung
 # im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
+# -- NACHZUG 2026-08-19 (g2-Harmonisierung vor Landung: Merge development 20c111c4 in bau/g2-semantik) --
+# 502/498/496 loest 501/497/495 ab. Der Zuwachs ist +1 in JEDER Klasse und stammt
+# vollstaendig aus g2: test_g2_semantik_duplikatverbot (comdare_add_test, UNBEDINGT
+# registriert -- keine AVX-Klausel, kein Pruefling-Gate; Header-only-Flaeche, eigener
+# Block am Tail von tests/unit/CMakeLists.txt). Der Name steht in ALLEN DREI
+# Klassen-Namensmengen (avx512f/avx2/basis je 1x) und in KEINER comm-Verlustliste.
+# GEMESSEN, NICHT GERECHNET: am Kombistand (Merge b5bc5cac + Lock-Regen 1c5d201d)
+# EINMAL LIVE erhoben, nicht aus Strang-Deltas addiert. MESSHOST prod1, GCC 15.3.0,
+# Ninja, 2026-08-19. Bau-Baum build-covguard KALT angelegt (rm -rf) und in der
+# CI-FORM MIT PRUEFLING konfiguriert (CC=gcc-15 CXX=g++-15 configure.sh
+# --with-generator=Ninja --enable-build-tests --build-dir=build-covguard
+# -DCOMDARE_CE_PRUEFLINGE="$PWD/tests/pruefling_fixture"), J-1-Muster (erst die fuenf
+# Werkzeuge comdare_anatomy_codegen_cli, comdare_adhoc_emitter_cli,
+# comdare_axis_registry_gen, comdare_system_axis_registry_gen,
+# comdare_measurement_axis_registry_gen, dann RE-KONFIGURIERT). Registrierungs-
+# Protokoll dieses Baums: 6 von 6 bedingten Bloecken AKTIV. Schalter LITERAL aus der
+# CMakeCache.txt DESSELBEN Baums: COMDARE_HOST_RUNS_AVX2:INTERNAL=1,
+# COMDARE_HOST_RUNS_AVX512F:INTERNAL=1, COMDARE_CE_PRUEFLINGE:STRING=
+# <repo>/tests/pruefling_fixture -- die Klasse ist gemessen, nicht angenommen, und
+# die WERTE SIND DIE PRUEFLING-FORM (ZAHLEN-FALLE unten beachtet: NICHT gegen die
+# pruefling-lose Form halten). MESS-FALLE beachtet: Zaehlbasis war die Schlusszeile
+# 'Total Tests: N', jede Namensliste hat die Gegenprobe Listenlaenge == Total
+# bestanden (502/502, 498/498, 496/496); der erste Extraktions-Ausdruck ist an der
+# rechtsbuendigen ctest-Nummern-Falle GERISSEN (403 von 502) und wurde korrigiert --
+# die Gegenprobe hat genau das gefangen. Beide Klassen per cmake erzwungen, danach
+# 'cmake -U' auf BEIDE Variablen: Wiederherstellung BYTE-GLEICH (cmp ohne Ausgabe,
+# Total wieder 502). LC_ALL=C comm in BEIDE Richtungen: avx512f->avx2 verliert exakt
+# die dokumentierten VIER, avx2->basis die ZWEI, beide Gegenrichtungen LEER.
+#     avx512f (gemessen, prod1, ctest 'Total Tests')                       -> 502
+#     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                  -> 498
+#     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0       -> 496
+#
 # -- NACHZUG 2026-08-17 (SERIELLE WELLEN-LANDUNG A2.1a, VIER STRAENGE, EINE NEUE REGISTRIERUNG) --
 # -- NACHZUG 2026-08-18 frueh (Welle-2-Landung xorf+f3v+a11) ------------------
 # 501/497/495 loest 500/496/494 ab. Der Zuwachs ist +1 in JEDER Klasse und stammt
@@ -580,6 +612,6 @@
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
 
-avx512f 501
-avx2 497
-basis 495
+avx512f 502
+avx2 498
+basis 496
