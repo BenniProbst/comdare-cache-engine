@@ -13,7 +13,9 @@
 //     Aufrufer faellt auf den bestehenden KATALOG-Pfad zurueck (byte-identisch; s. sota_catalog K5).
 //   * Ein per-Achse-merge-Profil -> je markierter Achse EINE Direktive -> der Direktiven-Pfad greift.
 // Heute traegt KEIN committetes Profil per-Achse-Direktiven => alle emittierten .cpp-Quelltexte bleiben byte-gleich,
-// der golden-CRC 0xF1C1F26A1232073B unberuehrt (die Merges sind ein additiver id-Satz).
+// der golden-ids-CRC unberuehrt (die Merges sind ein additiver id-Satz). [B-10.3/golden-102: der hier
+// zitierte Wert 0xF1C1F26A1232073B ist der ALT-Anker (Historie, vor 26.07.); lebender TABU-Anker =
+// kNewGolden131072Crc64 = 0x56F1B721C72DC10E, source_catalog.hpp.]
 //
 // @related sota_catalog.hpp (render_directive_merge_module_source) ; pruefling_merge.hpp
 // (PrueflingVerbundStrategy/MergeAxis

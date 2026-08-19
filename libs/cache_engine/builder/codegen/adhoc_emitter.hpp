@@ -105,7 +105,9 @@ template <class C>
         // S6-P1b (Section 43/47): APPEND-ONLY measurement_stamp = die Mess-Tooling-HAUPT-Stempel-Zeile
         // (kMeasurementAxisVersionLine, anatomy_version_stamp.hpp::measurement_stamp_line). LEER (Default:
         // [all]/leere Mess-Tooling-Combo) -> EXAKT die bisherige 2-arg-Makro-Zeile -> der emittierte Quelltext
-        // bleibt byte-identisch (golden-CRC 0xF1C1F26A1232073B unberuehrt; Katalog/binary_id haengen NICHT am
+        // bleibt byte-identisch (golden-ids-CRC unberuehrt -- der frueher hier zitierte Wert
+        // 0xF1C1F26A1232073B ist der ALT-Anker vor dem 26.07.-Re-Anker, lebend: kNewGolden131072Crc64 =
+        // 0x56F1B721C72DC10E, source_catalog.hpp [B-10.3/golden-102]; Katalog/binary_id haengen NICHT am
         // Tooling, der Stempel != binary_id). Nur bei expliziter Tooling-Wahl fuellt sich der Slot -> DLL-Bytes
         // je Combo verschieden, binary_id/CRC UNBERUEHRT. NAHT-REALITAET (S6-P1b, ehrlich dokumentiert): die
         // gewaehlte Combo ist im gefilterten Planer-Walk (select_measurement_combo, --measurement-combo je
@@ -126,7 +128,9 @@ template <class C>
         // S-6a (18.08.2026): die EMITTIERTE Argument-Folge ist auf MESS, SYSTEM, ORGAN gedreht -- beide
         // Formen. Die Makros heissen unveraendert, ihre Parameter-Namen NICHT (anatomy_module_abi_v1.hpp).
         // DAS IST DER DEKLARIERTE GOLDEN-BRUCH dieser Scheibe: der emittierte Quelltext aendert sich, also
-        // bewegen sich die 320er-Byte-Identitaets-Wachen und der golden-CRC-Anker 0xF1C1F26A1232073B mit.
+        // bewegen sich die 320er-Byte-Identitaets-Wachen und der golden-CRC-Anker mit (Wert-Zitat
+        // 0xF1C1F26A1232073B = ALT-Anker/Historie; die 4 Anker wurden mit d866bb3d neu eingefroren,
+        // lebender TABU-Anker 0x56F1B721C72DC10E -- B-10.3/golden-102 bestaetigt [MATCH]).
         // Sie werden im golden-Regen-Schnitt neu gesetzt, NICHT hier -- ein Regen in derselben Scheibe
         // wuerde den Beweis, dass sich genau diese Bytes bewegt haben, mit dem Beweismittel loeschen.
         if (measurement_stamp.empty()) {

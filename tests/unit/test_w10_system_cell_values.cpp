@@ -481,9 +481,15 @@ TEST(W10SystemCellValues, ZwillingsGleichheitConstevalMakroGegenLaufzeitLagerKey
     // [NEU EINGEFROREN 07.08.2026, E-E: Glied [7] wechselt von LEER auf BELEGT (kein Format-Bump, das
     // Layout bleibt neun Glieder). Vorgaenger 88f59b9b0da85e34...96125688, in der git-Historie. Alle drei
     // Fundstellen im SELBEN Commit gedreht.]
+    // [ZUM NAECHSTEN MAL EINGEFROREN 19.08.2026, B-9/golden-102 -- Format 5 -> 6: das ELFTE Glied
+    // (build_version-BASIS, hier leer -- aber sein Separator zaehlt) kommt dazu. Der neue Hex ist
+    // NICHT vorausberechnet, sondern aus dem literalen Lauf einer Probe-TU gegen genau diesen
+    // Header uebernommen (comdare_gen_golden_fullpilot --crc64 blieb dabei [MATCH] 0x56F1B721C72DC10E
+    // -- die ids-Ebene ist unbewegt; DREI Fundstellen, EIN Commit).
+    // Vorgaenger (Format 5, S-6a): 1c0a8f7cd1f524...f7b2cab7]
     constexpr std::string_view kFrozenFingerprintV1 =
-        "1c0a8f7cd1f524535408846b9bdd41f58458a6e4ddc67a188c22ef4464bcacb1"
-        "09e6ec9043c3fef80d2d22f0d8cf2302a0728516a03c42337863a686f7b2cab7";
+        "3be4af044e6983245cfa8b88a0ef30ae003862d72a51410d3b2a9dfaa44a8f9a"
+        "8bec17b8fe477cda7e9f42b074bdf7d3a0dbd8947ad75897af93538124800e05";
     auto const frozen_glieder = cea::anatomy_fingerprint_glieder(
         cea::MessZeile{kFrozenMeasure}, cea::SystemZeile{kSystemZeileRoh}, cea::OrganZeile{kFrozenOrgan},
         cea::ToolchainGlied{kFrozenToolchain}, cea::BvsetGlied{kFrozenBvset}, cea::OverlayHash{kFrozenOverlay});

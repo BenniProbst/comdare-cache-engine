@@ -92,8 +92,14 @@ constexpr std::string_view kFrozenOverlay = "84250c96ec21228119ca6607154fa450e8f
 // Der neue Hex ist NICHT vorausberechnet, sondern aus dem literalen Lauf einer Probe-TU gegen genau
 // diesen Header uebernommen (dieselbe Methode wie bei allen vorigen Ankern).
 // Vorgaenger (Format 4, E-E-END-FORM): d53aebdbb22902f3...f20b4d84]
-constexpr std::string_view kFrozenFingerprintV1 = "1c0a8f7cd1f524535408846b9bdd41f58458a6e4ddc67a188c22ef4464bcacb1"
-                                                  "09e6ec9043c3fef80d2d22f0d8cf2302a0728516a03c42337863a686f7b2cab7";
+// [ZUM NAECHSTEN MAL EINGEFROREN 19.08.2026, B-9/golden-102 -- Format 5 -> 6: das ELFTE Glied
+// (build_version-BASIS, hier leer -- aber sein Separator zaehlt) kommt dazu. Der neue Hex ist
+// NICHT vorausberechnet, sondern aus dem literalen Lauf einer Probe-TU gegen genau diesen
+// Header uebernommen (comdare_gen_golden_fullpilot --crc64 blieb dabei [MATCH] 0x56F1B721C72DC10E
+// -- die ids-Ebene ist unbewegt; DREI Fundstellen, EIN Commit).
+// Vorgaenger (Format 5, S-6a): 1c0a8f7cd1f524...f7b2cab7]
+constexpr std::string_view kFrozenFingerprintV1 = "3be4af044e6983245cfa8b88a0ef30ae003862d72a51410d3b2a9dfaa44a8f9a"
+                                                  "8bec17b8fe477cda7e9f42b074bdf7d3a0dbd8947ad75897af93538124800e05";
 
 // Die Glied-Folge kommt aus der EINEN Quelle abi::anatomy_fingerprint_glieder -- der Test darf sie NICHT
 // selbst zusammenstellen, sonst pinnt er eine zweite Ordnung fest (Lehre "gruene Tests zementieren alte

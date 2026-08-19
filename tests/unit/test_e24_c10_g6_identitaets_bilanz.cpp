@@ -105,15 +105,21 @@ inline constexpr std::string_view kRefMess   = "wallclock@1.0.0.c+load_framework
 /// EINGABE aenderte sich), hier wandert auch der leere (die GLIED-STRUKTUR aendert sich). Genau das
 /// belegt, dass der Bump wirkt. Format-4-Werte: d1ddf922888c7fd1...ffbe20b0 (Referenz) und
 /// 0a74581660d2dd6d...572a0a3c (leer), in der git-Historie.]
-inline constexpr std::string_view kRefDigestVorC8 = "425f4e2cb427ae760281c4b8c86a87cbb1ce3cfcc7f8e2a712f4b1a7a7cf8d66"
-                                                    "c0e3f62e3ba2a516f334a52c9ce91b83932ec471dc5044fbddc950e7d92a2717";
+/// [ZUM FUENFTEN MAL EINGEFROREN 19.08.2026, B-9/golden-102: Format 5 -> 6 -- das elfte Glied
+/// (build_version-BASIS, hier leer, aber sein Separator zaehlt). WIEDER bewegen sich BEIDE Digests
+/// (Glied-STRUKTUR-Ereignis wie beim vierten Einfrieren); die ids-Ebene blieb dabei literal unbewegt
+/// (comdare_gen_golden_fullpilot --crc64: [MATCH] 0x56F1B721C72DC10E). Werte aus dem literalen Lauf
+/// einer Probe-TU, nicht vorausberechnet. Format-5-Werte: 425f4e2cb427ae76...d92a2717 (Referenz) und
+/// e8ca5445c569ac9e...9ba360af (leer), in der git-Historie.]
+inline constexpr std::string_view kRefDigestVorC8 = "a6ae8f313dbf7ded80c72ee57773bdf254198725eb747c775197979e7f8e9a65"
+                                                    "d27d4af887fc965960355dc49320a4bb244d6ddcdf398fc8e7762fc47f6f461d";
 
 /// Der Digest des LEEREN Tripels -- der Zeuge der Glied-STRUKTUR (leere Glieder, aber Separatoren bleiben;
 /// das ist der GA-01-Fix, und er wuerde bei jeder Glied-Umsortierung brechen). Genau deshalb ist er der
 /// empfindlichste Wert dieser Datei: er hat sich mit dem Format-3-Bump bewegt, WEIL zwei Glieder und damit
 /// zwei Separatoren dazugekommen sind -- das ist der Beweis, dass der Bump wirkt.
-inline constexpr std::string_view kLeerDigestVorC8 = "e8ca5445c569ac9eb13414cb4bd23d02b5d6acf8e05eab6edc25d68144afe544"
-                                                     "b9a1fca35d1bc794915609d2633c21ebe5c019212836bccc00ca72b09ba360af";
+inline constexpr std::string_view kLeerDigestVorC8 = "e4a7d613d0a2f0bbe756d65e06095be773402287ad80ab95f327fd2ac28f36fe"
+                                                     "51bf5dc23be61b9e7791af927c4c21b8f788375562c0c38ff18f0cafadce15b7";
 
 /// Der CRC64-Anker der 2^17-golden-Menge. TABU-Wert; er steht hier als Bilanz-Zeuge, nicht als zweite
 /// Wahrheit -- die RECHNENDE Wache bleibt test_limits_entkopplung_vorstufe, die die 131072 ids

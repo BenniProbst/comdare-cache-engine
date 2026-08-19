@@ -186,8 +186,21 @@ static_assert(catalog_axis_product<SmallSourceCatalog>() == 4u, "SmallSourceCata
 //   $ comdare_gen_golden_fullpilot --crc64
 //   gen_golden_fullpilot: N=131072 ids  CRC64-ECMA-182 = 0x56F1B721C72DC10E
 //     anchor kNewGolden131072Crc64 = 0xF1C1F26A1232073B  [MISMATCH]
+//   (Protokoll-Zeile des 26.07.-Re-Ankers: der damals NOCH eingetragene Alt-Anker 0xF1C1F26A1232073B
+//    mismatchte gegen den frisch gerechneten Wert -- der Anker unten wurde im selben Fenster auf den
+//    Werkzeug-Output gedreht. AUFGELOEST durch das golden-102-Protokoll darunter.)
 // Kardinalitaet unveraendert mitbelegt (N=131072) -- der Bruch ist reine Segment-Verlaengerung, keine
 // Raum-Aenderung (Q-1 FALL B: persistence_target mit K17=1).
+// B-10.3 RE-ANKER-PROTOKOLL (19.08.2026, golden-102-Zug, Owner-Deckung KON101-02 E-B(i)): B-9
+// (build_version-Glied [10], fingerprint_format=6) + A-11 (Stempel-Pflicht am Loader) bewegen die
+// FROZEN-/Digest-Klasse (kFrozenFingerprintV1, e24-Digest-Pins -- im selben Commit neu geankert),
+// aber NICHT die binary_ids: der Fingerprint materialisiert in der Makro-EXPANSION, nicht im
+// emittierten Quelltext. LITERALER Werkzeug-Output nach dem Zug:
+//   $ comdare_gen_golden_fullpilot --crc64
+//   gen_golden_fullpilot: N=131072 ids  CRC64-ECMA-182 = 0x56F1B721C72DC10E
+//     anchor kNewGolden131072Crc64 = 0x56F1B721C72DC10E  [MATCH]
+// Der TABU-Anker bleibt damit 0x56F1B721C72DC10E (alt == neu); die 5 TABU-Dateien und die
+// Skript-SOLLs (pre_push_lande_gates.sh Gate [6/6]) sind byte-unbewegt (--golden320-Regen cmp-identisch).
 inline constexpr std::uint64_t kNewGolden131072Crc64 = 0x56F1B721C72DC10EULL;
 
 // ── GN-2 / §26.6 (Register-Kritik 9): NEGATIVER INSTANZIIERUNGS-GUARD an der Katalog-Naht ────────────────────

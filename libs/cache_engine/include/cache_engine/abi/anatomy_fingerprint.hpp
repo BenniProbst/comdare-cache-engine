@@ -17,8 +17,10 @@
 // D2: der Fingerprint reist als 128-hex nullterminierte Zeile ({char const*, uint64}) im AnatomyVersionLines-POD.
 // GOLDEN-NEUTRAL: die Berechnung passiert INNEN im COMDARE_ANATOMY_VERSION_STAMP*-Makro -> der emittierte Quelltext
 // (der Makro-Call, 2/3-arg) bleibt byte-identisch; der Fingerprint materialisiert erst in der Makro-Expansion,
-// nicht im emittierten .cpp -> golden-CRC 0xF1C1F26A1232073B unberuehrt. Saat fuer den #46b-std::map-Lookup (ein
-// kompakter, stabiler Provenienz-Schluessel je Tier-Binary).
+// nicht im emittierten .cpp -> der golden-ids-CRC ist unberuehrt (HISTORIE: der hier frueher zitierte Wert
+// 0xF1C1F26A1232073B war der Alt-Anker vor dem 26.07.-Re-Anker; der lebende TABU-Anker ist
+// kNewGolden131072Crc64 = 0x56F1B721C72DC10E, source_catalog.hpp -- B-10.3/golden-102 bestaetigt [MATCH]).
+// Saat fuer den #46b-std::map-Lookup (ein kompakter, stabiler Provenienz-Schluessel je Tier-Binary).
 
 #include "mess_gates_glied.hpp"         // R-3: der Mess-GATE-Zustand DIESER TU als Preimage-Glied [8]
 #include "subaxis_valueset_segment.hpp" // A13-M3: das Sub-Achsen-Werteset-Segment als Preimage-Glied

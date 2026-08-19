@@ -182,7 +182,8 @@ struct SotaStampLines {
 //   bestehende Katalog-Pfad (render_sota_module_source oben) bleibt fuer den heutigen phase.merge-x-lebewesen-Fall
 //   BYTE-IDENTISCH; DIESER Pfad greift NUR, wenn per-Achse-Direktiven vorliegen (merge_plan_from_profile != leer) --
 //   heute in KEINEM committeten Profil => alle emittierten .cpp-Quelltexte bleiben byte-gleich (golden-CRC
-//   0xF1C1F26A1232073B unberuehrt, die Merges sind ein additiver id-Satz).
+//   unberuehrt, die Merges sind ein additiver id-Satz; Wert-Zitat 0xF1C1F26A1232073B = ALT-Anker/
+//   Historie vor 26.07., lebend: kNewGolden131072Crc64 = 0x56F1B721C72DC10E [B-10.3/golden-102]).
 // -----------------------------------------------------------------------------
 
 /// DirectiveSlotTypes -- die realen FQ-Typen, mit denen eine (Achse, Pruefling)-Direktive eine MergeAxis<> belegt:
