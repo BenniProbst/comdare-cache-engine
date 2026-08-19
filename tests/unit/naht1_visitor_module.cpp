@@ -82,3 +82,8 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(
     ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush,
     // STRUKT-R ORG-18: T17 persistence_target -- ebenso explizit gewaehlter Durchreich-Wert (kein Weglassen).
     ::comdare::cache_engine::persistence_target::MemoryOnlyTarget)
+
+// A-11/golden-102 (19.08.2026): STEMPEL-PFLICHT -- der Loader weist stempellose Module mit status 13
+// (version_lines_symbol_missing) ab; Emission ohne Stempel faellt. Diese Fixture traegt deshalb ihre
+// EIGENEN, ehrlichen Zeilen (2-arg-Form: KEINE Mess-Deklaration -- sie kompiliert kein Tooling ein).
+COMDARE_ANATOMY_VERSION_STAMP("system_fixture=naht1_visitor_modul@1.0.0.c", "fixture_kern=naht1_mess_visitor@1.0.0.c")

@@ -160,6 +160,13 @@ TEST(Q2IdentitaetsRiegel, RiegelUndSymbolPflichtBeissenAmEchtenLadeweg) {
     SymbolFall const symbol_faelle[] = {
         {COMDARE_Q2_MODUL_OHNE_GATTUNG, loader::status_gattung_symbol_missing, "ohne comdare_anatomy_gattung"},
         {COMDARE_Q2_MODUL_OHNE_GENUS, loader::status_genus_symbol_missing, "ohne comdare_anatomy_genus"},
+        // A-11/golden-102 -- T-1 woertlich: "DLL ohne Stempel-Symbol wird abgewiesen". Die Fixture ist
+        // ein bis Schritt 11 fehlerfreies Modul OHNE COMDARE_ANATOMY_VERSION_STAMP; sie faellt GENAU am
+        // siebten Pflicht-Symbol (echter dlopen-Weg, exakter Status literal). Dass die Q2-Fixtures oben
+        // weiter IHRE Codes 9/10 treffen, pinnt zugleich die Pull-Position (R-4: fruehe Schloesser
+        // behalten ihr Fehlerbild).
+        {COMDARE_Q2_MODUL_A11_OHNE_STEMPEL, loader::status_version_lines_symbol_missing,
+         "ohne comdare_anatomy_version_lines (A-11 Stempel-Pflicht)"},
     };
     for (auto const& s : symbol_faelle) {
         loader::AnatomyModuleHandle handle;
@@ -220,6 +227,9 @@ TEST(Q2IdentitaetsRiegel, StatusNamenSindVollstaendig) {
     // dessen genus-Symbol ein Nicht-Enum-Byte (z.B. 250) oder den Reroute-Wert (5, NIE aus genus())
     // liefert, wird VOR der Factory abgewiesen -- und der Ablehnungsgrund muss lesbar sein.
     EXPECT_STREQ(loader::status_name(loader::status_genus_not_abi_visible), "genus_not_abi_visible");
+    // A-11/golden-102: die Stempel-Pflicht traegt ihren eigenen Code -- ein stempelloses Modul wird
+    // abgewiesen, und der Ablehnungsgrund muss lesbar sein ("aus sechs werden sieben").
+    EXPECT_STREQ(loader::status_name(loader::status_version_lines_symbol_missing), "version_lines_symbol_missing");
     // Und die Gegenprobe: ein Code, den es NICHT gibt, muss weiterhin "unknown" liefern. Ohne sie
     // wuerde ein default-Zweig, der versehentlich einen Namen zurueckgibt, unbemerkt bleiben.
     EXPECT_STREQ(loader::status_name(99), "unknown");

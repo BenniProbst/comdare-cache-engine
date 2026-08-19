@@ -71,9 +71,14 @@ int main(int argc, char** argv) {
     std::string source, tree_path, slot_path;
     PilotEngine::for_each_permutation([&]<class P>() {
         using Comp = an::CompositionFromPermTuple<P>; // AdHocComposition<17> (reale Komposition)
-        source     = cg::render_adhoc_module_source(0, cg::adhoc_macro_args<Comp>()); // ECHTE Anatomie-Quelle
-        tree_path  = ex::serialize_composition_path<P>();                             // Baum-Blatt-Pfad (BR-1/BR-2)
-        slot_path  = ex::serialize_composition_from_slots<Comp>(); // aus den 17 Slots (Round-Trip-Beleg)
+        // A-11/golden-102: die emittierte Quelle traegt die ECHTEN Stempel-Zeilen (organ_stamp_line<Comp>
+        // + system_stamp_line) -- seit der Stempel-Pflicht weist der Loader stempellose Module mit
+        // status 13 ab, und br4_load laedt diese Quelle ueber den ECHTEN dlopen-Weg.
+        std::string const organ  = ::comdare::cache_engine::abi::organ_stamp_line<Comp>();
+        std::string const system = ::comdare::cache_engine::abi::system_stamp_line();
+        source                   = cg::render_adhoc_module_source(0, cg::adhoc_macro_args<Comp>(), organ, system);
+        tree_path                = ex::serialize_composition_path<P>();          // Baum-Blatt-Pfad (BR-1/BR-2)
+        slot_path                = ex::serialize_composition_from_slots<Comp>(); // aus den 17 Slots (Round-Trip-Beleg)
     });
     std::ofstream{argv[1], std::ios::trunc} << source;
     std::ofstream{argv[2], std::ios::trunc} << tree_path << "\n" << slot_path << "\n";

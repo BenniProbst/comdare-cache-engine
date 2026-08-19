@@ -9,6 +9,10 @@
 
 #include "type_name.hpp"
 
+// A-11/golden-102: die ECHTEN Stempel-Zeilen-Helfer fuer emit_adhoc_modules (organ_stamp_line<C> /
+// system_stamp_line). builder/ -> abi/ ist die erlaubte Include-Richtung (Praezedenz: der Loader).
+#include <cache_engine/abi/anatomy_version_stamp.hpp>
+
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -149,6 +153,13 @@ template <class C>
 /// emit_adhoc_modules<Engine>(out_dir) — schreibt für JEDE Permutation des Engine ein Modul-.cpp nach
 /// out_dir (Dateiname comdare_anatomy_perm_auto_<idx>.cpp) und liefert die geschriebenen Pfade.
 /// Jedes .cpp ist standalone kompilierbar (nur Umbrella-Include + ADHOC-Makro).
+///
+/// A-11/golden-102 (19.08.2026) -- STEMPEL-SPEISUNG DES WERKZEUGS: seit der Stempel-Pflicht weist der
+/// Loader stempellose Module mit status 13 ab (Emission ohne Stempel faellt). Fuer REALE Kompositionen
+/// (Slots mit name()/algo_version -- jede Vendor-Achse traegt beides) emittiert dieses Werkzeug deshalb
+/// die ECHTEN Zeilen (abi::organ_stamp_line<C>() + abi::system_stamp_line(), dieselben Helfer wie die
+/// produktiven Pfade). NUR Diagnose-/Fake-Kompositionen ohne diese API (test_d3-FakeComp, int-Slots)
+/// bleiben Emissions-only -- ihre Module sind seit A-11 NICHT ladbar, und genau das ist die Aussage.
 template <class Engine>
 [[nodiscard]] std::vector<std::filesystem::path> emit_adhoc_modules(std::filesystem::path const& out_dir) {
     std::error_code ec;
@@ -158,7 +169,16 @@ template <class Engine>
     Engine::for_each_composition_type([&]<class C>() {
         std::filesystem::path const f = out_dir / ("comdare_anatomy_perm_auto_" + std::to_string(idx) + ".cpp");
         std::ofstream               out(f, std::ios::trunc);
-        out << render_adhoc_module_source(idx, adhoc_macro_args<C>());
+        if constexpr (requires {
+                          { C::search_algo::name() };
+                          { C::search_algo::algo_version };
+                      }) {
+            std::string const organ  = ::comdare::cache_engine::abi::organ_stamp_line<C>();
+            std::string const system = ::comdare::cache_engine::abi::system_stamp_line();
+            out << render_adhoc_module_source(idx, adhoc_macro_args<C>(), organ, system);
+        } else {
+            out << render_adhoc_module_source(idx, adhoc_macro_args<C>());
+        }
         files.push_back(f);
         ++idx;
     });

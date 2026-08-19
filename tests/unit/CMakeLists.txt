@@ -2255,10 +2255,13 @@ target_compile_definitions(test_q2_identitaets_riegel PRIVATE
     COMDARE_Q2_MODUL_LUEGNER="$<TARGET_FILE:perm_q2_luegner>"
     COMDARE_Q2_MODUL_OHNE_GATTUNG="$<TARGET_FILE:perm_q2_ohne_gattung>"
     COMDARE_Q2_MODUL_OHNE_GENUS="$<TARGET_FILE:perm_q2_ohne_genus>"
-    COMDARE_Q2_MODUL_ALT_MAGIC_OHNE_SYMBOLE="$<TARGET_FILE:perm_alt_magic_ohne_symbole>")
+    COMDARE_Q2_MODUL_ALT_MAGIC_OHNE_SYMBOLE="$<TARGET_FILE:perm_alt_magic_ohne_symbole>"
+    # A-11/golden-102: die Negativ-Fixture der Stempel-Pflicht (T-1: exakter Status 13 literal).
+    COMDARE_Q2_MODUL_A11_OHNE_STEMPEL="$<TARGET_FILE:perm_a11_ohne_stempel>")
 add_dependencies(test_q2_identitaets_riegel
     perm_set_d9 perm_sequence_d10 perm_view_d11 perm_adapter_d12 perm_alt_major7 perm_major7_neue_magic
     perm_q2_luegner perm_q2_ohne_gattung perm_q2_ohne_genus perm_alt_magic_ohne_symbole
+    perm_a11_ohne_stempel
     hybrid_reroute_searchalgorithm hybrid_reroute_set)
 
 comdare_add_test(test_hy_a1_dock_contract
@@ -4364,6 +4367,10 @@ set(_src_perm_q2_luegner             genus_module_q2_luegner.cpp)
 set(_src_perm_q2_ohne_gattung        genus_module_q2_ohne_gattung.cpp)
 set(_src_perm_q2_ohne_genus          genus_module_q2_ohne_genus.cpp)
 set(_src_perm_alt_magic_ohne_symbole genus_module_alt_magic_ohne_symbole.cpp)
+# A-11/golden-102 (19.08.2026) -- die Negativ-Fixture der STEMPEL-PFLICHT: vollstaendig gueltiges Modul
+# OHNE COMDARE_ANATOMY_VERSION_STAMP -> der Loader weist es mit status 13 (version_lines_symbol_missing)
+# ab. T-1 woertlich: "DLL ohne Stempel-Symbol wird abgewiesen" (echter dlopen-Weg, exakter Status).
+set(_src_perm_a11_ohne_stempel       genus_module_a11_ohne_stempel.cpp)
 # HY-A2 (2026-08-18) -- die beiden HYBRID-Modulquellen. Sie haengen sich an DIESELBE Schleife wie die
 # plain-Tier-Module, und das ist die Aussage: eine Hybrid-.so wird nicht anders gebaut, nicht anders
 # benannt und nicht anders geladen als ein plain Tier. Eine Sonder-Registrierung waere ein zweiter
@@ -4377,6 +4384,7 @@ set(_src_hybrid_reroute_set             hybrid_tier_module_set.cpp)
 foreach(_dll IN ITEMS perm_set_d9 perm_sequence_d10 perm_view_d11 perm_buildvariant_avx512 perm_buildvariant_avx2
                       perm_adapter_d12 perm_set_defekt_d13 perm_alt_major7 perm_major7_neue_magic
                       perm_q2_luegner perm_q2_ohne_gattung perm_q2_ohne_genus perm_alt_magic_ohne_symbole
+                      perm_a11_ohne_stempel
                       hybrid_reroute_searchalgorithm hybrid_reroute_set)
     add_library(${_dll} SHARED "${_src_${_dll}}")
     target_include_directories(${_dll} PRIVATE
@@ -5325,8 +5333,10 @@ target_link_libraries(test_d2_mess_konsistenz_gate PRIVATE gtest gtest_main Boos
 comdare_set_platform_defines(test_d2_mess_konsistenz_gate)
 target_compile_definitions(test_d2_mess_konsistenz_gate PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1
-    "COMDARE_R5G_ADHOC_DLL_DIR=\"${_r5g_adhoc_dir}\"")
-add_dependencies(test_d2_mess_konsistenz_gate comdare_r5g_adhoc_perm)
+    "COMDARE_R5G_ADHOC_DLL_DIR=\"${_r5g_adhoc_dir}\""
+    # A-11/golden-102: die Loader-Haelfte des dlopen-Bisses -- stempellose .so faellt am Loader (13).
+    COMDARE_D2_A11_OHNE_STEMPEL_SO="$<TARGET_FILE:perm_a11_ohne_stempel>")
+add_dependencies(test_d2_mess_konsistenz_gate comdare_r5g_adhoc_perm perm_a11_ohne_stempel)
 add_test(NAME test_d2_mess_konsistenz_gate COMMAND test_d2_mess_konsistenz_gate)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_d2_mess_konsistenz_gate)
 set_tests_properties(test_d2_mess_konsistenz_gate PROPERTIES LABELS "m;d2;stempel;pruefdock;fehlerklassen")

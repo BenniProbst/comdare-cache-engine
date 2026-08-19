@@ -12,3 +12,9 @@
 
 COMDARE_DEFINE_SEQUENCE_MODULE(int, int, int, int, int, int, int,
                                int) // Bau-INC-2d: 8 geteilte (isa raus) + Growth-Default
+
+// A-11/golden-102 (19.08.2026): STEMPEL-PFLICHT -- der Loader weist stempellose Module mit status 13
+// (version_lines_symbol_missing) ab; Emission ohne Stempel faellt. Diese Fixture traegt deshalb ihre
+// EIGENEN, ehrlichen Zeilen (2-arg-Form: KEINE Mess-Deklaration -- sie kompiliert kein Tooling ein).
+#include <cache_engine/abi/anatomy_module_abi_v1.hpp>
+COMDARE_ANATOMY_VERSION_STAMP("system_fixture=perm_sequence_d10@1.0.0.c", "fixture_kern=sequence_genus_dll@1.0.0.c")

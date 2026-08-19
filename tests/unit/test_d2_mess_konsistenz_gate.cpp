@@ -294,10 +294,15 @@ TEST(D2MessKonsistenz, TestatFormLiefertEineSprechendeQuote) {
 // (5) UEBER DIE dlopen-GRENZE -- eine REALE .so ohne Mess-Deklaration wird abgewiesen
 // =================================================================================================
 //
-// Die r5g-adhoc-Fixture ist eine ECHTE, gebaute Tier-.so, die den Loader besteht und deren std::map-Huelle
-// das Funktions-Gate besteht -- sie traegt aber KEIN COMDARE_ANATOMY_VERSION_STAMP und exportiert das
-// Probe-Symbol darum gar nicht. Genau daran zeigt sich, dass die beiden Gatter UNABHAENGIG sind: funktional
-// tadellos UND als Mess-Quelle dieses Laufs unzulaessig.
+// A-11/golden-102 (19.08.2026) -- DER VERTRAG DIESES BISSES HAT SICH GETEILT:
+//   (a) Die r5g-adhoc-Fixture traegt seit A-11 einen Stempel (2-arg-Form, KEINE Mess-Deklaration --
+//       ehrlich: sie kompiliert kein Tooling ein). Sie besteht Loader UND Funktions-Gate, aber der
+//       MESS-Vertrag bricht mit deklaration_leer -- die beiden Gatter bleiben UNABHAENGIG beweisbar:
+//       funktional tadellos UND als Mess-Quelle dieses Laufs unzulaessig.
+//   (b) Ein Modul GANZ OHNE Stempel-Symbol erreicht das Mess-Gate am dlopen-Weg GAR NICHT mehr: der
+//       Loader weist es mit status 13 (version_lines_symbol_missing) ab -- Fall (2) der Taxonomie
+//       (stempel_symbol_fehlt) ist am Loader-Weg unerreichbar geworden und bleibt Tiefenverteidigung
+//       fuer direkt konstruierte Handles (Tests (1)-(4) oben, mach_pod).
 TEST(D2MessKonsistenz, RealeSoOhneDeklarationWirdAbgewiesenObwohlDasFunktionsGateBesteht) {
     std::filesystem::path const dir{COMDARE_R5G_ADHOC_DLL_DIR};
     std::filesystem::path const so = find_built_so(dir);
@@ -313,12 +318,22 @@ TEST(D2MessKonsistenz, RealeSoOhneDeklarationWirdAbgewiesenObwohlDasFunktionsGat
     EXPECT_GT(oc.gate.cases_total, 0u);
     EXPECT_TRUE(oc.gate.passed()) << "Vorbedingung dieses Bisses: die Fixture ist funktional in Ordnung";
 
-    // Der MESS-Vertrag bricht -- und deshalb bricht das Gesamt-Ergebnis.
+    // Der MESS-Vertrag bricht -- und deshalb bricht das Gesamt-Ergebnis. A-11: die Fixture STEMPELT
+    // (Loader-Pflicht), deklariert aber KEIN Mess-Tooling -> deklaration_leer statt (historisch)
+    // stempel_symbol_fehlt.
     EXPECT_FALSE(oc.mess.passed());
-    EXPECT_EQ(oc.mess.status, pd::MessKonsistenzStatus::stempel_symbol_fehlt)
-        << "diese Fixture traegt kein COMDARE_ANATOMY_VERSION_STAMP -- sie DEKLARIERT nichts";
+    EXPECT_EQ(oc.mess.status, pd::MessKonsistenzStatus::deklaration_leer)
+        << "diese Fixture stempelt ohne Mess-Deklaration -- sie DEKLARIERT kein Tooling";
     EXPECT_FALSE(oc.passed()) << "eine Binary ohne Mess-Deklaration darf NICHT als pruef-bestanden gelten, "
                                  "auch wenn ihre std::map-Huelle tadellos ist";
+
+    // (b) Die LOADER-Haelfte am selben Gate: ein Modul OHNE Stempel-Symbol laedt gar nicht erst
+    // (A-11, status 13) -- das Mess-Gate sieht es nie.
+    pd::PruefOutcome const ohne =
+        pd::run_so_conformance_gate(COMDARE_D2_A11_OHNE_STEMPEL_SO, cea::measurement_stamp_line_full_set());
+    EXPECT_FALSE(ohne.loaded) << "A-11: die stempellose .so muss schon am Loader fallen "
+                                 "(version_lines_symbol_missing), nicht erst am Mess-Gate";
+    EXPECT_FALSE(ohne.passed());
 }
 
 // Die nicht-existente .so bleibt, was sie war: nicht ladbar, nicht bestanden. Der neue Mess-Vertrag

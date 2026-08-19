@@ -11,3 +11,9 @@
 #include <hybrid/hybrid_module_abi_v1.hpp>
 
 COMDARE_DEFINE_HYBRID_MODULE(::comdare::cache_engine::anatomy::AnatomyGenus::Set)
+
+// A-11/golden-102 (19.08.2026): STEMPEL-PFLICHT -- der Loader weist stempellose Module mit status 13
+// (version_lines_symbol_missing) ab; Emission ohne Stempel faellt. Diese Fixture traegt deshalb ihre
+// EIGENEN, ehrlichen Zeilen (2-arg-Form: KEINE Mess-Deklaration -- sie kompiliert kein Tooling ein).
+#include <cache_engine/abi/anatomy_module_abi_v1.hpp>
+COMDARE_ANATOMY_VERSION_STAMP("system_fixture=hybrid_reroute_set@1.0.0.c", "fixture_kern=reroute_ziel_set@1.0.0.c")
