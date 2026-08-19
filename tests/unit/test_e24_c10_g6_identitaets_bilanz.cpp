@@ -178,13 +178,13 @@ int main() {
     std::cout << "\n-- Ebene 2 (durch den ABI-MAJOR UNBEWEGT; R-3-Format-Bump nachgezogen): Stempel-Preimage "
                  "/ SHA512 --\n";
     {
-        // S-6a/KON45-01 (18.08.2026): Format 5, ZEHN Glieder. Diese beiden Zeilen sind KEINE Aussage darueber, dass
+        // B-9/golden-102 (19.08.2026): Format 6, ELF Glieder. Diese beiden Zeilen sind KEINE Aussage darueber, dass
         // die Stempel-Ebene unbeweglich waere -- sie sind der Zeuge dafuer, dass sie sich NUR durch
         // deklarierte Preimage-Ereignisse bewegt und nie durch einen ABI-Major-Dreh. Genau deshalb werden
         // sie bei jedem Format-Bump im SELBEN Commit nachgezogen (Praezedenz O-2/C-2, 05.08.).
         eq("die Preimage-FORMAT-Kennung", std::string{abi::kAnatomyFingerprintFormat},
-           std::string{"fingerprint_format=5"});
-        eq("die Zahl der Preimage-Glieder", abi::kAnatomyFingerprintGliedCount, std::size_t{10});
+           std::string{"fingerprint_format=6"});
+        eq("die Zahl der Preimage-Glieder", abi::kAnatomyFingerprintGliedCount, std::size_t{11});
         eq("die Position der System-Zeile in der Glied-Folge", abi::kAnatomyFingerprintSystemGlied, std::size_t{2});
 
         // E-E (07.08.2026): das Overlay-Glied [7] wird ab hier EXPLIZIT LEER gereicht -- und die beiden

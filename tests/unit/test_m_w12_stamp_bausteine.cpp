@@ -757,6 +757,10 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     // (leer, solange kein Hybrid-Bau ihn injiziert). Der Separator bleibt auch hier stehen.
     ref_pre += '\n';
     ref_pre += abi::kHybridKompositGlied;
+    // B-9/golden-102 (Format 6): das ELFTE Glied -- die build_version-BASIS. Der 3-arg-Aufruf ruft den
+    // DEFAULT kBuildVersionGlied (leer, solange die Bau-Naht nichts injiziert); der Separator bleibt.
+    ref_pre += '\n';
+    ref_pre += abi::kBuildVersionGlied;
     auto const ref = s5::to_hex(s5::sha512(
         std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(ref_pre.data()), ref_pre.size()}));
     for (std::size_t i = 0; i < 128; ++i) EXPECT_EQ(fp[i], ref[i]) << "hex-Stelle " << i;
@@ -766,7 +770,8 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     // wuerde ein Werteset-Bump unter dem SHA512-only-Skip-Gate STILL reused).
     constexpr auto glieder =
         abi::anatomy_fingerprint_glieder(abi::MessZeile{"c"}, abi::SystemZeile{"b"}, abi::OrganZeile{"a"});
-    static_assert(glieder.size() == 10u); // O-2/C-2: 6 -> 8; R-3: 8 -> 9 (Mess-Gates); S-6a: 9 -> 10 (Komposit)
+    // O-2/C-2: 6 -> 8; R-3: 8 -> 9 (Mess-Gates); S-6a: 9 -> 10 (Komposit); B-9: 10 -> 11 (build_version)
+    static_assert(glieder.size() == 11u);
     static_assert(glieder[0] == abi::kAnatomyFingerprintFormat);
     static_assert(glieder[4] == abi::kSubAxisValuesetSegment);
     // O-2/C-2: die drei Schwanz-Glieder ueber ihre BENANNTEN Positionen adressiert -- nicht ueber nackte
@@ -779,10 +784,10 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     static_assert(glieder[abi::kAnatomyFingerprintMessGatesGlied].empty(),
                   "R-3: der Default des Mess-Gates-Glieds MUSS die leere Identitaet sein (ODR: der TU-Wert "
                   "haette in einem Default-Argument einer inline-Funktion externe Bindung).");
-    static_assert(abi::kAnatomyFingerprintFormat == std::string_view{"fingerprint_format=5"},
-                  "S-6a/KON45-01: der Format-Bump 4 -> 5 ist der Anker dieses Fensters -- er trennt den "
-                  "Alt-Bestand deterministisch vom 10-Glieder-Layout (R-3 hat zuvor 3 -> 4 fuer das "
-                  "9-Glieder-Layout getan, O-2/C-2 davor 2 -> 3 fuer das 8-Glieder-Layout; die Begruendung "
+    static_assert(abi::kAnatomyFingerprintFormat == std::string_view{"fingerprint_format=6"},
+                  "B-9/golden-102: der Format-Bump 5 -> 6 ist der Anker dieses Fensters -- er trennt den "
+                  "Alt-Bestand deterministisch vom 11-Glieder-Layout (S-6a hat zuvor 4 -> 5 fuer das "
+                  "10-Glieder-Layout getan, R-3 davor 3 -> 4, O-2/C-2 davor 2 -> 3; die Begruendung "
                   "ist jedes Mal dieselbe: Layout-Evolution mismatcht, statt still zu kollidieren).");
     // Dass diese consteval-Quelle byte-gleich zur .algos-Laufzeit-Quelle ist, prueft die schwere TU
     // test_reflect_versions_all17 (dort liegt build_axis_variant_version_table; diese TU bleibt leicht).

@@ -134,9 +134,9 @@ void fall_a_tu_wahrheit() {
     check_true("(a) Feld s spiegelt COMDARE_CE_ENABLE_STATISTICS",
                cea::mess_gates_feld(cea::kMessGatesTuGlied, cea::kMessGatesFeldStatistics) ==
                    (cea::kMessGatesTuStatisticsOn ? "s1" : "s0"));
-    check_true("(a) die Format-Kennung ist auf 4 gebumpt",
-               cea::kAnatomyFingerprintFormat == std::string_view{"fingerprint_format=5"});
-    check_true("(a) die Glied-Folge hat ZEHN Glieder", cea::kAnatomyFingerprintGliedCount == 10u);
+    check_true("(a) die Format-Kennung ist auf 6 gebumpt (B-9/golden-102)",
+               cea::kAnatomyFingerprintFormat == std::string_view{"fingerprint_format=6"});
+    check_true("(a) die Glied-Folge hat ELF Glieder", cea::kAnatomyFingerprintGliedCount == 11u);
 }
 
 // ---------------------------------------------------------------------------------------------
