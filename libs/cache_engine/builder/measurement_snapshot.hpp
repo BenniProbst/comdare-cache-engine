@@ -51,6 +51,19 @@ struct ComdareMeasurementSnapshotV1 {
     std::uint64_t coherence_invalidations = 0;
     std::uint64_t energy_micro_joules     = 0;
     std::uint8_t  pmc_available           = 0; // 0 = HW-Counter NICHT real gemessen (P4-gated, ehrlich)
+    // -- NP-23 (#15-Bruch, 19.08.2026): SIEBEN Quell-Flags, eines je transportiertem PMC-Zaehler --
+    // (6 HW-Counter oben + branch_misses unten). BEZIFFERUNG: 7 -- nicht die 5/6 der OV-S13-3-Skizze,
+    // weil die Quelle (measurement/pmc_source.hpp) seit B-5 fuer ALLE sieben eigene Flags traegt und
+    // die WIDE-Pipeline (pmc_zelle) die Sieben-Zaehler-Wahrheit bereits rendert; jede kleinere Zahl
+    // liesse "echt 0 vs. keine Quelle" fuer die Rest-Zaehler weiter verschmelzen. uint8_t 0/1 --
+    // POD bleibt trivial kopierbar, CSV-Zellen bleiben numerisch.
+    std::uint8_t cache_misses_l1_source_available         = 0;
+    std::uint8_t cache_misses_l2_source_available         = 0;
+    std::uint8_t cache_misses_l3_source_available         = 0;
+    std::uint8_t dtlb_misses_source_available             = 0;
+    std::uint8_t coherence_invalidations_source_available = 0;
+    std::uint8_t energy_micro_joules_source_available     = 0;
+    std::uint8_t branch_misses_source_available           = 0;
     // ── Allocator (4 der 16) — real aus dem Observer ──────────────────────────
     std::uint64_t bytes_allocated = 0;
     // A8-S3 / Befund B7 (2026-08-04) -- FEHL-ETIKETTIERUNG, hier DEKLARIERT statt still gelassen:
@@ -155,35 +168,47 @@ measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, st
 /// Drift (eine neue IPmcSource, die einen Wert ohne Oeffnungs-Beleg setzt, wird hier nicht mehr
 /// durchgereicht), keine Korrektur eines heute falschen Wertes.
 ///
-/// WAS HIER BEWUSST NICHT GEHEILT WIRD (Schema-Grenze, als Vorschlag zurueckgehalten): der Ziel-POD traegt
-/// mit `pmc_available` nur EINE grobkoernige Marke. Ein Zaehler ohne Quelle landet daher weiterhin als
-/// 0 im POD, ununterscheidbar von einer echten Nullmessung -- die feinkoernige Wahrheit GEHT AN DIESER
-/// NAHT VERLOREN. Sie liesse sich nur durch zusaetzliche Flag-Felder im POD (und damit neue CSV-Spalten)
-/// ausdruecken; das beruehrt ein CSV-Schema und ist deshalb NICHT Teil dieses Pakets. Die WIDE-Pipeline
-/// (cache_engine_builder_iterator.hpp, pmc_zelle) hat diese Marke bereits und rendert dort "n/a".
+/// NP-23/NP-24 (#15-Bruch, 19.08.2026) -- DIE FRUEHERE SCHEMA-GRENZE IST GEHOBEN: der POD traegt jetzt
+/// je transportiertem PMC-Zaehler ein eigenes Quell-Flag (7 Stueck, s. POD oben). Ein Zaehler ohne
+/// Quelle ist damit auch in der Pipeline-CSV von einer echten Nullmessung unterscheidbar; die WIDE-
+/// Pipeline (cache_engine_builder_iterator.hpp, pmc_zelle) rendert dieselbe Wahrheit seit B-5 als
+/// "n/a" -- und zwar fuer ALLE SIEBEN Zaehler inkl. l1+dtlb (der fruehere Halbsatz "l1/dtlb gehen ueber
+/// zelle statt pmc_zelle" war seit B-5 stale und faellt hiermit).
+/// NP-24-BAUPUNKT (benannt statt "Abstimmung mit dem #15-Bruch"): DIESER Overload x
+/// serialize_measurements_csv (unten) x measurement/pipeline_csv_schema.hpp (Voll-Sicht +7) x
+/// measurement/schema_freeze.hpp (Freeze-Nachzug im selben Commit).
 [[nodiscard]] inline ComdareMeasurementSnapshotV1
 measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, std::string_view permutation_id,
                                  measurement::PmcCounters const& pmc) {
     auto m = measurement_from_workload_result(r, permutation_id);
     if (pmc.available) {
-        // l1 + dtlb: der Bestands-POD fuehrt fuer diese beiden KEIN eigenes Quellen-Flag (identisch zur
-        // WIDE-Pipeline, wo sie ueber `zelle` statt `pmc_zelle` gehen). Sie bleiben deshalb an
-        // `pmc.available` gebunden -- hier wird kein Flag erfunden, das es im POD nicht gibt.
-        m.cache_misses_l1 = pmc.cache_misses_l1;
-        m.dtlb_misses     = pmc.dtlb_misses;
-        // Die flag-tragenden Zaehler: je Zaehler die EIGENE Quelle befragen.
+        // JEDER Zaehler traegt seit NP-23 die EIGENE Quelle in den POD -- l1+dtlb eingeschlossen
+        // (B-5-Paritaet zur WIDE-Pipeline). Wert-Uebernahme nur mit Quellen-Beleg; am Bestand
+        // verhaltensgleich, weil LinuxPerfPmcSource/PAPI Wert und Flag stets gemeinsam setzen
+        // (s. EHRLICHE EINORDNUNG oben) -- die Pruefung bleibt die Wache gegen kuenftige Drift.
+        if (pmc.cache_misses_l1_source_available) m.cache_misses_l1 = pmc.cache_misses_l1;
+        if (pmc.dtlb_misses_source_available) m.dtlb_misses = pmc.dtlb_misses;
         if (pmc.cache_misses_l2_source_available) m.cache_misses_l2 = pmc.cache_misses_l2;
         if (pmc.cache_misses_l3_source_available) m.cache_misses_l3 = pmc.cache_misses_l3;
         if (pmc.branch_misses_source_available) m.branch_misses = pmc.branch_misses;
         if (pmc.coherence_invalidations_source_available) m.coherence_invalidations = pmc.coherence_invalidations;
         if (pmc.energy_micro_joules_source_available) m.energy_micro_joules = pmc.energy_micro_joules;
         m.pmc_available = 1;
+        // Die 7 Quell-Flags reisen 1:1 in den POD (und damit in die +7 CSV-Spalten).
+        m.cache_misses_l1_source_available         = pmc.cache_misses_l1_source_available ? 1 : 0;
+        m.cache_misses_l2_source_available         = pmc.cache_misses_l2_source_available ? 1 : 0;
+        m.cache_misses_l3_source_available         = pmc.cache_misses_l3_source_available ? 1 : 0;
+        m.dtlb_misses_source_available             = pmc.dtlb_misses_source_available ? 1 : 0;
+        m.coherence_invalidations_source_available = pmc.coherence_invalidations_source_available ? 1 : 0;
+        m.energy_micro_joules_source_available     = pmc.energy_micro_joules_source_available ? 1 : 0;
+        m.branch_misses_source_available           = pmc.branch_misses_source_available ? 1 : 0;
     }
     return m;
 }
 
 /// Kanonischer Serializer (das EINE Mess-Schema). Schreibt die 16 Pipeline-kanonischen Spalten (kompatibel
-/// zur LaTeX-Pipeline-Stufe 04/05/06) PLUS die 6 Observer-Spalten + pmc_available — die volle 16+6-Sicht.
+/// zur LaTeX-Pipeline-Stufe 04/05/06) PLUS die 6 Observer-Spalten + pmc_available + 2 Host-Messspalten
+/// PLUS die 7 NP-23-Quell-Flags am Zeilenende -- die volle 16+9+7-Sicht (32 Spalten, Altsicht = Praefix).
 /// `rows[i]` ↔ `permutation_ids[i]` ↔ `workload_used[i]` (gleiche Länge). Eine Zeile je (Komposition×Lastprofil).
 [[nodiscard]] inline std::string serialize_measurements_csv(std::vector<ComdareMeasurementSnapshotV1> const& rows,
                                                             std::vector<std::string> const& permutation_ids,
@@ -206,7 +231,14 @@ measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, st
            << m.internal_frag_milli << ',' << m.search_insert << ',' << m.search_lookup << ',' << m.search_hit << ','
            << m.search_miss << ',' << m.search_erase << ',' << m.search_peak_occupancy << ','
            << static_cast<unsigned>(m.pmc_available) << ',' << m.branch_misses << ',' << m.throughput_ops_per_sec
-           << '\n';
+           // NP-23: die 7 Quell-Flags, Reihenfolge == pipeline_csv_schema.hpp (l1,l2,l3,dtlb,coh,energy,branch).
+           << ',' << static_cast<unsigned>(m.cache_misses_l1_source_available) << ','
+           << static_cast<unsigned>(m.cache_misses_l2_source_available) << ','
+           << static_cast<unsigned>(m.cache_misses_l3_source_available) << ','
+           << static_cast<unsigned>(m.dtlb_misses_source_available) << ','
+           << static_cast<unsigned>(m.coherence_invalidations_source_available) << ','
+           << static_cast<unsigned>(m.energy_micro_joules_source_available) << ','
+           << static_cast<unsigned>(m.branch_misses_source_available) << '\n';
     }
     return os.str();
 }

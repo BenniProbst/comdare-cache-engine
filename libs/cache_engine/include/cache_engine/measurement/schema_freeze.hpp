@@ -434,10 +434,26 @@ inline constexpr std::array<std::string_view, 16> kPipeline16FreezeStufe1{"permu
                                                                           "external_frag",
                                                                           "internal_frag"};
 
-/// (2b) Die 9 Zusatzspalten der vollen Pipeline-Sicht -- ebenfalls eigenstaendiges Literal.
-inline constexpr std::array<std::string_view, 9> kPipelineVollZusatzFreezeStufe1{
-    "search_insert",         "search_lookup", "search_hit",    "search_miss",           "search_erase",
-    "search_peak_occupancy", "pmc_available", "branch_misses", "throughput_ops_per_sec"};
+/// (2b) Die Zusatzspalten der vollen Pipeline-Sicht -- ebenfalls eigenstaendiges Literal.
+/// NACHGEZOGEN 19.08.2026 (NP-23, #15-Bruch, im SELBEN Commit wie die Erzeuger-Liste): +7 PMC-
+/// Quell-Flag-Spalten am Ende (die dokumentierte laute Schema-Aenderung, s. Kopf dieser Datei).
+inline constexpr std::array<std::string_view, 16> kPipelineVollZusatzFreezeStufe1{
+    "search_insert",
+    "search_lookup",
+    "search_hit",
+    "search_miss",
+    "search_erase",
+    "search_peak_occupancy",
+    "pmc_available",
+    "branch_misses",
+    "throughput_ops_per_sec",
+    "cache_misses_l1_source_available",
+    "cache_misses_l2_source_available",
+    "cache_misses_l3_source_available",
+    "dtlb_misses_source_available",
+    "coherence_invalidations_source_available",
+    "energy_micro_joules_source_available",
+    "branch_misses_source_available"};
 
 /// Die NENNER als benannte Konstanten -- damit ein Aufrufer die Zahl zitieren kann, ohne sie zu raten.
 inline constexpr std::size_t kWideSchemaFreezeSpalten = kWideSchemaFreezeStufe1.size();
@@ -447,7 +463,7 @@ inline constexpr std::size_t kPipelineVollFreezeSpalten =
 
 static_assert(kWideSchemaFreezeSpalten == 189, "WIDE-Mess-Schema, Stufe-1-Freeze vom 2026-08-09: 189 Spalten.");
 static_assert(kPipeline16FreezeSpalten == 16, "Pipeline-Schema, Stufe-1-Freeze: 16 Spalten.");
-static_assert(kPipelineVollFreezeSpalten == 25, "Volle Pipeline-Sicht, Stufe-1-Freeze: 25 Spalten.");
+static_assert(kPipelineVollFreezeSpalten == 32, "Volle Pipeline-Sicht: 25 (Stufe 1) + 7 NP-23-Quell-Flags.");
 
 /// Die volle eingefrorene Pipeline-Sicht, abgeleitet aus den beiden Teilen (Praefix-Superset).
 inline constexpr std::array<std::string_view, kPipelineVollFreezeSpalten> kPipelineVollFreezeStufe1 = [] {

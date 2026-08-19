@@ -201,8 +201,8 @@ int main() {
         std::vector<std::string> const soll25 = ms::als_spaltenliste(ms::kPipelineVollFreezeStufe1);
         auto const                     b25    = ms::pruefe_schema_freeze(ist25, soll25);
         std::cout << ms::schema_freeze_bericht(b25, "PIPELINE-VOLL");
-        pruefe(b25.identisch, "PIPELINE-VOLL: erzeugte Liste == Stufe-1-Freeze");
-        pruefe(b25.ist_spalten == 25, "PIPELINE-VOLL: Nenner ist 25");
+        pruefe(b25.identisch, "PIPELINE-VOLL: erzeugte Liste == Freeze (Stufe 1 + NP-23-Nachzug)");
+        pruefe(b25.ist_spalten == 32, "PIPELINE-VOLL: Nenner ist 32 (25 + 7 NP-23-Quell-Flags)");
 
         // Praefix-Eigenschaft: die volle Sicht ist ein echtes Superset der Pipeline-Sicht. Ohne sie
         // waeren es zwei Schemata und die Stufe 04/05 laese die falschen Positionen.
@@ -229,8 +229,14 @@ int main() {
                                   "search_peak_occupancy,pmc_available,branch_misses,throughput_ops_per_sec\n";
         pruefe(ms::pipeline16_csv_header() == alt16,
                "die EINE Quelle liefert die 16-Spalten-Kopfzeile Zeichen fuer Zeichen wie zuvor");
-        pruefe(ms::pipeline_voll_csv_header() == alt25,
-               "die EINE Quelle liefert die 25-Spalten-Kopfzeile Zeichen fuer Zeichen wie zuvor");
+        // NP-23 (#15-Bruch, 19.08.2026): die volle Sicht traegt +7 Quell-Flag-Spalten am ENDE. Der
+        // Rueknahme-Beleg wird zum PRAEFIX-Beleg: die ersten 25 Spalten stehen Zeichen fuer Zeichen
+        // wie zuvor (Alt-Leser der 25 brechen nicht), dahinter beginnt der deklarierte Anbau.
+        std::string const alt25_praefix = alt25.substr(0, alt25.size() - 1) + ',';
+        pruefe(ms::pipeline_voll_csv_header().rfind(alt25_praefix, 0) == 0,
+               "die EINE Quelle traegt die 25-Spalten-Altsicht Zeichen fuer Zeichen als Praefix");
+        pruefe(ms::pipeline_voll_csv_header().find("cache_misses_l1_source_available") != std::string::npos,
+               "die volle Sicht traegt die NP-23-Quell-Flags hinter dem Altbestand");
 
         // Und der Beleg am echten Schreiber, nicht nur an der Kopfzeilen-Funktion: die beiden
         // Serializer muessen mit genau diesen Kopfzeilen beginnen.
@@ -238,8 +244,8 @@ int main() {
         std::vector<std::string> const                      keine{};
         pruefe(mb::serialize_measurements_pipeline16_csv(leer, keine, keine) == alt16,
                "serialize_measurements_pipeline16_csv beginnt unveraendert");
-        pruefe(mb::serialize_measurements_csv(leer, keine, keine) == alt25,
-               "serialize_measurements_csv beginnt unveraendert");
+        pruefe(mb::serialize_measurements_csv(leer, keine, keine) == ms::pipeline_voll_csv_header(),
+               "serialize_measurements_csv beginnt mit der EINEN (erweiterten) Kopfzeile");
     }
 
     // -- Bissprobe auf der Pipeline-Seite, damit auch dort kein blindes Gruen entsteht -------------
