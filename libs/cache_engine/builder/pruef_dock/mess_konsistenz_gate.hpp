@@ -115,7 +115,10 @@ namespace comdare::cache_engine::builder::pruef_dock {
 enum class MessKonsistenzStatus : int {
     ok = 0,               ///< SOLL == IST, Deklaration vollstaendig
     erwartung_leer,       ///< (1) die CEB reicht keine SOLL-Zeile -- unpruefbar == Fehler
-    stempel_symbol_fehlt, ///< (2) das Modul exportiert comdare_anatomy_version_lines nicht
+    stempel_symbol_fehlt, ///< (2) das Modul exportiert comdare_anatomy_version_lines nicht.
+                          ///< A-11/golden-102: am Loader-Weg UNERREICHBAR geworden (der Loader weist
+                          ///< stempellose Module mit status 13 ab, version_lines() ist ab status_ok
+                          ///< non-null); bleibt als TIEFENVERTEIDIGUNG fuer direkt konstruierte Handles.
     stempel_layout_fremd, ///< (3) stamp_layout_version != kAnatomyVersionLinesLayout
     deklaration_leer,     ///< (4) das Modul deklariert KEIN Mess-Tooling
     zeile_abweichung,     ///< (5) SOLL != IST

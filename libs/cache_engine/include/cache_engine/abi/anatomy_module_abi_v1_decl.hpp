@@ -609,9 +609,12 @@ extern "C" {
 COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_gattung() noexcept;
 COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_genus() noexcept;
 
-/// comdare_anatomy_version_lines() -- OPTIONALES Probe-Symbol: liefert die einkompilierten Stempel-Zeilen
-/// eines Tier-Binary. NICHT Teil der 6 Loader-Pflicht-Symbole; ein ohne COMDARE_ANATOMY_VERSION_STAMP
-/// gebautes Modul exportiert es gar nicht (dlsym liefert dann nullptr).
+/// comdare_anatomy_version_lines() -- das SIEBTE PFLICHT-Symbol (A-11/golden-102, 19.08.2026; bis dahin
+/// optional): liefert die einkompilierten Stempel-Zeilen eines Tier-Binary. Ein ohne
+/// COMDARE_ANATOMY_VERSION_STAMP(_M) gebautes Modul exportiert es gar nicht (dlsym liefert nullptr) und
+/// wird vom Loader mit status_version_lines_symbol_missing (13) ABGEWIESEN -- Emission ohne Stempel
+/// faellt. Die EMITTER-Aritaet der DEFINE-Makros ist unberuehrt: der Stempel bleibt ein ZUSAETZLICHER
+/// Makro-Call am Emissions-Ort (deshalb kein ABI-Major-Schritt; POD-Layout und Magic unveraendert).
 COMDARE_ANATOMY_ABI_EXPORT
 ::comdare::cache_engine::abi::AnatomyVersionLines const* comdare_anatomy_version_lines() noexcept;
 

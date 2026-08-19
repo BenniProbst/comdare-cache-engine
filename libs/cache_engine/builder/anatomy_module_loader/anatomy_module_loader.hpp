@@ -60,6 +60,14 @@ inline constexpr int status_identity_mismatch = 11;
 // ihr Wert ZULAESSIG ist. Eigener Code aus demselben Grund wie bei 9/10: die Diagnose muss sagen,
 // WAS abgelehnt wurde, nicht nur DASS.
 inline constexpr int status_genus_not_abi_visible = 12;
+// A-11/golden-102 (19.08.2026) -- DIE STEMPEL-PFLICHT. comdare_anatomy_version_lines ist das SIEBTE
+// PFLICHT-Symbol ("aus sechs werden sieben"): ein Modul ohne Stempel-Symbol -- oder mit einem Symbol,
+// das nullptr liefert -- deklariert NICHTS und wird am dlopen-Weg abgewiesen, statt als erfolgreiche
+// Ladung mit nullptr-Handle weiterzureisen. Position der Pruefung: NACH Magic/Version/gattung/genus/
+// Factory/Identitaets-Riegel (die fruehen Schloesser behalten ihr Fehlerbild -- Alt-Module treffen
+// weiter IHRE Codes 4/5/9/10/11); nur bis dahin fehlerfreie, stempellose Module fallen neu auf 13.
+// Eigener Code aus demselben Grund wie bei 9/10: die Diagnose muss sagen, WAS fehlt.
+inline constexpr int status_version_lines_symbol_missing = 13;
 
 [[nodiscard]] constexpr const char* status_name(int s) noexcept {
     switch (s) {
@@ -76,6 +84,7 @@ inline constexpr int status_genus_not_abi_visible = 12;
         case status_genus_symbol_missing: return "genus_symbol_missing";
         case status_identity_mismatch: return "identity_mismatch";
         case status_genus_not_abi_visible: return "genus_not_abi_visible";
+        case status_version_lines_symbol_missing: return "version_lines_symbol_missing";
         default: return "unknown";
     }
 }
@@ -151,19 +160,19 @@ public:
     }
 
     /// version_lines() -- M-1/D-2 (06.08.2026): die vom geladenen Modul DEKLARIERTEN Stempel-Zeilen
-    /// (Organ/System/Mess + Fingerprint + die drei Entry-Arrays), oder nullptr.
+    /// (Organ/System/Mess + Fingerprint + die drei Entry-Arrays).
     ///
-    /// nullptr heisst GENAU EINES von zwei Dingen, und beide sind aus Sicht des Mess-Konsistenz-Gates
-    /// derselbe Fall "die Binary deklariert nichts": (a) das Modul wurde ohne
-    /// COMDARE_ANATOMY_VERSION_STAMP(_M) gebaut und exportiert das OPTIONALE 5. Symbol gar nicht
-    /// (dlsym/GetProcAddress findet es nicht), oder (b) das Symbol ist da, liefert aber nullptr.
+    /// A-11/golden-102 (19.08.2026): AB status_ok GARANTIERT NON-NULL. Der Loader weist ein Modul ohne
+    /// Stempel-Symbol -- oder mit nullptr-liefernder Antwort -- mit status_version_lines_symbol_missing
+    /// (13) ab; eine erfolgreiche Ladung traegt hier also immer einen gueltigen POD. nullptr steht nur
+    /// noch an einer default-konstruierten oder entladenen Handle.
     ///
-    /// WARUM DAS KEIN ABI-SCHRITT IST: gelesen wird ausschliesslich das bereits bestehende optionale
+    /// WARUM DAS KEIN ABI-SCHRITT IST: gelesen wird ausschliesslich das bereits bestehende
     /// Probe-Symbol comdare_anatomy_version_lines (anatomy_module_abi_v1_decl.hpp) und das bereits
-    /// bestehende POD-Layout 6. Der Loader verlangt die vier Ur-Pflicht-Symbole plus (seit Q2/V-06)
-    /// die zwei Identitaets-Symbole -- DIESES Stempel-Symbol bleibt OPTIONAL: ein Modul ohne Stempel
-    /// laedt unveraendert, es traegt hier eben nullptr. COMDARE_ANATOMY_ABI_MAJOR und
-    /// kAnatomyVersionLinesLayout bleiben unberuehrt.
+    /// bestehende POD-Layout 7. Der Loader verlangt die sechs bisherigen Pflicht-Symbole plus (seit
+    /// A-11) dieses SIEBTE -- die EMITTER-Aritaet der DEFINE-Makros ist unberuehrt (der Stempel ist
+    /// ein ZUSAETZLICHER Makro-Call am Emissions-Ort, kein Makro-Umbau). COMDARE_ANATOMY_ABI_MAJOR
+    /// und kAnatomyVersionLinesLayout bleiben unberuehrt.
     ///
     /// LEBENSZEIT: der POD ist im MODUL ein `static constexpr` (Makro-Materialisierung) -- er lebt, solange
     /// das dlopen-Handle lebt, also genau so lange wie diese Handle. Nach unload() ist der Zeiger tot;
@@ -193,7 +202,7 @@ public:
     /// load() — Loadet `dll_path`. Bei Erfolg: status_ok, handle_out gesetzt.
     /// Bei Misserfolg: errno-style status, handle_out unveraendert.
     ///
-    /// Validierungs-Schritte (in dieser Reihenfolge; seit Q2/V-06 sind SECHS Symbole Pflicht):
+    /// Validierungs-Schritte (in dieser Reihenfolge; seit A-11/golden-102 sind SIEBEN Symbole Pflicht):
     /// 1. Datei existiert
     /// 2. dlopen/LoadLibrary erfolgreich
     /// 3. Die vier Ur-Pflicht-Symbole resolvable (abi_version/abi_magic/create/destroy)
@@ -208,6 +217,9 @@ public:
     /// 10. Factory comdare_create_anatomy() liefert non-null
     /// 11. Identitaets-Riegel: Instanz-genus() == Symbol-Wert UND Gattungs-Symbol ==
     ///     gattung_of(genus) -- sonst status_identity_mismatch
+    /// 12. STEMPEL-PFLICHT (A-11): comdare_anatomy_version_lines resolvable UND non-null (Pflicht-
+    ///     Symbol 7; an der HISTORISCHEN Pull-Position, also NACH allen fruehen Schloessern) --
+    ///     sonst status_version_lines_symbol_missing
     [[nodiscard]] static int load(std::filesystem::path const& dll_path, AnatomyModuleHandle& handle_out) noexcept;
 
     /// load_all() — Loadet alle anatomy-Pilot-DLLs in einem Verzeichnis.

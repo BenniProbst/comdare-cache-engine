@@ -72,10 +72,11 @@ using PfnAbiVersion = std::uint64_t (*)();
 using PfnAbiMagic   = std::uint64_t (*)();
 using PfnCreate     = ana::IAnatomyBase* (*)();
 using PfnDestroy    = void (*)(ana::IAnatomyBase*);
-// M-1/D-2: das OPTIONALE 5. Symbol (comdare_anatomy_version_lines). NICHT Loader-Pflicht -- fehlt es, bleibt
-// der Handle-Zeiger nullptr und die Ladung gilt weiterhin als erfolgreich. Die Entscheidung, ob eine Binary
-// OHNE Deklaration messfaehig ist, faellt NICHT hier (der Loader ist ein reiner dlopen-Wrapper), sondern am
-// Pruefdock (mess_konsistenz_gate.hpp) -- dort fail-closed.
+// A-11/golden-102: das SIEBTE PFLICHT-Symbol (comdare_anatomy_version_lines). Bis 19.08.2026 war es
+// optional ("fehlt es, bleibt der Handle-Zeiger nullptr und die Ladung gilt weiterhin als erfolgreich");
+// seit A-11 wird ein Modul ohne Stempel-Symbol -- oder mit nullptr-Antwort -- am dlopen-Weg abgewiesen
+// (status_version_lines_symbol_missing). Das Pruefdock (mess_konsistenz_gate.hpp) bleibt als
+// Tiefenverteidigung fuer direkt konstruierte Handles bestehen.
 using PfnVersionLines = abi::AnatomyVersionLines const* (*)();
 // Q2/V-06: die zwei Identitaets-Symbole liefern die uint8-Enum-WERTE, nicht die Enum-Typen -- ueber die
 // C-ABI-Grenze reist ein Zahlentyp, die Bedeutung liegt im Header, den beide Seiten teilen.
@@ -257,14 +258,19 @@ int AnatomyModuleLoader::load(std::filesystem::path const& dll_path, AnatomyModu
         return status_identity_mismatch;
     }
 
-    // M-1/D-2: das OPTIONALE Stempel-Symbol NACH der Version-Validierung ziehen. Reihenfolge ist tragend:
-    // erst wenn Magic + Major/Minor passen, ist das POD-Layout dieses Moduls ueberhaupt als das unsere
-    // lesbar. Ein Fehlen ist KEIN Lade-Fehler (die SECHS Pflicht-Symbole sind an dieser Stelle alle
-    // gezogen und verriegelt; DIESES siebte Symbol ist optional) -- der Zeiger bleibt dann nullptr,
-    // und das Mess-Konsistenz-Gate am Pruefdock entscheidet fail-closed darueber.
-    abi::AnatomyVersionLines const* lines = nullptr;
-    if (auto* sym_lines = native_symbol(native, "comdare_anatomy_version_lines"); sym_lines != nullptr)
-        lines = reinterpret_cast<PfnVersionLines>(sym_lines)();
+    // A-11/golden-102: das SIEBTE PFLICHT-Symbol, an der HISTORISCHEN Pull-Position (NACH Magic/Version/
+    // gattung/genus/Factory/Identitaets-Riegel). Die Position ist tragend: erst wenn Magic + Major/Minor
+    // passen, ist das POD-Layout dieses Moduls ueberhaupt als das unsere lesbar -- und die fruehen
+    // Schloesser behalten ihr Fehlerbild (alt_major7/neue_magic/ohne_gattung/ohne_genus/luegner/
+    // alt_magic_ohne_symbole treffen weiter IHRE Codes 4/5/9/10/11). Nur ein bis hierher fehlerfreies,
+    // stempelloses Modul faellt neu auf 13: ein Modul, das nichts deklariert, wird ABGEWIESEN statt als
+    // erfolgreiche Ladung mit nullptr-Handle weiterzureisen. Beide nullptr-Wege (Symbol fehlt; Symbol
+    // liefert nullptr) sind derselbe Fall "deklariert nichts" -- damit ist version_lines() ab status_ok
+    // garantiert non-null. Das Mess-Konsistenz-Gate bleibt Tiefenverteidigung fuer Direkt-Handles.
+    auto* const sym_lines = native_symbol(native, "comdare_anatomy_version_lines");
+    if (sym_lines == nullptr) { return status_version_lines_symbol_missing; }
+    abi::AnatomyVersionLines const* lines = reinterpret_cast<PfnVersionLines>(sym_lines)();
+    if (lines == nullptr) { return status_version_lines_symbol_missing; }
 
     // Handle aufbauen (RAII) -- das Eigentum wandert vom Guard in die Handle (beides noexcept).
     handle_out = AnatomyModuleHandle{native, anatomy, pfn_destroy, module_version, lines};
