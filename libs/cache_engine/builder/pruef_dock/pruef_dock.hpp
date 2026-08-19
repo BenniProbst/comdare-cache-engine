@@ -1,35 +1,35 @@
 #pragma once
-// V41.F.6.1.R6 — Prüf-Dock: der builder-seitige, per-Gattung ABI-stabile Mess-Übergang (Doku 24 §8.8).
+// V41.F.6.1.R6 -- Pruef-Dock: der builder-seitige, per-Gattung ABI-stabile Mess-Uebergang (Doku 24 Par.8.8).
 //
-// **KEIN NEUBAU — nur Benennung (User-Direktive 2026-05-30):** Ein Prüf-Dock benennt + organisiert die
-// BEREITS EXISTIERENDE host-seitige ABI-Mess-Schnittstelle für zu prüfende ABI-stabile Algorithmus-Binaries.
-// Pro Anatomie-Gattung (AnatomyGenus: SearchAlgorithm/Set/Sequence/Adapter/View — Lebewesen→Tiere; Viren =
-// Graphen ohne Anatomie) gibt es genau EIN Prüf-Dock auf der CacheEngineBuilder-Seite. Die CacheEngineBuilder
-// besitzt den vollen Lebenszyklus: Anatomie-Konfiguration + Compile (Binary-Tier-Modul) + Prüf-Dock-Messung.
+// **KEIN NEUBAU -- nur Benennung (User-Direktive 2026-05-30):** Ein Pruef-Dock benennt + organisiert die
+// BEREITS EXISTIERENDE host-seitige ABI-Mess-Schnittstelle fuer zu pruefende ABI-stabile Algorithmus-Binaries.
+// Pro Anatomie-Gattung (AnatomyGenus: SearchAlgorithm/Set/Sequence/Adapter/View -- Lebewesen->Tiere; Viren =
+// Graphen ohne Anatomie) gibt es genau EIN Pruef-Dock auf der CacheEngineBuilder-Seite. Die CacheEngineBuilder
+// besitzt den vollen Lebenszyklus: Anatomie-Konfiguration + Compile (Binary-Tier-Modul) + Pruef-Dock-Messung.
 //
-// IPruefDock ist KEINE ABI-Grenze (lebt nur im Builder-Binary, eine vtable, NICHT im Hot-Path — der Hot-Path
+// IPruefDock ist KEINE ABI-Grenze (lebt nur im Builder-Binary, eine vtable, NICHT im Hot-Path -- der Hot-Path
 // ist das compile-time-monomorphisierte Adapter-Tier IN der DLL). Die ABI-Grenze bleibt das gattungs-eigene
-// Antriebs-Sub-Interface (für SearchAlgorithm: anatomy::IObservableTier) + der POD-Snapshot
-// (der konsolidierte Observer-POD). Neue Gattung = neues Dock + neues Sub-Interface + neuer flacher POD — NIE eine
+// Antriebs-Sub-Interface (fuer SearchAlgorithm: anatomy::IObservableTier) + der POD-Snapshot
+// (der konsolidierte Observer-POD). Neue Gattung = neues Dock + neues Sub-Interface + neuer flacher POD -- NIE eine
 // Mutation von IAnatomyBase oder dem bestehenden Snapshot (vtable-/Layout-Bruch alter DLLs).
 //
-// PRÄZISIERUNG 17.08.2026 (K2, Owner-Entscheid 09.08.) — ADDITIV, der Satz oben bleibt wahr:
-// "IPruefDock lebt nur im Builder-Binary" gilt unverändert für IPruefDock, die Docks, das
-// Konformitäts-Gate, die Registry und den Sequencer. Was NICHT mehr hier lebt, sind die
-// STATUS-CODES und das ANTRIEBS-BÜNDEL: sie sind nach libs/cache_engine/anatomy_drive/ gewandert,
+// PRAeZISIERUNG 17.08.2026 (K2, Owner-Entscheid 09.08.) -- ADDITIV, der Satz oben bleibt wahr:
+// "IPruefDock lebt nur im Builder-Binary" gilt unveraendert fuer IPruefDock, die Docks, das
+// Konformitaets-Gate, die Registry und den Sequencer. Was NICHT mehr hier lebt, sind die
+// STATUS-CODES und das ANTRIEBS-BUeNDEL: sie sind nach libs/cache_engine/anatomy_drive/ gewandert,
 // weil Owner 09.08. entschieden hat, "der Loader wandert in eine stufen-neutrale Bibliothek, weil
 // das Pruefdock der CEB und das Pruefdock der Hybrid-Tier-Binary jeweils technisch identisch bei
 // Konfiguration sein muessen."
-// Die Trennlinie ist inhaltlich, nicht willkürlich: beschreibt ein Stück die ABI-KANTE zum
-// geladenen Modul (Status, dynamic_cast auf Sub-Interfaces), gehört es in die neutrale Schicht;
+// Die Trennlinie ist inhaltlich, nicht willkuerlich: beschreibt ein Stueck die ABI-KANTE zum
+// geladenen Modul (Status, dynamic_cast auf Sub-Interfaces), gehoert es in die neutrale Schicht;
 // beschreibt es das VERHALTEN eines Docks (Gattungs-Match, Mess-Vertrag), bleibt es hier.
-// Für Aufrufer ändert sich NICHTS — die Namen werden unten per using re-exportiert.
+// Fuer Aufrufer aendert sich NICHTS -- die Namen werden unten per using re-exportiert.
 //
-// @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md §8.8
+// @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md Par.8.8
 // @related [[anatomie-gattungen]] [[execution-engine-als-wurzel]] [[gattungs-constraint-pruefling-merge]]
 
 #include <anatomy/anatomy_base.hpp>                                // AnatomyGenus, IAnatomyBase::genus()
-#include <anatomy_drive/tier_drive_status.hpp>                    // K2: die Status-Codes, stufen-neutral
+#include <anatomy_drive/tier_drive_status.hpp>                     // K2: die Status-Codes, stufen-neutral
 #include <builder/anatomy_module_loader/anatomy_module_loader.hpp> // AnatomyModuleHandle
 #include <builder/anatomy_commands/tier_observe_trace_abi.hpp>     // AbiTierTraceConfig (Mess-Optionen-Reuse)
 
@@ -42,7 +42,7 @@ namespace anatomy        = ::comdare::cache_engine::anatomy;
 namespace anatomy_loader = ::comdare::cache_engine::builder::anatomy_loader;
 namespace anatomy_cmds   = ::comdare::cache_engine::builder::anatomy_commands;
 
-/// Mess-Optionen eines Prüf-Docks — wiederverwendet die bestehende Treiber-Config (kein Neubau).
+/// Mess-Optionen eines Pruef-Docks -- wiederverwendet die bestehende Treiber-Config (kein Neubau).
 using PruefDockMeasureOptions = anatomy_cmds::AbiTierTraceConfig;
 
 // errno-Stil Status-Codes (0 = ok), analog Loader + Hybrid-Search-Interface ([[hybrid-search-engine-interface]]).
@@ -64,30 +64,30 @@ using ::comdare::cache_engine::anatomy_drive::dock_status_ok;
 using ::comdare::cache_engine::anatomy_drive::dock_status_subinterface_missing;
 using ::comdare::cache_engine::anatomy_drive::dock_status_wrong_genus;
 
-/// IPruefDock — builder-seitiger per-Gattung Mess-Übergang (uniformer Vertrag über alle Gattungen).
+/// IPruefDock -- builder-seitiger per-Gattung Mess-Uebergang (uniformer Vertrag ueber alle Gattungen).
 /// Erweiterung um eine Gattung = eine neue konkrete IPruefDock-Implementierung (+ deren gattungs-eigenes
 /// Antriebs-Sub-Interface + V1-POD); IPruefDock selbst bleibt stabil.
 class IPruefDock {
 public:
     virtual ~IPruefDock() = default;
 
-    /// Die Gattung, die dieses Dock prüft (1:1 zu anatomy::AnatomyGenus).
+    /// Die Gattung, die dieses Dock prueft (1:1 zu anatomy::AnatomyGenus).
     [[nodiscard]] virtual anatomy::AnatomyGenus dock_genus() const noexcept = 0;
 
     /// Anzeige-Name (z. B. "SearchAlgorithmDock").
     [[nodiscard]] virtual std::string_view dock_name() const noexcept = 0;
 
-    /// Kann dieses Dock dieses geladene Modul treiben? Match über die IM MODUL deklarierte Gattung
-    /// (anatomy()->genus()), NICHT über Dateinamen-Heuristik. Default-Kriterium: anatomy() vorhanden + Gattung passt.
+    /// Kann dieses Dock dieses geladene Modul treiben? Match ueber die IM MODUL deklarierte Gattung
+    /// (anatomy()->genus()), NICHT ueber Dateinamen-Heuristik. Default-Kriterium: anatomy() vorhanden + Gattung passt.
     [[nodiscard]] virtual bool accepts(anatomy_loader::AnatomyModuleHandle const& h) const noexcept = 0;
 
     /// Misst EIN geladenes Modul der eigenen Gattung: zieht das gattungs-eigene Antriebs-Sub-Interface,
-    /// fährt den gattungs-eigenen Mess-Treiber, schreibt das serialisierte Ergebnis (CSV/JSON) nach out_*.
+    /// faehrt den gattungs-eigenen Mess-Treiber, schreibt das serialisierte Ergebnis (CSV/JSON) nach out_*.
     /// errno-style int (0 = ok; sonst dock_status_*). noexcept-frei: die Treiber sind selbst exception-arm.
-    /// **VERTRAG (V5 Konformitäts-Gate):** Jede measure()-Implementierung MUSS das Modul VOR der Messung gegen
-    /// die std::map-Hüllen-Konformität prüfen (run_conformance_gate, Reihenfolge import → GATE → messen) und bei
-    /// Fehlschlag dock_status_conformance_failed liefern, ohne zu messen. Gleiches gilt für JEDEN produktiven
-    /// Mess-Eintrittspunkt außerhalb der Docks (z.B. die f15_compare-Pfade A/Observe/measurement-plan).
+    /// **VERTRAG (V5 Konformitaets-Gate):** Jede measure()-Implementierung MUSS das Modul VOR der Messung gegen
+    /// die std::map-Huellen-Konformitaet pruefen (run_conformance_gate, Reihenfolge import -> GATE -> messen) und bei
+    /// Fehlschlag dock_status_conformance_failed liefern, ohne zu messen. Gleiches gilt fuer JEDEN produktiven
+    /// Mess-Eintrittspunkt ausserhalb der Docks (z.B. die f15_compare-Pfade A/Observe/measurement-plan).
     [[nodiscard]] virtual int measure(anatomy_loader::AnatomyModuleHandle& h, PruefDockMeasureOptions const& opts,
                                       std::string& out_csv, std::string& out_json) = 0;
 };

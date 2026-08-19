@@ -87,12 +87,12 @@ public:
     [[nodiscard]] cea::AnatomyGenus genus() const noexcept override { return cea::AnatomyGenus::SearchAlgorithm; }
 
     // -- IObservableTier: der Mess-Antrieb --
-    [[nodiscard]] bool tier_insert(std::uint64_t, std::uint64_t) noexcept override { return false; }
-    [[nodiscard]] bool tier_lookup(std::uint64_t, std::uint64_t*) const noexcept override { return false; }
-    [[nodiscard]] bool tier_erase(std::uint64_t) noexcept override { return false; }
-    void               tier_clear() noexcept override {}
+    [[nodiscard]] bool          tier_insert(std::uint64_t, std::uint64_t) noexcept override { return false; }
+    [[nodiscard]] bool          tier_lookup(std::uint64_t, std::uint64_t*) const noexcept override { return false; }
+    [[nodiscard]] bool          tier_erase(std::uint64_t) noexcept override { return false; }
+    void                        tier_clear() noexcept override {}
     [[nodiscard]] std::uint64_t tier_size() const noexcept override { return 0; }
-    void tier_observe(cea::ComdareTierObserverSnapshot* out) const noexcept override {
+    void                        tier_observe(cea::ComdareTierObserverSnapshot* out) const noexcept override {
         if (out != nullptr) *out = cea::ComdareTierObserverSnapshot{};
     }
     void tier_measure_accept(cea::IMessVisitor&) const noexcept override {}
@@ -151,7 +151,7 @@ TEST(K2StufenNeutralerLoader, DriveWirdOhneIPruefDockGezogen) {
 TEST(K2StufenNeutralerLoader, FehlenderMessAntriebWirdBenanntGemeldet) {
     // Ein Handle ohne Anatomie ueberhaupt: der erste Fehlerpfad, und er ist ANDERS benannt als
     // "Sub-Interface fehlt". Ohne diese Probe koennten beide auf denselben Code kollabieren.
-    al::AnatomyModuleHandle leer;
+    al::AnatomyModuleHandle  leer;
     ad::SearchAlgorithmDrive drive;
     EXPECT_EQ(ad::acquire_search_algorithm_drive(leer, drive), ad::dock_status_no_anatomy);
     EXPECT_NE(ad::dock_status_no_anatomy, ad::dock_status_subinterface_missing);

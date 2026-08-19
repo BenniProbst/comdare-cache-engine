@@ -1,4 +1,8 @@
 // tests/unit/test_naht1_mess_visitor_biss.cpp -- DER KOEDER DER MESS-NAHT (NAHT-1, 09.08.2026).
+// Die Naht IST Flaeche 3, der measurement-Durchstich (KON25-02-Vereinigung; Identitaets-Kopfblock
+// in anatomy/mess_visitor_abi.hpp). Dieser Koeder deckt die Host-Seite CEB=AN (Tier=AN und
+// Tier=AUS); die Schwester-Kombination CEB=AUS/Tier=AN deckt
+// tests/unit/test_flaeche3_deckung_ceb_aus_tier_an.cpp.
 //
 // ------------------------------------------------------------------------------------------------
 // WAS DIESER TEST NICHT PRUEFT -- und warum das der wichtigste Satz hier ist

@@ -67,10 +67,10 @@ namespace {
 // Sie speichert nichts und misst nichts: gebraucht wird allein ihre ADRESSE.
 class ZielAttrappe final : public cea::IObservableTier {
 public:
-    [[nodiscard]] bool tier_insert(std::uint64_t, std::uint64_t) noexcept override { return false; }
-    [[nodiscard]] bool tier_lookup(std::uint64_t, std::uint64_t*) const noexcept override { return false; }
-    [[nodiscard]] bool tier_erase(std::uint64_t) noexcept override { return false; }
-    void               tier_clear() noexcept override {}
+    [[nodiscard]] bool          tier_insert(std::uint64_t, std::uint64_t) noexcept override { return false; }
+    [[nodiscard]] bool          tier_lookup(std::uint64_t, std::uint64_t*) const noexcept override { return false; }
+    [[nodiscard]] bool          tier_erase(std::uint64_t) noexcept override { return false; }
+    void                        tier_clear() noexcept override {}
     [[nodiscard]] std::uint64_t tier_size() const noexcept override { return 0; }
     void                        tier_observe(cea::ComdareTierObserverSnapshot* out) const noexcept override {
         if (out != nullptr) *out = cea::ComdareTierObserverSnapshot{};
@@ -106,8 +106,7 @@ static_assert(!hy::RuntimeDockArrayPolicy::statisch);
 
 // (D) HOT-PATH-KONFORMITAET, die Kern-Zusage der Stufe: der gecachte Antrieb ist der STATISCHE
 //     IObservableTier-Zeiger, kein variant und kein Ergebnis eines Casts pro Operation.
-static_assert(std::is_same_v<decltype(std::declval<hy::StandardHybridDock const&>().antrieb()),
-                             cea::IObservableTier*>,
+static_assert(std::is_same_v<decltype(std::declval<hy::StandardHybridDock const&>().antrieb()), cea::IObservableTier*>,
               "HY-A1-HOTPATH: der gecachte Antrieb MUSS IObservableTier* sein. Wird hier ein "
               "variant oder ein Wrapper daraus, laeuft der visit im Op-Pfad statt am Umschaltpunkt "
               "-- genau die Risiko-Zeile 1 der soll_design-Tabelle in Abschnitt 9.");
@@ -229,7 +228,7 @@ TEST(HyA1DockContract, StatischePolicyDeckeltDieKapazitaetNichtDieBelegung) {
 
     hy::DockContractDescriptor const d{static_cast<std::uint8_t>(hy::HybridDockContract::Standard),
                                        cea::AnatomyGenus::SearchAlgorithm};
-    EXPECT_EQ(arr.attach(d), 0);  // Slot-Index 0
+    EXPECT_EQ(arr.attach(d), 0); // Slot-Index 0
     EXPECT_EQ(arr.size(), std::size_t{1});
     EXPECT_EQ(arr.attach(d), 1);
     EXPECT_EQ(arr.size(), std::size_t{2});
@@ -255,9 +254,7 @@ TEST(HyA1DockContract, RuntimePolicyWaechstUndTraegtDenselbenVertrag) {
 
     hy::DockContractDescriptor const d{static_cast<std::uint8_t>(hy::HybridDockContract::Standard),
                                        cea::AnatomyGenus::Set};
-    for (int i = 0; i < 5; ++i) {
-        EXPECT_EQ(arr.attach(d), i);
-    }
+    for (int i = 0; i < 5; ++i) { EXPECT_EQ(arr.attach(d), i); }
     EXPECT_EQ(arr.size(), std::size_t{5});
 
     // Die Runtime-Policy deckelt auf denselben PROGRAMM-DECKEL wie die Synthese-Matrix (KON28-03:
@@ -288,8 +285,7 @@ TEST(HyA1DockContract, F4LaufzeitDeckelAusDerXmlGreiftWirklich) {
     EXPECT_EQ(arr.kapazitaet(), std::size_t{2});
     EXPECT_EQ(arr.policy_kapazitaet(), hy::kHybridNodeObergrenzeDefault) << "der Programm-Deckel bleibt daneben";
 
-    hy::DockContractDescriptor const d{static_cast<std::uint8_t>(hy::HybridDockContract::Standard),
-                                       cfg->genus};
+    hy::DockContractDescriptor const d{static_cast<std::uint8_t>(hy::HybridDockContract::Standard), cfg->genus};
     EXPECT_EQ(arr.attach(d), 0);
     EXPECT_EQ(arr.attach(d), 1);
     // DIE KERN-ZUSICHERUNG: beim dritten ist Schluss -- nicht erst bei 32.
@@ -332,7 +328,7 @@ TEST(HyA1DockContract, DerDeckelIstDIESELBEZahlWieInDerSyntheseMatrix) {
 TEST(HyA1DockContract, AntriebWirdBeimAttachGecachedUndDanachOhneVisitGelesen) {
     hy::DockArray<hy::StatischeDockArrayPolicy<2>> arr;
     hy::DockContractDescriptor const               d{static_cast<std::uint8_t>(hy::HybridDockContract::Standard),
-                                       cea::AnatomyGenus::SearchAlgorithm};
+                                                     cea::AnatomyGenus::SearchAlgorithm};
     ASSERT_EQ(arr.attach(d), 0);
 
     // Vor der Bindung ist der Antrieb ehrlich leer -- KEIN Platzhalter-Objekt, das spaeter wie ein
@@ -400,11 +396,18 @@ TEST(HyA1DockContract, StdVariantStehtNurInDerEinenErlaubtenDatei) {
             std::string sauber;
             for (std::size_t i = 0; i < z.size(); ++i) {
                 if (in_block) {
-                    if (i + 1 < z.size() && z[i] == '*' && z[i + 1] == '/') { in_block = false; ++i; }
+                    if (i + 1 < z.size() && z[i] == '*' && z[i + 1] == '/') {
+                        in_block = false;
+                        ++i;
+                    }
                     continue;
                 }
-                if (i + 1 < z.size() && z[i] == '/' && z[i + 1] == '/') break;      // Zeilen-Kommentar
-                if (i + 1 < z.size() && z[i] == '/' && z[i + 1] == '*') { in_block = true; ++i; continue; }
+                if (i + 1 < z.size() && z[i] == '/' && z[i + 1] == '/') break; // Zeilen-Kommentar
+                if (i + 1 < z.size() && z[i] == '/' && z[i + 1] == '*') {
+                    in_block = true;
+                    ++i;
+                    continue;
+                }
                 sauber += z[i];
             }
             raus += sauber;
@@ -413,7 +416,7 @@ TEST(HyA1DockContract, StdVariantStehtNurInDerEinenErlaubtenDatei) {
         return raus;
     };
 
-    std::vector<std::string> traeger;   // Datei je STELLE (eine Datei kann mehrfach erscheinen)
+    std::vector<std::string> traeger; // Datei je STELLE (eine Datei kann mehrfach erscheinen)
     std::size_t              stellen  = 0;
     std::size_t              geprueft = 0;
     for (auto const& eintrag : std::filesystem::directory_iterator{hybrid_dir}) {
@@ -431,7 +434,7 @@ TEST(HyA1DockContract, StdVariantStehtNurInDerEinenErlaubtenDatei) {
         // ALLE Vorkommen zaehlen, nicht nur das erste -- sonst bliebe eine zweite echte Stelle
         // in einer bereits gezaehlten Datei unsichtbar.
         for (std::size_t pos = inhalt.find("std::variant<"); pos != std::string::npos;
-             pos            = inhalt.find("std::variant<", pos + 1)) {
+             pos             = inhalt.find("std::variant<", pos + 1)) {
             ++stellen;
             traeger.push_back(eintrag.path().filename().string());
         }
@@ -442,7 +445,8 @@ TEST(HyA1DockContract, StdVariantStehtNurInDerEinenErlaubtenDatei) {
     ASSERT_EQ(stellen, std::size_t{1}) << "geprueft: " << geprueft << " Dateien, Stellen: " << stellen;
     EXPECT_EQ(traeger.front(), std::string{"hybrid_dock_array.hpp"})
         << "std::variant< darf im hybrid/-Baum NUR im DockSlot des Dock-Arrays stehen "
-           "(Owner-E1 + Paragraf-49-KORREKTUR). Gefunden in: " << traeger.front();
+           "(Owner-E1 + Paragraf-49-KORREKTUR). Gefunden in: "
+        << traeger.front();
 
     // GEGENPROBE zur Kommentar-Festigkeit: der Entferner muss wirklich entfernen. Ohne diese
     // Zeilen koennte er zu einer Identitaet degenerieren und die Wache waere wieder blind.

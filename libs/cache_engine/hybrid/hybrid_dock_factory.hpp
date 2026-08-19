@@ -68,9 +68,7 @@ public:
         // soll sichtbar bleiben. Ein fehlender Zweig faellt in den default und meldet den Stand des
         // Baus -- er kann nicht still den Standard liefern.
         switch (static_cast<HybridDockContract>(desc.contract_id)) {
-            case HybridDockContract::Standard:
-                out.emplace<StandardHybridDock>();
-                return hybrid_status_ok;
+            case HybridDockContract::Standard: out.emplace<StandardHybridDock>(); return hybrid_status_ok;
             // KEIN default-Zweig, der still etwas baut: die drei uebrigen Vertraege sind oben
             // bereits durch pruefe_dock_deskriptor (dock_typ_gebaut == false) abgefangen. Kaeme ein
             // fuenfter Enum-Wert dazu, ohne dass jemand hier einen Zweig ergaenzt, faellt er auf die

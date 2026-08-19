@@ -97,6 +97,12 @@ TEST(RcuConcurrency, StackDomainAddressReuseGivesFreshSlot) {
 // (Thread-Churn), gleichzeitig zum Writer, der ueber viele Grace-Periods alte Versionen freigibt.
 // Uebt den "Slot ueberlebt Thread"-Pfad NEBENLAEUFIG zu synchronize() aus. Determiniert im Ergebnis
 // (kein Crash, reads>0, Post-Join-synchronize() sicher), race-frei unter -fsanitize=thread.
+// TSAN-GRENZE (2026-08-17, Lens-Uebergabe-Befund): -fsanitize=thread modelliert
+// atomic_thread_fence NICHT (-Wtsan an rcu.hpp:125) -- genau der Store-Load-Fence des
+// SB/Dekker-Musters in synchronize(), auf dem die Domaenen-Korrektheit beruht. Das gruene
+// TSan-Ergebnis deckt also den REST, diese Fence-Ordnung deckt es strukturell nicht
+// (werkzeug-bedingt, kein Lauf-Zufall). Vollstaendige Fence-Deckung = eigener Posten im
+// TSan-Ausbau (HY-A2-Umfeld), nicht durch Wiederholungslaeufe erreichbar.
 // PRAEZISIERUNG 2026-08-17: die Teilzusage "reads>0" hing am Scheduling und fiel unter Last
 // reproduzierbar. Sie ist jetzt GESCHAERFT zu "nach dem Anlauf wird WEITER gelesen" -- das ist
 // die Nebenlaeufigkeit selbst statt einer Zahl, die auch ohne sie zustande kaeme. Beide Sperren
@@ -147,8 +153,7 @@ TEST(RcuConcurrency, WriterSyncsWhileReaderThreadsChurnNoUseAfterFree) {
     // ueber ein Schnappschuss-Paar bestimmt (unten).
     auto churn = [&]() {
         bool erster = true;
-        while (generation.load(std::memory_order_relaxed) < kReaderEnde
-               && !stop.load(std::memory_order_relaxed)) {
+        while (generation.load(std::memory_order_relaxed) < kReaderEnde && !stop.load(std::memory_order_relaxed)) {
             rcu::RcuReadGuard g{d};
             int const*        p = slot.load(std::memory_order_acquire);
             volatile int      v = *p; // Deref waehrend der read-side critical section MUSS gueltig bleiben
@@ -180,8 +185,13 @@ TEST(RcuConcurrency, WriterSyncsWhileReaderThreadsChurnNoUseAfterFree) {
     // hatte sie verfehlt.
     // Der Assert war im RECHT -- er ist der Waechter dagegen, dass dieser Test seinen Gegenstand
     // (Reader-Churn NEBENLAEUFIG zu synchronize()) still verfehlt. Gefehlt hat das Warten.
-    // Terminiert immer: die Threads sind erzeugt (sonst haette emplace_back geworfen) und stop
-    // ist hier noch false, also erreicht jeder mindestens k=0.
+    // TERMINIERUNG, seit dem Writer-Kopplungs-Umbau an ZWEI Bedingungen (2026-08-17): die Threads
+    // sind erzeugt (sonst haette emplace_back geworfen), stop ist hier noch false UND generation
+    // steht auf 0, liegt also unter kReaderEnde -- deshalb durchlaeuft jeder Reader mindestens
+    // einmal den Rumpf und erhoeht angelaufen. Die zweite Bedingung ist neu und nicht kosmetisch:
+    // ein Koeder-Lauf mit kReaderEnde=0 liess genau hier ENDLOS warten (ctest-Timeout 124, kein
+    // Assert), weil dann kein Reader je in den Rumpf kommt. Wer kReaderEnde veraendert, muss
+    // sicherstellen, dass es beim Start GROESSER 0 ist.
     while (angelaufen.load(std::memory_order_relaxed) < kReaders) { std::this_thread::yield(); }
 
     // ZWEITE STUFE (2026-08-17, Lens-Fund): die Anlauf-Sperre allein macht ein EXPECT_GT(reads,0)

@@ -99,9 +99,9 @@ using HybridDockVariant = std::variant<StandardHybridDock /* additiv je neuem Ve
 /// oder (b) die Hybrid-Stufe linkt bewusst die Builder-Loader-Lib"). Bis das entschieden ist, nimmt
 /// der Slot den fertigen Zeiger ENTGEGEN. Die Naht ist damit genau eine Funktion breit.
 struct DockSlot {
-    HybridDockVariant             dock;
-    DockContractDescriptor        desc{};
-    anatomy::IObservableTier*     antrieb = nullptr; ///< Cache der Bindung -- der Op-Pfad liest DIESEN
+    HybridDockVariant         dock;
+    DockContractDescriptor    desc{};
+    anatomy::IObservableTier* antrieb = nullptr; ///< Cache der Bindung -- der Op-Pfad liest DIESEN
 };
 
 // ------------------------------------------------------------------------------------------
@@ -116,9 +116,9 @@ struct DockSlot {
 /// Statische Kapazitaet: der Speicher steht zur Compile-Zeit fest, die Belegung nicht.
 template <std::size_t MaxN>
 struct StatischeDockArrayPolicy {
-    using storage                             = std::array<std::optional<DockSlot>, MaxN>;
-    static constexpr bool        statisch     = true;
-    static constexpr std::size_t kapazitaet   = MaxN;
+    using storage                           = std::array<std::optional<DockSlot>, MaxN>;
+    static constexpr bool        statisch   = true;
+    static constexpr std::size_t kapazitaet = MaxN;
 
     static_assert(MaxN > 0, "HY-A1-ARRAY: eine Kapazitaet 0 traegt kein einziges Dock.");
     static_assert(MaxN <= kHybridNodeObergrenzeDefault,
@@ -129,9 +129,9 @@ struct StatischeDockArrayPolicy {
 
 /// Runtime-Kapazitaet: der Speicher waechst zur Laufzeit, gedeckelt auf denselben Programm-Deckel.
 struct RuntimeDockArrayPolicy {
-    using storage                             = std::vector<std::optional<DockSlot>>;
-    static constexpr bool        statisch     = false;
-    static constexpr std::size_t kapazitaet   = kHybridNodeObergrenzeDefault;
+    using storage                           = std::vector<std::optional<DockSlot>>;
+    static constexpr bool        statisch   = false;
+    static constexpr std::size_t kapazitaet = kHybridNodeObergrenzeDefault;
 };
 
 // ------------------------------------------------------------------------------------------
@@ -219,7 +219,6 @@ public:
     /// darueber, WER baut, nicht darueber, in welcher Datei die Zeile steht.
     [[nodiscard]] int attach(DockContractDescriptor const& desc) noexcept;
 
-
     /// Gibt einen Slot frei. Loescht die Antriebs-Bindung MIT -- ein Slot darf nie einen Zeiger in
     /// ein Modul ueberleben lassen, das gleich entladen wird (soll_design 3.3: destroy-vor-dlclose,
     /// Quiesce am Op-Rand).
@@ -280,7 +279,7 @@ private:
 
     typename Policy::storage speicher_{};
     /// F-4: die wirksame Obergrenze dieser Instanz (<= Policy::kapazitaet).
-    std::size_t              deckel_ = Policy::kapazitaet;
+    std::size_t deckel_ = Policy::kapazitaet;
 };
 
 // Die Kapazitaets-Zusage, an der Quelle statt nur im Test: die Runtime-Policy nimmt DENSELBEN

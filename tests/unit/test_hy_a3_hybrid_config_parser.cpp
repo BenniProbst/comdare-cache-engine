@@ -105,11 +105,14 @@ TEST(HyA3HybridConfigParser, UnbekanntesEnabledTokenIstHartUndFaelltNichtStillZu
     // stiller Rueckfall auf false waere die schlimmere Haelfte: der Anwender fordert den Hybrid-Zweig
     // an und bekommt schweigend den direkten.
     for (auto const* token : {"yes", "1", "True", "TRUE", "on", ""}) {
-        std::string const xml = std::string{R"(<hybrid_tier enabled=")"} + token + R"(" genus="SearchAlgorithm"><dock_array max_docks="8"/></hybrid_tier>)";
+        std::string const xml = std::string{R"(<hybrid_tier enabled=")"} + token +
+                                R"(" genus="SearchAlgorithm"><dock_array max_docks="8"/></hybrid_tier>)";
         EXPECT_FALSE(hy::parse_hybrid_tier_xml(xml).has_value()) << "Token \"" << token << "\" darf nicht durchgehen";
     }
     // Gegenprobe im selben Test: die beiden gueltigen Tokens gehen durch.
-    EXPECT_TRUE(hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true" genus="Set"><dock_array max_docks="8"/></hybrid_tier>)").has_value());
+    EXPECT_TRUE(hy::parse_hybrid_tier_xml(
+                    R"(<hybrid_tier enabled="true" genus="Set"><dock_array max_docks="8"/></hybrid_tier>)")
+                    .has_value());
     EXPECT_TRUE(hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="false" genus="Set"/>)").has_value());
 }
 
@@ -242,14 +245,16 @@ TEST(HyA3HybridConfigParser, VertragOhneDockTypWirdVomVertragsFehlerUnterschiede
 TEST(HyA3HybridConfigParser, KlassifikationsGenusIstKeinZielUndDasGateGreiftAuchHier) {
     // Dasselbe Gate wie an der Dock-Kante -- die Sperre darf nicht davon abhaengen, auf welchem Weg
     // ein Deskriptor entsteht (XML oder Code).
-    auto const cfg = hy::parse_hybrid_tier_xml(
-        R"(<hybrid_tier enabled="true" genus="FunctionInterfaceReroute"><docks><dock id="d0" contract="standard"/></docks></hybrid_tier>)");
+    auto const cfg = hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true" genus="FunctionInterfaceReroute">)"
+                                               R"(<docks><dock id="d0" contract="standard"/></docks></hybrid_tier>)");
     EXPECT_FALSE(cfg.has_value());
     EXPECT_EQ(hy::letzter_parse_status(cfg), hy::hybrid_status_kein_zielfaehiges_genus);
 }
 
 TEST(HyA3HybridConfigParser, UnbekanntesGenusTokenIstHart) {
-    EXPECT_FALSE(hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true" genus="Baum"><dock_array max_docks="8"/></hybrid_tier>)").has_value());
+    EXPECT_FALSE(hy::parse_hybrid_tier_xml(
+                     R"(<hybrid_tier enabled="true" genus="Baum"><dock_array max_docks="8"/></hybrid_tier>)")
+                     .has_value());
     // F-5: FEHLT und FALSCH sind zwei verschiedene Anwenderfehler -- und tragen zwei Codes.
     auto const ohne_genus =
         hy::parse_hybrid_tier_xml(R"(<hybrid_tier enabled="true"><dock_array max_docks="8"/></hybrid_tier>)");
@@ -264,7 +269,8 @@ TEST(HyA3HybridConfigParser, UnbekanntesGenusTokenIstHart) {
     // Gegenprobe: alle fuenf ABI-sichtbaren Genera gehen durch (ein Gate, das nur ablehnt, waere
     // genauso falsch wie eines, das alles zulaesst).
     for (auto const* g : {"SearchAlgorithm", "Set", "Sequence", "Adapter", "View"}) {
-        std::string const xml = std::string{R"(<hybrid_tier enabled="true" genus=")"} + g + R"("><dock_array max_docks="8"/></hybrid_tier>)";
+        std::string const xml = std::string{R"(<hybrid_tier enabled="true" genus=")"} + g +
+                                R"("><dock_array max_docks="8"/></hybrid_tier>)";
         EXPECT_TRUE(hy::parse_hybrid_tier_xml(xml).has_value()) << g;
     }
 }
@@ -277,8 +283,9 @@ TEST(HyA3HybridConfigParser, EinDokumentOhneHybridSektionIstKeinFehler) {
     // Der Kern der Byte-Neutralitaets-Zusage (soll_design Abschnitt 4: additives OPTIONALES Element,
     // minOccurs=0, "damit alle Bestands-XMLs valide bleiben"). Die Suchfunktion liefert "nicht da",
     // NICHT "kaputt" -- der Unterschied entscheidet, ob eine Bestands-XML weiterlaeuft.
-    std::string_view const ohne = R"(<comdare_experiment><run_methodology>measure</run_methodology></comdare_experiment>)";
-    auto const             gefunden = hy::finde_hybrid_tier_sektion(ohne);
+    std::string_view const ohne =
+        R"(<comdare_experiment><run_methodology>measure</run_methodology></comdare_experiment>)";
+    auto const gefunden = hy::finde_hybrid_tier_sektion(ohne);
     EXPECT_FALSE(gefunden.has_value());
     EXPECT_EQ(hy::letzter_parse_status(gefunden), hy::hybrid_status_ok) << "Abwesenheit ist kein Fehlerzustand";
 
@@ -299,7 +306,8 @@ TEST(HyA3HybridConfigParser, NichtWohlgeformtesXmlIstEinBenannterFehler) {
     EXPECT_FALSE(leer.has_value());
     EXPECT_EQ(hy::letzter_parse_status(leer), hy::hybrid_status_xml_nicht_wohlgeformt);
     // Falscher Wurzel-Tag: das ist KEINE Hybrid-Sektion, auch wenn es wohlgeformt ist.
-    EXPECT_FALSE(hy::parse_hybrid_tier_xml(R"(<hybrid enabled="true" genus="Set"><dock_array max_docks="8"/></hybrid>)").has_value());
+    EXPECT_FALSE(hy::parse_hybrid_tier_xml(R"(<hybrid enabled="true" genus="Set"><dock_array max_docks="8"/></hybrid>)")
+                     .has_value());
 }
 
 TEST(HyA3HybridConfigParser, MehrDocksAlsMaxDocksIstEinBenannterFehler) {

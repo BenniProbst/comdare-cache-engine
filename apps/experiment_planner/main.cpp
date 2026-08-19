@@ -691,8 +691,7 @@ int main(int argc, char* argv[]) {
         // die Freigabe sonst verschenken wuerde. Das Gate-Idiom ist das des Hauses: exakter Vergleich
         // gegen "true" (wie COMDARE_BESTANDSLOG oben); jeder andere Wert -- "1", "TRUE", leer, nicht
         // gesetzt -- faellt auf gesperrt.
-        auto const zulassung =
-            cem::debug_flag_admission(pln::env_trimmed("COMDARE_DEBUG_FREIGABE") == "true");
+        auto const zulassung = cem::debug_flag_admission(pln::env_trimmed("COMDARE_DEBUG_FREIGABE") == "true");
         if (zulassung != cem::AdmissionStatus::Zugelassen) {
             // WARUM DIE SPERRE EINE INTEGRITAETSREGEL IST, KEIN KOMFORT-GATE (Ledger): debug ist der
             // einzige work_mode, der MISST und dabei PARALLEL laeuft. Parallel gemessene Latenzen sind
@@ -700,8 +699,8 @@ int main(int argc, char* argv[]) {
             // der debug waehlen koennte, bekaeme Zahlen, die wie Messwerte AUSSEHEN und keine sind.
             // Das ist die unheilbare Klasse: kontaminierte Daten."
             std::cerr << "comdare-experiment-planner: FEHLER fehlerklasse=debug_zulassung_gesperrt: "
-                      << "--debug ist fuer Anwender GESPERRT (Zulassung: "
-                      << cem::admission_status_token(zulassung) << ").\n"
+                      << "--debug ist fuer Anwender GESPERRT (Zulassung: " << cem::admission_status_token(zulassung)
+                      << ").\n"
                       << "  GRUND (Integritaetsregel, kein Komfort-Gate): der Debug-Modus misst PARALLEL. "
                       << "Seine Zahlen sehen wie\n"
                       << "  Messwerte aus und sind keine -- sie gehoeren nie ins Messwertlager, nie in "
@@ -714,7 +713,10 @@ int main(int argc, char* argv[]) {
         }
         // SICHTBAR, nicht still: ein unbemerkter Debug-Lauf ist der Weg, auf dem seine Zahl spaeter fuer
         // einen Messwert gehalten wird. Der Vermerk geht auf stderr, damit stdout emissions-rein bleibt
-        // (clig.dev: Daten -> stdout, Diagnose -> stderr) -- die Plan-Emissionen bleiben byte-gleich.
+        // (clig.dev: Daten -> stdout, Diagnose -> stderr). GEMESSEN ist nur der stderr-Weg des
+        // Vermerks; die stdout-Byte-Gleichheit mit/ohne --debug ist NICHT gemessen (Audit 17.08.,
+        // VL-3-Restposten: Bytevergleich = offener Pruef-Posten, Welle-2-Fix) -- bis dahin keine
+        // Byte-Gleichheits-ZUSICHERUNG an dieser Stelle.
         std::cerr << "[debug] AKTIV (COMDARE_DEBUG_FREIGABE=true): nicht-regelkonformes Messen freigegeben. "
                   << "Zahlen aus diesem Lauf sind AUSSCHUSS\n"
                   << "        und duerfen nicht ins Messwertlager -- geprueft wird die KETTE, nicht die "

@@ -18,12 +18,14 @@
 // ============================================================================================
 // Je Kette gilt die XOR-Regel (NT 05.08.-mittag-7): ENTWEDER der direkte Tier-Aufbau ODER der
 // Hybrid-Mehrfach-Aufbau, nie beides. Die beiden Ausgaenge sind sachlich verschieden
-// (Ledger-Stichwort "zwei Ausgaenge", ueber den Bauplan Abschnitt II belegt): Stufe 1 = homogene Last, EINE beste Binary je Schnitt, direkt drangehaengt --
+// (Ledger-Stichwort "zwei Ausgaenge", ueber den Bauplan Abschnitt II belegt): Stufe 1 = homogene Last,
+// EINE beste Binary je Schnitt, direkt drangehaengt --
 // kein Hybrid noetig. Stufe 2 = gemischte Lasten, multiple optimale Binaries je Last-Kanal, der
 // Hybrid waehlt zur Laufzeit.
 //
 // DAS IST KEIN SCHALTER FUER GESCHMACK, SONDERN EINER FUER DIE BINARY-MENGE: der Hybrid-Zweig
-// MULTIPLIZIERT sie (Owner-GO-3 08.08.2026, ueber den Bauplan Abschnitt II belegt). Deshalb ist der Default AUS und die Abwesenheit der
+// MULTIPLIZIERT sie (Owner-GO-3 08.08.2026, ueber den Bauplan Abschnitt II belegt). Deshalb ist der
+// Default AUS und die Abwesenheit der
 // Sektion kein Fehler -- wer den Zweig will, sagt es.
 //
 // ============================================================================================

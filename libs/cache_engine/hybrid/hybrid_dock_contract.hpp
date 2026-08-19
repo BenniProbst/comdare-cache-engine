@@ -103,19 +103,18 @@ inline constexpr int hybrid_status_genus_fehlt = 11; ///< <hybrid_tier> ohne gen
 /// Namens-Totalitaets-Wache unten faengt sonst den Vergessenen. Handgefuehrte Listen IM TEST sind
 /// genau die Bauart, an der die alten Vollstaendigkeits-Wachen gescheitert sind
 /// (nachgemessen, heuristik_adapter_klassifikation.hpp:20-30).
-inline constexpr std::array<int, 12> kAlleHybridStatus{
-    hybrid_status_ok,
-    hybrid_status_unbekannter_vertrag,
-    hybrid_status_contract_ohne_dock_typ,
-    hybrid_status_kein_zielfaehiges_genus,
-    hybrid_status_array_voll,
-    hybrid_status_slot_leer,
-    hybrid_status_xml_nicht_wohlgeformt,
-    hybrid_status_unbekanntes_token,
-    hybrid_status_max_docks_ungueltig,
-    hybrid_status_mehr_docks_als_deckel,
-    hybrid_status_max_docks_fehlt,
-    hybrid_status_genus_fehlt};
+inline constexpr std::array<int, 12> kAlleHybridStatus{hybrid_status_ok,
+                                                       hybrid_status_unbekannter_vertrag,
+                                                       hybrid_status_contract_ohne_dock_typ,
+                                                       hybrid_status_kein_zielfaehiges_genus,
+                                                       hybrid_status_array_voll,
+                                                       hybrid_status_slot_leer,
+                                                       hybrid_status_xml_nicht_wohlgeformt,
+                                                       hybrid_status_unbekanntes_token,
+                                                       hybrid_status_max_docks_ungueltig,
+                                                       hybrid_status_mehr_docks_als_deckel,
+                                                       hybrid_status_max_docks_fehlt,
+                                                       hybrid_status_genus_fehlt};
 
 [[nodiscard]] constexpr std::string_view hybrid_status_name(int s) noexcept {
     switch (s) {
@@ -287,8 +286,7 @@ static_assert(kHybridDockContractRegistry[0].dock_typ_gebaut && !kHybridDockCont
 /// bricht, die andere liefert "kein Wert". Was KEINE von beiden tut, ist auf standard zurueckfallen.
 /// std::optional statt eines Ausgangs-Parameters, weil "kein Vertrag" hier ein normaler, erwarteter
 /// Zustand ist (jede Validierung eines Anwender-Tokens laeuft hier durch) und kein Fehlerpfad.
-[[nodiscard]] constexpr std::optional<HybridDockContract>
-hybrid_dock_contract_lookup(std::string_view token) noexcept {
+[[nodiscard]] constexpr std::optional<HybridDockContract> hybrid_dock_contract_lookup(std::string_view token) noexcept {
     for (auto const& info : kHybridDockContractRegistry) {
         if (info.id == token) return info.contract;
     }

@@ -201,8 +201,7 @@ int main(int argc, char* argv[]) {
     pruefe_lauf(fahre(binary, "--debug version"), 8, kFehlerklasse,
                 "K5b: Freigabe=\"TRUE\" (Grossschrift) => gesperrt -- kein stilles Umbiegen");
     gate_setzen("");
-    pruefe_lauf(fahre(binary, "--debug version"), 8, kFehlerklasse,
-                "K5c: Freigabe=\"\" (leer gesetzt) => gesperrt");
+    pruefe_lauf(fahre(binary, "--debug version"), 8, kFehlerklasse, "K5c: Freigabe=\"\" (leer gesetzt) => gesperrt");
     // K5d ZEMENTIERT die Marge, die der Vergleich TATSAECHLICH hat -- sie beisst heute nicht rot,
     // sondern haelt eine bestehende Eigenschaft fest: env_trimmed() trimmt (planner_cli_env.hpp), der
     // Vergleich sieht also " true " als "true". Das ist das Haus-Idiom (COMDARE_BESTANDSLOG ebenso) und
@@ -316,8 +315,7 @@ int main(int argc, char* argv[]) {
     // T-3-Quelle: derselbe Hilfetext, aus dem die Soll-Exit-Codes dieses Tests stammen.
     {
         auto const l = fahre(binary, "help");
-        pruefe(l.ausgabe.find("--debug") != std::string::npos,
-               "K9: 'help' nennt das --debug-Flag");
+        pruefe(l.ausgabe.find("--debug") != std::string::npos, "K9: 'help' nennt das --debug-Flag");
         // Die Nadel ist der LISTEN-EINTRAG, nicht der blosse Teilstring "8 ". Erste Fassung war
         // `find("8 ")` -- und die wurde bereits von der Fliesstext-Zeile "... mit Exit 8 abgewiesen"
         // erfuellt, die derselbe Commit hinzufuegt. Loeschte jemand den Eintrag aus der Exit-Code-Liste,

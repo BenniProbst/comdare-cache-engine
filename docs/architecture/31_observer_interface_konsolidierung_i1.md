@@ -112,6 +112,33 @@ Komposition), NICHT Pfad A.
 
 ---
 
+## §8 Flaeche-3-Vereinigung (KON25-02, 2026-08-17 — additiv)
+
+Owner 11.08.2026 (KON25-02): *"Ja genau, das ist Flaeche 3 und beide Konzepte muessen vereint
+werden."* Damit ist verbindlich: die NAHT-1 vom 09.08.2026 (`IMessVisitor` /
+`tier_measure_accept` / `MessEdge<Sink>`, `anatomy/mess_visitor_abi.hpp`) **ist** der
+measurement-Durchstich aus dem Drei-Flaechen-Modell (KON16-06):
+
+    FLAECHE 1  Genus-Interface einer Tier-Binary    abstract factory, Laufzeit
+    FLAECHE 2  der STEMPEL                          compile time factory, ABI-stabil
+    FLAECHE 3  der MEASUREMENT-DURCHSTICH           = die Mess-Visitor-Naht (NAHT-1)
+
+Flaeche 3 existiert, **damit Gattungs- und Genus-Interfaces unveraendert bleiben**: die Messung
+quert als eigener Durchstich, statt Mess-Felder/-Methoden in die fachlichen Interfaces zu
+draengen. Es gibt **keinen zweiten Mechanismus** — "measurement-Durchstich" (Plan-Vokabular) und
+"Mess-Naht/NAHT-1" (Bau-Vokabular) benennen dieselbe Flaeche; der Identitaets-Kopfblock lebt in
+`anatomy/mess_visitor_abi.hpp`. Symbol-/ABI-Namen (`tier_measure_accept` usw.) bleiben
+unveraendert — die Vereinigung ist Benennung/Doku/Kommentar, kein ABI-Bruch.
+
+**Deckung der Gate-Kombinationen** (zweiseitige UND-Aktivierung):
+
+| CEB (Host) | Tier (.so) | Testziel |
+|---|---|---|
+| AN | AN | `tests/unit/test_naht1_mess_visitor_biss.cpp` (a/b) |
+| AN | AUS | `tests/unit/test_naht1_mess_visitor_biss.cpp` (c/d2) |
+| AUS | — (eine TU, kein Modul) | `tests/unit/test_a8s4_release_pfad_neutralitaet.cpp` |
+| **AUS** | **AN** | `tests/unit/test_flaeche3_deckung_ceb_aus_tier_an.cpp` (KON25-02-Deckungsluecke, Task #20 — vorher von keinem Testziel uebersetzt) |
+
 ### Querverweise
 - `docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md` §8.1/§8.6/§8.7 (HYBRID-Modell, Pfad A/B)
 - `docs/architecture/abhaengigkeitskette_lebewesen_pruefdock_abi_konvergenz.md` §5 (der EINE Mess-POD + ABI-Major)
