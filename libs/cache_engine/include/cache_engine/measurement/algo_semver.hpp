@@ -1107,7 +1107,7 @@ constexpr void for_each_flag_node(AlgoSemVer const& v, Fn&& fn) {
     if (v.has_flags() && !v.has_top_level_flag("c")) return false;
     if (!flag_catalog_is_satisfied(v)) return false;
     if (!voraussetzungen_erfuellt(v)) return false; // (d) S-3b: die Compile-Seite FORDERT (KON16-02)
-    return flag_menge_ist_duplikatfrei(v); // (e) G-2-Semantik #17: Redundanz ist unter jeder Politik falsch
+    return flag_menge_ist_duplikatfrei(v);          // (e) G-2-Semantik #17: Redundanz ist unter jeder Politik falsch
 }
 
 /// B12 (c): der GATED Zwilling (COMDARE_VERSION_HW_FLAG_ENFORCE). Er verlangt das CPU-Flag, waehrend der
@@ -1732,8 +1732,8 @@ static_assert(!ce_owned_version_is_wellformed("1.0.0.c.c"));
 static_assert(!ce_owned_version_is_wellformed("1.0.0.c{p.p}"));
 static_assert(!ce_owned_version_is_wellformed("1.0.0.c.x512{f.f}"));
 static_assert(!ce_owned_version_is_wellformed("1.0.0.c{p}.c{e}"));
-static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c{p.p}")));  // Katalog allein liesse durch
-static_assert(voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c{p.p}")));   // Ketten allein auch
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c{p.p}")));      // Katalog allein liesse durch
+static_assert(voraussetzungen_erfuellt(parse_algo_semver("1.0.0.c{p.p}")));       // Ketten allein auch
 static_assert(ce_owned_version_is_wellformed("1.0.0.c.x256{vnni}.x512{f.vnni}")); // Positiv-Gegenprobe
 // (r6) ABLEHNEN, NIE DEDUPLIZIEREN: die abgelehnte Form rendert BYTE-TREU zurueck (Identitaet).
 static_assert(render_algo_semver(parse_algo_semver("1.0.0.c.c")).view() == "1.0.0.c.c");

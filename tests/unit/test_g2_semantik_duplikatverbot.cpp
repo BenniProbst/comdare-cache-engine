@@ -91,11 +91,11 @@ TEST(G2SemantikOrgan, DokumentierteBestandsFormenBleibenGruen) {
 // im cpu_sub (die M-11-Luecke der G-2-Zeilen), Duplikat in einer Breiten-Basis-Gruppe.
 TEST(G2SemantikOrgan, KoederGeschwisterDuplikateFallen) {
     for (std::string_view koeder : {
-             std::string_view{"1.0.0.c.c"},          // Basis-Element doppelt (m8-Beispiel 1)
-             std::string_view{"1.0.1.c{p.p}"},       // cpu_sub-Duplikat (G-1 M-11 -> #17)
-             std::string_view{"1.0.2.c{e.e}"},       // cpu_sub-Duplikat, e-Form
-             std::string_view{"1.0.0.c.x512{f.f}"},  // Sub-Duplikat unter Breiten-Basis (m8-Beispiel 2)
-             std::string_view{"1.0.0.c{p}.c{e}"},    // Basis doppelt mit verschiedenen Klammern
+             std::string_view{"1.0.0.c.c"},                // Basis-Element doppelt (m8-Beispiel 1)
+             std::string_view{"1.0.1.c{p.p}"},             // cpu_sub-Duplikat (G-1 M-11 -> #17)
+             std::string_view{"1.0.2.c{e.e}"},             // cpu_sub-Duplikat, e-Form
+             std::string_view{"1.0.0.c.x512{f.f}"},        // Sub-Duplikat unter Breiten-Basis (m8-Beispiel 2)
+             std::string_view{"1.0.0.c{p}.c{e}"},          // Basis doppelt mit verschiedenen Klammern
              std::string_view{"1.0.0.c.x512{f}.x512{bw}"}, // Breiten-Basis doppelt auf Tiefe 0
          }) {
         ASSERT_FALSE(meas::parse_algo_semver(koeder).is_sentinel())
