@@ -1494,6 +1494,72 @@ struct KompositBeitrag {
     return aus;
 }
 
+/// komposit_map_wert_bei(glied, stufen_id) -- DIE EINE LESUNG der Komposit-Zeile (G3/A-03,
+/// KON47-02-RT-Seite: die Gegenrichtung zur EINEN Bildung oben).
+///
+/// WOZU EINE BENANNTE LESE-SEITE: die Invariante RT <= CT (KON45-01(6) + KON47-02) vergleicht die
+/// zur Laufzeit an den Pruefdocks gecachten Tier-Stempel gegen die CT-Map dieses Glieds. Ohne
+/// benannten Leser schriebe jeder Pruefer seinen eigenen Segment-Parser -- zwei Parser waeren zwei
+/// Grammatik-Wahrheiten, exakt die Drift-Klasse, gegen die hybrid_komposit_map_bilden als DIE EINE
+/// Bildung gebaut ist. Der Key-Text kommt deshalb aus DERSELBEN Quelle (komposit_key_text) wie
+/// beim Schreiben -- inklusive ihres Deckel-Wurfs: eine stufen_id ueber dem Key-Deckel ist auf
+/// BEIDEN Seiten derselbe laute Fehler, nie ein stilles "nicht gefunden".
+///
+/// FORMNEUTRAL (F2-Vorlage P5): der Leser laeuft ueber die Trenner '=' und ';' und vergleicht
+/// Key-Texte VOLLSTAENDIG (kein Praefix-Treffer: "4" findet "44=..." nicht). Er nagelt KEINE
+/// Wert-Laenge fest -- dreht die offene P5-Frage die Hash-Form (64 vs. 128 hex), wandert diese
+/// Funktion unveraendert mit; die Form-Wache bleibt allein komposit_glied_ist_grammatisch.
+///
+/// VORBEDINGUNG UND RUECKGABE: glied ist grammatisch (der Traeger KompositMapGlied erzwingt das
+/// am Eingang; fuer nicht-grammatische Sichten ist das Ergebnis defensiv "nicht gefunden", nie
+/// UB). Rueckgabe = die Wert-Sicht INS GLIED beim Key, oder die LEERE Sicht, wenn der Key nicht
+/// vorkommt. Ein leerer Wert ist in der Grammatik unmoeglich (wert = exakt WertMax Zeichen); die
+/// leere Sicht ist also eindeutig "kein Eintrag".
+[[nodiscard]] constexpr std::string_view komposit_map_wert_bei(std::string_view glied, std::size_t stufen_id) {
+    auto const             key    = detail::komposit_key_text(stufen_id); // benannt -- sv() auf Temporary ist geloescht
+    std::string_view const key_sv = key.sv();
+    std::size_t            i      = 0;
+    while (i < glied.size()) {
+        std::size_t const key_beginn = i;
+        while (i < glied.size() && glied[i] != '=') ++i;
+        if (i >= glied.size()) return {}; // grammatisch unmoeglich (Segment ohne '='); defensiv: kein Eintrag
+        std::string_view const seg_key = glied.substr(key_beginn, i - key_beginn);
+        ++i; // '='
+        std::size_t const wert_beginn = i;
+        while (i < glied.size() && glied[i] != ';') ++i;
+        if (seg_key == key_sv) return glied.substr(wert_beginn, i - wert_beginn);
+        if (i < glied.size()) ++i; // ';' -- nur ZWISCHEN Segmenten (Grammatik)
+    }
+    return {};
+}
+
+namespace detail {
+/// CT-Proben der Lese-Seite, am Eigentuemer (dasselbe Muster wie die Grammatik-Proben oben):
+/// zwei 64-Hex-Probewerte in der HEUTIGEN Wert-Form -- Probe-DATEN, kein neuer Form-Pin; sie
+/// wandern bei einem P5-Dreh mit demselben Edit wie die Grammatik-Proben an Zeile ~601.
+inline constexpr std::string_view kKompositLeseProbeWertA =
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+inline constexpr std::string_view kKompositLeseProbeWertB =
+    "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+inline constexpr std::string_view kKompositLeseProbeMap =
+    "4=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    ";44=fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+} // namespace detail
+static_assert(komposit_map_wert_bei("", 0).empty() && komposit_map_wert_bei("", 7).empty(),
+              "G3/A-03: die leere Map ('Tier traegt \"\"') hat KEINEN Eintrag -- jede Suche liefert "
+              "die leere Sicht.");
+static_assert(komposit_map_wert_bei(detail::kKompositLeseProbeMap, 4) == detail::kKompositLeseProbeWertA &&
+                  komposit_map_wert_bei(detail::kKompositLeseProbeMap, 44) == detail::kKompositLeseProbeWertB,
+              "G3/A-03: die Lesung findet JEDEN Eintrag der Probe-Map an seinem Key -- erstes und "
+              "letztes Segment, nicht nur eines von beiden.");
+static_assert(komposit_map_wert_bei(detail::kKompositLeseProbeMap, 13).empty(),
+              "G3/A-03: ein Key ohne Eintrag liefert die leere Sicht -- nie den Wert eines Nachbarn.");
+static_assert(komposit_map_wert_bei(
+                  "44=fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210", 4)
+                  .empty(),
+              "G3/A-03: KEIN PRAEFIX-TREFFER -- der Key '4' darf das Segment '44=...' nicht finden. "
+              "Ein Praefix-Vergleich waere ein falscher RT<=CT-Beweis fuer eine fremde Zelle.");
+
 /// anatomy_name_hex(measurement, system, organ[, Traeger...]) -- E-A/B-6 (18.08.2026): DER NAME.
 ///
 /// EIGENER Hash, KEIN fingerprint[0:64].
