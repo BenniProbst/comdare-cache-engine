@@ -1026,30 +1026,31 @@ inline constexpr bool kFingerprintRohZeilenGesperrt = false;
 /// Messwert-2-Tupel. Der Lager-Schluessel wandert automatisch mit, weil das Lager nichts nachrechnet: es
 /// nimmt den fertigen Hex-Wert entgegen. Die HASH-Ebene ist und bleibt EINE Welt.
 ///
-/// -- ENTSCHIEDEN UND NICHT GEDREHT: topics::AxisKind (KON96-01 KORB A/4) ------------------------------
+/// -- GEDREHT PER OWNER-WORT: topics::AxisKind (KON101-02 V-01R; KORB A/4 damit VOLL vollzogen) --------
 ///
 /// Der KORB-A-Posten lautet "VOR dem Bruch entscheiden: Glied-FOLGE + AxisKind-Ordnung im SELBEN Bruch
-/// mitnehmen -- sonst steht der teuerste Bruch spaeter erneut an". Die Glied-Folge ist oben vollzogen.
-/// Die AxisKind-Haelfte ist ENTSCHIEDEN, und zwar NEGATIV; hier steht der Grund, damit der Posten nicht
-/// als offen wiederkehrt:
-///   (1) ES GIBT KEINE ANWEISUNG DAZU. KON5-04 fuehrt die Reihenfolge ausdruecklich "als Owner-Vorlage
-///       (nicht als Bau)", KON5-05 stellt fest, dass es NIE eine Festlegung gab, und das Owner-Wort
-///       KON21-03 nennt exakt DREI Aussen-Ebenen (Makro-Argumentfolge, POD-Feldfolge, Preimage-Glieder).
-///       Der Familien-Diskriminator ist keine davon. Eine Drehung waere eine Erfindung, keine Umsetzung.
-///   (2) SIE LIESSE SICH GAR NICHT SINNVOLL ABBILDEN. topics::AxisKind kennt kein Glied "mess": seine
-///       Enumeratoren sind organ, system_measurement, system_config und drei Meta-Metas -- die
-///       system_measurement-Achse ist eine SYSTEM-Achse, der Mess-Realm haengt an
-///       measurement_meta_meta. "MESS, SYSTEM, ORGAN" auf diese Liste zu legen hiesse, eine Zuordnung
-///       zu raten, die nirgends steht.
-///   (3) SIE WAERE TEURER ALS SIE AUSSIEHT. Jeder Enumerator dort traegt in seinem eigenen Kommentar die
-///       Zusage "ANS ENDE angefuegt, damit die Zahlenwerte der bestehenden Diskriminatoren unveraendert
-///       bleiben" -- die Ordinale sind als stabil zugesagt. Ein Dreh braeche diese Zusage fuer einen
-///       Gewinn von null, denn die WIRE-Form ist ohnehin ein Token-String (axis_kind_token /
-///       parse_axis_kind), kein Ordinal.
-///   (4) topics/ ist ausserdem bis zum Fenster gesperrt (KON58-05, KORB A/13).
-/// FOLGE: der Posten ist mit DIESEM Bruch abgeschlossen, nicht vertagt. Sollte je ein Owner-Wort die
-/// Diskriminator-Ordnung fordern, ist das ein EIGENER, billiger Bruch (Enum ohne Ordinal-Konsumenten) --
-/// er haengt nicht am Preimage und muss deshalb auch nicht in dessen Fenster.
+/// mitnehmen -- sonst steht der teuerste Bruch spaeter erneut an". Die Glied-Folge ist oben vollzogen;
+/// die AxisKind-Haelfte ist mit der A2.5-Fix-Strecke 2 (G1, 19.08.2026) EBENFALLS vollzogen: die
+/// Enumerator-Ordnung folgt der Kategorien-Ordnung MESS, SYSTEM, ORGAN und topics/axis.hpp traegt die
+/// V-01R-Zuordnungs-Mechanik (AxisCategory, axis_category, axis_category_of; Wachen + Test
+/// test_axis_kind_kategorien_zuordnung).
+///
+/// HISTORIE (UEBERHOLT -- steht hier, damit die alte Fassung nicht als offener Fork wiederkehrt): eine
+/// fruehere Fassung dieses Blocks hiess "ENTSCHIEDEN UND NICHT GEDREHT" (Berufung auf KON96-01 KORB A/4
+/// als blosse Entscheidungs-Pflicht, KON5-04/05 "nie festgelegt", Ordinal-Stabilitaets-Zusagen der
+/// Enumerator-Kommentare, topics-Sperre KON58-05). Diese Begruendung ist DOPPELT UEBERHOLT:
+///   (a) KON21-03 (12.08.) setzte das SOLL MESS,SYSTEM,ORGAN, und KON101-01 (17.08., Owner verbatim)
+///       entschied die AxisKind-Haelfte AUSDRUECKLICH: "Das AxisKind Enum bezeichnet einfach nur compile
+///       time um Welche Mess-Achsen-kategorie es sich bei einer Achse handelt also Mess/System/Organ.
+///       ... Daher definitiv mit drehen, sonst ergibt es keinen Sinn." Der Owner UEBERSTIMMT die
+///       Lead-Empfehlung append-only (KON101-02).
+///   (b) Die damalige Stuetz-These "die system_measurement-Achse ist eine SYSTEM-Achse, der Mess-Realm
+///       haengt an measurement_meta_meta" war die K13-Fehl-Deckung: der eigene D2-Fehlerklassen-Block
+///       (measurement/axis_error_traits.hpp) fuehrt system_measurement als MESS-Realm; beide gehoeren
+///       der Kategorie MESS an (Pins in topics/axis.hpp).
+/// RICHTIG BLEIBT aus der alten Fassung: die WIRE-Form ist ein Token-String (axis_kind_token /
+/// parse_axis_kind), kein Ordinal -- deshalb ist der vollzogene Dreh wire- und preimage-neutral und
+/// beruehrt dieses Preimage-Fenster nur als Ordnungs-, nicht als Byte-Ereignis.
 ///
 /// Die vier Schwanz-Glieder haben Defaults, weil sie INJIZIERT werden: wer sie nicht kennt, reicht sie
 /// nicht -- und rechnet dann byte-identisch zur Identitaet. Das ist dieselbe Zusage wie bei
