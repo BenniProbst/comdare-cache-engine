@@ -205,19 +205,27 @@ struct RunProfileArgs {
     std::size_t         chunk_part_size = 0;
     ex::ProgressSinkFn
         progress_sink; // Welle 5 (E-W5-2): §38-Fortschritts-Rueck-Kanal (No-Op-Default); make_cfg reicht ihn je Pass durch
-    std::vector<std::string> compile_includes; // ungenutzt hier (der Host backt die Includes in compile) — Doku
-    std::uint64_t            n_ops               = 10000;  // Mess-Workload je dyn-Setting
-    std::size_t              max_binaries        = 0;      // 0 ⇒ run_options.cap; beide 0 ⇒ KEIN Cap
-    std::string              build_version       = "m3v2"; // Resume-Marke (.version-Sidecar)
-    std::uint32_t            n_repeats           = 3;      // Wiederholungen je (BinaryxSetting)
-    std::size_t              cores_per_build     = 4;      // KF-16b Default
-    double                   min_free_gb         = 0.0;    // RAM-Admission (0 = aus)
-    bool                     resume_override_set = false;  // true ⇒ resume kommt aus `resume`, nicht aus <run_options>
-    bool                     resume              = true;   // Mess-Resume (#139)
-    std::string              sweep_axis;                 // leer = Basis-Selektion; sonst ein deklarierter <axis_sweep>
-    std::string              platform_override;          // leer ⇒ <run_options>.platform; sonst Override (CSV-Tag)
-    std::string              build_version_tag_override; // leer ⇒ <run_options>.build_version; sonst Override (CSV-Tag)
-    bool                     run_sota_series = true;     // S7b: die <sota_series>-Paesse mitfahren (false = nur Basis)
+    std::vector<std::string> compile_includes;       // ungenutzt hier (der Host backt die Includes in compile) — Doku
+    std::uint64_t            n_ops         = 10000;  // Mess-Workload je dyn-Setting
+    std::size_t              max_binaries  = 0;      // 0 ⇒ run_options.cap; beide 0 ⇒ KEIN Cap
+    std::string              build_version = "m3v2"; // Resume-Marke (.version-Sidecar)
+    // B-9/golden-102: die IDENTITAETS-wirksame BASIS der build_version (Preimage-Glied [10]).
+    // `build_version` selbst traegt auf dem Einzel-Pfad den +cxx=...-Provenienz-Suffix (Facade :738)
+    // und ist damit als Glied-Wert UNGEEIGNET (der Suffix ist via Glied [5]/[6] schon Identitaet --
+    // Doppel-Tragung waere eine zweite Wahrheit). Die Facade belegt dieses Feld auf BEIDEN Pfaden mit
+    // der reinen Basis (args.build_version); der Laufzeit-Zwilling reicht es explizit an
+    // make_lazy_adhoc_fingerprint_fn_from_env. LEER == Identitaet (Bestands-Aufrufer ohne Facade
+    // rechnen byte-identisch weiter -- ihre CompileFns tragen dann auch kein Define).
+    std::string   build_version_basis = {};
+    std::uint32_t n_repeats           = 3;     // Wiederholungen je (BinaryxSetting)
+    std::size_t   cores_per_build     = 4;     // KF-16b Default
+    double        min_free_gb         = 0.0;   // RAM-Admission (0 = aus)
+    bool          resume_override_set = false; // true ⇒ resume kommt aus `resume`, nicht aus <run_options>
+    bool          resume              = true;  // Mess-Resume (#139)
+    std::string   sweep_axis;                  // leer = Basis-Selektion; sonst ein deklarierter <axis_sweep>
+    std::string   platform_override;           // leer ⇒ <run_options>.platform; sonst Override (CSV-Tag)
+    std::string   build_version_tag_override;  // leer ⇒ <run_options>.build_version; sonst Override (CSV-Tag)
+    bool          run_sota_series = true;      // S7b: die <sota_series>-Paesse mitfahren (false = nur Basis)
     // Working-Set-Sweep: Default = der Profil-<working_set_sweep>. Ist `working_set_override` gesetzt (>0), ersetzt
     // er den Profil-Sweep durch EINEN einzigen N-Wert (rueckwaerts-kompatibel zur alten PS-foreach +
     // COMDARE_WORKLOAD_RECORDS, wo das Harness die aeussere N-Schleife selbst faehrt). 0 = Profil-Sweep nutzen.
@@ -623,7 +631,7 @@ struct RunProfileResult {
     // keinen Skip tragen: der Provider faellt weg, damit kein `.fingerprint` entsteht, und dll_is_current
     // gibt bei leerer Erwartung IMMER false zurueck (build_orchestrator.hpp:305). Ehrlicher Neubau statt
     // geratener Wiederverwendung -- dieselbe Mechanik und dieselbe Begruendung wie beim `na`-Zellwert.
-    ex::FingerprintFn const lazy_fingerprint = [&lauf_bvset_glied] {
+    ex::FingerprintFn const lazy_fingerprint = [&lauf_bvset_glied, &a] {
         char const* const bl = std::getenv("COMDARE_BESTANDSLOG");
         if (bl == nullptr || std::string_view{bl} != std::string_view{"true"}) return ex::FingerprintFn{};
         if (!::comdare::cache_engine::profile_facade::tier_realversion_ist_bekannt()) {
@@ -642,7 +650,10 @@ struct RunProfileResult {
         // Task #59: das bvset-Glied EXPLIZIT (NB2-5) -- byte-identisch zum Live-Default, aber jetzt derselbe
         // String, der auch als Soll und als Sidecar-Zeile-2 reist. Der No-Perm-Pfad wird damit genauso
         // behandelt wie der Perm-Pfad unten: eine Naht, keine zwei.
-        return make_lazy_adhoc_fingerprint_fn_from_env({}, std::nullopt, lauf_bvset_glied);
+        // B-9/golden-102: die build_version-BASIS ebenso EXPLIZIT -- derselbe Wert, den die Facade als
+        // -DCOMDARE_BUILD_VERSION_GLIED an die Tier-Uebersetzung haengt (Glied [10]).
+        return make_lazy_adhoc_fingerprint_fn_from_env({}, std::nullopt, lauf_bvset_glied, std::nullopt,
+                                                       a.build_version_basis);
     }();
     // A7-B (Lager-Gate, G2 Folge-B): das BUILD-VARIANTEN-Gate, gleiches opt-in-Muster wie COMDARE_BESTANDSLOG darueber.
     // Gated auf COMDARE_VARIANT_GATE=true; Default AUS => leerer String => Variant-Gate AUS => byte-neutral (exakt der
@@ -833,8 +844,12 @@ struct RunProfileResult {
     // Der Recompute-Provider (Bindungs-Pruefung). Er haengt am GLEICHEN opt-in wie der Fingerprint-Provider:
     // ohne Fingerprint-Provider ist expected_fp leer, das Gate ist per Punkt (1) fail-closed, und ein
     // Teilmengen-Pfad haette nichts zu pruefen. Leer = Pfad AUS (byte-neutral).
+    // B-9/golden-102: dieselbe Basis wie im Fingerprint-Provider -- die Bindungs-Pruefung muss ueber
+    // DASSELBE Preimage rechnen, das die Binary traegt (sonst Zirkelschluss mit falschem Glied [10]).
     ex::BvsetFingerprintFn const lauf_bvset_fingerprint =
-        lazy_fingerprint ? make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env() : ex::BvsetFingerprintFn{};
+        lazy_fingerprint
+            ? make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env({}, std::nullopt, std::nullopt, a.build_version_basis)
+            : ex::BvsetFingerprintFn{};
     ex::BvsetFingerprintFn perm_bvset_fingerprint = lauf_bvset_fingerprint;
     // S-7 (KON9-05): der Achsen-Algo-Versions-Provider der STEMPEL-Zulassung -- EINMAL je Lauf aus der
     // Enabled-Tabelle gebaut (build_axis_variant_version_table feuert dabei zugleich
@@ -1357,10 +1372,13 @@ struct RunProfileResult {
                     // (V-7): zwei Wege, ein Hash. Der Gewinn ist nicht ein anderer Wert, sondern ein
                     // SICHTBARER: derselbe String steht jetzt im Preimage, in cfg.bvset_glied und in Zeile 2
                     // des Sidecars, und keine der drei Stellen leitet ihn selbst ab.
-                    perm_fingerprint = make_lazy_adhoc_fingerprint_fn_from_env(
-                        perm_cell_values, perm_toolchain_glied.value, lauf_bvset_glied);
-                    perm_bvset_fingerprint =
-                        make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env(perm_cell_values, perm_toolchain_glied.value);
+                    // B-9/golden-102: die build_version-BASIS explizit -- derselbe Wert, den die
+                    // Facade als -DCOMDARE_BUILD_VERSION_GLIED an perm_compile haengt (Glied [10]).
+                    perm_fingerprint =
+                        make_lazy_adhoc_fingerprint_fn_from_env(perm_cell_values, perm_toolchain_glied.value,
+                                                                lauf_bvset_glied, std::nullopt, a.build_version_basis);
+                    perm_bvset_fingerprint = make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env(
+                        perm_cell_values, perm_toolchain_glied.value, std::nullopt, a.build_version_basis);
                 }
                 // Lane F R3 (O-8 Schritt 10): diese Kette WAR die bindende Form -- jetzt kommt sie aus der
                 // EINEN Suffix-Quelle, statt sie hier ein zweites Mal zu buchstabieren. Die erzeugten Bytes

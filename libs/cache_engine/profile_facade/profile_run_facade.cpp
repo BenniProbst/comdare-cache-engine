@@ -356,7 +356,13 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 // eine Identitaets-Aussage per Zufall. Deshalb: der Parameter sagt, ob das Glied [5] mitkommt. Der
 // Einzel-Pfad (kein <system_axes>) nimmt es mit und ist damit byte-identisch zum Vor-T2-B-Stand; der
 // Perm-Pfad laesst es weg und haengt seinen eigenen Wert an EINER Stelle an (compile_for_perm).
-[[nodiscard]] std::vector<std::string> perm_stamp_glied_defines(bool mit_toolchain_glied = true) {
+// B-9/golden-102: build_version_basis ist die BASIS der build_version dieses Laufs (args.build_version)
+// -- sie speist das Preimage-Glied [10] (-DCOMDARE_BUILD_VERSION_GLIED). Sie ist KEINE Prozess-Konstante
+// (anders als Toolchain/bvset/Overlay), deshalb reist sie als Parameter von den vier CompileFn-Baustellen
+// herein statt aus einer live_*()-Komposition. Leer == Identitaet (kein Define, Bestands-Aufrufer
+// byte-identisch).
+[[nodiscard]] std::vector<std::string> perm_stamp_glied_defines(bool             mit_toolchain_glied = true,
+                                                                std::string_view build_version_basis = {}) {
     namespace pfn = ::comdare::cache_engine::profile_facade;
     std::vector<std::string> d;
     if (mit_toolchain_glied) {
@@ -366,6 +372,10 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     }
     if (std::string arg = pfn::build_variant_set_signature_define_arg(pfn::live_build_variant_set_signature_glied());
         !arg.empty())
+        d.push_back(std::move(arg));
+    // B-9/golden-102: das Glied [10]. Run-konstant wie das Overlay-Glied (die Basis haengt am LAUF, nicht
+    // an der Permutation) -- die Glied-[5]-Falle zweier konkurrierender Defines kann hier nicht entstehen.
+    if (std::string arg = pfn::build_version_glied_define_arg(build_version_basis); !arg.empty())
         d.push_back(std::move(arg));
     // E-E: das Glied [7] (Overlay-Quell-Hash). Es steht hier und nicht bei den per-Perm-Fabriken, weil es
     // RUN-KONSTANT ist: es traegt den Quelltext-Stand DIESER CEB, nicht eine Eigenschaft der Permutation.
@@ -428,13 +438,15 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 // T2-B: `mit_toolchain_glied=false` liefert denselben Kanal OHNE das Glied [5] -- die Basis der
 // per-Perm-Fabriken, die ihren eigenen Glied-Wert anhaengen (s. perm_stamp_glied_defines oben).
 [[nodiscard]] std::vector<std::string> perm_compile_flags(cx::ThesisProfile const* tp                  = nullptr,
-                                                          bool                     mit_toolchain_glied = true) {
+                                                          bool                     mit_toolchain_glied = true,
+                                                          std::string_view         build_version_basis = {}) {
     std::vector<std::string> d = perm_mess_defines();
     for (auto& f : perm_alloc_organ_cflags()) d.push_back(std::move(f));
     for (auto& f : perm_compiler_isa_cflags()) d.push_back(std::move(f));
     for (auto& f : perm_external_utils_cflags(tp)) d.push_back(std::move(f));
     for (auto& f : perm_target_isa_cflags(tp)) d.push_back(std::move(f)); // INC-2d: Ziel-ISA (Cross-Compile)
-    for (auto& f : perm_stamp_glied_defines(mit_toolchain_glied)) d.push_back(std::move(f)); // Glieder [5]/[6]
+    // Glieder [5]/[6] + B-9: das Basis-Glied [10]
+    for (auto& f : perm_stamp_glied_defines(mit_toolchain_glied, build_version_basis)) d.push_back(std::move(f));
     return d;
 }
 
@@ -657,7 +669,8 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.src_dir                  = args.src_dir;
     a.dll_dir                  = args.dll_dir;
     a.compile                  = ex::make_gpp_compile_fn(
-        perm_include_dirs(), perm_compile_flags(tp_ptr), cxx_compiler(), perm_link_libs(),
+        perm_include_dirs(), perm_compile_flags(tp_ptr, /*mit_toolchain_glied=*/true, args.build_version),
+        cxx_compiler(), perm_link_libs(),
         // opt-c: opt_level-Flag (Default O3, beweglich; Single-XML aus tp). Scheibe 2b: bei Build-Typ Debug
         // ersetzt -O0 -g die Optimierung (echter Debug-DLL-Bau); ungesetzt/Release => byte-identisch zum Ist.
         facade_build_type_is_debug() ? ex::debug_flags_for_toolchain() : perm_opt_level_cflags(tp_ptr),
@@ -687,7 +700,10 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
         // die CompileFn aus den aufgeloesten Flags (WAS/WIE-Trennung: run_profile permutiert, die Facade montiert;
         // include_dirs/defines/cxx/link_libs/fno_gnu_unique bleiben Facade-Wissen).
         a.build_version = args.build_version;
-        a.compiler_tag  = cxx_compiler(); // +cxx=-Provenienz im per-Perm-build_version
+        // B-9/golden-102: die reine BASIS fuer das Preimage-Glied [10] -- derselbe Wert, den
+        // perm_compile_flags oben als -DCOMDARE_BUILD_VERSION_GLIED in die Tier-Uebersetzung haengt.
+        a.build_version_basis = args.build_version;
+        a.compiler_tag        = cxx_compiler(); // +cxx=-Provenienz im per-Perm-build_version
         // W10-C4 (Dossier Sektion 1): die beiden LAUF-KONSTANTEN System-Zellen. Die Ziel-ISA kommt aus der
         // Profil-Deklaration, falls es eine gibt (Cross-Bau), sonst aus der CT-Zelle der Bau-Plattform
         // (nativer Bau); die OS-FAMILIE ist rein CT (es gibt keinen Werte-Kanal fuer sie -- die
@@ -699,8 +715,9 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
         // T2-B: die Basis-Defines kommen OHNE das Glied [5] herein -- der per-Perm-Wert wird unten an
         // genau EINER Stelle angehaengt (sonst zwei konkurrierende Defines, s. perm_stamp_glied_defines).
         a.compile_for_perm =
-            [inc = perm_include_dirs(), def = perm_compile_flags(nullptr, /*mit_toolchain_glied=*/false),
-             cxx = cxx_compiler(), libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
+            [inc = perm_include_dirs(),
+             def = perm_compile_flags(nullptr, /*mit_toolchain_glied=*/false, args.build_version), cxx = cxx_compiler(),
+             libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
              dbg = facade_build_type_is_debug()](std::string const& opt_flag, std::string const& march_flag,
                                                  ::comdare::cache_engine::abi::SystemCellValues cell_values,
                                                  pf::PermToolchainGliedWert const&              toolchain_glied) {
@@ -736,6 +753,8 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
             };
     } else {
         a.build_version = args.build_version + system_axes_version_suffix(tp_ptr); // Einzel-Pfad byte-identisch
+        // B-9/golden-102: auch hier die REINE Basis (der statische Suffix ist via Glied [5] Identitaet).
+        a.build_version_basis = args.build_version;
     }
     a.n_repeats                  = args.n_repeats;
     a.cores_per_build            = args.cores_per_build;
@@ -1278,7 +1297,8 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     //   aufgelösten Flags. Die include_dirs/defines/cxx/link_libs/fno_gnu_unique-Wahl bleibt Facade-Wissen
     //   (WAS/WIE-Trennung: der Planer permutiert die System-Achsen, die Facade montiert die CompileFn).
     // T2-B (SPIEGEL der Profil-Naht): Basis-Defines ohne Glied [5], der per-Perm-Wert kommt unten dazu.
-    a.compile_for_perm = [inc = perm_include_dirs(), def = perm_compile_flags(nullptr, /*mit_toolchain_glied=*/false),
+    a.compile_for_perm = [inc = perm_include_dirs(),
+                          def = perm_compile_flags(nullptr, /*mit_toolchain_glied=*/false, args.build_version),
                           cxx = cxx_compiler(), libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
                           dbg =
                               facade_build_type_is_debug()](std::string const& opt_flag, std::string const& march_flag,
@@ -1323,11 +1343,12 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     }
     // Fallback-Einzel-CompileFn (greift nur, wenn compile_for_perm null wäre) = beweglicher CEB-Default (O3).
     // Scheibe 2b: bei Build-Typ Debug -O0 -g statt der Optimierung; ungesetzt/Release => byte-identisch zum Ist.
-    a.compile = ex::make_gpp_compile_fn(perm_include_dirs(), perm_compile_flags(), cxx_compiler(), perm_link_libs(),
-                                        facade_build_type_is_debug() ? ex::debug_flags_for_toolchain()
-                                                                     : perm_opt_level_cflags(),
-                                        facade_supports_fno_gnu_unique());
-    a.n_ops   = args.n_ops;
+    a.compile = ex::make_gpp_compile_fn(
+        perm_include_dirs(), perm_compile_flags(nullptr, /*mit_toolchain_glied=*/true, args.build_version),
+        cxx_compiler(), perm_link_libs(),
+        facade_build_type_is_debug() ? ex::debug_flags_for_toolchain() : perm_opt_level_cflags(),
+        facade_supports_fno_gnu_unique());
+    a.n_ops        = args.n_ops;
     a.max_binaries = args.max_binaries;
     // opt-g: BASIS ohne System-Achsen-Suffix — die Perm-Schleife hängt je opt×simd "+cxx=+opt=+ext=" an
     // (system_axes_version_suffix() bleibt für den Einzel-Pfad run_profile_facade unverändert).

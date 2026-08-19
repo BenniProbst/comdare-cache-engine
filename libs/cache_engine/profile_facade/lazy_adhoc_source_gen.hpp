@@ -362,7 +362,9 @@ template <class List>
         ::comdare::cache_engine::abi::ToolchainGlied{::comdare::cache_engine::abi::kToolchainStampGlied},
     ::comdare::cache_engine::abi::BvsetGlied bvset_glied =
         ::comdare::cache_engine::abi::BvsetGlied{::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied},
-    ::comdare::cache_engine::abi::MessGatesGlied mess_gates_glied = ::comdare::cache_engine::abi::MessGatesGlied{""}) {
+    ::comdare::cache_engine::abi::MessGatesGlied    mess_gates_glied = ::comdare::cache_engine::abi::MessGatesGlied{""},
+    ::comdare::cache_engine::abi::BuildVersionGlied build_version_glied =
+        ::comdare::cache_engine::abi::BuildVersionGlied{::comdare::cache_engine::abi::kBuildVersionGlied}) {
     std::string const macro_args = lazy_adhoc_macro_args_for(tables, binary_id);
     if (macro_args.empty()) return {}; // nicht materialisierbar -> keine DLL -> kein Fingerprint
     std::string const organ  = ex::compose_organ_stamp_line(ex::ceb_parse_path(binary_id), version_table);
@@ -377,10 +379,15 @@ template <class List>
     // Das KOMPOSIT-Glied [9] bleibt hier beim Default (leer): der Laufzeit-Zwilling bedient den
     // plain-Tier-Pfad (lazy adhoc), und ein plain Tier traegt "" (KON45-01/2). Der Hybrid-Zwilling
     // entsteht mit der HY-A2-Verdrahtung, nicht hier -- ein geratener Wert waere schlimmer als keiner.
+    // B-9/golden-102: das build_version-Basis-Glied [10] reist EXPLIZIT (Task-#59-Muster) -- der Zwilling
+    // MUSS dieselbe Basis rechnen, die der Bau-Kanal als -DCOMDARE_BUILD_VERSION_GLIED in die
+    // Tier-Uebersetzung haengt; das Komposit-Glied [9] bleibt beim plain-Tier-Default (leer, KON45-01/2).
     auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(
         ::comdare::cache_engine::abi::MessZeile{measurement_stamp}, ::comdare::cache_engine::abi::SystemZeile{system},
         ::comdare::cache_engine::abi::OrganZeile{organ}, toolchain_glied, bvset_glied,
-        ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash}, mess_gates_glied);
+        ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash}, mess_gates_glied,
+        ::comdare::cache_engine::abi::KompositMapGlied{::comdare::cache_engine::abi::kHybridKompositGlied},
+        build_version_glied);
     std::string const preimage = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(
         std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = ::comdare::cache_engine::sha512::sha512(
@@ -426,12 +433,20 @@ template <class List>
 /// als der Aufrufer verlangt hat.
 [[nodiscard]] inline ex::FingerprintFn make_lazy_adhoc_fingerprint_fn_from_env(
     std::string system_cell_values = {}, std::optional<std::string> toolchain_glied = std::nullopt,
-    std::optional<std::string> bvset_glied = std::nullopt, std::optional<std::string> mess_gates_glied = std::nullopt) {
+    std::optional<std::string> bvset_glied = std::nullopt, std::optional<std::string> mess_gates_glied = std::nullopt,
+    std::optional<std::string> build_version_glied = std::nullopt) {
     namespace pfn = ::comdare::cache_engine::profile_facade;
     std::string tc_wert =
         toolchain_glied.has_value() ? std::move(*toolchain_glied) : pfn::compose_live_toolchain_stamp_glied();
     std::string bv_wert =
         bvset_glied.has_value() ? std::move(*bvset_glied) : pfn::live_build_variant_set_signature_glied();
+    // B-9/golden-102: anders als Toolchain/bvset gibt es fuer die build_version-BASIS keinen
+    // Prozess-live-Wert (sie ist ein LAUF-Argument, ProfileRunArgs). nullopt == die CEB-eigene
+    // Compile-Konstante kBuildVersionGlied (Default "": die Identitaet) -- Bestands-Aufrufer rechnen
+    // byte-identisch; run_profile reicht die Basis EXPLIZIT (NB2-5: ein uebergebener Wert gewinnt IMMER).
+    std::string bvers_wert = build_version_glied.has_value()
+                                 ? std::move(*build_version_glied)
+                                 : std::string{::comdare::cache_engine::abi::kBuildVersionGlied};
     // R-3: "kein Argument" == der LIVE-Wert (NB/CX-4). live_mess_gates_glied() zieht durch DIESELBE
     // EINE Aufloesung wie der Bau-Kanal (resolve_live_measurement_combo_legend -> mess_achsen_defines);
     // eine zweite Ableitung waere die Drift-Klasse aus D-1. Ein explizit uebergebener Wert gewinnt
@@ -444,17 +459,19 @@ template <class List>
     std::string measurement_stamp = measurement_stamp_from_env(); // dieselbe EINE Env-Bruecke wie der Source-Gen
     return [tables, version_table, measurement_stamp = std::move(measurement_stamp),
             cell_values = std::move(system_cell_values), toolchain = std::move(tc_wert), bvset = std::move(bv_wert),
-            mess_gates = std::move(mg_wert)](std::string const& binary_id) {
+            mess_gates = std::move(mg_wert), build_version = std::move(bvers_wert)](std::string const& binary_id) {
         // NB/CX-4: die Werte stehen zu diesem Zeitpunkt FEST (oben aufgeloest -- explizit uebergeben oder
         // live komponiert). Der frueher hier stehende empty()-Zweig ist ersatzlos entfallen: er war genau
         // die Konflation "nicht injiziert" == "leer injiziert", die den Zwilling still auf den CEB-eigenen
         // Compile-Define zurueckfallen liess, waehrend die Tier-Binary einen anderen Wert eingebaut bekam.
         // NB2-5: die Aufloesung oben unterscheidet jetzt auch "leer UEBERGEBEN" von "nicht uebergeben".
-        auto const tc = ::comdare::cache_engine::abi::ToolchainGlied{toolchain};
-        auto const bv = ::comdare::cache_engine::abi::BvsetGlied{bvset};
-        auto const mg = ::comdare::cache_engine::abi::MessGatesGlied{mess_gates};
+        auto const tc    = ::comdare::cache_engine::abi::ToolchainGlied{toolchain};
+        auto const bv    = ::comdare::cache_engine::abi::BvsetGlied{bvset};
+        auto const mg    = ::comdare::cache_engine::abi::MessGatesGlied{mess_gates};
+        auto const bvers = ::comdare::cache_engine::abi::BuildVersionGlied{build_version};
         return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp,
-                                          ::comdare::cache_engine::abi::SystemCellValues{cell_values}, tc, bv, mg);
+                                          ::comdare::cache_engine::abi::SystemCellValues{cell_values}, tc, bv, mg,
+                                          bvers);
     };
 }
 
@@ -478,28 +495,37 @@ template <class List>
 ///   make_lazy_adhoc_fingerprint_fn_from_env(...)(id)
 /// sein. Zwei Wege, ein Hash -- sonst ist einer der beiden falsch.
 [[nodiscard]] inline std::function<std::string(std::string const&, std::string const&)>
-make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env(std::string                system_cell_values = {},
-                                                  std::optional<std::string> toolchain_glied    = std::nullopt,
-                                                  std::optional<std::string> mess_gates_glied   = std::nullopt) {
+make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env(std::string                system_cell_values  = {},
+                                                  std::optional<std::string> toolchain_glied     = std::nullopt,
+                                                  std::optional<std::string> mess_gates_glied    = std::nullopt,
+                                                  std::optional<std::string> build_version_glied = std::nullopt) {
     namespace pfn = ::comdare::cache_engine::profile_facade;
     // Identische Aufloesungs-Regel wie im Bestands-Maker (NB2-5): nullopt == LIVE, ein uebergebener Wert
     // gewinnt IMMER -- auch der leere. Das bvset fehlt hier bewusst: es ist der Parameter.
     std::string tc_wert =
         toolchain_glied.has_value() ? std::move(*toolchain_glied) : pfn::compose_live_toolchain_stamp_glied();
     std::string mg_wert = mess_gates_glied.has_value() ? std::move(*mess_gates_glied) : pfn::live_mess_gates_glied();
-    auto        tables  = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
+    // B-9/golden-102: dieselbe Aufloesung wie im Bestands-Maker -- nullopt == kBuildVersionGlied (die
+    // CEB-eigene Compile-Konstante, Default "" == Identitaet); run_profile reicht die Lauf-Basis explizit.
+    std::string bvers_wert = build_version_glied.has_value()
+                                 ? std::move(*build_version_glied)
+                                 : std::string{::comdare::cache_engine::abi::kBuildVersionGlied};
+    auto        tables     = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
     auto        version_table =
         std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
     std::string measurement_stamp = measurement_stamp_from_env(); // dieselbe EINE Env-Bruecke wie oben
-    return [tables, version_table, measurement_stamp = std::move(measurement_stamp),
-            cell_values = std::move(system_cell_values), toolchain = std::move(tc_wert),
-            mess_gates = std::move(mg_wert)](std::string const& binary_id, std::string const& bvset_glied) {
-        auto const tc = ::comdare::cache_engine::abi::ToolchainGlied{toolchain};
-        auto const bv = ::comdare::cache_engine::abi::BvsetGlied{bvset_glied};
-        auto const mg = ::comdare::cache_engine::abi::MessGatesGlied{mess_gates};
-        return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp,
-                                          ::comdare::cache_engine::abi::SystemCellValues{cell_values}, tc, bv, mg);
-    };
+    return
+        [tables, version_table, measurement_stamp = std::move(measurement_stamp),
+         cell_values = std::move(system_cell_values), toolchain = std::move(tc_wert), mess_gates = std::move(mg_wert),
+         build_version = std::move(bvers_wert)](std::string const& binary_id, std::string const& bvset_glied) {
+            auto const tc    = ::comdare::cache_engine::abi::ToolchainGlied{toolchain};
+            auto const bv    = ::comdare::cache_engine::abi::BvsetGlied{bvset_glied};
+            auto const mg    = ::comdare::cache_engine::abi::MessGatesGlied{mess_gates};
+            auto const bvers = ::comdare::cache_engine::abi::BuildVersionGlied{build_version};
+            return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp,
+                                              ::comdare::cache_engine::abi::SystemCellValues{cell_values}, tc, bv, mg,
+                                              bvers);
+        };
 }
 
 } // namespace comdare::cache_engine::thesis_lazy

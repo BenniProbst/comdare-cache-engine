@@ -205,7 +205,8 @@
             ::comdare::cache_engine::abi::BvsetGlied{::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied},    \
             ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash},               \
             ::comdare::cache_engine::abi::MessGatesGlied{::comdare::cache_engine::abi::kMessGatesTuGlied},             \
-            ::comdare::cache_engine::abi::KompositMapGlied{::comdare::cache_engine::abi::kHybridKompositGlied});       \
+            ::comdare::cache_engine::abi::KompositMapGlied{::comdare::cache_engine::abi::kHybridKompositGlied},        \
+            ::comdare::cache_engine::abi::BuildVersionGlied{::comdare::cache_engine::abi::kBuildVersionGlied});        \
         /* E-A/B-6 + V-05R: DER NAME, aus DENSELBEN Argumenten wie kFP -- Glied fuer Glied identisch,     */           \
         /* nur der Hash ist ein anderer (SHA-256 statt SHA-512). Waeren die Argumente hier auch nur an    */           \
         /* einer Stelle andere, traege das Modul einen Namen, der zu seinem eigenen Fingerprint nicht     */           \
@@ -218,7 +219,8 @@
             ::comdare::cache_engine::abi::BvsetGlied{::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied},    \
             ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash},               \
             ::comdare::cache_engine::abi::MessGatesGlied{::comdare::cache_engine::abi::kMessGatesTuGlied},             \
-            ::comdare::cache_engine::abi::KompositMapGlied{::comdare::cache_engine::abi::kHybridKompositGlied});       \
+            ::comdare::cache_engine::abi::KompositMapGlied{::comdare::cache_engine::abi::kHybridKompositGlied},        \
+            ::comdare::cache_engine::abi::BuildVersionGlied{::comdare::cache_engine::abi::kBuildVersionGlied});        \
         static constexpr auto kME =                                                                                    \
             ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(kM)>(  \
                 kM);                                                                                                   \
