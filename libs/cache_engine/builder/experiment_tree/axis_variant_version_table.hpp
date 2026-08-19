@@ -1,5 +1,6 @@
 #pragma once
-// Inkrementeller Tier-Binary-Cache (Bauplan §2+§4, 2026-07-18) — compile-time {axis,variant -> algo_version}-Tabelle.
+// Inkrementeller Tier-Binary-Cache (Bauplan Section 2+4, 2026-07-18) -- compile-time
+// {axis,variant -> algo_version}-Tabelle.
 //
 // Der Rebuild-/Neu-Mess-Selektor braucht je Binary eine deterministische Organ-Algorithmus-Signatur (algo_sig).
 // Diese Tabelle liefert das Fundament: sie reflektiert die 17 KOMPOSITIONS-Achsen (kCompositionAxisNames-Reihenfolge,
@@ -7,18 +8,19 @@
 // BR-1, REGISTRY-getrieben statt string-getrieben) in Tripel {axis, W::name(), W::algo_version}. compose_algo_signature
 // (axis_path_serialization.hpp) schlaegt hier je (axis,value) die Version nach und baut die Flach-Signatur.
 //
-// **DIES IST DIE UNIVERSELLE COMPILE-ZEIT-DURCHSETZUNG (Bauplan §2 „Concept erzwingt version()"):** das mp_for_each
-// greift W::algo_version je registrierter Variante ab — fehlt einer Variante das Member, ist der Zugriff ill-formed und
+// **DIES IST DIE UNIVERSELLE COMPILE-ZEIT-DURCHSETZUNG (Bauplan Section 2 "Concept erzwingt version()"):** das
+// mp_for_each greift W::algo_version je registrierter Variante ab -- fehlt einer Variante das Member, ist der
+// Zugriff ill-formed und
 // die Kompilation bricht MIT DEM TYP-NAMEN. Eine Organ-Variante ohne algo_version kann so nicht unbemerkt in eine
 // Registry gelangen. Ergaenzend traegt JEDE der 17 Kompositions-StrategyBases (search_algo..queuing_q2) im CRTP-Ctor
-// einen fokussierten `static_assert(requires { Derived::algo_version; })` (Bauplan §2, Exemplar
-// axis_06_allocator_strategy_base.hpp) — der Concept-Guard je Konstruktion. Bewusst NICHT an der gemeinsamen Wurzel
+// einen fokussierten `static_assert(requires { Derived::algo_version; })` (Bauplan Section 2, Exemplar
+// axis_06_allocator_strategy_base.hpp) -- der Concept-Guard je Konstruktion. Bewusst NICHT an der gemeinsamen Wurzel
 // topics::OrganAxis: die traegt auch die System-Achse ISA und die 4 Shape-Achsen, die KEIN algo_version fuehren
-// (Organ- vs System-/Shape-Provenienz strikt getrennt) — ein Wurzel-Guard wuerde die faelschlich brechen.
+// (Organ- vs System-/Shape-Provenienz strikt getrennt) -- ein Wurzel-Guard wuerde die faelschlich brechen.
 //
 // System-Achsen (telemetry/isa/page_type/simd_extension/general_hardware) und die 4 Shape-Achsen bleiben AUSSEN: sie
 // tragen KEINE algo_sig (Organ- vs System-Provenienz strikt getrennt; Shapes sind Default-OFF-Anhang). C++23, header-
-// only; heap-schwer (inkludiert ALLE Kompositions-Registries via registry_to_axis_levels.hpp) — nur dort einbinden,
+// only; heap-schwer (inkludiert ALLE Kompositions-Registries via registry_to_axis_levels.hpp) -- nur dort einbinden,
 // wo die Registries ohnehin praesent sind (Facade / dedizierter Test), NIE in einen schlanken TU.
 
 #include "axis_path_serialization.hpp" // kCompositionAxisNames (Slot-Reihenfolge der algo_sig)
@@ -123,7 +125,8 @@ constexpr void assert_version_grammar() {
 }
 
 /// mp_for_each ueber eine Registry-Enabled-Liste -> {axis, W::name(), W::algo_version} je Variante. mp_identity
-/// vermeidet das Default-Konstruieren der Wrapper (nur der Typ wird benoetigt — analog reflect_names, axis_reflect.hpp).
+/// vermeidet das Default-Konstruieren der Wrapper (nur der Typ wird benoetigt -- analog reflect_names,
+/// axis_reflect.hpp).
 /// Der W::algo_version-Zugriff ist die harte Compile-Zeit-Durchsetzung (siehe Datei-Kopf); die Grammatik-Wache
 /// steht seit CX-W6 in assert_version_grammar<W>() (geteilt mit der Voll-Registry-Wache).
 template <class List>
@@ -212,7 +215,7 @@ inline void guard_all_registered_organ_error_classes() {
 
 /// Baut die {axis,variant->version}-Tabelle ueber GENAU die 17 Kompositions-Achsen (kCompositionAxisNames-Reihenfolge
 /// = algo_sig-Slot-Reihenfolge). Registry-getrieben (axes26-Aliase). Der Alias-Fahrplan spiegelt exakt
-/// append_organ_core_axis_levels() + append_composition_tail_axis_levels() (die q1/q2-Slots) — OHNE die build-only-/
+/// append_organ_core_axis_levels() + append_composition_tail_axis_levels() (die q1/q2-Slots) -- OHNE die build-only-/
 /// System-Achsen und OHNE die Shape-Achsen (die tragen keine algo_sig).
 [[nodiscard]] inline std::vector<AxisVariantVersion> build_axis_variant_version_table() {
     // CX-W6: die Flag-Grammatik-Wache greift ueber die VOLLE registrierte Organ-Population (auch deaktivierte
@@ -256,7 +259,8 @@ inline void guard_all_registered_organ_error_classes() {
     return std::string_view{};
 }
 
-/// Die globalen Sub-Achsen-Werteset-Versionen (Bauplan §2): eine Werteset-ERWEITERUNG (z.B. neuer CacheLineConfig-
+/// Die globalen Sub-Achsen-Werteset-Versionen (Bauplan Section 2): eine Werteset-ERWEITERUNG (z.B. neuer
+/// CacheLineConfig-
 /// Wert) aendert das serialisierte Bit-Layout, ohne dass eine Varianten-algo_version bumpt -> muss in die algo_sig,
 /// sonst wuerde eine layout-geaenderte Binary STILL reused. Sie sind BUILD-global (nicht per-Variante) -> als fester
 /// Schwanz an jede algo_sig gehaengt; ein Bump invalidiert konsequenterweise ALLE Binaries (grobkoernig, aber korrekt
@@ -271,10 +275,10 @@ inline void guard_all_registered_organ_error_classes() {
     return std::string{::comdare::cache_engine::abi::kSubAxisValuesetSegment};
 }
 
-/// compose_algo_signature(axes, table) — die deterministische Organ-Algorithmus-Signatur EINER Binary. Iteriert die
+/// compose_algo_signature(axes, table) -- die deterministische Organ-Algorithmus-Signatur EINER Binary. Iteriert die
 /// kCompositionAxisNames-Slots in FESTER Reihenfolge (plattform-stabil, unabhaengig von der spec.axes-Reihenfolge),
 /// sucht je Slot den (axis,value) in spec.axes und schlaegt dessen algo_version in der Tabelle nach. Format je Slot
-/// "<axis>=<variant>@<version>", per ';' gejoint (Vorbild perm.algos-Sidecar, Bauplan §1), abgeschlossen vom
+/// "<axis>=<variant>@<version>", per ';' gejoint (Vorbild perm.algos-Sidecar, Bauplan Section 1), abgeschlossen vom
 /// Sub-Achsen-Werteset-Schwanz. Nicht-Kompositions-Achsen (Shapes) und in spec.axes fehlende Slots werden
 /// uebersprungen; unbekannte (axis,value) -> "@v0.0.0"-Sentinel (statt zu raten; A13-M3/C4). Der Rebuild-/Neu-Mess-
 /// Selektor vergleicht diese Signatur String-gleich gegen den .algos-Sidecar -> nur Binaries mit geaenderter Signatur
