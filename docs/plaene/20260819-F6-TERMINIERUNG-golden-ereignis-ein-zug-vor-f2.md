@@ -1,6 +1,6 @@
 # F6-TERMINIERUNG: das golden-Ereignis faehrt als EIN Zug VOR F2
 
-Datum: 2026-08-19 · Herkunft: A2.5-Fixstrecke-2, Posten G6 (Bump-Bruch #15) · Status: TERMINIERUNG
+Datum: 2026-08-19 -- Herkunft: A2.5-Fixstrecke-2, Posten G6 (Bump-Bruch #15) -- Status: TERMINIERUNG
 Traeger-Task: **benennt der Lead** (diese Notiz terminiert; sie ersetzt den Task nicht).
 
 ## Der Termin
