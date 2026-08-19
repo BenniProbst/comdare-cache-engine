@@ -3835,6 +3835,22 @@ target_compile_definitions(test_axis_kind_wire_totalitaet PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_axis_kind_wire_totalitaet PROPERTIES LABELS "contract;welle5;dock;warnungs-review")
 
+# A2.5-Fix-Strecke 2 / G1 (V-01R, KON101-02; #15-Bruch): Kategorien-Zuordnung des AxisKind-Dachs.
+# Beweist den Dreh in die Kategorien-Ordnung MESS, SYSTEM, ORGAN (Owner 17.08.: "definitiv mit
+# drehen") + die CT-Zuordnung Unter-Achse -> Haupt-Achse -> Kategorie an LEBENDEN Traegern und
+# traegt die schichtuebergreifende NP-01-Konsultations-Wache gegen abi::kSystemAxisOrder (die im
+# topics-Dach nicht leben kann, Layer-Schnitt). Wire-/golden-neutral: reine CT-Wachen + RT-Nenner.
+comdare_add_test(test_axis_kind_kategorien_zuordnung
+    SOURCES test_axis_kind_kategorien_zuordnung.cpp)
+target_include_directories(test_axis_kind_kategorien_zuordnung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_compile_definitions(test_axis_kind_kategorien_zuordnung PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_axis_kind_kategorien_zuordnung PROPERTIES LABELS "contract;welle5;dock")
+
 # W5-C TEIL 2 (builder-Leaf progress_delta.hpp) - Delta-Rekonstruktion gegen die reale StaticBinaryView (done 1x).
 add_executable(test_progress_delta "test_progress_delta.cpp")
 target_compile_features(test_progress_delta PRIVATE cxx_std_23)

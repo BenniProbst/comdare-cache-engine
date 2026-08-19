@@ -216,10 +216,16 @@ TEST(StriktheitAxisDachGuard, DiskriminatorenSindDisjunkt) {
               static_cast<unsigned>(cet::AxisKind::system_config));
     EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ_meta_meta),
               static_cast<unsigned>(cet::AxisKind::system_measurement));
-    // Die BESTEHENDEN Zahlenwerte sind durch das Anhaengen ans Enum-Ende unveraendert geblieben
-    // (Payload-/Wire-Vertraeglichkeit: experiment_dock_payload serialisiert die Faerbung).
-    EXPECT_EQ(static_cast<unsigned>(cet::AxisKind::organ), 0u);
-    EXPECT_EQ(static_cast<unsigned>(cet::AxisKind::system_measurement), 1u);
-    EXPECT_EQ(static_cast<unsigned>(cet::AxisKind::system_config), 2u);
-    EXPECT_EQ(static_cast<unsigned>(cet::AxisKind::organ_meta_meta), 5u); // ANS ENDE angefuegt
+    // V-01R-NACHZUG (#15-Bruch, KON101-02; A2.5-Fix-Strecke 2 G1): die Ordinale folgen seit dem
+    // Owner-Dreh ("definitiv mit drehen") der Kategorien-Ordnung MESS, SYSTEM, ORGAN -- die
+    // aelteren Pins auf die append-only-Werte (organ==0 usw.) sind SUPERSEDED; dieser Test biss
+    // nach dem Dreh literal rot (g1_ctest_voll.log) und wurde hier nachgezogen, nicht gestrichen.
+    // Wire-Vertraeglichkeit haengt NICHT an den Ordinalen: experiment_dock_payload serialisiert
+    // die Faerbung als Token-STRING (axis_kind_token/parse_axis_kind), nie als Zahlenwert.
+    EXPECT_EQ(static_cast<unsigned>(cet::AxisKind::system_measurement), 0u);    // MESS Haupt
+    EXPECT_EQ(static_cast<unsigned>(cet::AxisKind::measurement_meta_meta), 1u); // MESS Meta-Meta
+    EXPECT_EQ(static_cast<unsigned>(cet::AxisKind::system_config), 2u);         // SYSTEM Haupt
+    EXPECT_EQ(static_cast<unsigned>(cet::AxisKind::system_meta_meta), 3u);      // SYSTEM Meta-Meta
+    EXPECT_EQ(static_cast<unsigned>(cet::AxisKind::organ), 4u);                 // ORGAN Haupt
+    EXPECT_EQ(static_cast<unsigned>(cet::AxisKind::organ_meta_meta), 5u);       // ORGAN Meta-Meta
 }
