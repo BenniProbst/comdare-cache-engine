@@ -512,7 +512,7 @@ void help_for(std::string const& topic) {
     if (topic == "plan") {
         std::cout << "comdare-experiment-planner plan dump|ci|cmake [<profil>]\n"
                   << "  PLANER-Rolle (Stufe 1, 40.b): der deterministische ExperimentPlanDirector-Walk in drei\n"
-                  << "  Emissions-Kanaelen -- zwei Laeufe sind byte-gleich.\n"
+                  << "  Emissions-Kanaelen -- zwei Laeufe sind byte-gleich.\n" // (GEMESSEN 19.08.2026: cmp identisch)
                   << "    plan dump   Textplan nach stdout\n"
                   << "    plan ci     GitLab-Child-Pipeline-YAML: CEB-Jobs je Mess-Kombination\n"
                   << "    plan cmake  experiment_plan.cmake fuer den Bare-Metal-Bau\n"
