@@ -204,10 +204,10 @@ struct RunProfileArgs {
     ex::PartialMarkerFn partial_marker_sink;
     std::size_t         chunk_part_size = 0;
     ex::ProgressSinkFn
-        progress_sink; // Welle 5 (E-W5-2): §38-Fortschritts-Rueck-Kanal (No-Op-Default); make_cfg reicht ihn je Pass durch
-    std::vector<std::string> compile_includes;       // ungenutzt hier (der Host backt die Includes in compile) — Doku
+        progress_sink; // Welle 5 (E-W5-2): Paragraf-38-Fortschritts-Rueck-Kanal (No-Op-Default); je Pass durchgereicht
+    std::vector<std::string> compile_includes;       // ungenutzt hier (der Host backt die Includes in compile) -- Doku
     std::uint64_t            n_ops         = 10000;  // Mess-Workload je dyn-Setting
-    std::size_t              max_binaries  = 0;      // 0 ⇒ run_options.cap; beide 0 ⇒ KEIN Cap
+    std::size_t              max_binaries  = 0;      // 0 => run_options.cap; beide 0 => KEIN Cap
     std::string              build_version = "m3v2"; // Resume-Marke (.version-Sidecar)
     // B-9/golden-102: die IDENTITAETS-wirksame BASIS der build_version (Preimage-Glied [10]).
     // `build_version` selbst traegt auf dem Einzel-Pfad den +cxx=...-Provenienz-Suffix (Facade :738)
@@ -220,11 +220,11 @@ struct RunProfileArgs {
     std::uint32_t n_repeats           = 3;     // Wiederholungen je (BinaryxSetting)
     std::size_t   cores_per_build     = 4;     // KF-16b Default
     double        min_free_gb         = 0.0;   // RAM-Admission (0 = aus)
-    bool          resume_override_set = false; // true ⇒ resume kommt aus `resume`, nicht aus <run_options>
+    bool          resume_override_set = false; // true => resume kommt aus `resume`, nicht aus <run_options>
     bool          resume              = true;  // Mess-Resume (#139)
     std::string   sweep_axis;                  // leer = Basis-Selektion; sonst ein deklarierter <axis_sweep>
-    std::string   platform_override;           // leer ⇒ <run_options>.platform; sonst Override (CSV-Tag)
-    std::string   build_version_tag_override;  // leer ⇒ <run_options>.build_version; sonst Override (CSV-Tag)
+    std::string   platform_override;           // leer => <run_options>.platform; sonst Override (CSV-Tag)
+    std::string   build_version_tag_override;  // leer => <run_options>.build_version; sonst Override (CSV-Tag)
     bool          run_sota_series = true;      // S7b: die <sota_series>-Paesse mitfahren (false = nur Basis)
     // Working-Set-Sweep: Default = der Profil-<working_set_sweep>. Ist `working_set_override` gesetzt (>0), ersetzt
     // er den Profil-Sweep durch EINEN einzigen N-Wert (rueckwaerts-kompatibel zur alten PS-foreach +
