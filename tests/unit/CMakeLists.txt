@@ -2265,6 +2265,15 @@ target_include_directories(test_hy_a1_dock_contract PRIVATE ${COMDARE_ALL_AXIS_G
 target_compile_definitions(test_hy_a1_dock_contract PRIVATE
     "COMDARE_HY_QUELLVERZEICHNIS=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/hybrid\"")
 
+# G4/L21 (A2.5-Fund F-9) -- die LINK-PROBE des attach-Splits: attach muss mit dem Array-Header
+# ALLEIN linkbar sein (Definition reist seit dem F-9-Fix ueber array -> factory -> attach-Header
+# mit). EIGENES Binary, kein Fall in test_hy_a1_dock_contract: dessen TU inkludiert die Factory,
+# der Linker faende die attach-Instanziierung dort und die Probe waere falsch-gruen (T-7).
+comdare_add_test(test_hy_a1_attach_nur_array_include
+    SOURCES test_hy_a1_attach_nur_array_include.cpp)
+target_link_libraries(test_hy_a1_attach_nur_array_include PRIVATE comdare::ce_hybrid)
+target_include_directories(test_hy_a1_attach_nur_array_include PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+
 # HY-A3 -- der Parser der <hybrid_tier>-Sektion: der ZWEIWEIG-Schalter (XOR je Kette) und der
 # XML-Override des Dock-Deckels (KON42-01: constexpr-Default im Planer, XML ueberschreibt).
 # Braucht libs/common auf dem Include-Pfad (common-DOM xml_reader) -- dieselbe Machart wie

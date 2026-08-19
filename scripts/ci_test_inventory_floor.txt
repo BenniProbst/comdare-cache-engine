@@ -626,7 +626,23 @@
 # +1-Regel unbedingter Tests, wie beim 500er-Nachzug c3478a9c. Kein Delta-Addieren ueber mehrere
 # Aenderungen hinweg: dies ist EINE Registrierung in EINEM Zug.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
+#
+# NACHZUG 19.08.2026 (A2.5-Fixstrecke-2 G4, Bump-Bruch #15): 503/499/497 -> 506/502/500.
+# KONTO, je Name (alle drei UNBEDINGT registriert -- comdare_add_test auf oberster Ebene, kein
+# ISA-Gate, kein opt-in-Label -- also je +1 auf allen drei Sprossen):
+#   test_hy_a2_stempel_kette            (G3/A-03, Commit 06bcbba3)  -- NACHHOLUNG: die
+#     Registrierung kam OHNE den hier pflichtigen Floor-Nachzug im selben Change (#39-Verstoss,
+#     in G4 als Verzug festgestellt und hier benannt ausgeglichen, nicht still addiert).
+#   test_axis_kind_kategorien_zuordnung (V-01R,  Commit e34666fa)  -- NACHHOLUNG, derselbe Fall.
+#   test_hy_a1_attach_nur_array_include (G4/L21, DIESER Change)    -- die F-9-Link-Probe.
+# WIE GEMESSEN, NICHT GERECHNET: avx512f ist die Klasse dieser Maschine (prod1) und wurde LIVE
+# abgelesen -- gcc-release, voller Bau (all + comdare_tests), ctest-Schlusszeile literal
+# "100% tests passed, 0 tests failed out of 506". Fuer avx2/basis gilt die im Kopf festgehaltene
+# +1-Regel unbedingter Tests je Registrierung (drei Registrierungen -> +3), wie beim 500er- und
+# 503er-Nachzug. Die Drei-in-einem-Zug-Form ist dem Verzug geschuldet und AUSDRUECKLICH als
+# solcher dokumentiert: zwei der drei Zeilen gehoeren zu bereits gelandeten Commits dieses
+# Branches, ihr Nachzug war faellig und fehlte.
 
-avx512f 503
-avx2 499
-basis 497
+avx512f 506
+avx2 502
+basis 500

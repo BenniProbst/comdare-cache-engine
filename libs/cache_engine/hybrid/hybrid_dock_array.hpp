@@ -220,21 +220,18 @@ public:
     /// der variant-Alternativen (Paragraf-49-KORREKTUR: "per Abstract-Factory-Methode gelesen und
     /// verarbeitet"). Deshalb steht hier keine eigene Fallunterscheidung ueber Vertraege; sie waere
     /// die zweite Stelle, an der Vertrag zu Typ wird, und die beiden liefen auseinander.
-    /// Die Deklaration steht in hybrid_dock_factory.hpp; die Definition unten ist bewusst
-    /// out-of-line, damit diese Datei nicht von der Factory abhaengt und die Factory nicht von ihr.
-    /// A2.5-FUND F-9, NICHT BEHOBEN -- und hier ist der Grund, damit niemand ihn nochmal anlaeuft:
-    /// attach ist nur DEKLARIERT; die Definition steht in hybrid_dock_factory.hpp (bewusst -- die
-    /// Factory ist der einzige Konstruktions-Ort). Wer nur dieses Array inkludiert und attach
-    /// ruft, laeuft am LINKER auf, nicht am Compiler.
-    /// ZWEI ANLAEUFE, BEIDE AM OBJEKT GESCHEITERT (17.08.2026): ein Sichtbarkeits-Sentinel per
-    /// Template-Spezialisierung -- einmal als Klassen-Methode, einmal als freie Funktion -- quittiert
-    /// der Compiler mit "specialization of ... after instantiation": der Primaerfall ist bereits
-    /// instanziiert, bevor die Factory ihn spezialisieren kann. Das ist keine Nachlaessigkeit,
-    /// sondern die Sprachsemantik: eine Abfrage, die IM ERSTEN Header steht, kann keine Antwort
+    /// A2.5-FUND F-9 -- BEHOBEN (G4/L21, 2026-08-19) ueber den Register-Weg "gemeinsamer dritter
+    /// Header": die Definition lebt in hybrid_dock_attach.hpp und reist ueber den End-Include am
+    /// Fuss DIESER Datei mit -- wer nur dieses Array inkludiert, LINKT attach (Deckungstest:
+    /// test_hy_a1_attach_nur_array_include.cpp). Vorher war attach hier nur deklariert, die
+    /// Definition stand in der Factory, und der Verstoss fiel erst am LINKER.
+    /// DIE LEHRE AUS ZWEI GESCHEITERTEN ANLAEUFEN BLEIBT STEHEN (17.08.2026, damit niemand sie
+    /// nochmal anlaeuft): ein Sichtbarkeits-Sentinel per Template-Spezialisierung -- einmal als
+    /// Klassen-Methode, einmal als freie Funktion -- quittiert der Compiler mit "specialization
+    /// of ... after instantiation": der Primaerfall ist bereits instanziiert, bevor die Factory
+    /// ihn spezialisieren kann. Eine Abfrage, die IM ERSTEN Header steht, kann keine Antwort
     /// erzwingen, die erst der ZWEITE gibt.
-    /// WAS STATTDESSEN TRAEGT (offener Posten, HY-A2): die attach-Definition in einen gemeinsamen
-    /// dritten Header ziehen, den beide inkludieren. Das loest den Split auf, ohne die
-    /// "Factory ist einziger Konstruktions-Ort"-Zusage zu beruehren -- sie ist eine Aussage
+    /// Die "Factory ist einziger Konstruktions-Ort"-Zusage ist unberuehrt -- sie ist eine Aussage
     /// darueber, WER baut, nicht darueber, in welcher Datei die Zeile steht.
     [[nodiscard]] int attach(DockContractDescriptor const& desc) noexcept;
 
@@ -341,3 +338,20 @@ static_assert(RuntimeDockArrayPolicy::kapazitaet == kHybridNodeObergrenzeDefault
               "Wer hier eine eigene Zahl setzt, holt den 8-gegen-32-Widerspruch zurueck.");
 
 } // namespace comdare::cache_engine::hybrid
+
+// ============================================================================================
+// F-9-SCHLIESSUNG (G4/L21): die attach-Definition reist mit diesem Header MIT
+// ============================================================================================
+// attach ist oben nur DEKLARIERT (der Konstruktions-Ort bleibt die Factory). Damit ein Nutzer,
+// der NUR dieses Array inkludiert, nicht mehr am Linker auflaeuft (A2.5-Fund F-9), zieht dieser
+// End-Include die Factory und -- an DEREN Ende -- den gemeinsamen dritten Header
+// hybrid_dock_attach.hpp mit der Definition nach.
+// WARUM DIE FACTORY UND NICHT DIREKT DER ATTACH-HEADER: expandierte attach direkt am Ende DIESER
+// Datei, dann braeche der Einstieg "Nutzer inkludiert die Factory zuerst" -- deren Array-Include
+// laeuft VOR ihrer Klassendefinition, und der attach-Header saehe die Factory nicht (pragma-once
+// expandiert genau einmal, am ERSTEN Auftreten). Ueber die Factory expandiert die Definition an
+// einem Punkt, an dem IMMER beide Voraussetzungen stehen: DockArray (diese Datei ist dort zu
+// Ende) und HybridDockFactory (der Include steht hinter der Klasse). Impl-Header-Muster wie
+// libstdc++ basic_string.h/.tcc -- der Rueckverweis der Factory auf dieses Array ist ueber die
+// pragma-once-Marke wirkungslos.
+#include "hybrid_dock_factory.hpp"

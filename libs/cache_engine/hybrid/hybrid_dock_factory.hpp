@@ -21,11 +21,13 @@
 // vom Aufrufweg ab. Deshalb traegt DockArray::attach keine eigene Vertrags-Logik, sondern ruft
 // hierher; und deshalb steht seine Definition in DIESER Datei.
 //
-// FOLGE FUER DEN LESER, ausdruecklich: wer DockArray::attach benutzt, MUSS diese Datei inkludieren.
-// Das ist Absicht und keine Nachlaessigkeit -- ein Dock-Array ohne Factory kann keine Docks bauen,
-// und die fehlende Definition sagt genau das, statt still eine zweite Abbildung zu erlauben.
-// Alle uebrigen Funktionen des Arrays (detach, antrieb_binden, antrieb_von, slot, size) sind ohne
-// diese Datei vollstaendig nutzbar; nur die KONSTRUKTION haengt an ihr.
+// FOLGE FUER DEN LESER -- FORTGESCHRIEBEN (F-9-Schliessung, G4/L21, 2026-08-19): der Satz "wer
+// DockArray::attach benutzt, MUSS diese Datei inkludieren" galt bis zum F-9-Fix und war dessen
+// Fund: die Pflicht stand nur in Prosa, der Verstoss fiel erst am LINKER. Seitdem reist die
+// attach-Definition ueber den gemeinsamen dritten Header (hybrid_dock_attach.hpp, End-Include
+// unten) mit BEIDEN Einstiegen mit -- der Array-Header genuegt. Unveraendert wahr bleibt der
+// Kern: ein Dock-Array ohne Factory kann keine Docks bauen; die Abbildung Vertrag -> Typ lebt
+// weiter NUR hier (make_dock), attach ruft sie und traegt keine zweite.
 //
 // @design docs/architecture/20260802-hybrid_tier_stufe_soll_design.md Abschnitt 3.1 (e)
 
@@ -82,30 +84,15 @@ public:
 };
 
 // ------------------------------------------------------------------------------------------
-// (2) DIE ATTACH-DEFINITION -- hier, weil sie die Factory braucht
+// (2) DIE ATTACH-DEFINITION -- seit F-9 (G4/L21) im gemeinsamen dritten Header
 // ------------------------------------------------------------------------------------------
-
-/// Siehe Deklaration in hybrid_dock_array.hpp. Rueckgabe: Slot-Index (>= 0) oder -status (< 0).
-///
-/// REIHENFOLGE, und warum sie so herum ist: erst wird das Dock GEBAUT, dann der Platz belegt.
-/// Andersherum bliebe bei einem Factory-Fehlschlag ein leerer, aber belegt gezaehlter Slot zurueck
-/// -- ein Array, das voll meldet und nichts traegt. Der Platz wird deshalb erst reserviert, wenn
-/// das Dock steht; bei der Runtime-Policy heisst das, dass ein fehlgeschlagener attach den Vektor
-/// nicht wachsen laesst.
-template <class Policy>
-int DockArray<Policy>::attach(DockContractDescriptor const& desc) noexcept {
-    HybridDockVariant gebaut{};
-    if (int const status = HybridDockFactory::make_dock(desc, gebaut); status != hybrid_status_ok) return -status;
-
-    std::size_t const platz = erster_freier_platz();
-    // F-4: gegen den LAUFZEIT-Deckel pruefen, nicht gegen die Policy-Groesse.
-    if (platz >= kapazitaet()) return -hybrid_status_array_voll;
-
-    speicher_[platz].emplace();
-    speicher_[platz]->dock    = std::move(gebaut);
-    speicher_[platz]->desc    = desc;
-    speicher_[platz]->antrieb = nullptr; // der Proxy bindet ihn spaeter (HY-A2)
-    return static_cast<int>(platz);
-}
+// Sie stand HIER (Begruendung damals: "hier, weil sie die Factory braucht") und ist nach
+// hybrid_dock_attach.hpp gewandert, damit auch der Array-Header sie mitliefert. Der End-Include
+// unten expandiert sie hinter dieser Klasse -- vor jedem Nutzer-Code dieses Einstiegs.
 
 } // namespace comdare::cache_engine::hybrid
+
+// F-9 (G4/L21): die attach-Definition expandiert HIER -- hinter der Factory-Klasse. Beide
+// Einstiege (Array-Header ueber SEINEN End-Include auf diese Datei, diese Datei direkt) liefern
+// sie damit mit; der Konstruktions-Ort bleibt unveraendert die Factory oben.
+#include "hybrid_dock_attach.hpp"
