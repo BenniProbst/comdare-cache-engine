@@ -6808,6 +6808,20 @@ target_include_directories(test_a9s4_skip_manifest PRIVATE
 target_link_libraries(test_a9s4_skip_manifest PRIVATE comdare::lager_ablage)
 set_tests_properties(test_a9s4_skip_manifest PROPERTIES
     LABELS "a9;mess_report;skip;manifest")
+
+# F2-5 Posten 2 (Designplan par.2/K5, NIE-fallen-Klasse "Messdaten nie loeschen"; GOAL VI.4):
+# LG-XlsxAlt -- neue Binary-Version schreibt ADDITIV daneben; die Alt-Datei bleibt ueber den VOLLEN
+# Inhalt byte-identisch (Vernichtungs-Negativprobe, die test_a9s4_skip_manifest:113 mit Groesse+mtime
+# nicht traegt). Gegeneingang T-4: gleiche Version = SKIP je Skip-Doktrin. Include-/Link-Satz wie
+# test_a9s4_skip_manifest (dieselbe Werkzeug-Naht, dieselbe Factory-ODR-Pflicht).
+comdare_add_test(test_lg_xlsx_alt_nie_vernichten
+    SOURCES test_lg_xlsx_alt_nie_vernichten.cpp)
+target_include_directories(test_lg_xlsx_alt_nie_vernichten PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder")
+target_link_libraries(test_lg_xlsx_alt_nie_vernichten PRIVATE comdare::lager_ablage)
+set_tests_properties(test_lg_xlsx_alt_nie_vernichten PROPERTIES
+    LABELS "f2-5;mess_report;skip;nie_vernichten")
 # A9-S5 (2026-08-09) -- die NAHT: Format-Entscheidung + Feld-Adapter + die Mappe neben der offiziellen
 # CSV (profile_facade/ergebnis_mappe_naht.hpp). Bis hierher hatte der xlsx-Writer NULL Produktions-
 # Aufrufer; dieser Test ist der erste, der die beiden geschuldeten Zusicherungen prueft (leeres

@@ -682,7 +682,16 @@
 # WIE GEMESSEN, NICHT GERECHNET: avx512f ist die Klasse dieser Maschine (prod1) und wurde LIVE
 # abgelesen -- gcc-release, inkrementeller Bau, 'ctest -N'-Schlusszeile literal
 # "Total Tests: 508". Fuer avx2/basis gilt die +1-Regel wie beim 500er-, 503er- und 506er-Nachzug.
+#
+# NACHZUG 20.08.2026 (F2-5 Posten 2, Band A): 508/504/502 -> 509/505/503. KONTO, EIN Name in
+# EINEM Zug (Registrierung und Floor-Zeile im SELBEN Commit, #39-Doktrin):
+#   test_lg_xlsx_alt_nie_vernichten (LG-XlsxAlt "nie vernichten": Versions-Wechsel schreibt additiv,
+#     Alt-Datei vollbyte-identisch; DIESER Change) -- UNBEDINGT registriert (comdare_add_test auf
+#     oberster Ebene, kein ISA-Gate, kein opt-in-Label) => +1 auf allen drei Sprossen.
+# WIE GEMESSEN, NICHT GERECHNET: avx512f ist die Klasse dieser Maschine (prod1) und wurde LIVE
+# abgelesen -- gcc-release, inkrementeller Bau, 'ctest -N'-Schlusszeile literal
+# "Total Tests: 509". Fuer avx2/basis gilt dieselbe +1-Regel unbedingter Tests.
 
-avx512f 508
-avx2 504
-basis 502
+avx512f 509
+avx2 505
+basis 503
