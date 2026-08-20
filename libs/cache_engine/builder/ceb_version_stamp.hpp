@@ -209,14 +209,20 @@
 // Alles consteval (registry- und legenden-abgeleitet, Compile-Zeit-konstant); nur die Ausgabe-Formatierung
 // (ceb_version_stamp()) ist Runtime. Ausgabe im CEB-Log-Kopf (apps/cache_engine_builder).
 
-#include <cache_engine/abi/anatomy_fingerprint.hpp>    // anatomy_fingerprint_hex (consteval SHA-512)
-#include <cache_engine/abi/anatomy_stamp_entries.hpp>  // S-1: der EINE Zeilen-Scanner (CebStempel-Mess-Pflicht)
-#include <cache_engine/abi/meta_meta_stamp_suffix.hpp> // A13-M2: kMetaMetaGroupOpen/Close (EINE Klammer-Wahrheit)
-#include <cache_engine/abi/stempel_basis.hpp>          // S-1: StempelBasis/StempelVertrag + ist_stempel_baustein
-#include <cache_engine/measurement/algo_semver.hpp>    // parse_algo_semver + render_algo_semver (die EINE Grammatik)
+#include <cache_engine/abi/anatomy_fingerprint.hpp>       // anatomy_fingerprint_hex (consteval SHA-512)
+#include <cache_engine/abi/anatomy_stamp_entries.hpp>     // S-1: der EINE Zeilen-Scanner (CebStempel-Mess-Pflicht)
+#include <cache_engine/abi/meta_meta_stamp_suffix.hpp>    // A13-M2: kMetaMetaGroupOpen/Close (EINE Klammer-Wahrheit)
+#include <cache_engine/abi/stempel_basis.hpp>             // S-1: StempelBasis/StempelVertrag + ist_stempel_baustein
+#include <cache_engine/abi/system_axis_code_versions.hpp> // KON8-03: kSystemAxisCodeVersions (Single-Source)
+#include <cache_engine/abi/system_cell_values.hpp>        // KON8-03: Vervollstaendiger + Zellwert-Grammatik (W10-C1)
+#include <cache_engine/measurement/algo_semver.hpp>       // parse_algo_semver + render_algo_semver (die EINE Grammatik)
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // O-8 Schritt 12: load_framework-Segment
 #include <mess_axes/measurement_tooling_registry.hpp>                  // kMeasurementToolingRegistry (Single-Source)
 #include <cache_engine/measurement/pmc_vendor_registry.hpp>            // 10.08.2026: die ZWEI PMC-Hardware-Komponenten
+#include <system_axes/external_utils_family_axis.hpp> // KON8-03: SimdExternalUtilsFamily (simd-Glied der System-Zeile)
+#include <system_axes/operating_system_axis.hpp>      // KON8-03: os_family_id-Single-Sources (linux/windows/macos)
+#include <system_axes/simd_sub_axis.hpp>              // KON8-03: SimdNoExtOption (die KEIN-AVX-Zelle)
+#include <system_axes/target_isa_system_axis.hpp>     // KON8-03: target_isa_id-Single-Sources (x86_64/aarch64)
 
 #include <array>
 #include <cstddef>
@@ -589,6 +595,17 @@ inline constexpr std::string_view kCebMeasurementStampFor{kCebMeasurementStampAr
 /// FOLGE, ausdruecklich benannt: kCebFingerprint bewegt sich mit E-E NICHT. Der Aufruf unten ist
 /// byte-identisch zum Vor-E-E-Stand, weil die drei genannten Traeger genau die Werte tragen, die vorher
 /// die Defaults lieferten.
+///
+/// -- KON8-03-NACHTRAG (F2-2, 20.08.2026): DIE ANZEIGE IST GEFUELLT, DER FINGERPRINT LIEGT STILL ----
+///
+/// Ab F2-2 traegt die ERBIN (CebStempel::system_zeile, s.u.) die Anzeige (1) "womit ich gebaut
+/// wurde" -- der W10-C3-Satz "ein Zellwert hier waere schlicht falsch" traf naemlich Anzeige (2)
+/// (die Zelle eines TIER-Bauauftrags), nicht Anzeige (1) (die eigene Bau-Plattform); genau das haelt
+/// KON8-03 fest. FUER DIESEN AUFRUF aendert sich trotzdem NICHTS: SystemZeile{""} bleibt, denn
+/// kCebFingerprint ist die Provenienz der Mess-WAHL, und der Byte-Anker in test_d4 haelt fest, dass
+/// eine Bewegung von ceb_key_sha512 ein eigenes deklariertes Byte-Ereignis mit Owner-Entscheid ist
+/// und nie ein Nebenprodukt. KON8-03 beauftragt die ANZEIGE, nicht den Schluessel -- wer die
+/// System-Zeile zusaetzlich ins Preimage ziehen will, deklariert das eigene Byte-Ereignis dort.
 template <CebComboLegend L>
 inline constexpr auto kCebFingerprintArrayFor = ::comdare::cache_engine::abi::anatomy_fingerprint_hex(
     ::comdare::cache_engine::abi::MessZeile{kCebMeasurementStampFor<L>}, ::comdare::cache_engine::abi::SystemZeile{""},
@@ -609,12 +626,187 @@ inline constexpr std::string_view kCebMeasurementStamp      = kCebMeasurementSta
 inline constexpr auto const&      kCebFingerprintArray      = kCebFingerprintArrayFor<kCebCtLegend>;
 inline constexpr std::string_view kCebFingerprint           = kCebFingerprintFor<kCebCtLegend>;
 
+// ------------------------------------------------------------------------------------------------
+// KON8-03 (F2-2, #15-Nachlande 20.08.2026): ANZEIGE (1) -- DIE CEB-SYSTEM-ZEILE, GEFUELLT
+// ------------------------------------------------------------------------------------------------
+// Owner verbatim (KON8-03): "Die CEB muss also in der System-Achse compile time anzeigen mit was sie
+// gebaut wurde und in einer zweiten System-Achsen-Anzeige im RAM generieren und erkennen zu ihrer
+// Laufzeit, was auf der Hardware prinzipiell moeglich ist [...]". Bauauftrag daraus: ANZEIGE (1)
+// fuellen, ANZEIGE (2) draussen halten.
+//
+//   ANZEIGE (1)  compile-time  "womit ICH gebaut wurde" -- vereinfacht, hohe Kompatibilitaets-
+//                Ansprueche, KEIN AVX. DAS ist die Zeile hier: die drei System-Haupt-Achsen mit
+//                ihren Code-Versionen (kSystemAxisCodeVersions, Single-Source) + die BAU-Zellen
+//                dieser CEB (target_isa/operating_system aus Compiler-Builtins, simd=no_extension)
+//                + das simd-Meta-Meta-Glied am Klammer-ENDE (Hub-Single-Source). Sie steht in der
+//                ERBIN (CebStempel::system_zeile) und im gesamt_stempel -- der ANZEIGE-Weg.
+//   ANZEIGE (2)  Laufzeit/RAM  "was die Hardware KANN" (GPU/FPGA/NPU, AVX-Erkennung) -- gehoert
+//                NICHT in den Stempel (Freigabe-Weg, eigener Posten). Hier entsteht davon NICHTS.
+//
+// WAS SICH DABEI AUSDRUECKLICH NICHT BEWEGT: kCebFingerprint / ceb_key_sha512. Der Fingerprint
+// bleibt die Provenienz der Mess-WAHL mit SystemZeile{""} (s. W10-C3-Block oben, dort der
+// 20.08.-Nachtrag) -- die Fuellung ist ein ANZEIGE-Ereignis des Log-Kopfs (Praezedenz: die
+// planner-Zeile "planner@1.0.0" -> "planner@1.0.0.c"), KEIN Byte-Ereignis der Bestandslog-Zelle.
+// Der Byte-Anker in test_d4_ceb_schluessel_wahl beweist das: er steht unveraendert gruen.
+//
+// KEIN AVX, mechanisch: die simd-Zelle ist SimdNoExtOption::simd_id() ("no_extension") -- die
+// niedrigste reale Stufe der simd-Unter-Achse und zugleich die V-10b-Klasse ("no_extension erzeugt
+// denselben Fingerprint ueberall"). Ein ".avx"-Token kann in dieser Zeile nicht entstehen; der
+// Test-Pin dazu steht in test_s1 (KEIN-AVX-Pin).
+namespace detail {
+
+/// KON8-03-Zellen: die BAU-PLATTFORM dieser CEB, rein compile-time und TU-UNIFORM.
+/// QUELLE DER SCHALTER: Compiler-BUILTINS (__x86_64__/__linux__/...), ausdruecklich NICHT die
+/// COMDARE_*-CMake-Defines der Facade-Naht. Grund ist die ODR-Klasse dieses Headers (s. die
+/// Verdrahtungs-Wache oben): die COMDARE_*-Defines sind TARGET-Eigenschaften
+/// (cmake/compiler_flags.cmake, je Ziel vergeben) -- eine TU ohne sie definierte kCebSystemStamp
+/// mit einem ANDEREN Wert als ihre Nachbarn, still (IFNDR). Compiler-Builtins sind fuer jede TU
+/// desselben Baus identisch; eine zweite Emissionsstellen-Verdrahtung eruebrigt sich damit.
+/// Die WERTE kommen trotzdem aus den EINEN Achsen-Single-Sources (target_isa_id()/os_family_id());
+/// der Drift-Guard test_s1/CebSystemZeileIstZwillingDesHausRenderers haelt diese Builtin-Leiter
+/// deckungsgleich mit der COMDARE_*-Leiter der Facade-Naht (system_cell_values_naht.hpp).
+[[nodiscard]] consteval std::string_view ceb_bau_isa_zelle() noexcept {
+#if defined(__x86_64__) || defined(_M_X64)
+    return ::comdare::cache_engine::measurement::X86_64TargetIsa::target_isa_id();
+#elif defined(__aarch64__) || defined(_M_ARM64)
+    return ::comdare::cache_engine::measurement::Aarch64TargetIsa::target_isa_id();
+#else
+    return ::comdare::cache_engine::abi::kSystemCellValueNa; // riscv64-Klasse: ehrliches na (W10-C1)
+#endif
+}
+[[nodiscard]] consteval std::string_view ceb_bau_os_zelle() noexcept {
+#if defined(__linux__)
+    return ::comdare::cache_engine::measurement::LinuxOperatingSystem::os_family_id();
+#elif defined(_WIN32)
+    return ::comdare::cache_engine::measurement::WindowsOperatingSystem::os_family_id();
+#elif defined(__APPLE__)
+    return ::comdare::cache_engine::measurement::MacosOperatingSystem::os_family_id();
+#else
+    return ::comdare::cache_engine::abi::kSystemCellValueNa;
+#endif
+}
+
+/// Die BASIS der CEB-System-Zeile (Phase-1-Form) -- EIN Renderer, zwei Verbraucher (Laenge + Array),
+/// exakt die D-4-Disziplin der Mess-Zeile oben: eine getrennte Laengen-Rechnung waere die Falle
+/// "zu grosse Puffer-Zusage bei zu kurzem Render == abgeschnittener Stempel".
+/// INHALT == der Zwilling von abi::system_stamp_line(): die drei Haupt-Achsen aus
+/// kSystemAxisCodeVersions mit dem "code"-Marker (die Achse-zu-Marker-Zuordnung ist Sache der
+/// Stempel-Funktion, s. system_axis_code_versions.hpp-Kopf) + das simd-Meta-Meta-Glied aus der
+/// Hub-Single-Source (SimdExternalUtilsFamily) als Klammer-Anhang am Zeilen-ENDE (Owner-E2).
+/// O-8-Schritt-12-Lehre: damit ist dieser Header fuer die System-Zeile ein WEITERER Ableitungsweg;
+/// der Drift-Guard in test_s1 haelt ihn byte-identisch zum Haus-Renderer -- wie der A5-Guard die
+/// Mess-Zeile.
+template <class Emit>
+consteval std::size_t ceb_system_basis_render(Emit&& emit) {
+    std::size_t n   = 0;
+    auto        put = [&](std::string_view s) {
+        for (char const c : s) {
+            emit(c);
+            ++n;
+        }
+    };
+    auto put_version = [&put](std::string_view rohe_version) {
+        ::comdare::cache_engine::measurement::RenderedAlgoSemVer const r =
+            ::comdare::cache_engine::measurement::render_algo_semver(
+                ::comdare::cache_engine::measurement::parse_algo_semver(rohe_version));
+        put(r.view());
+    };
+    using ::comdare::cache_engine::abi::kSystemAxisCodeCount;
+    using ::comdare::cache_engine::abi::kSystemAxisCodeVersions;
+    for (std::size_t i = 0; i < kSystemAxisCodeCount; ++i) {
+        if (i != 0) put(";");
+        put(kSystemAxisCodeVersions[i].axis);
+        put("=code@");
+        put_version(kSystemAxisCodeVersions[i].version);
+    }
+    put(";");
+    emit(::comdare::cache_engine::abi::kMetaMetaGroupOpen);
+    ++n;
+    put(::comdare::cache_engine::measurement::SimdExternalUtilsFamily::family_id());
+    put("=code@");
+    put_version(::comdare::cache_engine::measurement::SimdExternalUtilsFamily::axis_code_version);
+    emit(::comdare::cache_engine::abi::kMetaMetaGroupClose);
+    ++n;
+    return n;
+}
+[[nodiscard]] consteval std::size_t ceb_system_basis_len() {
+    return ceb_system_basis_render([](char) {});
+}
+[[nodiscard]] consteval auto ceb_system_basis_array() {
+    std::array<char, ceb_system_basis_len() + 1> out{};
+    std::size_t                                  p = 0;
+    ceb_system_basis_render([&](char const c) { out[p++] = c; });
+    out[p] = '\0';
+    return out;
+}
+
+/// Die Zellwert-Form dieser CEB ("target_isa=<t>;operating_system=<t>;simd=<t>") -- Schluessel aus
+/// der EINEN C1-Ordnung (abi::kSystemCellValueKeys), Werte aus den Zellen oben + der KEIN-AVX-Zelle.
+/// Derselbe Ein-Renderer-Zwei-Verbraucher-Schnitt wie an der Basis.
+template <class Emit>
+consteval std::size_t ceb_system_zellen_render(Emit&& emit) {
+    std::size_t n   = 0;
+    auto        put = [&](std::string_view s) {
+        for (char const c : s) {
+            emit(c);
+            ++n;
+        }
+    };
+    using ::comdare::cache_engine::abi::kSystemCellValueKeys;
+    put(kSystemCellValueKeys[0]);
+    put("=");
+    put(ceb_bau_isa_zelle());
+    put(";");
+    put(kSystemCellValueKeys[1]);
+    put("=");
+    put(ceb_bau_os_zelle());
+    put(";");
+    put(kSystemCellValueKeys[2]);
+    put("=");
+    put(::comdare::cache_engine::measurement::SimdNoExtOption::simd_id()); // KEIN AVX (KON8-03)
+    return n;
+}
+[[nodiscard]] consteval std::size_t ceb_system_zellen_len() {
+    return ceb_system_zellen_render([](char) {});
+}
+[[nodiscard]] consteval auto ceb_system_zellen_array() {
+    std::array<char, ceb_system_zellen_len() + 1> out{};
+    std::size_t                                   p = 0;
+    ceb_system_zellen_render([&](char const c) { out[p++] = c; });
+    out[p] = '\0';
+    return out;
+}
+
+} // namespace detail
+
+/// Die consteval-Traeger der KON8-03-Anzeige (1): Basis, Zellen, vervollstaendigte Zeile.
+inline constexpr auto             kCebSystemBasisArray = detail::ceb_system_basis_array();
+inline constexpr std::string_view kCebSystemBasis{kCebSystemBasisArray.data(), kCebSystemBasisArray.size() - 1};
+inline constexpr auto             kCebSystemZellenArray = detail::ceb_system_zellen_array();
+inline constexpr std::string_view kCebSystemZellen{kCebSystemZellenArray.data(), kCebSystemZellenArray.size() - 1};
+// Die Zellen-Form MUSS die C1-Diagnose bestehen (vollstaendig, alle Schluessel bekannt, Tokens
+// wohlgeformt) -- dieselbe compile-harte Wache, die auch an der Define-Naht steht.
+static_assert(::comdare::cache_engine::abi::diagnose_system_cell_values(kCebSystemZellen) ==
+                  ::comdare::cache_engine::abi::SystemCellValuesDiagnose::ok,
+              "KON8-03: die CEB-Bau-Zellenform ist nicht wohlgeformt/vollstaendig -- die Anzeige (1) "
+              "darf keine Teil-Belegung tragen (W10-C1-Vollstaendigkeits-Regel)");
+/// Die GEFUELLTE System-Zeile der Anzeige (1): Basis + Zellwerte ueber den EINEN Vervollstaendiger
+/// (abi::complete_system_stamp_line_array -- derselbe consteval-Weg wie die Tier-Makro-Naht).
+inline constexpr auto kCebSystemStampArray = ::comdare::cache_engine::abi::complete_system_stamp_line_array<
+    ::comdare::cache_engine::abi::complete_system_stamp_line_size(
+        kCebSystemBasis, ::comdare::cache_engine::abi::SystemCellValues{kCebSystemZellen})>(
+    kCebSystemBasis, ::comdare::cache_engine::abi::SystemCellValues{kCebSystemZellen});
+inline constexpr std::string_view kCebSystemStamp = kCebSystemStampArray.view();
+
 // -- S-1 (P5): DIE CEB-ERBIN DES STEMPEL-VERTRAGS ------------------------------------------------------
 
 /// Die Teile des gesamt_stempel-Kompositums in ERBIN-genannter Reihenfolge (S-6-Sperre: die Basis kennt
-/// keine Ordnung). BYTE-IDENTISCH zur bisherigen ceb_version_stamp()-Konkatenation.
-[[nodiscard]] constexpr std::array<std::string_view, 4> ceb_gesamt_stempel_teile() noexcept {
-    return {"ceb-measurement=", kCebMeasurementStamp, ";sha512=", kCebFingerprint};
+/// keine Ordnung). KON8-03 (20.08.2026): das ';ceb-system='-Segment ist NEU -- ein DEKLARIERTES
+/// Byte-Ereignis der LOG-KOPF-Zeile (Praezedenz planner "1.0.0" -> "1.0.0.c"), KEIN Byte-Ereignis der
+/// Bestandslog-Zelle (kCebFingerprint unbewegt, s. KON8-03-Block oben). Ordnung MESS, SYSTEM -- die
+/// Kategorien-Ordnung der Aussen-Ebenen (KON21-03); sha am Ende wie gehabt.
+[[nodiscard]] constexpr std::array<std::string_view, 6> ceb_gesamt_stempel_teile() noexcept {
+    return {"ceb-measurement=", kCebMeasurementStamp, ";ceb-system=", kCebSystemStamp, ";sha512=", kCebFingerprint};
 }
 inline constexpr auto kCebGesamtStempelKompositum =
     ::comdare::cache_engine::abi::stempel_kompositum<&ceb_gesamt_stempel_teile>();
@@ -626,14 +818,12 @@ struct CebStempel
     /// mess_zeile: die einkompilierte Mess-WAHL (M-1/D-4) -- die Identitaet der CEB.
     [[nodiscard]] static constexpr std::string_view mess_zeile() noexcept { return kCebMeasurementStamp; }
 
-    /// system_zeile: DEKLARIERTE LUECKE -- die W10-C3-KOMMENTAR-Wache ("der CEB-Selbst-Stempel bleibt
-    /// zellwertfrei", s. Fingerprint-Block oben) wird hier zur RIEGEL-KONSTANTE: die Leere ist benannt
-    /// und begruendet statt still. Die FUELLUNG der System-Zeile ist der KON8-03-Bauauftrag, nicht S-1.
-    [[nodiscard]] static constexpr std::string_view system_zeile() noexcept { return {}; }
-    static constexpr bool                           kSystemZeileBewusstLeer = true;
-    static constexpr std::string_view               kSystemZeileBewusstLeerGrund =
-        "W10-C3: der CEB-Selbst-Stempel bleibt zellwertfrei -- die CEB ist KEIN Tier-Binary; die "
-        "Fuellung der System-Zeile ist der KON8-03-Bauauftrag, nicht S-1";
+    /// system_zeile: GEFUELLT (KON8-03, F2-2/#15-Nachlande 20.08.2026) -- die Anzeige (1)
+    /// "womit ICH gebaut wurde": drei Haupt-Achsen-Code-Versionen + Bau-Zellen (isa/os) +
+    /// simd=no_extension (KEIN AVX), s. den KON8-03-Block oben. Die bis hierher deklarierte Luecke
+    /// (BewusstLeer-Riegel) ist damit GESCHLOSSEN; Anzeige (2) (RAM-/Laufzeit-Erkennung) bleibt
+    /// ausdruecklich draussen, und der FINGERPRINT unten bleibt bei SystemZeile{""} (unbewegt).
+    [[nodiscard]] static constexpr std::string_view system_zeile() noexcept { return kCebSystemStamp; }
 
     /// fingerprint_sha: die 128-hex-SHA-512-Provenienz der Mess-Wahl.
     [[nodiscard]] static constexpr std::string_view fingerprint_sha() noexcept { return kCebFingerprint; }

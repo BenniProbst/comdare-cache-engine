@@ -15,7 +15,9 @@
 //   A-P4  Byte-Orakel Planer: planner_version_stamp() == PlanerStempel::gesamt_stempel(), Praefix-Anker
 //         "planner@1.0.0.c isa=x86_64 os=" (VOR der Delegation eingefroren, T-5).
 //   A-P5  Byte-Orakel CEB: ceb_version_stamp() == CebStempel::gesamt_stempel(); sha-Laenge == 128
-//         (sha512_len-Doktrin, anatomy_module_abi_v1_decl.hpp:232-233).
+//         (sha512_len-Doktrin, anatomy_module_abi_v1_decl.hpp:232-233). Seit F2-2 (KON8-03,
+//         #15-Nachlande) zusaetzlich: System-Zeile GEFUELLT (Anzeige (1)), KEIN-AVX-Pin,
+//         ';ceb-system='-Segment im Voll-Orakel, Zwillings-Guard gegen den Haus-Renderer.
 //   A-P6  Dock-Nenner == 5; jedes Literal ist VersionsLiteral-Baustein.
 //   A-P7  g1-Block: vier gelabelte Zeilen, jede non-empty; Zeile 1 == planner_version_stamp()
 //         (transitiv == PlanerStempel-Kompositum).
@@ -51,21 +53,27 @@
 // T-9: Codex-Gegenlese-Pass ist fuer die FOLGEWELLE vorgemerkt (nicht Teil dieser TU).
 //
 // DECKUNG, beide Mengen (GOAL-Pruefung 4): GEPRUEFT = Vertragsflaeche/Matrix, Riegel (organ@CEB,
-// stille Leere, Fehlgrammatik), Byte-Delegation Planer+CEB, Baustein-Bindung (10), Dock-Nenner (5),
-// g1-Ausgabeblock. NICHT GEPRUEFT (WARTE/eigene Posten, deklarierte Luecken): CEB-System-Fuellwert
-// (KON8-03), Planer-SHA-Wert, Tier-/Hybrid-ERBIN am Bestand (W-B/W-D -- die Tier-/Hybrid-Probes unten
-// pruefen NUR die Vertragsflaeche mit Test-lokalen Werten), SotaStampLines (W-A).
+// stille Leere, Fehlgrammatik), Byte-Delegation Planer+CEB, CEB-System-Fuellwert (KON8-03, seit
+// F2-2/#15-Nachlande: gefuellt + KEIN-AVX-Pin + Zwillings-Guard), Baustein-Bindung (10), Dock-Nenner
+// (5), g1-Ausgabeblock. NICHT GEPRUEFT (WARTE/eigene Posten, deklarierte Luecken): Planer-SHA-Wert
+// (V-08R-Form owner-gated, Vorlagen-Fenster P5), Tier-/Hybrid-ERBIN am Bestand (W-B/W-D -- die
+// Tier-/Hybrid-Probes unten pruefen NUR die Vertragsflaeche mit Test-lokalen Werten),
+// SotaStampLines (W-A).
 
 #include <builder/ceb_version_stamp.hpp>
 #include <builder/pruef_dock/pruef_dock_version.hpp>
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp>
 #include <cache_engine/abi/anatomy_stamp_entries.hpp>
+#include <cache_engine/abi/anatomy_version_stamp.hpp> // KON8-03-Drift-Guard: system_stamp_line (Haus-Renderer)
 #include <cache_engine/abi/stempel_basis.hpp>
 #include <cache_engine/abi/system_cell_values.hpp>
+#include <cache_engine/abi/tier_hybrid_stempel.hpp> // F2-3: die Tier-/Hybrid-Erbinnen (S-5-Rest)
 #include <cache_engine/abi/toolchain_stamp_glied.hpp>
 #include <profile_facade/g1_binary_version_stamp.hpp>
 #include <profile_facade/planner/planner_version.hpp>
+#include <profile_facade/system_cell_values_naht.hpp> // KON8-03-Drift-Guard: kSystemCellBuild* (Facade-Naht)
 #include <profile_facade/toolchain_stamp_naht.hpp>
+#include <system_axes/simd_sub_axis.hpp> // KON8-03: SimdNoExtOption (die KEIN-AVX-Zelle, Single-Source)
 
 #include <gtest/gtest.h>
 
@@ -302,6 +310,104 @@ static_assert(!abi::StempelVertrag<CebGesamtOhneMess, abi::StempelTraeger::Ceb>,
               "(ordnungsneutral, S-6-Sperre bleibt gewahrt)");
 
 // ================================================================================================
+// F2-3 (S-5-ERBINNEN-REST, #15-Nachlande 20.08.2026): die ECHTEN Tier-/Hybrid-ERBINNEN
+// ================================================================================================
+// Bis F2-3 pruefte diese TU die Tier-/Hybrid-Flaeche NUR ueber die Test-lokalen Probe-Structs oben
+// (TierProbe/HybridProbe). Ab jetzt existieren die ERBINNEN-Klassen (abi/tier_hybrid_stempel.hpp):
+// abi::TierStempel<Provider> / abi::HybridStempel<Provider> nach dem P4/P5-Muster (PlanerStempel/
+// CebStempel), plus der name()-VERTRAG (E-A/V-05R: 64 lowercase hex, NIEMALS fingerprint[0:64]).
+// Die WERTE hier kommen aus den ECHTEN Haus-Primitiven (anatomy_fingerprint_hex/anatomy_name_hex/
+// stempel_kompositum) ueber wohlgeformten Zeilen -- die VERDRAHTUNG in die Makro-Naht
+// (COMDARE_ANATOMY_VERSION_STAMP_M) ist B-8b/B5 und faellt AUSDRUECKLICH nicht in F2-3.
+namespace erbin_bestand {
+
+/// Die REALEN Hash-Primitiven ueber den Probe-Zeilen: fingerprint (SHA-512, 128 hex) und NAME
+/// (SHA-256, 64 hex, EIGENER Hash -- anatomy_name_hex, dieselbe Primitive wie im Tier-Makro seit L1).
+inline constexpr auto kTierFp = abi::anatomy_fingerprint_hex(
+    abi::MessZeile{probe_mess_zeile()}, abi::SystemZeile{probe_system_zeile()}, abi::OrganZeile{probe_organ_zeile()});
+inline constexpr auto kTierNm = abi::anatomy_name_hex(
+    abi::MessZeile{probe_mess_zeile()}, abi::SystemZeile{probe_system_zeile()}, abi::OrganZeile{probe_organ_zeile()});
+
+constexpr std::array<string_view, 8> tier_bestand_teile() noexcept {
+    return {probe_mess_zeile(),
+            "\n",
+            probe_system_zeile(),
+            "\n",
+            probe_organ_zeile(),
+            "\nsha512=",
+            string_view{kTierFp.data(), 128},
+            string_view{kTierNm.data(), 64}};
+}
+inline constexpr auto kTierBestandKomp = abi::stempel_kompositum<&tier_bestand_teile>();
+
+/// Der Tier-Provider -- die Wert-Quelle der Erbin (B-8b zieht dieselbe Form spaeter in die Makro-Naht).
+struct TierWerte {
+    static constexpr string_view mess_zeile() noexcept { return probe_mess_zeile(); }
+    static constexpr string_view system_zeile() noexcept { return probe_system_zeile(); }
+    static constexpr string_view organ_zeile() noexcept { return probe_organ_zeile(); }
+    static constexpr string_view fingerprint_sha() noexcept { return {kTierFp.data(), 128}; }
+    static constexpr string_view name() noexcept { return {kTierNm.data(), 64}; }
+    static constexpr string_view gesamt_stempel() noexcept { return kTierBestandKomp.view(); }
+};
+
+/// Der Hybrid-Provider: dieselbe Flaeche + der angeschlossene()-RT-Hook (KON47-02; der Datenbestand
+/// ist der Dock-Init-Cache, hybrid_dock_array.hpp -- hier statisch langlebig wie dort).
+struct HybridWerte : TierWerte {
+    static constexpr std::array<string_view, 2>       kAngeschlossene{probe_organ_zeile(), probe_system_zeile()};
+    [[nodiscard]] static std::span<string_view const> angeschlossene() noexcept { return kAngeschlossene; }
+};
+
+using TierErbin   = abi::TierStempel<TierWerte>;
+using HybridErbin = abi::HybridStempel<HybridWerte>;
+
+/// DER ZWANG (S-1/P1.2, unveraendert): jede Erbin schliesst direkt unter ihrer Definition mit dem
+/// Vertrag -- hier an der Instanziierung, denn die Erbin ist eine Vorlage ueber dem Provider.
+static_assert(abi::StempelVertrag<TierErbin, abi::StempelTraeger::Tier>,
+              "F2-3: die Tier-ERBIN verletzt den Stempel-Vertrag des Traegers TIER");
+static_assert(abi::StempelVertrag<HybridErbin, abi::StempelTraeger::Hybrid>,
+              "F2-3: die Hybrid-ERBIN verletzt den Stempel-Vertrag des Traegers HYBRID");
+/// Der name()-VERTRAG (E-A/V-05R): 64 lowercase hex UND niemals das Fingerprint-Praefix.
+static_assert(abi::stempel_name_vertrag<TierErbin>(),
+              "F2-3/E-A: der Tier-Name verletzt den name()-Vertrag (64 hex, != fingerprint[0:64])");
+static_assert(abi::stempel_name_vertrag<HybridErbin>(),
+              "F2-3/E-A: der Hybrid-Name verletzt den name()-Vertrag (64 hex, != fingerprint[0:64])");
+
+// NEGATIV: ein Tier-Provider OHNE organ_zeile faellt am Vertrag (Pflicht-Zelle organ@Tier) --
+// die Erbin weicht nichts auf.
+struct TierWerteOhneOrgan {
+    static constexpr string_view mess_zeile() noexcept { return probe_mess_zeile(); }
+    static constexpr string_view system_zeile() noexcept { return probe_system_zeile(); }
+    static constexpr string_view fingerprint_sha() noexcept { return {kTierFp.data(), 128}; }
+    static constexpr string_view name() noexcept { return {kTierNm.data(), 64}; }
+    static constexpr string_view gesamt_stempel() noexcept { return kTierBestandKomp.view(); }
+};
+static_assert(!abi::StempelVertrag<abi::TierStempel<TierWerteOhneOrgan>, abi::StempelTraeger::Tier>,
+              "F2-3: ein Tier ohne organ_zeile MUSS abgelehnt werden (Matrix-Pflicht)");
+
+// NEGATIV (E-A-Ungleichheits-Klasse, Bauplan-B-6-Koeder als DAUER-Negativprobe): ein Provider,
+// dessen name() das Fingerprint-Praefix ist, besteht den name()-Vertrag NICHT.
+struct TierWerteNameAlsPraefix : TierWerte {
+    static constexpr string_view name() noexcept { return {kTierFp.data(), 64}; } // fingerprint[0:64]!
+};
+static_assert(!abi::stempel_name_vertrag<abi::TierStempel<TierWerteNameAlsPraefix>>(),
+              "F2-3/E-A: ein Name, der fingerprint[0:64] ist, MUSS am Ungleichheits-Vertrag scheitern "
+              "('EIGENER Hash, KEIN fingerprint[0:64]', Ledger-Nachtrag 07.08.2026/E-A-Auflage)");
+
+} // namespace erbin_bestand
+
+TEST(S1StempelBasisVertrag, F23TierHybridErbinnenTragenDieVertragsflaeche) {
+    // Laufzeit-Spiegel der consteval-Beweise oben (sichtbare Deckung im ctest-Protokoll).
+    EXPECT_EQ(erbin_bestand::TierErbin::fingerprint_sha().size(), 128u);
+    EXPECT_EQ(erbin_bestand::TierErbin::name().size(), 64u);
+    EXPECT_NE(std::string{erbin_bestand::TierErbin::name()},
+              std::string{erbin_bestand::TierErbin::fingerprint_sha().substr(0, 64)});
+    erbin_bestand::HybridErbin const h{};
+    EXPECT_EQ(h.angeschlossene().size(), 2u);
+    EXPECT_EQ(erbin_bestand::HybridErbin::kTraeger, abi::StempelTraeger::Hybrid);
+    EXPECT_EQ(erbin_bestand::TierErbin::kTraeger, abi::StempelTraeger::Tier);
+}
+
+// ================================================================================================
 // A-P2/P3: GENAU 10 gebundene Baustein-Typen (fremdquellige Liste) + der Nicht-Baustein
 // ================================================================================================
 using GebundeneBausteine = std::tuple<abi::detail::StampSegment,        // 1 (KON6-03)
@@ -383,31 +489,60 @@ TEST(S1StempelBasisVertrag, PlanerDelegiertByteIdentisch) {
 }
 
 // ================================================================================================
-// A-P5: Byte-Orakel CEB + sha-Laenge + deklarierte System-Luecke
+// A-P5: Byte-Orakel CEB + sha-Laenge + GEFUELLTE System-Zeile (KON8-03 Anzeige (1))
 // ================================================================================================
 static_assert(ceb::CebStempel::fingerprint_sha().size() == 128,
               "A-P5: sha512_len-Doktrin (decl.hpp:224-225) -- der CEB-Fingerprint traegt 128 hex");
-static_assert(ceb::CebStempel::system_zeile().empty() && ceb::CebStempel::kSystemZeileBewusstLeer &&
-                  !ceb::CebStempel::kSystemZeileBewusstLeerGrund.empty(),
-              "A-P5: die System-Luecke der CEB ist DEKLARIERT (W10-C3-Riegel-Konstante), nie still");
+// F2-2/#15-Nachlande (KON8-03): die System-Luecke ist GEFUELLT -- Anzeige (1) "womit ich gebaut
+// wurde" steht in der Erbin. Die fruehere BewusstLeer-Riegel-Konstante ist damit Geschichte; eine
+// leere System-Zeile waere ab jetzt ein Vertragsbruch (Pflicht-Zelle system_zeile@CEB).
+static_assert(!ceb::CebStempel::system_zeile().empty(),
+              "A-P5/KON8-03: die CEB-System-Zeile (Anzeige (1), compile-time) darf nie wieder leer sein");
+// KEIN AVX (Owner-Wortlaut KON8-03: Anzeige (1) ist 'vereinfacht, hohe Kompatibilitaets-Ansprueche,
+// KEIN AVX'): kein '.avx'-Zellwert-Token darf in der CEB-System-Zeile auftauchen -- die simd-Zelle
+// ist no_extension. Mechanischer Pin, nicht Kommentar.
+static_assert(ceb::CebStempel::system_zeile().find(".avx") == string_view::npos,
+              "KON8-03: Anzeige (1) traegt KEIN AVX -- ein '.avx'-Token in der CEB-System-Zeile "
+              "behauptete eine SIMD-Spezialisierung, die die CEB selbst nicht hat (das waere Anzeige (2))");
 
 TEST(S1StempelBasisVertrag, CebDelegiertByteIdentisch) {
     std::string const stamp = ceb::ceb_version_stamp();
     EXPECT_EQ(stamp, std::string{ceb::CebStempel::gesamt_stempel()});
     EXPECT_EQ(stamp.rfind("ceb-measurement=", 0), 0u);
+    EXPECT_NE(stamp.find(";ceb-system="), std::string::npos);
     EXPECT_NE(stamp.find(";sha512="), std::string::npos);
     EXPECT_EQ(ceb::CebStempel::fingerprint_sha().size(), 128u);
-    // ORDNUNGSNEUTRAL: die eigene Mess-Zeile und der sha reisen als Teilstring im Gesamt-Stempel.
+    // ORDNUNGSNEUTRAL: alle drei eigenen Teile reisen als Teilstring im Gesamt-Stempel.
     EXPECT_NE(stamp.find(std::string{ceb::CebStempel::mess_zeile()}), std::string::npos);
+    EXPECT_NE(stamp.find(std::string{ceb::CebStempel::system_zeile()}), std::string::npos);
     EXPECT_NE(stamp.find(std::string{ceb::CebStempel::fingerprint_sha()}), std::string::npos);
     // UNABHAENGIGES VOLL-ORAKEL (Zweitlens-Befund 12.08.): die Gleichheit oben ist nach der Delegation
-    // tautologisch -- erst die hier NACHGEBAUTE fruehere Konkatenation bindet REIHENFOLGE und
-    // VOLLSTAENDIGKEIT des Altstrings unabhaengig, gegen Wrapper UND Erbin (T-5: Orakel nicht aus dem
-    // Pruefling -- die Bauform stammt aus dem eingefrorenen Schnitt-Text, nicht aus gesamt_stempel()).
+    // tautologisch -- erst die hier NACHGEBAUTE Konkatenation bindet REIHENFOLGE und VOLLSTAENDIGKEIT
+    // unabhaengig, gegen Wrapper UND Erbin (T-5: Orakel nicht aus dem Pruefling -- die Bauform stammt
+    // aus dem Schnitt-Text: KON8-03-Fuellung haengt die System-Zeile als ';ceb-system='-Segment
+    // ZWISCHEN Mess-Teil und sha -- Kategorien-Ordnung MESS, SYSTEM der Aussen-Ebenen, KON21-03).
     std::string const erwartet = std::string{"ceb-measurement="} + std::string{ceb::CebStempel::mess_zeile()} +
+                                 ";ceb-system=" + std::string{ceb::CebStempel::system_zeile()} +
                                  ";sha512=" + std::string{ceb::CebStempel::fingerprint_sha()};
-    EXPECT_EQ(stamp, erwartet) << "die CEB-Konkatenation hat Form/Reihenfolge des Altstrings verlassen";
+    EXPECT_EQ(stamp, erwartet) << "die CEB-Konkatenation hat Form/Reihenfolge des Schnitt-Texts verlassen";
     EXPECT_EQ(std::string{ceb::CebStempel::gesamt_stempel()}, erwartet);
+}
+
+// KON8-03-DRIFT-GUARD (O-8-Schritt-12-Lehre, A5-Muster): ceb_version_stamp.hpp ist fuer die
+// System-Zeile ein WEITERER Ableitungsweg neben abi::system_stamp_line + Vervollstaendiger. Dieser
+// Test haelt beide Wege byte-identisch -- Basis-Zeile UND Zell-Vervollstaendigung UND Zell-QUELLEN
+// (Compiler-Builtins der Erbin gegen die COMDARE_*-Naht der Facade; beide muessen dieselbe
+// Bau-Plattform nennen). Faellt er rot, ist einer der Zwillinge gewandert.
+TEST(S1StempelBasisVertrag, CebSystemZeileIstZwillingDesHausRenderers) {
+    namespace pfn            = ::comdare::cache_engine::profile_facade;
+    namespace cm             = ::comdare::cache_engine::measurement;
+    std::string const zellen = pfn::compose_system_cell_values(pfn::kSystemCellBuildIsa, pfn::kSystemCellBuildOsFamily,
+                                                               cm::SimdNoExtOption::simd_id());
+    ASSERT_FALSE(zellen.empty()) << "die Bau-Plattform-Zellen der Facade-Naht sind unbelegt";
+    std::string const erwartet =
+        abi::complete_system_stamp_line(abi::system_stamp_line(), abi::SystemCellValues{zellen});
+    EXPECT_EQ(std::string{ceb::CebStempel::system_zeile()}, erwartet)
+        << "die CEB-System-Zeile (consteval-Zwilling) ist vom Haus-Renderer weggedriftet";
 }
 
 // ================================================================================================

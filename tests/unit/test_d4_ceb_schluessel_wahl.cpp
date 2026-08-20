@@ -249,10 +249,13 @@ TEST(D4CebSchluesselWahl, VollmengeIstByteStabilZumVorD4Stand) {
 TEST(D4CebSchluesselWahl, EinkompilierteKonstanteIstSpezialisierungDerVorlage) {
     EXPECT_EQ(ceb::kCebFingerprint, (ceb::kCebFingerprintFor<ceb::kCebCtLegend>));
     EXPECT_EQ(ceb::kCebMeasurementStamp, (ceb::kCebMeasurementStampFor<ceb::kCebCtLegend>));
-    // Und die Runtime-Ausgabe traegt genau diese beiden Teile -- keine dritte Ableitung.
+    // Und die Runtime-Ausgabe traegt genau diese Teile -- keine dritte Ableitung. KON8-03 (F2-2,
+    // 20.08.2026): das ';ceb-system='-Segment (Anzeige (1)) reist MIT; der SCHLUESSEL kCebFingerprint
+    // ist davon unberuehrt (die Fingerprint-Pins dieser TU stehen unveraendert -- das IST der Beweis,
+    // dass die Anzeige-Fuellung kein Byte-Ereignis der Bestandslog-Zelle war).
     std::string const stamp = ceb::ceb_version_stamp();
-    EXPECT_EQ(stamp, "ceb-measurement=" + std::string{ceb::kCebMeasurementStamp} +
-                         ";sha512=" + std::string{ceb::kCebFingerprint});
+    EXPECT_EQ(stamp, "ceb-measurement=" + std::string{ceb::kCebMeasurementStamp} + ";ceb-system=" +
+                         std::string{ceb::kCebSystemStamp} + ";sha512=" + std::string{ceb::kCebFingerprint});
     std::cout << "[D-4 BISS] einkompilierte Legende=" << ceb::kCebCtComboLegend
               << ", Schluessel=" << ceb::kCebFingerprint.substr(0, 24) << "...\n";
 }
