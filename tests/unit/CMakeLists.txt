@@ -7574,3 +7574,44 @@ target_include_directories(test_s6c_kategorien_ordnung_zwei_welten PRIVATE
 target_link_libraries(test_s6c_kategorien_ordnung_zwei_welten PRIVATE Boost::mp11)
 set_tests_properties(test_s6c_kategorien_ordnung_zwei_welten PROPERTIES
     LABELS "s6c;s21;kategorien;ordnung;zwei-welten;wachen;koeder")
+
+# =============================================================================
+# T-15b + C-05 MESS-FENSTER (20.08.2026): Binary-Retry-Klammer + Wiederholungs-
+# Paar als eigener Block am DATEIENDE (Kollisionsschutz gegen die Bloecke
+# anderer Straenge; Harmonisierung macht der Lande-Zug).
+#
+# test_t15b_retry_warmup_paar: KON37-06 (je 5x Build+Messung, Stop bei Erfolg,
+# aufgeben nach Erschoepfung) + KON28-02 (hart triggert, SOFT/PMC nie --
+# Koeder) + KON47-04 (Paar 2 Laeufe/1 Wert, --debug 1x kalt, Verwerf-Beweis;
+# 6 Laeufe/3 Werte unter dem Drift-Gate) + XML-Kette <binary_retry> samt
+# Attr-Default-Umzugs-Beweis (drift max_reruns "5"->"3", KON26-04) +
+# Quellen-Wachen (Dispatch-Klammer [T-15B-RETRY], Paar in der T-15-KLAMMER,
+# Bau-Klammer im Orchestrator, Kaltpfad-Zensus perm_runner). Rezept/Includes
+# gespiegelt von test_t15_drift_gate_messschleife (standalone int main(), zieht
+# den Iterator-Header); die Quell-Pfade reisen per compile definition.
+add_executable(test_t15b_retry_warmup_paar "test_t15b_retry_warmup_paar.cpp")
+target_compile_features(test_t15b_retry_warmup_paar PRIVATE cxx_std_23)
+target_include_directories(test_t15b_retry_warmup_paar PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_t15b_retry_warmup_paar PRIVATE Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_t15b_retry_warmup_paar)
+# Pfade ueber Zwischenvariablen (DIFF-HYGIENE: keine >120-Spalten-Zeile; Muster _t15_tree).
+set(_t15b_ce "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+target_compile_definitions(test_t15b_retry_warmup_paar PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_T15B_ITERATOR_QUELLE=\"${_t15b_ce}/builder/experiment_tree/cache_engine_builder_iterator.hpp\""
+    "COMDARE_T15B_ENTRY_QUELLE=\"${_t15b_ce}/profile_facade/profile_run_entry.hpp\""
+    "COMDARE_T15B_EXPENTRY_QUELLE=\"${_t15b_ce}/profile_facade/experiment_run_entry.hpp\""
+    "COMDARE_T15B_ORCH_QUELLE=\"${_t15b_ce}/builder/build_orchestrator/build_orchestrator.hpp\""
+    "COMDARE_T15B_PERMRUNNER_QUELLE=\"${_t15b_ce}/harness/perm_runner.hpp\"")
+unset(_t15b_ce)
+add_test(NAME test_t15b_retry_warmup_paar COMMAND test_t15b_retry_warmup_paar)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_t15b_retry_warmup_paar)
+set_tests_properties(test_t15b_retry_warmup_paar PROPERTIES
+    LABELS "t15b;c05;retry;warmup-paar;messfenster;standalone;koeder")

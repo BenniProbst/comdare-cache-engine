@@ -358,11 +358,23 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(std::filesyst
         tp.drift_gate_declared           = true;
         tp.drift_gate_reps               = to_int(dg->attr("reps", "3"), 3);
         tp.drift_gate_threshold_permille = to_int(dg->attr("threshold_permille", "50"), 50);
-        tp.drift_gate_max_reruns         = to_int(dg->attr("max_reruns", "5"), 5);
+        // KON26-04 UMZUG (2026-08-20): Attribut-Default "5" -> "3". Die Owner-5 gehoert zum
+        // <binary_retry> (unten); Begruendung an DriftGateConfig::max_reruns (drift_gated_cell.hpp).
+        tp.drift_gate_max_reruns = to_int(dg->attr("max_reruns", "3"), 3);
         // reps == 0/1 ist ZULAESSIG und heisst "Gate aus" (D4: eine einzelne Probe hat keine
         // Wiederholungs-Streuung). Negativ ist es nicht.
         if (tp.drift_gate_reps < 0 || tp.drift_gate_max_reruns < 0 || tp.drift_gate_threshold_permille <= 0)
             return std::nullopt;
+    }
+    // T-15b (2026-08-20): <binary_retry max_versuche=".."/> -- das Bau-/Mess-Retry-Budget je
+    // Tier-Binary (KON37-06 "je 5 Mal"). ADDITIV wie <drift_gate> darueber; dieselbe Haltung zu
+    // unsinnigen Werten: max_versuche == 0 waere "kein einziger Versuch" (keine Messlage, eine
+    // Fehlkonfiguration, die jede Binary als failed stempelte), negativ wuerde beim uint32-Cast
+    // astronomisch -- beides macht das PROFIL UNLESBAR (nullopt) statt still normalisiert zu werden.
+    if (auto const* br = root->child("binary_retry")) {
+        tp.binary_retry_declared     = true;
+        tp.binary_retry_max_versuche = to_int(br->attr("max_versuche", "5"), 5);
+        if (tp.binary_retry_max_versuche < 1) return std::nullopt;
     }
     if (auto const* ms = root->child("modes")) {
         for (auto const* m : ms->children_named("mode")) {

@@ -74,4 +74,25 @@ resolve_measure_parallelism_of_mode(::comdare::cache_engine::measurement::WorkMo
         ::comdare::cache_engine::measurement::run_methodology_for_ids(run_methodology));
 }
 
+/// C-05/#38b (KON47-04, 2026-08-20) -- DER --debug-KALTLAUF-SCHALTER DES WIEDERHOLUNGS-PAARS.
+///
+/// KON47-04 verbatim: das Paar (Lauf 1 messen+verwerfen, Lauf 2 messen+speichern) ist PFLICHT fuer
+/// jeden Messpfad; NUR "--debug" misst genau EINMAL, kalt. "--debug" ist im work_mode-Vokabular
+/// exakt die Faehigkeit "misst UND laeuft parallel" (measurement_on && !single_thread) -- DASSELBE
+/// Praedikat wie der Parallelitaets-Gate darueber, am selben WorkModeInfo-Zustand (KON34-05: der
+/// Modus beschleunigt, er leitet nie um). Seit A-05/V-12 erfuellt es KEINE Registry-Zeile =>
+/// produktiv IMMER false => Paar-Pflicht; die kuenftige --debug-CLI (S-8/W2) erreicht den Kaltlauf
+/// ueber DIESE Zustands-Injektion, ohne dass hier etwas umgebaut werden muss.
+[[nodiscard]] inline bool
+resolve_mess_kaltlauf_of_mode(::comdare::cache_engine::measurement::WorkModeInfo const& m) noexcept {
+    return m.measurement_on && !m.single_thread;
+}
+
+/// Token-Fassung des Kaltlauf-Schalters -- dieselbe EINE Nachschlage-Stelle wie
+/// resolve_measure_parallelism (wirft identisch bei Kontraktbruch/unbekanntem Token, fail-closed).
+[[nodiscard]] inline bool resolve_mess_kaltlauf_debug(std::vector<std::string> const& run_methodology) {
+    return resolve_mess_kaltlauf_of_mode(
+        ::comdare::cache_engine::measurement::run_methodology_for_ids(run_methodology));
+}
+
 } // namespace comdare::cache_engine::builder::experiment

@@ -37,6 +37,12 @@
 // Spalte (ce-Pipeline 15430, Job 369291, -Wclang-format-violations, Spalte 40). Ohne
 // Anhaenge-Kommentar faellt die Zeile aus der Gruppe -- beide Wachen sind zugleich erfuellt.
 #include <harness/drift_gated_cell.hpp>
+// T-15b: MessRetryKonfig + mit_mess_retry + mess_durchlauf_hart_gescheitert -- die Binary-Retry-
+// Klammer um den GESAMTEN Pruefdock-Durchlauf (KON37-06/KON28-02/KON26-04, Dispatch unten).
+#include <harness/mess_retry_klammer.hpp>
+// C-05/#38b: mess_warmup_paar -- je Drift-Probe ein Paar (Lauf 1 verworfen, Lauf 2 gespeichert;
+// KON47-04); der --debug-Kaltlauf haengt an LazyRunConfig::mess_kaltlauf_debug.
+#include <harness/mess_warmup_paar.hpp>
 #include <cache_engine/measurement/axis_error.hpp> // E-6/K-10: SampleStatus + sample_status_token (n/a-Zell-Renderer)
 #include "measure_parallelism.hpp"   // #45: resolve_measure_parallelism (Debug-Methodik -> Mess-Pool; Entry-Konsum)
 #include "result_ingest.hpp"         // ingest_result_line / parse_result_line_to_node_value (#45 reine Parse-Naht)
@@ -391,10 +397,24 @@ struct LazyRunConfig {
     // erzeugt N eigene Zeilen mit eigenem repetition_index; drift_gate.reps ist gruppen-intern und
     // erzeugt EIN Drift-Urteil ueber EINE Zelle. Wer die beiden vermengt, misst N*M statt N.
     //
-    // Der Default (reps=3, 5 %, max_reruns=5) IST die Owner-Regel aus GOAL-v8 VI.5 -- ein Default von
-    // "aus" haette bedeutet, dass die Regel ueberall dort schweigt, wo das XML sie nicht nennt, und
-    // genau das war der Zustand, den T-15 beendet.
+    // Der Default (reps=3, 5 %, max_reruns=3 seit dem KON26-04-Umzug -- die Owner-5 lebt in
+    // mess_retry unten) folgt GOAL-v8 VI.5 im C-07-Kanon -- ein Default von "aus" haette bedeutet,
+    // dass die Regel ueberall dort schweigt, wo das XML sie nicht nennt, und genau das war der
+    // Zustand, den T-15 beendet.
     DriftGateConfig drift_gate{};
+    // T-15b (20.08.2026, KON37-06/KON28-02/KON26-04) -- DIE BINARY-RETRY-KLAMMER. max_versuche kommt
+    // aus dem Profil-XML (<binary_retry max_versuche/>, Kette wie drift_gate darueber); der EINE Wert
+    // speist das MESS-Budget (Dispatch klammert measure_one_binary) UND das BAU-Budget
+    // (BuildConfig::bau_max_versuche) -- "je 5 Mal" heisst getrennte Budgets DERSELBEN Groesse.
+    // SELBSTCHECK: dies ist NICHT drift_gate.max_reruns (Gruppen-Rerun bei STREUUNG) und NICHT
+    // n_repeats (KF-10-Berichts-Wiederholung) -- die dritte Groesse, eigene Bedingung: FEHLSCHLAG.
+    MessRetryKonfig mess_retry{};
+    // C-05/#38b (KON47-04) -- der --debug-Kaltlauf-Schalter des Wiederholungs-Paars. false (Default
+    // und heute JEDER produktive Lauf) = PAAR-PFLICHT: je Drift-Probe zwei Messlaeufe, Lauf 1
+    // verworfen, Lauf 2 traegt die Zeile. true (kuenftige --debug-CLI, S-8/W2, via
+    // resolve_mess_kaltlauf_debug) = GENAU EIN Lauf, kalt. Der Arena-/Zeit-Faktor 2 dieser
+    // Verdopplung steht als eigene Planer-Zeile (paar_faktor, planner_mengen_types.hpp).
+    bool mess_kaltlauf_debug = false;
 };
 
 // -- D3-7b-RIEGEL: DAS PRAEDIKAT DER GEGENSEITIGEN AUSSCHLIESSUNG --------------------------------
@@ -1262,6 +1282,14 @@ struct LazyRunResult {
     // Selektion dieses Laufs und werden deshalb ueber den per-Binary-Miss-Weg real NACHGEBAUT.
     // 0 ausserhalb des planer-getriebenen Baus (dort findet kein Claim-Check statt).
     std::size_t bestand_takeover_uebernommen = 0;
+    // C-11 (KON28-02 SOFT, 20.08.2026): die MESS-WARNUNGEN dieses Laufs -- heute genau eine Klasse:
+    // fehlende MESSEINRICHTUNG der Mess-Achsen-Kategorie (PMC nicht eingerichtet, make_pmc_source()
+    // liefert eine nicht-verfuegbare Quelle). SOFT heisst: die Binary WIRD gebaut, gemessen so weit
+    // es geht (HW-Counter-Spalten ehrlich n/a), KEIN Retry -- aber die Warnung reist als TRAEGER bis
+    // in die xlsx (Entry reicht sie als KonstantenMeta-Zeilen in MappenNaht::schliessen ->
+    // INFO-Blatt). GENAU EINE Zeile je Lauf und Klasse, nicht je Zelle (eine je Zelle waere bei
+    // 131072 Binaries eine Flut ohne Informationsgewinn). Leer == keine Soft-Lage.
+    std::vector<std::string> mess_warnungen;
 };
 
 // W5 (2026-08-05): der Feld-Schluessel des Resume-Stempel-Schwanzes als EINE benannte Konstante. Er stand
@@ -2174,6 +2202,9 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     bcfg.per_binary_subdirs      = cfg.per_binary_subdirs; // (E): je Tier-Binary ein eigener Unterordner
     bcfg.build_parallelism       = cfg.build_parallelism;  // W6 (§32-F7): expliziter Bau-Pool-Worker-Override (0=heute)
     bcfg.build_variant_sig       = cfg.build_variant_sig;  // A7-B: Treiber-Mengen-Signatur; leer = Variant-Gate AUS
+    // T-15b (KON37-06): das BAU-Budget aus DERSELBEN Owner-Quelle wie das Mess-Budget ("je 5 Mal" =
+    // getrennte Budgets derselben Groesse) -- die Bau-Klammer selbst liegt in provision_core.
+    bcfg.bau_max_versuche = cfg.mess_retry.max_versuche;
     // Task #59: DERSELBE String in beide Felder -- Glied [6] ist run-konstant (build_orchestrator.hpp:311-312),
     // das Soll des Gates und die Aufzeichnung neben der Binary sind heute derselbe Wert. Die Felder bleiben
     // getrennt, weil sie verschiedene Fragen beantworten (s. BuildConfig); sie hier aus EINER Quelle zu
@@ -3024,15 +3055,29 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             // Die beiden Marker klammern den Mess-Aufruf fuer die Verdrahtungs-Wache in
             // test_t15_drift_gate_messschleife: sie prueft, dass es im ganzen Iterator keinen
             // Mess-Aufruf AUSSERHALB dieser Klammer gibt. Wer sie verschiebt, muss die Wache mitnehmen.
+            // C-05/#38b (KON47-04, 20.08.2026): je Drift-Probe EIN WIEDERHOLUNGS-PAAR -- Lauf 1 misst
+            // und wird VERWORFEN (Warmup unter realer Messlast), Lauf 2 traegt die Zahl. Da BEIDE
+            // Messpfade (observable + workload) durch DIESE eine Stelle laufen, ist damit JEDE
+            // gespeicherte Zeile warm und das Drift-Gate urteilt ueber warme Werte. --debug
+            // (cfg.mess_kaltlauf_debug, am RunMethodology-Zustand, resolve_mess_kaltlauf_debug) misst
+            // GENAU EINMAL, kalt. Der Mess-Aufruf selbst bleibt UNVERAENDERT (dieselben Argumente,
+            // dieselbe workload_id-Verzweigung) -- was sich aendert, ist ausschliesslich, wie oft er
+            // je Probe laeuft und welcher der Laeufe die Zeile traegt.
             auto const zelle = run_cell_with_drift_gate(
                 cfg.drift_gate,
                 [&]() -> PermResult {
-                    // [T-15-KLAMMER]
-                    return workload_id.empty() ? run_observable_perm(*obs, setting_id, cfg.n_ops, cell_pmc)
-                                               : run_workload_perm(*obs, rbk, scn, setting_id, workload_id, cfg.n_ops,
-                                                                   cfg.workload_seed, cfg.workload_records,
-                                                                   &cfg.workload_configs, cell_pmc);
-                    // [T-15-KLAMMER-ENDE]
+                    return mess_warmup_paar(cfg.mess_kaltlauf_debug,
+                                            [&]() -> PermResult {
+                                                // [T-15-KLAMMER]
+                                                return workload_id.empty()
+                                                           ? run_observable_perm(*obs, setting_id, cfg.n_ops, cell_pmc)
+                                                           : run_workload_perm(*obs, rbk, scn, setting_id, workload_id,
+                                                                               cfg.n_ops, cfg.workload_seed,
+                                                                               cfg.workload_records,
+                                                                               &cfg.workload_configs, cell_pmc);
+                                                // [T-15-KLAMMER-ENDE]
+                                            })
+                        .payload;
                 },
                 [](PermResult const& p) { return p.total_ns; }, &std::cerr, setting_id);
             PermResult const& pr = zelle.payload;
@@ -3203,12 +3248,50 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     std::vector<CellOutcome> outcomes                 = collect_ordered<CellOutcome>(
         builds.size(), cfg.measure_parallelism, [] { return make_pmc_source(); },
         [&](std::unique_ptr<measurement::IPmcSource>& ctx, std::size_t j) {
-            CellOutcome oc = measure_one_binary(builds[j], ctx.get());
-            measure_hb.tick(); // S1: je fertig gemessener/geladener Zelle ein geflushtes Fortschritts-Testat
+            // T-15b (KON37-06/KON28-02/KON26-04, 20.08.2026) -- DIE BINARY-RETRY-KLAMMER. Scheitert
+            // der Durchlauf HART (load_failed: die drei SourceUnavailable-Pfade -- ODER SampleStatus::
+            // Failed EINER Einstellung: KON28-02 "failt eine hart, scheitert die Messung der Binary
+            // KOMPLETT"), wiederholt sie den GESAMTEN measure_one_binary-Durchlauf bis zu
+            // cfg.mess_retry.max_versuche Mal (Owner-5). Nach Erschoepfung steht der LETZTE Ausgang
+            // ("failed"/"n/a" in der Zelle, nie null), der Lauf misst weiter. Jeder Wiederholungs-
+            // Versuch verwirft den vorigen Ausgang VOLLSTAENDIG (oc ist je Aufruf frisch; die
+            // per-Binary-Ablage schreibt trunc; Bestandslog/Push sind key-idempotent je Binary).
+            // SOFT (PMC-Einrichtung fehlt) triggert NIE: das Praedikat liest nur load_failed und den
+            // Zeilen-Status (mess_durchlauf_hart_gescheitert, harness/mess_retry_klammer.hpp).
+            // Die Versuchs-Bilanz reist NICHT in die CSV (Schema byte-identisch); Meldungen [t15b-
+            // retry] gehen nach std::cerr. Der Resume-Kurzschluss ist nie "hart" -> nie wiederholt.
+            // [T-15B-RETRY]
+            auto klammer = mit_mess_retry(
+                cfg.mess_retry, [&] { return measure_one_binary(builds[j], ctx.get()); },
+                [](CellOutcome const& oc) {
+                    return mess_durchlauf_hart_gescheitert(oc, measurement::SampleStatus::Failed);
+                },
+                &std::cerr, builds[j].binary_id);
+            // [T-15B-RETRY-ENDE]
+            CellOutcome oc = std::move(klammer.outcome);
+            measure_hb.tick(); // S1: je fertig gemessener/geladener ZELLE ein Testat (nicht je Versuch)
             return oc;
         },
         &observed_max_concurrency);
     measure_hb.done(); // S1: Mess-Fenster abgeschlossen -- genau eine geflushte Abschluss-Zeile
+    // C-11 (KON28-02 SOFT): fehlende MESSEINRICHTUNG der Mess-Achsen-Kategorie -> GENAU EINE
+    // Warnzeile je Lauf in den Traeger LazyRunResult::mess_warnungen (Entry -> MappenNaht ->
+    // INFO-Blatt der xlsx). Beurteilt wird die EINRICHTUNG selbst (dieselbe Factory, die die
+    // Mess-Worker speist -- available() der frisch gewaehlten Quelle), nicht ein Zeilen-Flag:
+    // ein einzelner Zaehler-Fehlschlag bei vorhandener Einrichtung ist keine Soft-Lage, sondern
+    // steht als n/a in seiner Zelle. KEIN Retry, KEIN Scheitern -- der Lauf hat bis hier bereits
+    // alles gemessen, was ohne PMC messbar ist.
+    if (!builds.empty()) {
+        if (auto const pmc_probe = make_pmc_source(); pmc_probe == nullptr || !pmc_probe->available()) {
+            std::string const quelle =
+                pmc_probe == nullptr ? std::string{"keine Quelle"} : std::string{pmc_probe->name()};
+            result.mess_warnungen.push_back(
+                "[C-11 soft] PMC-Messeinrichtung fehlt (Quelle: " + quelle +
+                ") -- HW-Counter-Spalten dieses Laufs sind n/a; Messung lief so weit es geht, "
+                "KEIN Retry (KON28-02).");
+            std::cerr << result.mess_warnungen.back() << "\n" << std::flush;
+        }
+    }
     if (cfg.measure_parallelism > 1)
         std::cerr << "[#45] paralleler Mess-Loop (Debug): pool=" << cfg.measure_parallelism
                   << " zellen=" << builds.size() << " beobachtete-Spitze=" << observed_max_concurrency << "\n";

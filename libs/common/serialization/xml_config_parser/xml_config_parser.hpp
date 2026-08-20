@@ -285,7 +285,22 @@ struct ThesisProfile {
     bool drift_gate_declared           = false;
     int  drift_gate_reps               = 3;
     int  drift_gate_threshold_permille = 50;
-    int  drift_gate_max_reruns         = 5;
+    // KON26-04 UMZUG (2026-08-20): Attribut- und Feld-Default 5 -> 3. Die Owner-Zahl 5 aus GOAL-v8
+    // VI.5 lag auf der FALSCHEN der zwei in ce 4cd1ab91 dokumentierten Lesarten; sie gehoert zum
+    // Binary-Retry (<binary_retry>, unten) und der Drift-Rerun faellt auf den Mechanismus-Default 3
+    // des Detektors (#197) zurueck. Begruendung vollstaendig an DriftGateConfig::max_reruns
+    // (harness/drift_gated_cell.hpp) -- hier nur der gespiegelte Zahlwert.
+    int drift_gate_max_reruns = 3;
+    // == T-15b (2026-08-20, KON37-06/KON26-04): <binary_retry max_versuche=".."/> ====================
+    // Das Budget der BINARY-RETRY-KLAMMER: Build UND Messung EINER Tier-Binary duerfen JE bis zu
+    // max_versuche Mal hart scheitern, dann steht der letzte Ausgang ("failed" in der Zelle, der
+    // Lauf misst weiter). EIGENES Element, NICHT am <drift_gate>: andere Bedingung (Fehlschlag statt
+    // Streuung), andere Einheit (ganzer Pruefdock-Durchlauf statt Proben-Gruppe). ADDITIV: fehlt das
+    // Element, bleibt declared == false und die cache_engine-Schicht behaelt ihren Owner-Default
+    // (MessRetryKonfig::max_versuche == 5, harness/mess_retry_klammer.hpp) -- KEINE Kopie der Zahl
+    // hier (dieselbe Ein-Wahrheits-Regel wie beim drift_gate).
+    bool binary_retry_declared     = false;
+    int  binary_retry_max_versuche = 5;
     // modes + static
     std::vector<ThesisMode> modes;
     std::string             static_axes_from; // "base_tier"

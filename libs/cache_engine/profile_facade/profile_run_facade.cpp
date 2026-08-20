@@ -13,6 +13,7 @@
 #include "planner/planner_cli_env.hpp"          // check-size: env_trimmed (COMDARE_GN_TOTAL)
 #include "planner/planner_mengen_types.hpp"     // check-size: MengenEingang (die flache POD-Naht)
 #include <harness/drift_gated_cell.hpp>         // check-size: DriftGateConfig -- die PRODUKTIVEN Drift-Defaults
+#include <harness/mess_retry_klammer.hpp>       // check-size: MessRetryKonfig -- der PRODUKTIVE T-15b-Default (5)
 
 #include <system_axes/compiler_system_axis.hpp>        // INC-1h: Compiler-System-Achse (gcc|clang)
 #include <system_axes/simd_sub_axis.hpp>               // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=external_utils
@@ -1607,6 +1608,12 @@ int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner
                 out.drift_max_reruns = static_cast<std::uint64_t>(tp->drift_gate_max_reruns);
                 out.drift_aus_xml    = true;
             }
+            // T-15b (20.08.2026): <binary_retry max_versuche> -- dieselbe Nur-am-Thesis-Profil-Lage
+            // wie drift_gate (das <comdare_experiment>-Root traegt das Element nicht).
+            if (tp->binary_retry_declared) {
+                out.t15b_max_versuche = static_cast<std::uint64_t>(tp->binary_retry_max_versuche);
+                out.t15b_aus_xml      = true;
+            }
         }
     }
     // Der Rueckfall ist DERSELBE, den der Mess-Pfad nimmt -- keine zweite Wahrheit.
@@ -1618,6 +1625,10 @@ int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner
         ex::DriftGateConfig const d{}; // die PRODUKTIVEN Defaults (drift_gated_cell.hpp:74)
         out.drift_reps       = d.reps;
         out.drift_max_reruns = d.max_reruns;
+    }
+    if (!out.t15b_aus_xml) {
+        // Derselbe Rueckfall wie im Mess-Pfad: MessRetryKonfig{} (mess_retry_klammer.hpp, Owner-5).
+        out.t15b_max_versuche = ex::MessRetryKonfig{}.max_versuche;
     }
 
     // 3. Das Korn und die Kampagnen-Breite. Das Korn kommt aus planner::kGnBatchSlice -- KEIN viertes

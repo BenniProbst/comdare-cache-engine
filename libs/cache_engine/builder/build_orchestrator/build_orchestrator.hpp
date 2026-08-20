@@ -101,6 +101,16 @@ struct BuildConfig {
     // (~7.5s/DLL sequenziell = Voll-Matrix unfeasible). Der Facade-Rand belegt dies aus Env COMDARE_BUILD_PARALLEL
     // (env_parallelism_value); der achsen-blinde Orchestrator bleibt env-frei/deterministisch-testbar.
     std::size_t build_parallelism = 0;
+    // T-15b (KON37-06, 20.08.2026): das BAU-RETRY-BUDGET je Binary -- Owner verbatim "ein build oder
+    // eine Messung duerfen je 5 Mal scheitern bis wir aufgeben". provision_core wiederholt Quelle-
+    // schreiben + compile_ bis zu bau_max_versuche Mal fuer JEDE Fehlerklasse (der Owner-Satz
+    // differenziert nicht: Infra wie Compiler-Compiler); erst der letzte Fehlversuch steht als
+    // Ergebnis. Der dll_is_current-Skip wird NIE wiederholt (er ist kein Scheitern), die Gate-
+    // Ablehnungen (simd-gate/stempel, status -4) ebenso wenig (deterministische Zulassungs-Urteile
+    // ueber Maschine/Version, kein Bau-Fehlschlag -- ein Retry koennte nur dasselbe urteilen).
+    // Quelle: LazyRunConfig::mess_retry (Profil-XML <binary_retry max_versuche/>); 0 faehrt genau
+    // einen Versuch (dieselbe Nicht-still-Normalisierung wie MessRetryKonfig, mess_retry_klammer).
+    std::uint32_t bau_max_versuche = 5;
 
     /// Effektive Gesamtkern-Zahl (0 → Hardware-Concurrency, Fallback 1).
     [[nodiscard]] std::size_t effective_total() const noexcept {
@@ -892,70 +902,115 @@ private:
                 }
 
                 // (C) Source generieren (KF-8) + kompilieren — OHNE Lock (echt parallel).
-                {
-                    std::ofstream f{job.source, std::ios::binary | std::ios::trunc};
-                    if (!f) {
-                        r.status  = -2;
-                        r.message = "Quelle nicht schreibbar";
-                    } else {
-                        f << gen_(spec.binary_id);
+                //
+                // T-15b (KON37-06, 20.08.2026) -- DIE BAU-RETRY-KLAMMER: Quelle schreiben + compile_
+                // bis zu cfg_.bau_max_versuche Mal (Owner verbatim "ein build ... darf 5 Mal
+                // scheitern"; er differenziert NICHT nach Fehlerklasse -> Infra wie Compiler-Compiler
+                // wiederholen gleichermassen, erst der LETZTE Fehlversuch steht als Ergebnis).
+                // dauer_s ist die SUMME aller Versuchs-Uhren (jeder Fehlversuch hat Bau-Zeit
+                // gekostet); message nennt die Versuche. Je Versuch ist die Semantik UNVERAENDERT
+                // (Quelle trunc-neu geschrieben, dieselbe Klassifikation) -- was sich aendert, ist
+                // ausschliesslich, wie oft. Der dll_is_current-Skip (A) und die Gate-Ablehnungen
+                // (-4) liegen VOR dieser Klammer und werden NIE wiederholt (kein Scheitern bzw.
+                // deterministisches Zulassungs-Urteil). [T-15B-BAU-KLAMMER]
+                std::uint32_t const bau_budget      = cfg_.bau_max_versuche == 0u ? 1u : cfg_.bau_max_versuche;
+                double              bau_dauer_summe = 0.0;
+                std::uint32_t       bau_versuche    = 0;
+                for (std::uint32_t bau_versuch = 1; bau_versuch <= bau_budget; ++bau_versuch) {
+                    bau_versuche = bau_versuch;
+                    // Versuchs-frisch: der vorige Fehlversuch ist VOLLSTAENDIG verworfen (Status wie
+                    // Klassifikation) -- sonst koennte ein -2-Versuch das Fehler-Etikett des
+                    // Vorgaengers weitertragen.
+                    r.status  = 0;
+                    r.outcome = {};
+                    {
+                        std::ofstream f{job.source, std::ios::binary | std::ios::trunc};
+                        if (!f) {
+                            r.status  = -2;
+                            r.message = "Quelle nicht schreibbar";
+                        } else {
+                            f << gen_(spec.binary_id);
+                        }
                     }
-                }
-                if (r.status != -2) {
-                    // A5/F5 Baupunkt (1): die Uhr steht GENAU um den externen Compiler-Aufruf -- nicht um
-                    // die Source-Generierung darueber und nicht um die RAM-Admission davor (s. BuildResult::
-                    // dauer_s). Sie laeuft auch fuer einen FEHLGESCHLAGENEN Compile: ein Fehlschlag hat
-                    // Bau-Zeit gekostet, und sie zu verschweigen wuerde die ETA zu kurz machen.
-                    auto const t_compile0 = std::chrono::steady_clock::now();
-                    r.status              = compile_(job);
-                    r.dauer_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_compile0).count();
-                    r.message = (r.status == 0) ? "ok" : ("compile-exit " + std::to_string(r.status));
-                    // d1-carrier + INC-29.2: den rohen Exit-Code in die richtige Fehler-DOMAENE uebersetzen
-                    // (Erfolg = has_value). 127=spawn/argv (Prozess-Start), 125=rsp-IO, <0=Signal/Abbruch =>
-                    // INFRA (kein Compiler-Urteil, NIE als D1 fehletikettieren, Sweep-Fix); sonst nonzero =
-                    // vom Compiler abgelehnte Achsen-Kombination (D1). Der Iterator liest r.outcome +
-                    // error_domain() fuer die richtige Log-Zeile ([Infra-Fehler:…] vs [Compiler-Compiler-Fehler:…]).
-                    namespace cm = ::comdare::cache_engine::measurement;
-                    if (r.status == 0)
-                        r.outcome = {};
-                    else if (r.status == kExitToolchainMissing)
-                        // G5 (W9.5): Compiler-Binary nicht auffindbar (ENOENT an der spawn-Naht) -> die geforderte
-                        // Toolchain fehlt. Eigene D1-Klasse ToolchainFehlt (NICHT der generische Infra-ProzessStart,
-                        // NICHT CompileKombination = kein Compiler-Urteil ueber die Achsen-Kombination). Der Sweep
-                        // misst die uebrigen Permutationen weiter (honest-weiter, kein Abbruch).
-                        r.outcome = std::unexpected(cm::BuildError{cm::CompilerCompilerErrorClass::ToolchainFehlt});
-                    else if (r.status == 127)
-                        r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ProzessStart});
-                    else if (r.status == 125)
-                        r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ArtefaktIo});
-                    else if (r.status < 0 || r.status >= 128)
-                        // NACH-Prüfung-Fix: Signal-Abbruch. decode_process_status liefert 128+WTERMSIG POSITIV
-                        // (137=SIGKILL/OOM-Killer im RAM-Druck-Parallelbau, 139=SIGSEGV, 134=SIGABRT) — das ist
-                        // ein Prozess-Abbruch (INFRA), NIE ein Compiler-Urteil. (r.status<0 deckt zusätzlich die
-                        // Orchestrator-Sentinels.) Vorher fielen 128+sig fälschlich in den D1-else (Sweep-Rüge).
-                        r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ProzessAbbruch});
-                    else
-                        r.outcome = std::unexpected(cm::BuildError{cm::CompilerCompilerErrorClass::CompileKombination});
-                    if (r.status == 0) {
-                        // F3/C5: DIESE Binary ist soeben NEU entstanden -- jedes Sidecar, das der folgende
-                        // Writer als no-op behandeln wuerde (leerer Wert), traegt sonst weiter die Legende des
-                        // VORGAENGER-Baus. Raeumen VOR dem Schreiben, damit beide Wege an einer Stelle stehen.
-                        prune_stale_sidecars(job.output, cfg_.build_version, algos, cfg_.build_variant_sig,
-                                             expected_fp);
-                        write_version_sidecar(job.output, cfg_.build_version); // System-Provenienz-Resume-Marke
-                        write_algos_sidecar(job.output, algos); // Organ-Provenienz (Bauplan §1); leer=no-op
-                        write_variant_sidecar(job.output,
-                                              cfg_.build_variant_sig); // Build-Variante (G2-3/A7); leer=no-op
-                        // I2 Lager-Anker; leer=no-op. A2-EICHUNG: DERSELBE Wert, den (A) als Skip-Erwartung
-                        // gelesen hat -- nicht neu berechnet. Damit ist "was das Gate erwartet" und "was neben
-                        // der Binary liegt" EINE Quelle, und der naechste Lauf skippt genau diese Binary.
-                        // Task #59: Zeile 2 = die bvset-Menge, mit der GENAU DIESE Binary gebaut wurde. Der
-                        // Wert kommt aus cfg_ und wird NICHT hier abgeleitet -- die Facade reicht denselben
-                        // String, den sie auch in den Fingerprint-Maker gegeben hat, damit Zeile 2 und das
-                        // Preimage-Glied [6] nicht auseinanderlaufen koennen. Leer = v1-Form wie bisher.
-                        write_fingerprint_sidecar(job.output, expected_fp, cfg_.sidecar_bvset_glied);
+                    if (r.status != -2) {
+                        // A5/F5 Baupunkt (1): die Uhr steht GENAU um den externen Compiler-Aufruf -- nicht um
+                        // die Source-Generierung darueber und nicht um die RAM-Admission davor (s. BuildResult::
+                        // dauer_s). Sie laeuft auch fuer einen FEHLGESCHLAGENEN Compile: ein Fehlschlag hat
+                        // Bau-Zeit gekostet, und sie zu verschweigen wuerde die ETA zu kurz machen.
+                        // T-15b: sie laeuft JE VERSUCH und wird aufsummiert (s. Klammer-Kopf).
+                        auto const t_compile0 = std::chrono::steady_clock::now();
+                        r.status              = compile_(job);
+                        bau_dauer_summe +=
+                            std::chrono::duration<double>(std::chrono::steady_clock::now() - t_compile0).count();
+                        r.message = (r.status == 0) ? "ok" : ("compile-exit " + std::to_string(r.status));
+                        // d1-carrier + INC-29.2: den rohen Exit-Code in die richtige Fehler-DOMAENE uebersetzen
+                        // (Erfolg = has_value). 127=spawn/argv (Prozess-Start), 125=rsp-IO, <0=Signal/Abbruch =>
+                        // INFRA (kein Compiler-Urteil, NIE als D1 fehletikettieren, Sweep-Fix); sonst nonzero =
+                        // vom Compiler abgelehnte Achsen-Kombination (D1). Der Iterator liest r.outcome +
+                        // error_domain() fuer die richtige Log-Zeile ([Infra-Fehler:...] vs
+                        // [Compiler-Compiler-Fehler:...]).
+                        namespace cm = ::comdare::cache_engine::measurement;
+                        if (r.status == 0)
+                            r.outcome = {};
+                        else if (r.status == kExitToolchainMissing)
+                            // G5 (W9.5): Compiler-Binary nicht auffindbar (ENOENT an der spawn-Naht) -> die
+                            // geforderte Toolchain fehlt. Eigene D1-Klasse ToolchainFehlt (NICHT der generische
+                            // Infra-ProzessStart, NICHT CompileKombination = kein Compiler-Urteil ueber die
+                            // Achsen-Kombination). Der Sweep misst die uebrigen Permutationen weiter
+                            // (honest-weiter, kein Abbruch).
+                            r.outcome = std::unexpected(cm::BuildError{cm::CompilerCompilerErrorClass::ToolchainFehlt});
+                        else if (r.status == 127)
+                            r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ProzessStart});
+                        else if (r.status == 125)
+                            r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ArtefaktIo});
+                        else if (r.status < 0 || r.status >= 128)
+                            // NACH-Prüfung-Fix: Signal-Abbruch. decode_process_status liefert 128+WTERMSIG POSITIV
+                            // (137=SIGKILL/OOM-Killer im RAM-Druck-Parallelbau, 139=SIGSEGV, 134=SIGABRT) — das ist
+                            // ein Prozess-Abbruch (INFRA), NIE ein Compiler-Urteil. (r.status<0 deckt zusätzlich die
+                            // Orchestrator-Sentinels.) Vorher fielen 128+sig fälschlich in den D1-else (Sweep-Rüge).
+                            r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ProzessAbbruch});
+                        else
+                            r.outcome =
+                                std::unexpected(cm::BuildError{cm::CompilerCompilerErrorClass::CompileKombination});
+                        if (r.status == 0) {
+                            // F3/C5: DIESE Binary ist soeben NEU entstanden -- jedes Sidecar, das der folgende
+                            // Writer als no-op behandeln wuerde (leerer Wert), traegt sonst weiter die Legende des
+                            // VORGAENGER-Baus. Raeumen VOR dem Schreiben, damit beide Wege an einer Stelle stehen.
+                            prune_stale_sidecars(job.output, cfg_.build_version, algos, cfg_.build_variant_sig,
+                                                 expected_fp);
+                            write_version_sidecar(job.output, cfg_.build_version); // System-Provenienz-Resume-Marke
+                            write_algos_sidecar(job.output, algos); // Organ-Provenienz (Bauplan §1); leer=no-op
+                            write_variant_sidecar(job.output,
+                                                  cfg_.build_variant_sig); // Build-Variante (G2-3/A7); leer=no-op
+                            // I2 Lager-Anker; leer=no-op. A2-EICHUNG: DERSELBE Wert, den (A) als Skip-Erwartung
+                            // gelesen hat -- nicht neu berechnet. Damit ist "was das Gate erwartet" und "was neben
+                            // der Binary liegt" EINE Quelle, und der naechste Lauf skippt genau diese Binary.
+                            // Task #59: Zeile 2 = die bvset-Menge, mit der GENAU DIESE Binary gebaut wurde. Der
+                            // Wert kommt aus cfg_ und wird NICHT hier abgeleitet -- die Facade reicht denselben
+                            // String, den sie auch in den Fingerprint-Maker gegeben hat, damit Zeile 2 und das
+                            // Preimage-Glied [6] nicht auseinanderlaufen koennen. Leer = v1-Form wie bisher.
+                            write_fingerprint_sidecar(job.output, expected_fp, cfg_.sidecar_bvset_glied);
+                        }
                     }
+                    if (r.status == 0) break; // Erfolg -- dieser Ausgang steht, kein weiterer Versuch
+                    if (bau_versuch < bau_budget)
+                        std::cerr << "[t15b-retry] " << spec.binary_id << ": Bau-Versuch " << bau_versuch << "/"
+                                  << bau_budget << " gescheitert (" << r.message
+                                  << ") -- Quelle+Compile werden wiederholt (KON37-06).\n"
+                                  << std::flush;
                 }
+                // [T-15B-BAU-KLAMMER-ENDE] dauer_s = SUMME; message nennt die Versuche (nur wenn >1,
+                // sonst byte-identisch zum Ein-Versuchs-Verhalten von vorher).
+                r.dauer_s = bau_dauer_summe;
+                if (bau_versuche > 1) r.message += " (t15b: " + std::to_string(bau_versuche) + " Versuche)";
+                // Erschoepfungs-Meldung nur bei echtem Mehr-Versuchs-Budget: mit Budget 1 ist der
+                // Pfad zeilen-identisch zum Ein-Versuchs-Verhalten von vorher (der Fehlschlag selbst
+                // wird dort geloggt, wo er immer geloggt wurde -- Iterator-Fehlerzweig/D1-Log).
+                if (r.status != 0 && bau_budget > 1 && bau_versuche == bau_budget)
+                    std::cerr << "[t15b-retry] " << spec.binary_id << ": Bau-Budget erschoepft (" << bau_budget
+                              << " Versuche) -- der letzte Ausgang steht (KON37-06 'dann aufgeben'), der Lauf "
+                                 "baut/misst weiter.\n"
+                              << std::flush;
                 finalize(j, std::move(r));
 
                 {

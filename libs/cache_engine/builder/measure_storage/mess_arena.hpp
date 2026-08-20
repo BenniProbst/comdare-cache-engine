@@ -220,8 +220,13 @@ public:
     /// AUFBAU, vor dem Messfenster. Hier ist Belegung erlaubt -- und nur hier.
     ///
     /// Dimensionierung: kapazitaet_zeilen kommt aus der Planer-Formel
-    ///   n_ops * zeilen_je_op(aktive Ebenen) * 2
-    /// (Sicherheitsfaktor 2). Die Zahl gehoert NICHT hierher -- diese Klasse nimmt entgegen, was ihr
+    ///   n_ops * zeilen_je_op(aktive Ebenen) * arena_gesamt_faktor
+    /// (kapazitaet_zeilen_rechnen, checkpoint_speicher.hpp; der Gesamt-Faktor = drift * paar *
+    /// t15b_retry steht als eigene Planer-Zeile in planner_mengen_types.hpp -- Vorgabewerte
+    /// 12*2*5 = 120). KORRIGIERT 20.08.2026 (D.7-Entscheid, KON92 C7): hier stand "* 2
+    /// (Sicherheitsfaktor 2)" -- eine STALE Fruehfassung, die dem verdrahteten Drift-Faktor um
+    /// Faktor 9 widersprach; die Formel-Wahrheit liegt bei checkpoint_speicher/planner_mengen_types,
+    /// nicht hier. Die Zahl gehoert NICHT hierher -- diese Klasse nimmt entgegen, was ihr
     /// gesagt wird, und meldet, wenn es zu wenig war. Wer die Formel hier einbaute, haette zwei
     /// Wahrheiten ueber die Kapazitaet.
     [[nodiscard]] bool reservieren(std::uint64_t kapazitaet_zeilen, VorabBeruehrung vorab) noexcept {
