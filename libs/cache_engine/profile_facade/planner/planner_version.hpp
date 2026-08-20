@@ -127,7 +127,7 @@ inline constexpr std::string_view     kPlanerFingerprint{kPlanerFingerprintArray
 /// " sha256=" + kPlanerFingerprint an (6 -> 8 Teile): das DEKLARIERTE Byte-Ereignis der --dump-plan-Zeile
 /// (s. Kopf) -- es erfuellt zugleich die Teilstring-Pflicht des Vertrags (stempel_basis.hpp:503-505).
 [[nodiscard]] constexpr std::array<std::string_view, 8> planer_gesamt_stempel_teile() noexcept {
-    return {"planner@", kPlannerVersion,      " isa=",    planner_target_isa(),
+    return {"planner@", kPlannerVersion,     " isa=",    planner_target_isa(),
             " os=",     planner_target_os(), " sha256=", kPlanerFingerprint};
 }
 inline constexpr auto kPlanerGesamtStempelKompositum =

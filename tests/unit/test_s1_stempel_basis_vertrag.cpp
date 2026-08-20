@@ -144,14 +144,35 @@ inline constexpr auto iG = abi::StempelInterface::GesamtStempel;
 inline constexpr auto iA = abi::StempelInterface::Angeschlossene;
 
 inline constexpr std::array<FremdZelle, kFremdZellenAnzahl> kFremdMatrix{{
-    {iV, tP, P}, {iV, tC, V}, {iV, tT, V}, {iV, tH, V}, // version_xyz NUR Planer
-    {iM, tP, V}, {iM, tC, P}, {iM, tT, P}, {iM, tH, P}, // mess_zeile CEB/Tier/Hybrid
-    {iS, tP, V}, {iS, tC, P}, {iS, tT, P}, {iS, tH, P}, // system_zeile CEB/Tier/Hybrid
-    {iO, tP, V}, {iO, tC, V}, {iO, tT, P}, {iO, tH, P}, // organ_zeile Tier/Hybrid (CEB=V ist der Riegel)
-    {iF, tP, P}, {iF, tC, P}, {iF, tT, P}, {iF, tH, P}, // fingerprint_sha alle vier (V-08R: WERT-identisch
-                                                        // Pflicht; das 64/128-Laengen-Bein s. Pins unten)
-    {iG, tP, P}, {iG, tC, P}, {iG, tT, P}, {iG, tH, P}, // gesamt_stempel alle vier
-    {iA, tP, V}, {iA, tC, V}, {iA, tT, V}, {iA, tH, P}, // angeschlossene NUR Hybrid (RT-Hook)
+    {iV, tP, P},
+    {iV, tC, V},
+    {iV, tT, V},
+    {iV, tH, V}, // version_xyz NUR Planer
+    {iM, tP, V},
+    {iM, tC, P},
+    {iM, tT, P},
+    {iM, tH, P}, // mess_zeile CEB/Tier/Hybrid
+    {iS, tP, V},
+    {iS, tC, P},
+    {iS, tT, P},
+    {iS, tH, P}, // system_zeile CEB/Tier/Hybrid
+    {iO, tP, V},
+    {iO, tC, V},
+    {iO, tT, P},
+    {iO, tH, P}, // organ_zeile Tier/Hybrid (CEB=V ist der Riegel)
+    {iF, tP, P},
+    {iF, tC, P},
+    {iF, tT, P},
+    {iF, tH, P}, // fingerprint_sha alle vier (V-08R: WERT-identisch
+                 // Pflicht; das 64/128-Laengen-Bein s. Pins unten)
+    {iG, tP, P},
+    {iG, tC, P},
+    {iG, tT, P},
+    {iG, tH, P}, // gesamt_stempel alle vier
+    {iA, tP, V},
+    {iA, tC, V},
+    {iA, tT, V},
+    {iA, tH, P}, // angeschlossene NUR Hybrid (RT-Hook)
 }};
 static_assert(kFremdMatrix.size() == kFremdZellenAnzahl, "T-3: Nenner-ASSERT vor der Schleife");
 
