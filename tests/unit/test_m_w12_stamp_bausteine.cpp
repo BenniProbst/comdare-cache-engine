@@ -1659,10 +1659,15 @@ TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
     std::string const stamp = ceb::ceb_version_stamp();
     EXPECT_NE(stamp.find("ceb-measurement=" + std::string{ceb::kCebMeasurementStamp}), std::string::npos)
         << "stamp=" << stamp;
-    // I-PMC-2: die Klammer schliesst unmittelbar vor der SHA-Zeile -- unabhaengig davon, WIE VIELE Glieder
-    // sie fuehrt. Der alte Pin nannte den Klammer-INHALT und waere damit bei jeder Meta-Meta-Erweiterung rot
+    // I-PMC-2: die Klammer schliesst am ZEILEN-ENDE -- unabhaengig davon, WIE VIELE Glieder sie fuehrt.
+    // Der alte Pin nannte den Klammer-INHALT und waere damit bei jeder Meta-Meta-Erweiterung rot
     // geworden, ohne dass etwas driftet; die Aussage, um die es geht, ist die STELLUNG des Anhangs.
+    // KON8-03 (F2-2, 20.08.2026): hinter der Mess-Zeile steht jetzt das ';ceb-system='-Segment
+    // (Anzeige (1)) -- der Mess-Anhang schliesst also unmittelbar VOR ';ceb-system=', und der
+    // System-Anhang ([simd=...]) schliesst unmittelbar vor der SHA-Zeile. Beide Stellungs-Pins:
     EXPECT_NE(stamp.find("load_framework=ycsb@1.0.0.c"), std::string::npos) << "stamp=" << stamp;
+    EXPECT_NE(stamp.find(std::string{abi::kMetaMetaGroupClose} + ";ceb-system="), std::string::npos)
+        << "stamp=" << stamp;
     EXPECT_NE(stamp.find(std::string{abi::kMetaMetaGroupClose} + ";sha512="), std::string::npos) << "stamp=" << stamp;
     EXPECT_NE(stamp.find(";sha512="), std::string::npos);
     EXPECT_EQ(stamp.find("@v1"), std::string::npos);
