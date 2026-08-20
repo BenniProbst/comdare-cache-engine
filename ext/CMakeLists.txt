@@ -133,7 +133,11 @@ if(COMDARE_VENDOR_SNMALLOC)
     set(_sn_root "${CMAKE_CURRENT_LIST_DIR}/allocator/A07-snmalloc")
     if(EXISTS "${_sn_root}/src/snmalloc/snmalloc.h")
         add_library(comdare_vendor_snmalloc INTERFACE)
-        target_include_directories(comdare_vendor_snmalloc INTERFACE "${_sn_root}/src")
+        # WARN-VENDOR-AUSNAHME (Muster liburing SYSTEM PUBLIC, ext/io/liburing/CMakeLists.txt): snmalloc ist
+        # Fremdcode, header-only in Konsumenten-TUs kompiliert. SYSTEM stuft den Pfad als System-Include ein,
+        # damit die Haus-Ratsche (compiler_flags.cmake, u.a. -Werror=pedantic) den Vendor-Header nicht trifft
+        # (redblacktree.h:437 nutzt \e-Escapes, GNU-Extension). Hauscode-Konsumenten bleiben voll gewarnt.
+        target_include_directories(comdare_vendor_snmalloc SYSTEM INTERFACE "${_sn_root}/src")
         target_compile_definitions(comdare_vendor_snmalloc INTERFACE
             SNMALLOC_HEADER_ONLY_LIBRARY=1
             SNMALLOC_USE_CXX17=0

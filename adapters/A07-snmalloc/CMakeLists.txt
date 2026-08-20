@@ -6,7 +6,12 @@ target_include_directories(comdare_adapter_a07_snmalloc INTERFACE ${CMAKE_CURREN
 target_compile_features(comdare_adapter_a07_snmalloc INTERFACE cxx_std_23)
 if(COMDARE_HAVE_SNMALLOC)
     target_compile_definitions(comdare_adapter_a07_snmalloc INTERFACE COMDARE_HAVE_SNMALLOC=1)
-    target_include_directories(comdare_adapter_a07_snmalloc INTERFACE
+    # WARN-VENDOR-AUSNAHME (Muster liburing SYSTEM PUBLIC, ext/io/liburing/CMakeLists.txt): snmalloc ist
+    # Fremdcode, header-only in Konsumenten-TUs kompiliert. SYSTEM stuft den Pfad als System-Include ein,
+    # damit die Haus-Ratsche (compiler_flags.cmake, u.a. -Werror=pedantic) den Vendor-Header nicht trifft
+    # (redblacktree.h:437 nutzt \e-Escapes, GNU-Extension). NUR der Vendor-Pfad als SYSTEM; der
+    # Haus-Adapter-Include CMAKE_CURRENT_SOURCE_DIR Z.5 bleibt voll gewarnt.
+    target_include_directories(comdare_adapter_a07_snmalloc SYSTEM INTERFACE
         "${PROJECT_SOURCE_DIR}/ext/allocator/A07-snmalloc/src")
     # M-CE-21-Fix (#21): die zwingenden snmalloc-Compile-Belange haengen self-contained DIREKT am Adapter,
     # sodass sie an JEDEN Konsumenten propagieren — UNABHAENGIG davon, ob das ext/-Vendor-Target
