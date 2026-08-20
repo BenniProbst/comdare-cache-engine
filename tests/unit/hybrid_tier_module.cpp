@@ -21,6 +21,8 @@
 
 #include <hybrid/hybrid_module_abi_v1.hpp>
 
+// cppcheck kennt die COMDARE-Codegen-Emitter-Makros nicht (Definition via Include-Kette, kein -I im Lint-Lauf).
+// cppcheck-suppress unknownMacro
 COMDARE_DEFINE_HYBRID_MODULE(::comdare::cache_engine::anatomy::AnatomyGenus::SearchAlgorithm)
 
 // A-11/golden-102 (19.08.2026): STEMPEL-PFLICHT -- der Loader weist stempellose Module mit status 13

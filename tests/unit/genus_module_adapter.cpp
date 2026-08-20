@@ -19,6 +19,8 @@
 #include <cache_engine/abi/adapter_module_abi_v1.hpp>
 
 // AdapterComposition<T0..T9, Inner>: 10 geteilt/delegiert (INC-2d: isa raus) + inner_container.
+// cppcheck kennt die COMDARE-Codegen-Emitter-Makros nicht (Definition via Include-Kette, kein -I im Lint-Lauf).
+// cppcheck-suppress unknownMacro
 COMDARE_DEFINE_ADAPTER_MODULE(int, int, int, int, int, int, int, int, int, int,
                               ::comdare::cache_engine::anatomy::DequeInner<>)
 

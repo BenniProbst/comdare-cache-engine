@@ -10,6 +10,8 @@
 
 #include <cache_engine/abi/sequence_module_abi_v1.hpp>
 
+// cppcheck kennt die COMDARE-Codegen-Emitter-Makros nicht (Definition via Include-Kette, kein -I im Lint-Lauf).
+// cppcheck-suppress unknownMacro
 COMDARE_DEFINE_SEQUENCE_MODULE(int, int, int, int, int, int, int,
                                int) // Bau-INC-2d: 8 geteilte (isa raus) + Growth-Default
 

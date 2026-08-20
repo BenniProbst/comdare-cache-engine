@@ -57,6 +57,8 @@ private:
 } // namespace
 
 // Slot-Belegung identisch zu genus_module_set.cpp (13 Slots, INC-2d) -- nur der Kern ist ausgetauscht.
+// cppcheck kennt die COMDARE-Codegen-Emitter-Makros nicht (Definition via Include-Kette, kein -I im Lint-Lauf).
+// cppcheck-suppress unknownMacro
 COMDARE_DEFINE_SET_MODULE(MultisetKeyBag, int, int, int, int, int, int, int, int, int, int, int, int)
 
 // A-11/golden-102 (19.08.2026): STEMPEL-PFLICHT -- der Loader weist stempellose Module mit status 13
