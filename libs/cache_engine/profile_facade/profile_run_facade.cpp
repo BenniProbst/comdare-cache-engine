@@ -1576,24 +1576,76 @@ private:
     bool                    combo_gesehen_ = false;
 };
 
-} // namespace
+// Der SIMULATIONS-Sammler (S-19 #7, 2026-08-20) -- UMHUELLT den Mengen-Sammler am SELBEN Walk (ein
+// Kanal, eine Wahrheit: jede Callback-Zeile wird delegiert, nichts doppelt gezaehlt) und erntet
+// zusaetzlich, was die Simulation braucht und der Mengen-Sammler bewusst ignoriert:
+//   - den PMC-Befund des Plan-Kopfs (I-PMC-2: die EINE Erhebung dieses Laufs -- ein zweiter Walk
+//     hiesse eine zweite Probe, und zwei Proben koennen zwei Antworten geben);
+//   - die System-Perm-IDENTITAETEN (opt+simd) fuer die Kampagnen-Union (Zaehl-Wahrheit bleibt
+//     mengen.perm_count -- die Ids dienen dem FULL JOIN, nicht der Zaehlung);
+//   - die BREITE der groessten Tooling-Kombination (leer == volles Angebot, dieselbe Regel wie im
+//     Mengen-Sammler; die Angebots-Breite kommt aus kMeasurementToolingCount, keinem Literal).
+class SimulationsSollBuilder final : public planner::IPlanBuilder {
+public:
+    explicit SimulationsSollBuilder(planner::SimulationsEingang& out) noexcept : out_(out), mengen_(out.mengen) {}
 
-int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner::MengenEingang& out,
-                              std::ostream& os) {
-    // Frischer Stand wie bei collect_plan_soll_facade: der Aufrufer setzt SEINE Zutaten (sekunden_je_op,
-    // deckel_*) erst NACH dieser Funktion, ein Reset hier kann sie darum nicht loeschen.
-    out = planner::MengenEingang{};
+    void begin_plan(planner::PlanHeader const& h) override {
+        mengen_.begin_plan(h);
+        namespace cm        = ::comdare::cache_engine::measurement;
+        out_.pmc_tor        = (h.pmc_befund.lage != planner::PmcLage::Unbrauchbar);
+        out_.pmc_lage_label = std::string{h.pmc_befund.lage_label()};
+        out_.pmc_nenner     = h.pmc_befund.nenner_zeile();
+        // Vorbelegung "volles Angebot": gilt, bis eine NICHT-leere Kombination etwas anderes sagt --
+        // fail-closed in Richtung der GROESSEREN Geraete-Zahl (Spiegel der tooling_leer-Logik).
+        out_.messgeraete_basis  = static_cast<std::uint64_t>(cm::kMeasurementToolingCount);
+        out_.messgeraete_art    = planner::MengenArt::Konstante;
+        out_.messgeraete_nenner = "volles Angebot -- kMeasurementToolingRegistry "
+                                  "(mess_axes/measurement_tooling_registry.hpp)";
+    }
+    void begin_measurement_combo(planner::PlanMeasurementCombo const& c) override {
+        mengen_.begin_measurement_combo(c);
+        namespace cm               = ::comdare::cache_engine::measurement;
+        std::uint64_t const breite = c.tooling.empty() ? static_cast<std::uint64_t>(cm::kMeasurementToolingCount)
+                                                       : static_cast<std::uint64_t>(c.tooling.size());
+        if (!explizite_combo_gesehen_ || breite > out_.messgeraete_basis) {
+            out_.messgeraete_basis = breite;
+            if (c.tooling.empty()) {
+                out_.messgeraete_art    = planner::MengenArt::Konstante;
+                out_.messgeraete_nenner = "Kombination LEER == volles Angebot (kMeasurementToolingRegistry)";
+            } else {
+                out_.messgeraete_art    = planner::MengenArt::Xml;
+                out_.messgeraete_nenner = "groesste <measurement_tooling><combo>-Konfiguration des Walks";
+            }
+        }
+        explizite_combo_gesehen_ = true;
+    }
+    void end_measurement_combo(planner::PlanMeasurementCombo const& c) override { mengen_.end_measurement_combo(c); }
+    void begin_perm(planner::PlanPerm const& p) override {
+        mengen_.begin_perm(p);
+        perm_ids_.insert(p.opt_id + "+" + p.simd_id);
+    }
+    void on_step(planner::PlanStep const& s) override {
+        mengen_.on_step(s);
+        ++out_.walk_schritte;
+    }
+    void end_perm(planner::PlanPerm const& p) override { mengen_.end_perm(p); }
+    void end_plan(planner::PlanHeader const& h) override {
+        mengen_.end_plan(h);
+        out_.system_perm_ids.assign(perm_ids_.begin(), perm_ids_.end());
+    }
 
-    // 1. Der Walk -- die exakten Zahlen (Perms, Kombinationen, Zellen, Achsen).
-    MengenSollBuilder builder{out};
-    if (int const rc = construct_plan_into(profile_path, builder, os, "check-size"); rc != 0) return rc;
+private:
+    planner::SimulationsEingang& out_;
+    MengenSollBuilder            mengen_;
+    std::set<std::string>        perm_ids_;
+    bool                         explizite_combo_gesehen_ = false;
+};
 
-    // 2. Die PROFIL-Zahlen, die der Walk nicht traegt: n_ops und das Drift-Gate.
-    //
-    // EHRLICHER BEFUND, der in die Ausgabe gehoert und nicht in einen Kommentar: diese beiden Groessen gibt es
-    // NUR am <comdare_thesis_profile>. ExperimentProfile (<comdare_experiment>, xml_config_parser.hpp:467-495)
-    // hat WEDER ein n_ops- NOCH ein drift_gate-Feld. Fuer diese Wurzel bleiben beide Zahlen darum Defaults --
-    // und werden im Bericht als "default" ausgewiesen, nicht als Profil-Entscheid.
+// Die PROFIL-/ENV-NACHLESE der Mengen-Erhebung -- aus collect_mess_menge_facade EXTRAHIERT (S-19,
+// 2026-08-20), weil die Simulations-Erhebung DIESELBEN Zahlen braucht: n_ops/drift (nur am
+// Thesis-Profil; comdare_experiment hat die Felder nicht -- ehrlicher Befund), das Korn und
+// COMDARE_GN_TOTAL. EIN Ort statt zweier, damit die beiden Kommandos nie auseinanderlaufen.
+void mengen_profil_und_env_nachlese(std::filesystem::path const& profile_path, planner::MengenEingang& out) {
     if (out.source_kind == "thesis") {
         if (auto const tp = tlz::load_thesis_profile(profile_path)) {
             // n_ops sitzt NICHT direkt am ThesisProfile, sondern an dessen <run_options>-Unterstruktur
@@ -1620,8 +1672,8 @@ int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner
         out.drift_max_reruns = d.max_reruns;
     }
 
-    // 3. Das Korn und die Kampagnen-Breite. Das Korn kommt aus planner::kGnBatchSlice -- KEIN viertes
-    //    4096-Literal (die Korn-Wache haelt drei static_assert auf genau diese Konstante).
+    // Das Korn und die Kampagnen-Breite. Das Korn kommt aus planner::kGnBatchSlice -- KEIN viertes
+    // 4096-Literal (die Korn-Wache haelt drei static_assert auf genau diese Konstante).
     out.batch_korn = static_cast<std::uint64_t>(planner::kGnBatchSlice);
     if (std::string const gn = planner::env_trimmed("COMDARE_GN_TOTAL"); !gn.empty()) {
         errno           = 0;
@@ -1631,6 +1683,159 @@ int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner
             out.binaries_je_perm = wert;
             out.binaries_aus_env = true;
         }
+    }
+}
+
+} // namespace
+
+int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner::MengenEingang& out,
+                              std::ostream& os) {
+    // Frischer Stand wie bei collect_plan_soll_facade: der Aufrufer setzt SEINE Zutaten (sekunden_je_op,
+    // deckel_*) erst NACH dieser Funktion, ein Reset hier kann sie darum nicht loeschen.
+    out = planner::MengenEingang{};
+
+    // 1. Der Walk -- die exakten Zahlen (Perms, Kombinationen, Zellen, Achsen).
+    MengenSollBuilder builder{out};
+    if (int const rc = construct_plan_into(profile_path, builder, os, "check-size"); rc != 0) return rc;
+
+    // 2.+3. Die PROFIL-Zahlen, die der Walk nicht traegt (n_ops/Drift-Gate -- NUR am Thesis-Profil,
+    // comdare_experiment hat die Felder nicht, ehrlicher Befund am Helfer) + Korn/Kampagnen-Breite.
+    // EXTRAHIERT in mengen_profil_und_env_nachlese (S-19, 2026-08-20): die Simulations-Erhebung braucht
+    // DIESELBEN Zahlen -- ein Ort, damit die Kommandos nie auseinanderlaufen.
+    mengen_profil_und_env_nachlese(profile_path, out);
+    return 0;
+}
+
+int collect_simulation_eingang_facade(std::filesystem::path const& profile_path, planner::SimulationsEingang& out,
+                                      std::ostream& os) {
+    out = planner::SimulationsEingang{};
+
+    // 1. EIN Walk fuer beide Ernten (der Simulations-Sammler delegiert an den Mengen-Sammler) --
+    //    damit gibt es auch nur EINE PMC-Probe (I-PMC-2) und EINE Diagnose-Zeile.
+    {
+        SimulationsSollBuilder builder{out};
+        if (int const rc = construct_plan_into(profile_path, builder, os, "simulate"); rc != 0) return rc;
+    }
+
+    // 2. Dieselbe Profil-/env-Nachlese wie check-size (ein Ort, eine Wahrheit).
+    mengen_profil_und_env_nachlese(profile_path, out.mengen);
+
+    // 3. Die S-19-Zusatzernte aus dem Profil: Freigabe je Organ-Achse + dynamische Dimensionen.
+    //    Die Freigabe-Regel ist EXAKT die build_axis_levels-Regel (profile_to_tree.hpp:133-139):
+    //    nur Organ-Kompositions-Achsen zaehlen; leere Werteliste == volle Registry-Liste.
+    if (out.mengen.source_kind == "thesis") {
+        auto const tp = tlz::load_thesis_profile(profile_path);
+        if (!tp) return 5; // Walk las das Profil eben noch -- Verschwinden ist ein harter Fehler.
+        ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+        // Die FREIGABE-Regel wird VOLLSTAENDIG gespiegelt (build_axis_levels, profile_to_tree.hpp:59-139):
+        //   (1) Modus-Freigabe: mit Modi zaehlt eine Achse nur, wenn IRGENDEIN Modus sie in active_axes
+        //       fuehrt (die Kampagne baut die Union der Modi; ohne Modi sind alle frei);
+        //   (2) <axis active="false"> nimmt die Achse aus der Ebene (A9b/P6);
+        //   (3) die KF-3-/FF2-/F-B-UNTERACHSEN (cacheline/node_width/alloc_hw) erzeugen EIGENE statische,
+        //       binary_id-tragende Ebenen VOR dem Organ-Guard -- sie zaehlen darum als EIGENE Faktoren
+        //       (m3v2/golden deklarieren keine; der Zweig ist fuer Profile, die sie fuehren).
+        auto modus_frei = [&tp](std::string const& ref) -> bool {
+            if (tp->modes.empty()) return true; // kein Modus -> alle frei (build_axis_levels:64)
+            for (auto const& m : tp->modes)
+                for (auto const& a : m.active_axes)
+                    if (a == ref) return true;
+            return false;
+        };
+        auto sub_achse = [&out](char const* name, std::vector<std::string> const& werte) {
+            if (werte.empty()) return;
+            out.organ_achsen.push_back(planner::SimAchse{name, werte, planner::MengenArt::Xml,
+                                                         "statische Unterachsen-Ebene (binary_id-tragend, "
+                                                         "profile_to_tree.hpp:104-125)"});
+        };
+        for (auto const& ax : tp->permute_axes) {
+            if (!modus_frei(ax.ref) || !ax.active) continue;
+            if (ax.ref == "cacheline") {
+                sub_achse("cacheline.line_size", ax.line_sizes);
+                sub_achse("cacheline.alignment", ax.alignments);
+                sub_achse("cacheline.sw_hint", ax.sw_prefetch_hints);
+                continue;
+            }
+            if (ax.ref == "node_width") {
+                sub_achse("node_width.width_in_lines", ax.width_in_lines);
+                continue;
+            }
+            if (ax.ref == "alloc_hw") {
+                sub_achse("alloc_hw.numa_node", ax.alloc_numa_nodes);
+                sub_achse("alloc_hw.page", ax.alloc_pages);
+                continue;
+            }
+            if (!ex::is_organ_composition_axis(ax.ref)) continue;
+            planner::SimAchse a;
+            a.name = ax.ref;
+            if (!ax.values.empty()) {
+                a.werte  = ax.values;
+                a.art    = planner::MengenArt::Xml;
+                a.nenner = "<permute_axes><axis ref> -- explizite Freigabe-Werte";
+            } else if (auto const it = registry.find(ax.ref); it != registry.end()) {
+                a.werte  = it->second;
+                a.art    = planner::MengenArt::Default;
+                a.nenner = "leere Werteliste == volle Registry-Liste (build_axis_levels-Regel)";
+            } else {
+                a.art    = planner::MengenArt::Unbestimmbar;
+                a.nenner = "leere Werteliste und Achse nicht in der Registry -- 0 Werte (fail-closed)";
+            }
+            out.organ_achsen.push_back(std::move(a));
+        }
+        // Dynamische Laufzeit-Dimensionen -- gespiegelte build_axis_levels-Emission (profile_to_tree.hpp:
+        // 149-161) OHNE repetition (KF-10 zaehlt genau einmal, s. planner_simulation.hpp Kopf) PLUS die
+        // zwei Schleifen, die NICHT aus build_axis_levels kommen: workload (eigene DynDim-Injektion,
+        // profile_run_entry.hpp:499-501) und working_set (aeussere N-Schleife, profile_run_entry.hpp:744).
+        auto dyn = [&out](char const* name, std::size_t n, char const* nenner) {
+            if (n == 0u) return;
+            out.dyn_dims.push_back(
+                planner::SimDynDim{name, static_cast<std::uint64_t>(n), planner::MengenArt::Xml, nenner});
+        };
+        dyn("thread_count", tp->thread_counts.size(), "<runtime_dynamic><thread_count> (build_axis_levels)");
+        dyn("hw_prefetcher", tp->hw_prefetcher.size(), "<runtime_dynamic><hw_prefetcher> (build_axis_levels)");
+        dyn("prefetch_distance", tp->prefetch_distances.size(), "<runtime_dynamic> (build_axis_levels)");
+        dyn("pool_budget_bytes", tp->pool_budgets_bytes.size(), "<runtime_dynamic> (build_axis_levels)");
+        dyn("batch_size", tp->batch_sizes.size(), "<runtime_dynamic> (build_axis_levels)");
+        dyn("inline_threshold_bytes", tp->inline_thresholds_bytes.size(), "<runtime_dynamic> (build_axis_levels)");
+        dyn("workload", tp->workloads.size(),
+            "<compile_dims><workloads> -- eigene DynDim-Injektion (profile_run_entry.hpp:499-501), Achse-2");
+        dyn("working_set", tp->working_set_sweep.size(),
+            "<working_set_sweep> -- aeussere N-Schleife des Laufs (profile_run_entry.hpp:744-760)");
+        out.kf10_repetitions = static_cast<std::uint64_t>((tp->repetitions <= 0) ? 1 : tp->repetitions);
+        out.kf10_art         = planner::MengenArt::Default;
+        out.kf10_nenner      = "ThesisProfile::repetitions -- XML <repetitions count> ODER Parser-Default 3; "
+                               "die Deklaration ist am POD nicht unterscheidbar (xml_config_parser.hpp:265)";
+    } else if (out.mengen.source_kind == "experiment") {
+        cx::XmlConfigParser const parser;
+        auto const                ep = parser.parse_experiment_profile(profile_path);
+        if (!ep) return 5;
+        ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+        for (auto const& ax : ep->axes_default_lookup) {
+            if (!ex::is_organ_composition_axis(ax.ref)) continue;
+            planner::SimAchse a;
+            a.name = ax.ref;
+            if (!ax.allowed_variants.empty()) {
+                a.werte  = ax.allowed_variants;
+                a.art    = planner::MengenArt::Xml;
+                a.nenner = "<axes_default_lookup><axis allowed_variants> -- explizite Freigabe";
+            } else if (auto const it = registry.find(ax.ref); it != registry.end()) {
+                a.werte  = it->second;
+                a.art    = planner::MengenArt::Default;
+                a.nenner = "leere Variantenliste == volle Registry-Liste (Limit-Schicht ohne Limit)";
+            } else {
+                a.art    = planner::MengenArt::Unbestimmbar;
+                a.nenner = "leere Variantenliste und Achse nicht in der Registry -- 0 Werte (fail-closed)";
+            }
+            out.organ_achsen.push_back(std::move(a));
+        }
+        if (!ep->workloads.empty()) {
+            out.dyn_dims.push_back(planner::SimDynDim{"workload", static_cast<std::uint64_t>(ep->workloads.size()),
+                                                      planner::MengenArt::Xml, "<workloads> (comdare_experiment)"});
+        }
+        // EHRLICHER BEFUND (Spiegel n_ops/drift): comdare_experiment traegt KEIN <repetitions> --
+        // die Wiederholungszahl ist fuer diese Wurzel nicht erhebbar und wird nicht erfunden.
+        out.kf10_repetitions = 0u;
+        out.kf10_art         = planner::MengenArt::Unbestimmbar;
+        out.kf10_nenner      = "comdare_experiment traegt kein <repetitions>-Feld (xml_config_parser.hpp:467-495)";
     }
     return 0;
 }
