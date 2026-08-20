@@ -3663,6 +3663,35 @@ add_test(NAME test_f3_lager_key_provider_iterator COMMAND test_f3_lager_key_prov
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_f3_lager_key_provider_iterator)
 set_tests_properties(test_f3_lager_key_provider_iterator PROPERTIES LABELS "bestandslog;bau_filter;standalone")
 
+# F2-5 Posten 1 (Designplan par.2/K2, Abnahme par.4-W1): LG-SkipCallback==0 -- der SKIP-Zweitlauf
+# gegen gueltigen Bestand ruft den Mess-Callback (LazyRunConfig::measurement_sink) exakt 0-mal;
+# Gegeneingang: fehlender/ungueltiger Bestand betritt die Mess-Kette je Zelle real (T-4). Nenner N
+# stammt aus den Achsen-Literalen des Tests (T-3). Include-/Define-/Link-Satz wie
+# test_f3_lager_key_provider_iterator (derselbe Host-Treiber-Header, echter run_lazy-Aufruf); die
+# Quellen-Wache (Abschnitt S im Test) erhaelt die Iterator-Quelle per compile definition -- Muster
+# COMDARE_T15_ITERATOR_QUELLE (Zwischenvariable haelt die Zeile unter 120 Spalten).
+add_executable(test_lg_skip_callback_null "test_lg_skip_callback_null.cpp")
+target_compile_features(test_lg_skip_callback_null PRIVATE cxx_std_23)
+target_include_directories(test_lg_skip_callback_null PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_lg_skip_callback_null PRIVATE Boost::mp11
+    comdare::anatomy_module_loader comdare::workload_driver)
+comdare_set_platform_defines(test_lg_skip_callback_null)
+set(_lgskip_tree "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/experiment_tree")
+target_compile_definitions(test_lg_skip_callback_null PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_LG_SKIPCB_ITERATOR_QUELLE=\"${_lgskip_tree}/cache_engine_builder_iterator.hpp\"")
+unset(_lgskip_tree)
+add_test(NAME test_lg_skip_callback_null COMMAND test_lg_skip_callback_null)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lg_skip_callback_null)
+set_tests_properties(test_lg_skip_callback_null PROPERTIES LABELS "f2-5;lagerhaltung;skip;standalone")
+
 # LAG-P2 (2026-08-09) -- das MESSWERT-GENUS des Lagers. Schwester-Ziel zu test_f3_lager_key_provider_
 # iterator: dort der reale bestand_key_of (Binary-Genus), hier der reale mess_bestand_key_of
 # (measurement-Genus) samt Rueckschrieb und dem Owner-SKIP vom 08.08.2026. Braucht zusaetzlich
