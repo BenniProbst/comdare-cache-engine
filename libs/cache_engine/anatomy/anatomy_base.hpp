@@ -366,3 +366,11 @@ public:
 [[nodiscard]] inline AnatomyGattung module_gattung(IAnatomyBase const& m) noexcept { return gattung_of(m.genus()); }
 
 } // namespace comdare::cache_engine::anatomy
+
+// T-B VERSIONSTRAEGER (axis_version.lock, L1/#15-Landung 2026-08-20): Substanz-
+// Erstversion dieser Datei nach dem Preimage-Bruch (S-6a-POD-Neuordnung MESS,SYSTEM,ORGAN + HY-A2-Enums am decl-Slot).
+// Der Lock-Scan liest die algo_version-Zuweisung; jeder spaetere Substanz-Wechsel
+// braucht einen Bump HIER plus bewussten Lock-Regen-Commit (--write).
+namespace comdare::cache_engine::lock_version::anatomy_base {
+inline constexpr const char* algo_version = "1.0.0.c";
+}

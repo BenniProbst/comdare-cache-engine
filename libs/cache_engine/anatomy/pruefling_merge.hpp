@@ -252,3 +252,11 @@ template <PrueflingVerbundStrategy S, class Default, class... Slots>
 using MergeAxis = typename detail::MergeImpl<S, Default, Slots...>::type;
 
 } // namespace comdare::cache_engine::anatomy::pruefling
+
+// T-B VERSIONSTRAEGER (axis_version.lock, L1/#15-Landung 2026-08-20): Substanz-
+// Erstversion dieser Datei nach dem Preimage-Bruch (V-11R-Verbund-Token-Vokabular (Stufe -> Verbund)).
+// Der Lock-Scan liest die algo_version-Zuweisung; jeder spaetere Substanz-Wechsel
+// braucht einen Bump HIER plus bewussten Lock-Regen-Commit (--write).
+namespace comdare::cache_engine::lock_version::pruefling_merge {
+inline constexpr const char* algo_version = "1.0.0.c";
+}

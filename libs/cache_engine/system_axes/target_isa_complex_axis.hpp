@@ -219,3 +219,11 @@ static_assert(!Prod1Zen5TargetIsa::has_all_members_declared() && !Prod2AlderLake
               "angepasst, nicht entfernt.");
 
 } // namespace comdare::cache_engine::measurement
+
+// T-B VERSIONSTRAEGER (axis_version.lock, L1/#15-Landung 2026-08-20): Substanz-
+// Erstversion dieser Datei nach dem Preimage-Bruch (Hybrid-Komposit KON45-01 / ABI-Layout 7).
+// Der Lock-Scan liest die algo_version-Zuweisung; jeder spaetere Substanz-Wechsel
+// braucht einen Bump HIER plus bewussten Lock-Regen-Commit (--write).
+namespace comdare::cache_engine::lock_version::target_isa_complex_axis {
+inline constexpr const char* algo_version = "1.0.0.c";
+}
