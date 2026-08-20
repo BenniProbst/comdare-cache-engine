@@ -110,7 +110,7 @@ std::string profil_text(std::string_view system_achsen) {
     s += "    <workloads>YCSB_A</workloads>\n";
     s += "  </compile_dims>\n";
     s += "  <modes>\n";
-    s += "    <mode name=\"ce_only\" merge=\"Stufe1_CeOnly\" active_axes=\"search_algo\"/>\n";
+    s += "    <mode name=\"ce_only\" merge=\"Verbund1_CeOnly\" active_axes=\"search_algo\"/>\n";
     s += "  </modes>\n";
     s += system_achsen;
     s += "</comdare_thesis_profile>\n";

@@ -120,7 +120,7 @@ fs::path write_temp_profile(std::string const& categories_block) {
   <base_tiers><tier id="hot" profile_ref="../sota/hot.profile.xml" paper_ref="P02"/></base_tiers>
   <permute_axes><axis ref="search_algo"><value>k_ary</value></axis></permute_axes>
 )" << categories_block
-        << R"(  <modes><mode name="ce_only" merge="Stufe1_CeOnly" active_axes="search_algo"/></modes>
+        << R"(  <modes><mode name="ce_only" merge="Verbund1_CeOnly" active_axes="search_algo"/></modes>
   <static_axes from="base_tier"/>
 </comdare_thesis_profile>
 )";

@@ -4,13 +4,13 @@
 // valide; bis zur Weg-a-Umbenennung am 17.08.2026 hiess sie experiment_golden_kern.xml wie die super-Instanz).
 //
 // BEWEIST LITERAL (R4: kein Element ohne Test-Beleg):
-//   (a) PARSE   -- <machines> (Kern-Identitaet), <axis pruefling=..>, merge="fulljoin", <output><storage ..> parsen
+//   (a) PARSE   -- <machines> (Kern-Identitaet), <axis pruefling=..>, merge="union", <output><storage ..> parsen
 //                  in die neuen PODs mit den woertlich erwarteten Feldern.
 //   (b) VALIDATE OK -- die valide Fixture => ok==true, mit den neuen Zaehlern (machines_checked==2,
 //                  storage_checked==1, axis_pruefling_checked==3).
-//   (c) VALIDATE FEHLER -- je neuer Regel ein negativer Beleg: fulljoin ohne Phase-3-Bindung; unvollstaendige
+//   (c) VALIDATE FEHLER -- je neuer Regel ein negativer Beleg: union ohne Phase-3-Bindung; unvollstaendige
 //                  Maschinen-Identitaet; ungueltiges storage-backend; unbekannter axis-pruefling.
-//   (d) merge_mode_to_strategy("fulljoin") == "Stufe3_FullJoin" (Projektion nachgezogen, additiv).
+//   (d) merge_mode_to_strategy("union") == "Verbund3_Union" (Projektion nachgezogen, additiv).
 //
 // LESE-Schicht: kein Treiber-Lauf, kein DLL-Bau. Die Fixture wird NUR GELESEN.
 
@@ -42,7 +42,7 @@ std::optional<cx::ExperimentProfile> parse_kern() {
     return parser.parse_experiment_profile(fs::path{COMDARE_EXPERIMENT_KERN_SEAM_FIXTURE});
 }
 
-// Ein minimal-valides ExperimentProfile (2 engines + op_types + Stufe1-Phase): die Basis fuer die negativen
+// Ein minimal-valides ExperimentProfile (2 engines + op_types + Verbund1-Phase): die Basis fuer die negativen
 // Regel-Belege, damit GENAU die getestete Regel den Fehler traegt (kein Rauschen aus anderen Pflicht-Checks).
 cx::ExperimentProfile make_base_ep() {
     cx::ExperimentProfile ep;
@@ -51,8 +51,8 @@ cx::ExperimentProfile make_base_ep() {
     ep.engines.push_back(cx::ExperimentEngine{"ee_prt", "PrtArtExecutionEngineAdapter", "prt_art_axis_registry.xml"});
     ep.op_types = {"OP-1"};
     cx::ExperimentPhase ph1;
-    ph1.name  = "Stufe1_CeOnly";
-    ph1.merge = "Stufe1_CeOnly";
+    ph1.name  = "Verbund1_CeOnly";
+    ph1.merge = "Verbund1_CeOnly";
     ep.phases.push_back(ph1);
     return ep;
 }
@@ -168,6 +168,10 @@ TEST(ExperimentKernSeam, MachinesWithoutOsExpectationStayEmpty) {
         EXPECT_TRUE(mc.os_declaration_source.empty()) << mc.id;
     }
     // Die Kern-Identitaet ist davon unberuehrt -- validate zaehlt weiterhin beide Maschinen.
+    // A2.5-g5 (Fix 15): merge="merge" der Fixture in-memory neutralisieren (Gate hat eigenen Beleg,
+    // MergeModeMergeIsDeferredError) -- dieser Test misst die Maschinen-Zaehlung, nicht das Merge-Gate.
+    ASSERT_EQ(ep->axes_default_lookup.size(), 3u);
+    ep->axes_default_lookup[2].merge_mode    = "replace";
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_TRUE(vr.ok) << (vr.errors.empty() ? "" : vr.errors.front());
     EXPECT_EQ(vr.machines_checked, 2u);
@@ -182,7 +186,7 @@ TEST(ExperimentKernSeam, ParsesAxisPrueflingAndFulljoinToken) {
     EXPECT_EQ(ep->axes_default_lookup[0].merge_mode, "replace");
     EXPECT_EQ(ep->axes_default_lookup[1].ref, "path_compression");
     EXPECT_EQ(ep->axes_default_lookup[1].pruefling, "prt_art");
-    EXPECT_EQ(ep->axes_default_lookup[1].merge_mode, "fulljoin");
+    EXPECT_EQ(ep->axes_default_lookup[1].merge_mode, "union");
     EXPECT_EQ(ep->axes_default_lookup[2].pruefling, "self");
     EXPECT_EQ(ep->axes_default_lookup[2].merge_mode, "merge");
 }
@@ -198,7 +202,7 @@ TEST(ExperimentKernSeam, ParsesPhaseIdNamespace) {
     auto ep = parse_kern();
     ASSERT_TRUE(ep.has_value());
     ASSERT_EQ(ep->phases.size(), 3u);
-    EXPECT_TRUE(ep->phases[0].id_namespace.empty()); // Stufe1_CeOnly: kein eigener id-Satz
+    EXPECT_TRUE(ep->phases[0].id_namespace.empty()); // Verbund1_CeOnly: kein eigener id-Satz
     EXPECT_EQ(ep->phases[1].id_namespace, "merge_prt_v1");
     EXPECT_EQ(ep->phases[2].id_namespace, "join_prt_v1");
 }
@@ -207,6 +211,14 @@ TEST(ExperimentKernSeam, ParsesPhaseIdNamespace) {
 TEST(ExperimentKernSeam, ValidatesOkWithNewCounters) {
     auto ep = parse_kern();
     ASSERT_TRUE(ep.has_value());
+    // A2.5-g5 (Review #15, Fix 15): die Fixture traegt <axis merge="merge"> -- der Modus ist bis zur
+    // Materialisierung von Verbund2_Hybrid am Validator GESPERRT (eigener Negativ-Beleg unten,
+    // MergeModeMergeIsDeferredError). Fuer den GRUENEN Zaehler-Beleg dieses Tests wird die dritte
+    // Achse in-memory auf den replace-Default gedreht; axis_merge_checked bleibt 3 (drei nicht-leere
+    // Modi: replace, union, replace).
+    ASSERT_EQ(ep->axes_default_lookup.size(), 3u);
+    ASSERT_EQ(ep->axes_default_lookup[2].merge_mode, "merge");
+    ep->axes_default_lookup[2].merge_mode    = "replace";
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_TRUE(vr.ok) << (vr.errors.empty() ? "" : vr.errors.front());
     EXPECT_TRUE(vr.errors.empty());
@@ -214,34 +226,52 @@ TEST(ExperimentKernSeam, ValidatesOkWithNewCounters) {
     EXPECT_EQ(vr.storage_checked, 1u);
     EXPECT_EQ(vr.axis_pruefling_checked, 3u);
     EXPECT_EQ(vr.axis_merge_checked, 3u);
-    EXPECT_EQ(vr.id_namespace_checked, 2u); // Stufe2 + Stufe3 tragen je einen eigenen id-Satz
+    EXPECT_EQ(vr.id_namespace_checked, 2u); // Verbund2 + Verbund3 tragen je einen eigenen id-Satz
 }
 
 // ── (c) VALIDATE FEHLER -- je neuer Regel ein negativer Beleg ─────────────────
+
+// A2.5-g5 (Review #15, Fix 15 / D-F4b): "merge" ist bis zur Materialisierung von Verbund2_Hybrid am
+// EINGANG gesperrt -- das PrueflingVerbundStrategy-Enum traegt den Wert nicht (MATERIALISIERUNG
+// DEFERRED, merge_plan.hpp), eine durchgelassene "merge"-Direktive fiele erst im NACHGELAGERTEN Bau
+// des emittierten .cpp mit kryptischem Namensfehler (fail-late). Der Validator ist die frueheste
+// Stelle der Kette, darum faellt sie HIER. Die Kern-Fixture traegt genau so eine Achse (mapping/self).
+TEST(ExperimentKernSeam, MergeModeMergeIsDeferredError) {
+    auto ep = parse_kern();
+    ASSERT_TRUE(ep.has_value());
+    ASSERT_EQ(ep->axes_default_lookup.size(), 3u);
+    ASSERT_EQ(ep->axes_default_lookup[2].merge_mode, "merge") << "Fixture-Vorbedingung (mapping/self)";
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok) << "merge=\"merge\" muss bis zur Materialisierung am Validator fallen";
+    EXPECT_TRUE(has_error_containing(vr, "nicht materialisiert"));
+    EXPECT_TRUE(has_error_containing(vr, "Verbund2_Hybrid"));
+    EXPECT_TRUE(has_error_containing(vr, "replace/union")) << "die Meldung nennt den Ausweg";
+}
+
 TEST(ExperimentKernSeam, FulljoinWithoutPhase3IsError) {
-    cx::ExperimentProfile     ep = make_base_ep(); // nur Stufe1-Phase => keine Phase-3-Bindung
+    cx::ExperimentProfile     ep = make_base_ep(); // nur Verbund1-Phase => keine Phase-3-Bindung
     cx::ExperimentAxisDefault ax;
     ax.ref        = "path_compression";
-    ax.merge_mode = "fulljoin";
+    ax.merge_mode = "union";
     ep.axes_default_lookup.push_back(ax);
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(ep);
     EXPECT_FALSE(vr.ok);
-    EXPECT_TRUE(has_error_containing(vr, "fulljoin"));
+    EXPECT_TRUE(has_error_containing(vr, "union"));
     EXPECT_TRUE(has_error_containing(vr, "Phase-3-Bindung"));
 }
 
 TEST(ExperimentKernSeam, FulljoinWithPhase3IsAccepted) {
     cx::ExperimentProfile ep = make_base_ep();
     cx::ExperimentPhase   ph3;
-    ph3.name  = "Stufe3_FullJoin";
-    ph3.merge = "Stufe3_FullJoin";
+    ph3.name  = "Verbund3_Union";
+    ph3.merge = "Verbund3_Union";
     ep.phases.push_back(ph3); // jetzt liegt eine Phase-3-Bindung vor
     cx::ExperimentAxisDefault ax;
     ax.ref        = "path_compression";
-    ax.merge_mode = "fulljoin";
+    ax.merge_mode = "union";
     ep.axes_default_lookup.push_back(ax);
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(ep);
-    // Der fulljoin-Bindungs-Check darf hier NICHT feuern (die Union-Phase existiert).
+    // Der union-Bindungs-Check darf hier NICHT feuern (die Union-Phase existiert).
     EXPECT_FALSE(has_error_containing(vr, "Phase-3-Bindung"));
 }
 
@@ -273,7 +303,7 @@ TEST(ExperimentKernSeam, UnknownAxisPrueflingIsError) {
 }
 
 TEST(ExperimentKernSeam, IdNamespaceWithoutPrueflingWarns) {
-    cx::ExperimentProfile ep                 = make_base_ep();  // Stufe1_CeOnly ohne pruefling
+    cx::ExperimentProfile ep                 = make_base_ep();  // Verbund1_CeOnly ohne pruefling
     ep.phases[0].id_namespace                = "orphan_id_set"; // id-Satz auf pruefling-loser Phase
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(ep);
     EXPECT_TRUE(vr.ok); // Warnung, KEIN Fehler
@@ -282,10 +312,10 @@ TEST(ExperimentKernSeam, IdNamespaceWithoutPrueflingWarns) {
 }
 
 // ── (d) merge_plan-Projektion nachgezogen ────────────────────────────────────
-TEST(ExperimentKernSeam, FulljoinProjectsToFullJoinStrategy) {
-    EXPECT_EQ(tlz::merge_mode_to_strategy("fulljoin"), "Stufe3_FullJoin"); // §59-A(3): kombinierte Union
-    EXPECT_EQ(tlz::merge_mode_to_strategy("merge"), "Stufe2_Hybrid");      // R6/§59-A(2): Hybrid, NICHT FullJoin
-    EXPECT_EQ(tlz::merge_mode_to_strategy("replace"), "Stufe2_PrueflingReplace");
+TEST(ExperimentKernSeam, UnionProjectsToVerbund3UnionStrategy) {
+    EXPECT_EQ(tlz::merge_mode_to_strategy("union"), "Verbund3_Union");  // §59-A(3): kombinierte Union
+    EXPECT_EQ(tlz::merge_mode_to_strategy("merge"), "Verbund2_Hybrid"); // R6/§59-A(2): Hybrid, NICHT Union
+    EXPECT_EQ(tlz::merge_mode_to_strategy("replace"), "Verbund2_Replace");
 }
 
 } // namespace

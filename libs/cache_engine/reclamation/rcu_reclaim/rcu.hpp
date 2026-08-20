@@ -45,9 +45,61 @@
 #include <utility>
 #include <vector>
 
+// A2.5/G4 M-2 (2026-08-19): TSan-Erkennung fuer die Fence-Naht unten. GCC setzt
+// __SANITIZE_THREAD__, Clang meldet thread_sanitizer ueber __has_feature -- beide Wege werden
+// gefragt, damit die Bruecke nicht vom Compiler abhaengt.
+#if defined(__SANITIZE_THREAD__)
+#define COMDARE_RCU_TSAN_BRUECKE 1
+#elif defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+#define COMDARE_RCU_TSAN_BRUECKE 1
+#endif
+#endif
+#ifndef COMDARE_RCU_TSAN_BRUECKE
+#define COMDARE_RCU_TSAN_BRUECKE 0
+#endif
+
 namespace comdare::rcu {
 
 class RcuDomain;
+
+// ============================================================================================
+// DIE FENCE-NAHT (A2.5/G4 M-2) -- EINE Funktion, ZWEI Traeger, und warum es sie gibt
+// ============================================================================================
+// Das SB/Dekker-Muster dieser Domain haengt an ZWEI seq_cst-Fences: read_lock (active=true MUSS
+// global sichtbar sein, BEVOR die geschuetzten Loads folgen) und synchronize (Epoch-Bump MUSS
+// sichtbar sein, BEVOR die active-Loads folgen). Verboten ist, dass BEIDE Seiten "das Alte"
+// sehen -- das waere die verfruehte Grace-Period-Beendigung (UAF).
+//
+// DIE WERKZEUG-GRENZE, GEMESSEN (g4_m2_vorher_wtsan_warnung.log, GCC 15.3): -fsanitize=thread
+// modelliert atomic_thread_fence NICHT -- "atomic_thread_fence is not supported with
+// -fsanitize=thread [-Wtsan]", inlined an genau den beiden Naht-Punkten (vormals rcu.hpp:105
+// und :125). Ein TSan-Lauf prueft die Fence-Ordnung also nicht, er wirft sie weg; gruene
+// TSan-Laeufe deckten die Naht strukturell nie (Grenz-Doku test_rcu_concurrency.cpp, 17.08.).
+//
+// DIE BRUECKE: unter TSan faehrt dieselbe Naht als seq_cst-RMW auf EINER geteilten Atomic.
+// Das ist REAL mindestens fence-stark (RMWs auf derselben Variable bilden eine Totalordnung;
+// der spaetere RMW synchronisiert mit dem frueheren -- Lehrbuch-Alternative des Dekker-Musters)
+// UND fuer TSan voll modellierbar: die happens-before-Kante existiert in seinem Modell, die
+// Naht wird geprueft statt ignoriert. Ausserhalb von TSan bleibt die Fence unveraendert --
+// der wait-free Read-Hot-Path traegt im Normal-Build KEINE geteilte RMW-Last.
+//
+// EINE Funktion statt zwei Inline-Stellen: die Struktur-Wache im Test
+// (test_rcu_concurrency.cpp, FenceNahtStruktur*) liest diese Datei und haelt fest, dass BEIDE
+// Naht-Punkte DIESE Funktion rufen und dass beide Zweige seq_cst tragen. Wer die Naht schwaecht
+// oder einen Punkt am Ruf vorbeifuehrt, bricht die Wache deterministisch -- kein Timing-Flake.
+#if COMDARE_RCU_TSAN_BRUECKE
+// Die geteilte Brueckens-Atomic. inline (C++17): EINE Instanz ueber alle TUs.
+inline std::atomic<std::uint64_t> g_tsan_fence_bridge{0};
+#endif
+
+inline void store_load_fence_seq_cst() noexcept {
+#if COMDARE_RCU_TSAN_BRUECKE
+    (void)g_tsan_fence_bridge.fetch_add(1, std::memory_order_seq_cst);
+#else
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+#endif
+}
 
 // Per-Thread-Reader-State (epoch-based)
 struct alignas(64) RcuReaderState {
@@ -102,7 +154,8 @@ public:
             // geschuetzten Loads (alter Pointer) folgen. Zusammen mit dem seq_cst-Fence in synchronize()
             // ist ausgeschlossen, dass der Writer den Reader als inaktiv uebersieht, waehrend dieser noch
             // den alten Pointer liest → verhindert die verfruehte Grace-Period-Beendigung (UAF).
-            std::atomic_thread_fence(std::memory_order_seq_cst);
+            // M-2: die EINE Naht-Funktion (Fence; unter TSan die modellierbare Bruecke, s. Kopf).
+            store_load_fence_seq_cst();
         }
     }
 
@@ -122,7 +175,8 @@ public:
         std::uint64_t const target_epoch = global_epoch_.fetch_add(1, std::memory_order_seq_cst) + 1;
         // seq_cst-Fence (Gegenstueck zum read_lock-Fence): trennt Epoch-Bump/Pointer-Publikation von den
         // folgenden active-Loads → SB-Muster geschlossen (siehe read_lock).
-        std::atomic_thread_fence(std::memory_order_seq_cst);
+        // M-2: die EINE Naht-Funktion (Fence; unter TSan die modellierbare Bruecke, s. Kopf).
+        store_load_fence_seq_cst();
 
         std::lock_guard lock{registry_mutex_};
         // Iteriert die Domain-owned Slots direkt (keine rohen Zeiger auf fremd-owned Speicher mehr →

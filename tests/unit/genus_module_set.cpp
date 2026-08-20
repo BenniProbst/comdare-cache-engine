@@ -17,3 +17,9 @@
 // Bau-INC-2d: isa raus → 13 Slots (SortedArrayKeySet + 12 int-Slots).
 COMDARE_DEFINE_SET_MODULE(::comdare::cache_engine::anatomy::SortedArrayKeySet, int, int, int, int, int, int, int, int,
                           int, int, int, int)
+
+// A-11/golden-102 (19.08.2026): STEMPEL-PFLICHT -- der Loader weist stempellose Module mit status 13
+// (version_lines_symbol_missing) ab; Emission ohne Stempel faellt. Diese Fixture traegt deshalb ihre
+// EIGENEN, ehrlichen Zeilen (2-arg-Form: KEINE Mess-Deklaration -- sie kompiliert kein Tooling ein).
+#include <cache_engine/abi/anatomy_module_abi_v1.hpp>
+COMDARE_ANATOMY_VERSION_STAMP("system_fixture=perm_set_d9@1.0.0.c", "fixture_kern=sorted_array_key_set@1.0.0.c")

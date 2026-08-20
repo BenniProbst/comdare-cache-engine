@@ -207,8 +207,11 @@ int main(int argc, char** argv) {
         // sie ist dort jetzt durch die vollstaendige Fundstellen-Liste ersetzt.
         std::string const text = pf::ceb_contract_version_text();
         // NAHT-1 (09.08.2026): 8.1 -> 9.1. Der Major wandert (Mess-Naht am Genus-Interface), der
-        // codegen-Minor bleibt 1 -- der Bump beruehrt kV3AxisSchema NICHT.
-        eq("ceb_contract_version_text()", text, std::string{"9.1"});
+        // codegen-Minor blieb 1 -- jener Bump beruehrte kV3AxisSchema NICHT.
+        // A-14/B-5b (18.08.2026): 9.1 -> 9.2. Jetzt wandert der MINOR: der #15-Bruch erweitert den
+        // Vertrag INNERHALB des Majors (POD-Append name_line/len + Preimage-Grammatik). Genau dafuer
+        // ist der codegen-Minor da -- und genau deshalb steht die Zahl hier literal und nicht abgeleitet.
+        eq("ceb_contract_version_text()", text, std::string{"9.2"});
         // ... und ZUSAETZLICH die Ableitungs-Wache: der Text kommt aus derselben Quelle wie die
         // Lade-Wache oben. Beide zusammen schliessen aus, dass Pin und Wirkung auseinanderlaufen.
         eq("... und er ist aus dem Host-Major abgeleitet",
@@ -225,8 +228,8 @@ int main(int argc, char** argv) {
             if (nl == std::string::npos) break;
             std::cout << "    " << block.substr(pos, nl - pos) << "\n";
         }
-        tr("der --version-Block traegt die Zeile \"ceb-contract=9.1\"",
-           block.find("\nceb-contract=9.1\n") != std::string::npos);
+        tr("der --version-Block traegt die Zeile \"ceb-contract=9.2\"",
+           block.find("\nceb-contract=9.2\n") != std::string::npos);
     }
 
     // ----------------------------------------------------------------------------------------------

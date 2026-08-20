@@ -20,7 +20,7 @@
         <sub_dim id="cas_latency_cl" declared="false"/>
         <sub_dim id="cpu_fabrication" declared="true" value="AuthenticAMD/26/68/0"/>
       </complex>
-      <complex id="prod2_raptor_lake" isa="x86_64">
+      <complex id="prod2_alder_lake" isa="x86_64">
         <sub_dim id="ram_frequency_mhz" declared="true" value="4800" declaration_source="dmidecode 2026-07"/>
         <sub_dim id="cas_latency_cl" declared="false"/>
         <sub_dim id="cpu_fabrication" declared="true" value="GenuineIntel/6/151/2"/>
@@ -177,7 +177,7 @@
       <flag cpuinfo="avx512_vp2intersect"/>
       <flag cpuinfo="avx512_bf16"/>
     </machine>
-    <machine id="prod2_raptor_lake" host_isa="x86_64" flag_count="9">
+    <machine id="prod2_alder_lake" host_isa="x86_64" flag_count="9">
       <flag cpuinfo="avx2"/>
       <flag cpuinfo="fma"/>
       <flag cpuinfo="f16c"/>

@@ -16,31 +16,31 @@
 //   bereits emittiert (build/.../generated/anatomy_modules/). Lazy-Compile (1 DLL = 1 TU) bleibt.
 //
 // S6b — sota_series via pruefling_merge: je (Stufe × Lebewesen) eine reale Lebewesen-DLL. Die 3 Stufen
-//   (MergeStrategy) sind die mechanische Slot-Wahl (KEINE Code-Selektion); die Gattung ist via
+//   (PrueflingVerbundStrategy) sind die mechanische Slot-Wahl (KEINE Code-Selektion); die Gattung ist via
 //   assert_pruefling_slot_genus garantiert (prt_art_merge_reference.hpp); PRT-ART kommt über die
 //   IPrueflingFactory-Form (Abstract-Factory-Slot, i_pruefling_factory.hpp) in den Slot:
-//   • Stufe1_CeOnly           → das Lebewesen ISOLIERT (PrtArtComposition / die 6 SOTA selbst).
-//   • Stufe2_PrueflingReplace → PRT-ART ERSETZT den path_compression-Slot einer SOTA-Host-Komposition
-//                               (HotPrtStufe2ReplaceComposition); Fallback via HasPruefling_v.
-//   • Stufe3_FullJoin         → Union (non-redundant); je SOTA-Host ein Pruefling-Repräsentant
-//                               (<Host>PrtStufe3FullJoinComposition), prt_art-als-Host degeneriert zu nullopt.
+//   * Verbund1_CeOnly           -> das Lebewesen ISOLIERT (PrtArtComposition / die 6 SOTA selbst).
+//   * Verbund2_Replace -> PRT-ART ERSETZT den path_compression-Slot einer SOTA-Host-Komposition
+//                               (HotPrtVerbund2ReplaceComposition); Fallback via HasPruefling_v.
+//   * Verbund3_Union         -> Union (non-redundant); je SOTA-Host ein Pruefling-Repraesentant
+//                               (<Host>PrtVerbund3UnionComposition), prt_art-als-Host degeneriert zu nullopt.
 //
 //   STUFE→REIHE-ZUORDNUNG — EINGEFROREN per Thesis ch4 §4.8 / Tab. tab:stage-series
 //   (kapitel/de/04_concept_architecture.tex Z.314-331) + Treiber-Enum MessreiheKind (02_messung_driver/
 //   main.cpp:108-118 — der ist BEREITS korrekt):
-//     Stufe1 ∪ Stufe2 → Reihe A (Prüfling vs SOTA) · Stufe3 → Reihe B (systematische Variation) ·
+//     Verbund1  +  Verbund2 -> Reihe A (Pruefling vs SOTA) * Verbund3 -> Reihe B (systematische Variation) *
 //     Reihe C (Merge/Regression alt↔neu) = BUILD-ÜBERGREIFEND, an KEINE Stufe gebunden.
 //   ✅ #178 ERLEDIGT (2026-06-28): die Reihe wird MECHANISCH aus der Stufe (merge) abgeleitet — sota_module_for()
-//   dispatcht auf `merge` (Stufe), und stufe_to_reihe(merge) liefert den Reihen-Tag (Stufe1_CeOnly/
-//   Stufe2_PrueflingReplace→"A", Stufe3_FullJoin→"B"). Die Profile m3v2_study/_smoke/_sota_pilot führen den
+//   dispatcht auf `merge` (Stufe), und stufe_to_reihe(merge) liefert den Reihen-Tag (Verbund1_CeOnly/
+//   Verbund2_Replace->"A", Verbund3_Union->"B"). Die Profile m3v2_study/_smoke/_sota_pilot fuehren den
 //   `id`-Tag NUR noch als (zur Stufe konsistente) Selbst-Doku; Reihe C ist build-übergreifend und wird von
 //   KEINER Stufe erzeugt (kein <sota_series id="C">). CSV-row_series + Treiber-Enum MessreiheKind stimmen damit
-//   überein (kein falsches 1:1 A=St1/B=St2/C=St3 mehr).
+//   ueberein (kein falsches 1:1 A=Verbund1/B=V2/C=Verbund3 mehr).
 //
 // EHRLICHKEIT (Plan-Direktive): falls ein Lebewesen real NICHT baubar ist, liefert der Katalog für sein
 // (Reihe,Lebewesen)-Paar eine LEERE Quelle → der Orchestrator markiert die DLL als nicht baubar (sichtbar,
 // nicht versteckt). Der Klein-Pilot (test_sota_series_pilot) baut je Stufe ≥1 reale DLL real mit cl und
-// belegt Stufe3/Reihe B zusätzlich per 6 SOTA-Hosts.
+// belegt Verbund3/Reihe B zusaetzlich per 6 SOTA-Hosts.
 // (test_sota_series_pilot: Pilot-Test entfernt 2026-07-11; Host/Emitter heute Code/02_messung_driver, E4-XML)
 //
 // ⚠️ Umbrella-/Komposition-schwer → gehört in die HARNESS-/Test-.cpp, NICHT in den engine-agnostischen
@@ -51,7 +51,7 @@
 
 #include <compositions/known_compositions_list.hpp> // KnownReferenceCompositions (6 SOTA)
 #include <compositions/prt_art_reference.hpp>       // PrtArtComposition (Reihe A Prüfling)
-#include <compositions/prt_art_merge_reference.hpp> // PRT-Merge-Kompositionen (Stufe2/Reihe A, Stufe3/Reihe B)
+#include <compositions/prt_art_merge_reference.hpp> // PRT-Merge-Kompositionen (Verbund2/Reihe A, Verbund3/Reihe B)
 
 // A13-M3/C1 (K-3): DIESELBEN Kompositions-Quellen der Stempel-Zeilen wie der adhoc-Pfad
 // (lazy_adhoc_source_gen.hpp) -- der SOTA-Emitter baut KEINE eigene Zeilen-Ableitung.
@@ -84,16 +84,16 @@ namespace abi = ::comdare::cache_engine::abi;                 // A13-M3/C1: syst
 }
 
 // ── #178 / Thesis ch4 §4.8 (tab:stage-series): die EINGEFRORENE Stufe→Reihe-Ableitung (mechanisch, Single-Source).
-//    Stufe1 ∪ Stufe2 → Reihe A (Prüfling vs SOTA) · Stufe3 → Reihe B (systematische Variation). Reihe C
+//    Verbund1  +  Verbund2 -> Reihe A (Pruefling vs SOTA) * Verbund3 -> Reihe B (systematische Variation). Reihe C
 //    (Merge/Regression alt↔neu) ist BUILD-ÜBERGREIFEND, an KEINE Stufe gebunden → wird hier NIE erzeugt. ──
 [[nodiscard]] inline std::string stufe_to_reihe(std::string const& merge) {
-    if (merge == "Stufe1_CeOnly") return "A";
-    if (merge == "Stufe2_PrueflingReplace") return "A";
-    if (merge == "Stufe3_FullJoin") return "B";
+    if (merge == "Verbund1_CeOnly") return "A";
+    if (merge == "Verbund2_Replace") return "A";
+    if (merge == "Verbund3_Union") return "B";
     return "-"; // unbekannte/leere Stufe → kein Phantom-Reihen-Tag
 }
 
-// ── Die Reihe-A-Lebewesen (Stufe1_CeOnly): ISOLIERT je 1 reale Komposition. Single-Source 1:1 zu den
+// -- Die Reihe-A-Lebewesen (Verbund1_CeOnly): ISOLIERT je 1 reale Komposition. Single-Source 1:1 zu den
 //    Profil-<sota_series id="A" lebewesen=..>-Namen (m3v2_study.profile.xml). ──
 struct SotaModule {
     std::string lebewesen;        // "art" / "hot" / ... / "prt_art"
@@ -102,8 +102,9 @@ struct SotaModule {
     std::string header;           // Include-Header der Composition
     // M-CE-10 (Voll-Review 2026-07-13; per-Host-Auffächerung 2026-07-14): das HOST-Lebewesen der Komposition — das
     // Original-Quell-Repository, dessen H2-Code-Qualitäts-Score dieses Modul trägt (host-dominant, #171: "abstract" =
-    // der Host füllt 16/17 Achsen (INC-2d), der Prüfling nur den path_compression-Slot). Stufe1 (isoliert) == lebewesen;
-    // Stufe2 UND Stufe3 (per-Host) == dem angefragten Lebewesen (das IST der Host). Damit trägt h2_score_for das
+    // der Host fuellt 16/17 Achsen (INC-2d), der Pruefling nur den path_compression-Slot). Verbund1 (isoliert) ==
+    // lebewesen;
+    // Verbund2 UND Verbund3 (per-Host) == dem angefragten Lebewesen (das IST der Host). Damit traegt h2_score_for das
     // reale Host-Lebewesen (nach der per-Host-Auffächerung ist das = das angefragte lebewesen, kein FIX "hot" mehr).
     std::string host_lebewesen;
 };
@@ -147,7 +148,7 @@ struct SotaStampLines {
 
 /// render_sota_module_source — der kompilierbare Modul-.cpp-Quelltext einer SOTA/PRT-ART-Komposition.
 /// IDENTISCH zum CMake-Codegen-Modul (comdare_codegen_anatomy_module): ABI-Header + Composition-Header +
-/// COMDARE_DEFINE_ANATOMY_MODULE(<FQ-Typ>). Real-baubar via cl (probe-belegt für alle 6 SOTA + PRT-ART + Stufe3/B).
+/// COMDARE_DEFINE_ANATOMY_MODULE(<FQ-Typ>). Real-baubar via cl (probe-belegt fuer alle 6 SOTA + PRT-ART + Verbund3/B).
 ///
 /// A13-M3/C1 (K-3): APPEND-ONLY 3. Argument `stamp` = die VOLLEN organ/system/measurement-Zeilen. LEERER
 /// Default -> exakt die heutige Emission (2-arg-Modul-Makro ohne Stempel-Zeile) -> der Katalog-Quelltext
@@ -168,19 +169,21 @@ struct SotaStampLines {
                       ">\n"
                       "COMDARE_DEFINE_ANATOMY_MODULE(" +
                       fq_type + ")\n";
+    // S-6a: Argument-Folge MESS, SYSTEM, ORGAN (Begruendung an render_adhoc_module_source).
     if (!stamp.empty())
-        src += "COMDARE_ANATOMY_VERSION_STAMP_M(\"" + stamp.organ + "\", \"" + stamp.system + "\", \"" +
-               stamp.measurement + "\")\n";
+        src += "COMDARE_ANATOMY_VERSION_STAMP_M(\"" + stamp.measurement + "\", \"" + stamp.system + "\", \"" +
+               stamp.organ + "\")\n";
     return src;
 }
 
 // -----------------------------------------------------------------------------
 // K5 (Section 59, 2026-07-20) -- der DIREKTIVEN-GETRIEBENE Merge-Emitter (Generalisierung der 6 hart aufgelisteten
-//   <Host>PrtStufeN-Katalog-Typen auf eine AxisMergeDirective-getriebene MergeAxis<>-Instanziierung). ADDITIV: der
+//   <Host>PrtVerbundN-Katalog-Typen auf eine AxisMergeDirective-getriebene MergeAxis<>-Instanziierung). ADDITIV: der
 //   bestehende Katalog-Pfad (render_sota_module_source oben) bleibt fuer den heutigen phase.merge-x-lebewesen-Fall
 //   BYTE-IDENTISCH; DIESER Pfad greift NUR, wenn per-Achse-Direktiven vorliegen (merge_plan_from_profile != leer) --
 //   heute in KEINEM committeten Profil => alle emittierten .cpp-Quelltexte bleiben byte-gleich (golden-CRC
-//   0xF1C1F26A1232073B unberuehrt, die Merges sind ein additiver id-Satz).
+//   unberuehrt, die Merges sind ein additiver id-Satz; Wert-Zitat 0xF1C1F26A1232073B = ALT-Anker/
+//   Historie vor 26.07., lebend: kNewGolden131072Crc64 = 0x56F1B721C72DC10E [B-10.3/golden-102]).
 // -----------------------------------------------------------------------------
 
 /// DirectiveSlotTypes -- die realen FQ-Typen, mit denen eine (Achse, Pruefling)-Direktive eine MergeAxis<> belegt:
@@ -207,7 +210,7 @@ struct DirectiveSlotTypes {
 
 /// render_directive_merge_module_source -- der direktiven-getriebene Modul-.cpp-Quelltext: die Host-Komposition
 /// (host_fq_type/host_header) mit per-Achse MergeAxis<Strategy, HostDefault, PrueflingSlot>-Instanziierungen aus
-/// den Direktiven (statt der hart aufgelisteten <Host>PrtStufeN-Typen). Je real slot-hinterlegter Direktive
+/// den Direktiven (statt der hart aufgelisteten <Host>PrtVerbundN-Typen). Je real slot-hinterlegter Direktive
 /// (directive_slot_types != nullopt) ein reales `using DirectiveMerged_<axis> = pf::MergeAxis<...>;`; je
 /// (heute) nicht hinterlegter Direktive eine annotierte Naht-Zeile (Emitter-Paket/S5). LEERE Direktiven-Liste
 /// -> der Aufrufer nutzt stattdessen den Katalog-Pfad (render_sota_module_source; byte-identisch).
@@ -232,21 +235,23 @@ struct DirectiveSlotTypes {
     for (auto const& d : directives) {
         if (auto const st = directive_slot_types(d.axis_ref, d.pruefling_slot)) {
             // Reale, generalisierte MergeAxis<>-Instanziierung ueber die directive-Achse (NICHT hart path_compression):
-            src += "using DirectiveMerged_" + d.axis_ref + " = pf::MergeAxis<pf::MergeStrategy::" + d.strategy + ", " +
-                   st->default_variants_fq + ", " + st->pruefling_slot_fq + ">;\n";
+            src += "using DirectiveMerged_" + d.axis_ref +
+                   " = pf::MergeAxis<pf::PrueflingVerbundStrategy::" + d.strategy + ", " + st->default_variants_fq +
+                   ", " + st->pruefling_slot_fq + ">;\n";
         } else {
             // Ehrlich: (Achse, Pruefling) heute ohne realen Slot -> die generalisierte Naht als annotierter Kommentar
             // (das Pruefling-Repo liefert den per-Achse-Slot per Concept-Detection; Emitter-Paket/S5).
-            src += "// pf::MergeAxis<pf::MergeStrategy::" + d.strategy + ", /*HostDefault(" + d.axis_ref +
+            src += "// pf::MergeAxis<pf::PrueflingVerbundStrategy::" + d.strategy + ", /*HostDefault(" + d.axis_ref +
                    ")*/, /*PrueflingSlot(" + d.pruefling_slot + ")*/>  // Slot via Pruefling-Repo (S5)\n";
         }
     }
     src += "} // namespace comdare::cache_engine::thesis_lazy::directive_merge\n"
            "COMDARE_DEFINE_ANATOMY_MODULE(" +
            host_fq_type + ")\n";
+    // S-6a: Argument-Folge MESS, SYSTEM, ORGAN (Begruendung an render_adhoc_module_source).
     if (!stamp.empty())
-        src += "COMDARE_ANATOMY_VERSION_STAMP_M(\"" + stamp.organ + "\", \"" + stamp.system + "\", \"" +
-               stamp.measurement + "\")\n";
+        src += "COMDARE_ANATOMY_VERSION_STAMP_M(\"" + stamp.measurement + "\", \"" + stamp.system + "\", \"" +
+               stamp.organ + "\")\n";
     return src;
 }
 
@@ -256,7 +261,7 @@ struct DirectiveSlotTypes {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// build_sota_series_a_modules — die Reihe-A-Lebewesen (PRT-ART + die 6 KnownReferenceCompositions),
-/// je als isolierte reale Komposition (Stufe1_CeOnly). binary_id = serialize_composition_from_slots.
+/// je als isolierte reale Komposition (Verbund1_CeOnly). binary_id = serialize_composition_from_slots.
 [[nodiscard]] inline std::vector<SotaModule> build_sota_series_a_modules() {
     std::vector<SotaModule> out;
     // PRT-ART (Thesis-eigenes Prüfling-Lebewesen, Reihe A isoliert). host==prt_art (KEIN Original-Repo → H2 n/a).
@@ -273,7 +278,7 @@ struct DirectiveSlotTypes {
             out.push_back(SotaModule{sn, sota_binary_id("A", std::string{C::name}),
                                      std::string{C::cpp_type_name}, // FQ-Typ-Name aus HasCompositionLocation (R5.G)
                                      std::string{C::header_include},
-                                     sn}); // host_lebewesen == sn (Stufe1 isoliert: der Host IST das Lebewesen)
+                                     sn}); // host_lebewesen == sn (Verbund1 isoliert: der Host IST das Lebewesen)
         }
     };
     mp::mp_for_each<cmp::KnownReferenceCompositions>(
@@ -282,7 +287,7 @@ struct DirectiveSlotTypes {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// S6b — die 3 Kompositionalen Joins als reale Reihen-Module (pruefling_merge). #178: Stufe2 (→Reihe A) + Stufe3
+// S6b -- die 3 Kompositionalen Joins als reale Reihen-Module (pruefling_merge). #178: Verbund2 (->Reihe A) + Verbund3
 //   (→Reihe B) tragen PRT-ART als Pruefling-Slot in einer SOTA-Host-Komposition. binary_id distinkt.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -290,60 +295,62 @@ struct DirectiveSlotTypes {
 /// Paar (in diesem Pilot) NICHT real baubar ist (ehrlich → leere Quelle beim Caller). #178: dispatcht auf die
 /// STUFE (merge) — die mechanische Wahrheit — NICHT auf den Reihen-id; der Reihen-Tag wird via stufe_to_reihe(merge)
 /// abgeleitet (binary_id-Namensraum). Mechanik:
-///   Stufe1_CeOnly           → das isolierte Lebewesen (build_sota_series_a_modules) → Reihe A.
-///   Stufe2_PrueflingReplace → <Host>PrtStufe2ReplaceComposition je SOTA-Host (PRT-ART ersetzt den path_compression-
+///   Verbund1_CeOnly           -> das isolierte Lebewesen (build_sota_series_a_modules) -> Reihe A.
+///   Verbund2_Replace -> <Host>PrtVerbund2ReplaceComposition je SOTA-Host (PRT-ART ersetzt den path_compression-
 ///                             Slot) → Reihe A; prt_art-Host → nullopt (M-CE-10 per-Host, 2026-07-14).
-///   Stufe3_FullJoin         → <Host>PrtStufe3FullJoinComposition je SOTA-Host → Reihe B; prt_art-Host → nullopt.
-/// M-CE-10 (2026-07-14): Stufe2 ist per-Host aufgefächert (der frühere HOT-Pilot war die EINE St2-Binary) — jetzt
-/// symmetrisch zu Stufe3 (je SOTA-Host eine distinkte reale Komposition, host_lebewesen == lebewesen).
+///   Verbund3_Union         -> <Host>PrtVerbund3UnionComposition je SOTA-Host -> Reihe B; prt_art-Host -> nullopt.
+/// M-CE-10 (2026-07-14): Verbund2 ist per-Host aufgefaechert (der fruehere HOT-Pilot war die EINE V2-Binary) -- jetzt
+/// symmetrisch zu Verbund3 (je SOTA-Host eine distinkte reale Komposition, host_lebewesen == lebewesen).
 [[nodiscard]] inline std::optional<SotaModule> sota_module_for(std::string const& merge, std::string const& lebewesen) {
-    if (merge == "Stufe1_CeOnly") {
+    if (merge == "Verbund1_CeOnly") {
         for (auto const& m : build_sota_series_a_modules())
             if (m.lebewesen == lebewesen) return m;
         return std::nullopt;
     }
-    std::string const reihe = stufe_to_reihe(merge); // #178: Reihe mechanisch aus der Stufe (A für St2, B für St3)
-    if (merge == "Stufe2_PrueflingReplace") {
-        // M-CE-10 (per-Host-Stufe2, 2026-07-14, Ledger :1134 — bau-relevant mit F/G): ANALOG zu Stufe3 (unten)
-        // fächert Stufe2 jetzt je SOTA-Host eine distinkte <Host>PrtStufe2ReplaceComposition (Host stellt 16 Achsen, INC-2d,
+    // #178: Reihe mechanisch aus der Stufe (A fuer V2, B fuer Verbund3)
+    std::string const reihe = stufe_to_reihe(merge);
+    if (merge == "Verbund2_Replace") {
+        // M-CE-10 (per-Host-Verbund2, 2026-07-14, Ledger :1134 -- bau-relevant mit F/G): ANALOG zu Verbund3 (unten)
+        // faechert Verbund2 jetzt je SOTA-Host eine distinkte <Host>PrtVerbund2ReplaceComposition (Host stellt 16
+        // Achsen, INC-2d,
         // PRT-ART ersetzt den path_compression-Slot). Die binary_id ist damit GENUINE per-Host distinkt (verschiedene
         // Hosts = verschiedene Kompositionen — KEIN Fake-id für byte-identischen HOT-Code, der alte Anti-Phantom-
         // Fall entfällt). host_lebewesen == lebewesen (der reale Host trägt den H2-Score). prt_art-als-Host ist
-        // degeneriert (in Reihe A/Stufe1 bereits isoliert) → nullopt (ehrlich, keine Stufe1-Duplikation unter St2).
+        // degeneriert (in Reihe A/Verbund1 bereits isoliert) -> nullopt (ehrlich, keine Verbund1-Duplikation unter V2).
         struct B {
             std::string_view type;
             std::string_view name;
         };
         auto pick = [&](std::string const& l) -> std::optional<B> {
             if (l == "art")
-                return B{"::comdare::cache_engine::compositions::ArtPrtStufe2ReplaceComposition",
-                         cmp::ArtPrtStufe2ReplaceComposition::name};
+                return B{"::comdare::cache_engine::compositions::ArtPrtVerbund2ReplaceComposition",
+                         cmp::ArtPrtVerbund2ReplaceComposition::name};
             if (l == "hot")
-                return B{"::comdare::cache_engine::compositions::HotPrtStufe2ReplaceComposition",
-                         cmp::HotPrtStufe2ReplaceComposition::name};
+                return B{"::comdare::cache_engine::compositions::HotPrtVerbund2ReplaceComposition",
+                         cmp::HotPrtVerbund2ReplaceComposition::name};
             if (l == "masstree")
-                return B{"::comdare::cache_engine::compositions::MasstreePrtStufe2ReplaceComposition",
-                         cmp::MasstreePrtStufe2ReplaceComposition::name};
+                return B{"::comdare::cache_engine::compositions::MasstreePrtVerbund2ReplaceComposition",
+                         cmp::MasstreePrtVerbund2ReplaceComposition::name};
             if (l == "surf")
-                return B{"::comdare::cache_engine::compositions::SurfPrtStufe2ReplaceComposition",
-                         cmp::SurfPrtStufe2ReplaceComposition::name};
+                return B{"::comdare::cache_engine::compositions::SurfPrtVerbund2ReplaceComposition",
+                         cmp::SurfPrtVerbund2ReplaceComposition::name};
             if (l == "start")
-                return B{"::comdare::cache_engine::compositions::StartPrtStufe2ReplaceComposition",
-                         cmp::StartPrtStufe2ReplaceComposition::name};
+                return B{"::comdare::cache_engine::compositions::StartPrtVerbund2ReplaceComposition",
+                         cmp::StartPrtVerbund2ReplaceComposition::name};
             if (l == "wormhole")
-                return B{"::comdare::cache_engine::compositions::WormholePrtStufe2ReplaceComposition",
-                         cmp::WormholePrtStufe2ReplaceComposition::name};
+                return B{"::comdare::cache_engine::compositions::WormholePrtVerbund2ReplaceComposition",
+                         cmp::WormholePrtVerbund2ReplaceComposition::name};
             return std::nullopt; // prt_art (degeneriert) + unbekannte
         };
         if (auto b = pick(lebewesen))
-            return SotaModule{lebewesen + "+prt(St2)", sota_binary_id(reihe, std::string{b->name}),
-                              std::string{b->type}, "compositions/prt_art_merge_reference.hpp",
+            return SotaModule{lebewesen + "+prt(V2)", sota_binary_id(reihe, std::string{b->name}), std::string{b->type},
+                              "compositions/prt_art_merge_reference.hpp",
                               lebewesen}; // host_lebewesen == lebewesen: der per-Host-Replace hat DIESEN Host
         return std::nullopt;
     }
-    if (merge == "Stufe3_FullJoin") {
-        // AP-4/#238: per-Host-FullJoin (analog build_sota_series_a_modules) — je SOTA-Host eine distinkte
-        // <Host>PrtStufe3FullJoinComposition. prt_art-als-Host ist degeneriert (prt_art ist in Reihe A/Stufe1
+    if (merge == "Verbund3_Union") {
+        // AP-4/#238: per-Host-Union (analog build_sota_series_a_modules) -- je SOTA-Host eine distinkte
+        // <Host>PrtVerbund3UnionComposition. prt_art-als-Host ist degeneriert (prt_art ist in Reihe A/Verbund1
         // bereits isoliert) → nullopt (ehrlich, keine Reihe-A-Duplikation unter B-Label).
         struct B {
             std::string_view type;
@@ -351,29 +358,29 @@ struct DirectiveSlotTypes {
         };
         auto pick = [&](std::string const& l) -> std::optional<B> {
             if (l == "art")
-                return B{"::comdare::cache_engine::compositions::ArtPrtStufe3FullJoinComposition",
-                         cmp::ArtPrtStufe3FullJoinComposition::name};
+                return B{"::comdare::cache_engine::compositions::ArtPrtVerbund3UnionComposition",
+                         cmp::ArtPrtVerbund3UnionComposition::name};
             if (l == "hot")
-                return B{"::comdare::cache_engine::compositions::HotPrtStufe3FullJoinComposition",
-                         cmp::HotPrtStufe3FullJoinComposition::name};
+                return B{"::comdare::cache_engine::compositions::HotPrtVerbund3UnionComposition",
+                         cmp::HotPrtVerbund3UnionComposition::name};
             if (l == "masstree")
-                return B{"::comdare::cache_engine::compositions::MasstreePrtStufe3FullJoinComposition",
-                         cmp::MasstreePrtStufe3FullJoinComposition::name};
+                return B{"::comdare::cache_engine::compositions::MasstreePrtVerbund3UnionComposition",
+                         cmp::MasstreePrtVerbund3UnionComposition::name};
             if (l == "surf")
-                return B{"::comdare::cache_engine::compositions::SurfPrtStufe3FullJoinComposition",
-                         cmp::SurfPrtStufe3FullJoinComposition::name};
+                return B{"::comdare::cache_engine::compositions::SurfPrtVerbund3UnionComposition",
+                         cmp::SurfPrtVerbund3UnionComposition::name};
             if (l == "start")
-                return B{"::comdare::cache_engine::compositions::StartPrtStufe3FullJoinComposition",
-                         cmp::StartPrtStufe3FullJoinComposition::name};
+                return B{"::comdare::cache_engine::compositions::StartPrtVerbund3UnionComposition",
+                         cmp::StartPrtVerbund3UnionComposition::name};
             if (l == "wormhole")
-                return B{"::comdare::cache_engine::compositions::WormholePrtStufe3FullJoinComposition",
-                         cmp::WormholePrtStufe3FullJoinComposition::name};
+                return B{"::comdare::cache_engine::compositions::WormholePrtVerbund3UnionComposition",
+                         cmp::WormholePrtVerbund3UnionComposition::name};
             return std::nullopt; // prt_art (degeneriert) + unbekannte
         };
         if (auto b = pick(lebewesen))
-            return SotaModule{lebewesen + "+prt(St3)", sota_binary_id(reihe, std::string{b->name}),
+            return SotaModule{lebewesen + "+prt(Verbund3)", sota_binary_id(reihe, std::string{b->name}),
                               std::string{b->type}, "compositions/prt_art_merge_reference.hpp",
-                              lebewesen}; // host_lebewesen == lebewesen: der per-Host-FullJoin hat DIESEN Host
+                              lebewesen}; // host_lebewesen == lebewesen: der per-Host-Union hat DIESEN Host
         return std::nullopt;
     }
     return std::nullopt;
@@ -418,11 +425,11 @@ inline constexpr char const* kSotaTierAxis = "sota_tier";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // #171 (Text-Agent AP-X2/TODO-2, 2026-06-20) — die Pruefling-Auspraegung "full" vs "abstract" als 1:1-Sicht auf
-//   die BESTEHENDE MergeStrategy/sota_series-Mechanik (KEINE neue Achse, KEINE neue Selektion):
-//     • full     == "Originalkonfiguration"/self-contained == Reihe A == merge=Stufe1_CeOnly: das Lebewesen
+//   die BESTEHENDE PrueflingVerbundStrategy/sota_series-Mechanik (KEINE neue Achse, KEINE neue Selektion):
+//     * full     == "Originalkonfiguration"/self-contained == Reihe A == merge=Verbund1_CeOnly: das Lebewesen
 //                   fuellt ALLE 17 Achsen (INC-2d) mit EIGENEN Organen (PrtArtComposition / die 6 SOTA isoliert).
-//                   Beleg: pruefling_merge.hpp:93-95 StufeOneAxis=DefaultList; prt_art_reference.hpp:61-80.
-//     • abstract == Teilmenge + Host-Fallback == Stufe2/Reihe A oder Stufe3/Reihe B:
+//                   Beleg: pruefling_merge.hpp:93-95 Verbund1Axis=DefaultList; prt_art_reference.hpp:61-80.
+//     * abstract == Teilmenge + Host-Fallback == Verbund2/Reihe A oder Verbund3/Reihe B:
 //                   der Pruefling fuellt NUR einen Slot (path_compression), 16 Achsen via Host-Fallback (INC-2d).
 //                   Beleg: pruefling_merge.hpp:113-118 conditional_t Ersetzt-mit-Fallback; prt_art_merge_reference.hpp.
 //   Quelle der cacheline-doc §0 Z.11 / §1.2 Z.19 ("Paper-Algorithmen als Basis-Lebewesen in Originalkonfiguration").
@@ -431,10 +438,11 @@ inline constexpr char const* kSotaTierAxis = "sota_tier";
 [[nodiscard]] inline std::string derive_pruefling_type(std::string const& series_id, std::string const& merge,
                                                        std::string const& explicit_override) {
     if (!explicit_override.empty()) return explicit_override; // Forscher-Override gewinnt
-    // Primaer aus merge (die mechanische Wahrheit): Stufe1 = self-contained = full; Stufe2/3 = Teilmenge = abstract.
-    if (merge == "Stufe1_CeOnly") return "full";
-    if (merge == "Stufe2_PrueflingReplace") return "abstract";
-    if (merge == "Stufe3_FullJoin") return "abstract";
+    // Primaer aus merge (die mechanische Wahrheit): Verbund1 = self-contained = full; Verbund2/3 = Teilmenge =
+    // abstract.
+    if (merge == "Verbund1_CeOnly") return "full";
+    if (merge == "Verbund2_Replace") return "abstract";
+    if (merge == "Verbund3_Union") return "abstract";
     // Fallback wenn merge leer/unbekannt: aus der Reihen-id (A=full, B/C=abstract) — kongruent zur merge-Map.
     if (series_id == "A") return "full";
     if (series_id == "B" || series_id == "C") return "abstract";
@@ -444,11 +452,13 @@ inline constexpr char const* kSotaTierAxis = "sota_tier";
 // Ein profil-deklariertes SOTA-Reihen-Lebewesen, aufbereitet als EIN Treiber-Pass (Reihe-Tag + view-binary_id).
 struct SotaPass {
     std::string
-        series; // #178: Reihe aus Stufe abgeleitet (stufe_to_reihe): "A" (St1∪St2) / "B" (St3); C=build-übergr. (CSV-Tag row_series)
+        // #178: Reihe aus Stufe abgeleitet (stufe_to_reihe): "A" (Verbund1+Verbund2) / "B" (Verbund3); C=build-uebergr.
+        // (CSV-Tag row_series)
+                series;
     std::string lebewesen;      // Profil-Lebewesen-Name (Doku/Log)
     std::string sota_bid;       // der rohe sota::S::name (AxisLevel-Wert der einwertigen "sota_tier"-Ebene)
     std::string view_binary_id; // == "sota_tier=<sota::S::name>" (== StaticBinaryView-binary_id dieses Passes)
-    std::string pruefling_type; // #171: "full" (Reihe A self-contained) / "abstract" (Stufe2/3 Teilmenge+Fallback)
+    std::string pruefling_type; // #171: "full" (Reihe A self-contained) / "abstract" (Verbund2/3 Teilmenge+Fallback)
     // GO-5 Fork 6 (2026-07-12, Thesis §sec:fairness): der deklarierte Fairness-Modus der Reihe —
     // "common_denominator" / "native" / "-" (ungesetzt = heutiges Verhalten). REINE Reihen-Metadaten
     // (CSV-Tag fairness_mode + Resume-Stamp), NICHT Teil der binary_id (Tags verschmutzen die
@@ -457,8 +467,8 @@ struct SotaPass {
     // (#156/#162-Fenster) und aendert DANN die Komposition selbst (⇒ natuerlicherweise eigene binary_id).
     std::string fairness_mode = "-";
     // M-CE-10 (Voll-Review 2026-07-13; per-Host-Auffächerung 2026-07-14): das Lebewesen, dessen H2-Code-Qualitäts-
-    // Score dieser Pass trägt — host-dominant (== SotaModule::host_lebewesen). Für St1/St2/St3 identisch zu
-    // `lebewesen` (nach der per-Host-Auffächerung ist auch die St2-Komposition per-Host, host_lebewesen == lebewesen).
+    // Score dieser Pass traegt -- host-dominant (== SotaModule::host_lebewesen). Fuer Verbund1/V2/Verbund3 identisch zu
+    // `lebewesen` (nach der per-Host-Auffaecherung ist auch die V2-Komposition per-Host, host_lebewesen == lebewesen).
     // Der Treiber löst den CSV-Score über DIESES Feld auf (h2_score_for) — prt_art/fehlende Akte ⇒ honest "n/a".
     std::string h2_lebewesen = "-";
 };
@@ -499,19 +509,19 @@ struct SotaPass {
     std::vector<SotaPass> out;
     out.reserve(tp.sota_series.size());
     // ── M-CE-10 (Voll-Review 2026-07-13; per-Host-Auffächerung 2026-07-14) — SEMANTIK-ENTSCHEIDUNG ─────────────
-    //   FRÜHER (2026-07-13) war Stufe2_PrueflingReplace KONZEPTIONELL EINE Binary (der HOT-Pilot): sota_module_for
-    //   bildete die binary_id OHNE das angefragte lebewesen, mehrere <sota_series merge="Stufe2_.."> mit
+    //   FRUeHER (2026-07-13) war Verbund2_Replace KONZEPTIONELL EINE Binary (der HOT-Pilot): sota_module_for
+    //   bildete die binary_id OHNE das angefragte lebewesen, mehrere <sota_series merge="Verbund2_.."> mit
     //   VERSCHIEDENEN lebewesen materialisierten DIESELBE Messung → Dedup kollabierte sie zu 1 Pass. Der damalige
     //   Anti-Phantom-Vorbehalt ("lebewesen in die binary_id zu ziehen = N FAKE-distinkte-ids für byte-identischen
-    //   HOT-Code") galt, WEIL nur der HOT-Host existierte. JETZT (F/G-relevant, Ledger :1134) faechert Stufe2 je
-    //   SOTA-Host eine EIGENE reale <Host>PrtStufe2ReplaceComposition (prt_art_merge_reference.hpp) — die binary_ids
+    //   HOT-Code") galt, WEIL nur der HOT-Host existierte. JETZT (F/G-relevant, Ledger :1134) faechert Verbund2 je
+    //   SOTA-Host eine EIGENE reale <Host>PrtVerbund2ReplaceComposition (prt_art_merge_reference.hpp) -- die binary_ids
     //   sind damit GENUINE per-Host distinkt (verschiedene Hosts = verschiedene Kompositionen, KEIN Fake-id), genau
-    //   wie Stufe3. Die Mechanik bleibt:
+    //   wie Verbund3. Die Mechanik bleibt:
     //     (a) DEDUP der Pässe auf (view_binary_id, fairness_mode): kollabiert nur noch WIRKLICH identische Messungen
     //         (gleicher Host + gleicher fairness_mode). Die LEGITIMEN fairness-Varianten (gleiche binary_id,
-    //         verschiedener fairness_mode — DATEN-gated #156-Pinnung) bleiben getrennt; per-Host-St2 sind distinkt.
+    //         verschiedener fairness_mode -- DATEN-gated #156-Pinnung) bleiben getrennt; per-Host-V2 sind distinkt.
     //     (c) H2-ATTRIBUTION host-dominant: der Pass trägt den H2-Score seines HOST-Lebewesens (m->host_lebewesen);
-    //         nach der Auffächerung ist der Host == das angefragte lebewesen (konsistent zu St1/St3).
+    //         nach der Auffaecherung ist der Host == das angefragte lebewesen (konsistent zu Verbund1/Verbund3).
     //   (b) Der Zähler res.sota_binary_ids zählt im Treiber (profile_run_entry) weiterhin DISTINKTE binary_ids.
     // ──────────────────────────────────────────────────────────────────────────────────────────────────────────
     std::set<std::pair<std::string, std::string>> seen_pass; // Dedup-Schlüssel: (view_binary_id, fairness_mode)
@@ -562,13 +572,13 @@ build_sota_view_source_map(cx::ThesisProfile const& tp, std::string const& measu
 /// mechanisch nötigen Felder; series_id/pruefling_type werden (wie im ThesisProfile-Pfad) aus `merge`
 /// ABGELEITET (derive_pruefling_type), fairness bleibt "-" (die Experiment-Phase deklariert keinen Fairness-Modus).
 struct SotaMergeLebewesen {
-    std::string merge;     // Stufe1_CeOnly / Stufe2_PrueflingReplace / Stufe3_FullJoin
+    std::string merge;     // Verbund1_CeOnly / Verbund2_Replace / Verbund3_Union
     std::string lebewesen; // prt_art/art/hot/masstree/surf/start/wormhole
 };
 
 /// build_sota_passes(pairs) — Overload: die SOTA-Reihen-Pässe AUS einer expliziten (merge×lebewesen)-Paar-Liste
 /// (Brücken-Eingang). 1 Eintrag je real baubarem Paar (make_sota_pass != nullopt); nicht baubare Paare
-/// (z.B. prt_art unter Stufe2/Stufe3) werden EHRLICH ausgelassen (kein Phantom-Pass). Dedup IDENTISCH zum
+/// (z.B. prt_art unter Verbund2/Verbund3) werden EHRLICH ausgelassen (kein Phantom-Pass). Dedup IDENTISCH zum
 /// ThesisProfile-Pfad: (view_binary_id, fairness_mode). Reihenfolge = Paar-Reihenfolge (stabil).
 [[nodiscard]] inline std::vector<SotaPass> build_sota_passes(std::vector<SotaMergeLebewesen> const& pairs) {
     std::vector<SotaPass>                         out;
@@ -625,33 +635,33 @@ struct ExperimentPhaseProjection {
 /// derive_default_experiment_phases — KERN-A (S4 Mess-Schema, 2026-07-20): die 3 Default-Stufen, wenn ein
 /// comdare_experiment KEINE expliziten <phases> deklariert (Abwesenheit = "alles messen", die KERN-Beschreibung).
 /// Reihenfolge + Merge-Strategien spiegeln die KERN-Beschreibung 1:1:
-///   (1) Stufe1_CeOnly        = CE allein / self-contained (je Lebewesen isoliert, Reihe A);
-///   (2) Stufe2_PrueflingReplace = je Pruefling replace-Default (der per-Achse merge-Override ist Fork 4,
+///   (1) Verbund1_CeOnly        = CE allein / self-contained (je Lebewesen isoliert, Reihe A);
+///   (2) Verbund2_Replace = je Pruefling replace-Default (der per-Achse merge-Override ist Fork 4,
 ///       binary_id-veraendernd => golden-regen-/gate-gated, HIER NOCH NICHT scharf);
-///   (3) Stufe3_FullJoin      = kombiniert (Reihe B).
+///   (3) Verbund3_Union      = kombiniert (Reihe B).
 /// Das Kreuzprodukt phase.merge × ep.lebewesen ("je Pruefling") uebernimmt project_experiment_to_sota_passes
 /// unveraendert. REINE Ableitung — kein Bau, keine Messung. Die Namen sind bewusst "derived_*" (Provenienz).
 [[nodiscard]] inline std::vector<cx::ExperimentPhase> derive_default_experiment_phases() {
     std::vector<cx::ExperimentPhase> phases;
     phases.reserve(3);
     cx::ExperimentPhase p1;
-    p1.name  = "derived_stufe1_ce_only";
-    p1.merge = "Stufe1_CeOnly";
+    p1.name  = "derived_verbund1_ce_only";
+    p1.merge = "Verbund1_CeOnly";
     phases.push_back(std::move(p1));
     cx::ExperimentPhase p2;
-    p2.name  = "derived_stufe2_pruefling_replace";
-    p2.merge = "Stufe2_PrueflingReplace";
+    p2.name  = "derived_verbund2_replace";
+    p2.merge = "Verbund2_Replace";
     phases.push_back(std::move(p2));
     cx::ExperimentPhase p3;
-    p3.name  = "derived_stufe3_fulljoin";
-    p3.merge = "Stufe3_FullJoin";
+    p3.name  = "derived_verbund3_union";
+    p3.merge = "Verbund3_Union";
     phases.push_back(std::move(p3));
     return phases;
 }
 
 /// project_experiment_to_sota_passes — die Brücken-Projektion (I3). Je <phase> wird das Kreuzprodukt
 /// phase.merge × profile.lebewesen gebildet und über die schmalen (merge,lebewesen)-Overloads auf Pässe +
-/// Quellen-Map abgebildet. nullopt-Paare (z.B. prt_art unter Stufe2/Stufe3) werden EHRLICH ausgelassen (kein
+/// Quellen-Map abgebildet. nullopt-Paare (z.B. prt_art unter Verbund2/Verbund3) werden EHRLICH ausgelassen (kein
 /// Phantom-Key/-Pass — Muster build_sota_passes:323). Reihenfolge = Phasen-Reihenfolge × lebewesen-Reihenfolge
 /// (stabil/resumierbar). KEIN Bau, KEIN Lauf.
 /// KERN-A (S4, 2026-07-20): leere <phases> => die 3 Default-Stufen ableiten (Abwesenheit = "alles messen"). Das

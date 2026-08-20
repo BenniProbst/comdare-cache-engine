@@ -1,20 +1,26 @@
 #pragma once
 // abi/anatomy_fingerprint.hpp -- K7b-3 (Section 62-B / Section 64): der SHA-512-Fingerprint der einkompilierten
-// Anatomy-Stempel-Zeilen (organ/system/measurement), consteval berechnet aus der K7b-1-Primitive.
+// Anatomy-Stempel-Zeilen (seit S-6a in der Kategorien-Ordnung measurement/system/organ), consteval berechnet
+// aus der K7b-1-Primitive.
 //
 // D3 (Manager-Entscheid 2026-07-22): Preimage-Ordnung fix. A13-M3 (Owner-E2 "Merge Zeile kann daher nicht
 // existieren" + OF-M3-1 Option A + F7-Konsolidierung 01.08.) hat sie NEU gefasst -- die Glied-Liste steht als
 // EINE Quelle in anatomy_fingerprint_glieder() unten, alle Rechen-Stellen ziehen daraus.
 // O-2/C-2 (Owner-Entscheid abend-5, 05.08.2026 = OPTION A "Achsen-Vollstaendigkeits-Neuanker"): die Liste ist auf
-// ACHT Glieder gewachsen -- die CEB-Laufzeit-Hauptachsen (Compiler inkl. Flags, opt_level, atomic128, bt/gate/ceb)
+// ZEHN Glieder gewachsen (der Kopf nannte bis 18.08.2026 ACHT -- er war seit R-3 stale und beschrieb damit
+// ausgerechnet in DIESER Datei die eigene Glied-Zahl falsch) -- die CEB-Laufzeit-Hauptachsen (Compiler inkl.
+// Flags, opt_level, atomic128, bt/gate/ceb)
 // und die Enabled-Mengen-Signatur der Build-Achsen sind ab fingerprint_format=3 IDENTITAETS-wirksam, nicht mehr
 // bloss Provenienz im build_version-Suffix. Sie werden INJIZIERT (K-1-Traeger + Compile-Define); die Ordnung
-// bleibt an dieser einen Stelle.
+// bleibt an dieser einen Stelle. B-9/golden-102 (fingerprint_format=6, 19.08.2026): auch die build_version-BASIS
+// ("m3v2", ...) ist IDENTITAETS-wirksam -- Glied [10], injiziert wie die anderen (COMDARE_BUILD_VERSION_GLIED).
 // D2: der Fingerprint reist als 128-hex nullterminierte Zeile ({char const*, uint64}) im AnatomyVersionLines-POD.
 // GOLDEN-NEUTRAL: die Berechnung passiert INNEN im COMDARE_ANATOMY_VERSION_STAMP*-Makro -> der emittierte Quelltext
 // (der Makro-Call, 2/3-arg) bleibt byte-identisch; der Fingerprint materialisiert erst in der Makro-Expansion,
-// nicht im emittierten .cpp -> golden-CRC 0xF1C1F26A1232073B unberuehrt. Saat fuer den #46b-std::map-Lookup (ein
-// kompakter, stabiler Provenienz-Schluessel je Tier-Binary).
+// nicht im emittierten .cpp -> der golden-ids-CRC ist unberuehrt (HISTORIE: der hier frueher zitierte Wert
+// 0xF1C1F26A1232073B war der Alt-Anker vor dem 26.07.-Re-Anker; der lebende TABU-Anker ist
+// kNewGolden131072Crc64 = 0x56F1B721C72DC10E, source_catalog.hpp -- B-10.3/golden-102 bestaetigt [MATCH]).
+// Saat fuer den #46b-std::map-Lookup (ein kompakter, stabiler Provenienz-Schluessel je Tier-Binary).
 
 #include "mess_gates_glied.hpp"         // R-3: der Mess-GATE-Zustand DIESER TU als Preimage-Glied [8]
 #include "subaxis_valueset_segment.hpp" // A13-M3: das Sub-Achsen-Werteset-Segment als Preimage-Glied
@@ -29,6 +35,7 @@
 // nicht an ihrer eigenen Naht wieder eintreten.
 #include <cache_engine/abi/overlay_source_hash_generated.hpp>
 
+#include <sha256/ctsha.hpp> // E-A/B-6: der EIGENE SHA-256 der Namensfunktion (NICHT der Fingerprint-Hash)
 #include <sha512/ctsha512.hpp>
 
 #include <array>
@@ -53,8 +60,10 @@ namespace comdare::cache_engine::abi {
 /// Meta-Meta-Anhang) ~150, Mess-Zeile unter 200. Dazu die A13-M3-Glieder: die Format-Kennung (<32), das
 /// Werteset-Segment (<64), das Overlay-Glied als SHA-512-Hex-String (128) und die Separator-Bytes.
 /// Das zweite, SEPARATE Budget ist das 50-KB-Funktionsrumpf-Budget der Primitive
-/// (sha512::fits_compile_time_budget, ctsha512.hpp:164-166, kMaxFunctionBodyBytes = 50 * 1024);
-/// 4096 liegt eine Groessenordnung darunter. Beide Budgets sind eingehalten.
+/// (sha512::fits_compile_time_budget, ctsha512.hpp:164-166, kMaxFunctionBodyBytes = 50 * 1024).
+/// STAND-VOR-#15-MARKER (A2.5, 18.08.2026): dieser Beleg-Absatz beschrieb die 4096er-Fassung
+/// (bis #15: 4096; seit S-6a: 8192, Rechnung unten). Die 50-KB-Aussage ist seit dem A2.5-Fix
+/// MASCHINELL (static_assert im Budget-Block unten), nicht mehr Prosa. Beide Budgets sind eingehalten.
 ///
 /// O-2/C-2 (Format 3, 05.08.2026) -- DER BUDGET-NACHWEIS IST AB HIER MASCHINELL, nicht mehr nur ein
 /// Absatz. Format 3 haengt ZWEI Glieder an (Toolchain, bvset), und das bvset-Glied ist das erste, das
@@ -65,7 +74,30 @@ namespace comdare::cache_engine::abi {
 /// consteval-Puffer irgendwann unerklaerlich zu ueberlaufen. Die LEBENDE Messung der laengsten realen
 /// bvset-Signatur steht dort, wo sie entsteht: driver_build_variant_signature.hpp prueft ihre
 /// tatsaechliche Laenge gegen kAnatomyFingerprintBvsetMax.
-inline constexpr std::size_t kAnatomyFingerprintPreimageMax = 4096;
+///
+/// -- S-6a/#15 (Format 5, 18.08.2026): 4096 -> 8192, UND DIE ANHEBUNG IST GERECHNET, NICHT GERATEN ----
+///
+/// ANLASS: das ZEHNTE Glied (die Hybrid-Komposit-Map-Zeile, KON45-01) ist das erste, das nicht mit
+/// einer Zeile, sondern mit der DOCK-BELEGUNG waechst -- bis zu 32 Eintraege "stufen_id=<64-hex>". Sein
+/// Budget steht unten als eigene Rechnung (kAnatomyFingerprintKompositMax = 2368) und sprengt die alte
+/// Grenze zusammen mit den neun Bestands-Gliedern: die Summe steigt von 3688 auf 6057.
+///
+/// DIE RECHNUNG, GLIED FUER GLIED (dieselben Zahlen, die unten als Konstanten stehen; die Summen-Wache
+/// kAnatomyFingerprintBudgetSum rechnet sie compile-time nach, dieser Absatz ist nur ihre Lesefassung):
+///     Format 32 + Organ 768 + System 256 + Mess 256 + Werteset 128 + Toolchain 512 + bvset 1536
+///   + Overlay 128 + mess-gates 64 + komposit 2368 + 9 Separatoren (GliedCount-1) = 6057.
+/// [B-9/golden-102, 19.08.2026 -- FORTSCHREIBUNG DERSELBEN RECHNUNG: + build_version 128 (Glied [10])
+///  + der ZEHNTE Separator = 6186. Die 8192er-Wahl unten traegt weiter (Luft 2006 Byte); der Absatz
+///  darunter beschreibt die S-6a-Anhebung 4096 -> 8192 und bleibt als deren Beleg unveraendert.]
+/// 6057 passt NICHT in 4096, also ist die Anhebung Pflicht und kein Komfort. GEWAEHLT: 8192 -- die
+/// naechste Zweierpotenz, 2135 Byte Luft ueber der Summe. Warum nicht knapp auf 6144: das
+/// komposit-Glied ist das einzige, dessen Budget an einer HEUTE willkuerlichen Zahl haengt (dem
+/// 32er-Dock-Deckel); eine Grenze, die beim ersten Deckel-Schritt wieder faellt, waere keine Grenze,
+/// sondern ein Termin. Warum nicht groesser: der Puffer ist ein consteval-Byte-Array je
+/// Fingerprint-Auswertung, und das zweite, SEPARATE Budget (sha512::fits_compile_time_budget,
+/// kMaxFunctionBodyBytes = 50 * 1024) bleibt mit 8192 um den Faktor 6 unterschritten. Beide Budgets
+/// sind eingehalten -- das war bei 4096 so und ist es bei 8192.
+inline constexpr std::size_t kAnatomyFingerprintPreimageMax = 8192;
 
 /// A13-M3 / OF-M3-1 = Option A (Owner-Entscheid 03.08.2026, Befund GA-01 [BLOCK]): der DOMAIN-SEPARATOR.
 ///
@@ -103,8 +135,9 @@ inline constexpr char kAnatomyFingerprintSeparator = '\n';
 ///   zwei verschiedene Binaries mit DEMSELBEN Digest (am Objekt gemessen, tests/unit/
 ///   r3_mess_gate_stamp_module.cpp: .so-sha256 820533fb vs. e92658ce, sha512_line BEIDE 6739cae7...).
 ///   dll_is_current (build_orchestrator.hpp) vergleicht genau diese Zahl gegen ein Sidecar -- der Skip
-///   war still und falsch. Glied [3] konnte das nicht heilen: es traegt die Mess-Combo als HOST-Literal,
-///   also als Behauptung des Bauwerkzeugs, nicht als Wahrheit der TU.
+///   war still und falsch. Die Mess-Zeile (sie trug damals, im Format-4-Layout, als Glied [3]; seit der
+///   S-6a-Drehung ist sie Glied [1]) konnte das nicht heilen: sie traegt die Mess-Combo als
+///   HOST-Literal, also als Behauptung des Bauwerkzeugs, nicht als Wahrheit der TU.
 ///   WARUM WIEDER EIN BUMP UND NICHT DIE NIEMALS-LEERHEIT DES NEUEN GLIEDS: dieselbe Begruendung wie
 ///   bei Format 3 -- ein Bestand aus der Zeit VOR der Gate-Verankerung wuerde sonst weiter
 ///   uebersprungen, obwohl seine Mess-Ausstattung nie geprueft wurde. Der Bump erzwingt die EINE
@@ -113,7 +146,46 @@ inline constexpr char kAnatomyFingerprintSeparator = '\n';
 ///   den GESAMTEN Arbeitsbaum inkl. Build-Verzeichnisse -> 0 Dateien). Nach dem ersten golden-Batch
 ///   kostete dieselbe Aenderung einen Voll-Neubau der Flotte plus Messdaten-Entwertung -- der Fix
 ///   gehoert deshalb VOR das naechste GOLDEN-UPDATE-Fenster und nicht dahinter.
-inline constexpr std::string_view kAnatomyFingerprintFormat = "fingerprint_format=4";
+/// Format 5 (S-6a/#15-Bump-Buendel, 18.08.2026): ZWEI Aenderungen in EINEM Bump, und der Bump ist
+///   genau deshalb EINER -- jede fuer sich waere eine volle Invalidierungswelle gewesen (KON5-04: "der
+///   teuerste Bruch des Systems"; KON96-01 KORB A/4: "sonst steht der teuerste Bruch spaeter erneut an").
+///   (a) DIE KATEGORIEN-ORDNUNG DREHT auf MESS, SYSTEM, ORGAN (KON21-03, Owner "Ja genau, meint auch
+///       #87 und #78"): die Glieder [1][2][3] heissen ab hier Mess-Tooling-Zeile, System-Zeile,
+///       Organ-Zeile -- vorher organ, system, measurement. Die Ordnung folgt der TRAEGER-Kette
+///       (Planer -> CEB -> Tier), nicht einem Realm-Attribut. Sie gilt an ALLEN DREI Aussen-Ebenen
+///       (Makro-Argumentfolge, POD-Feldfolge, Preimage-Glieder), das Lager behaelt seine zwei eigenen
+///       Kaskaden (D-12, KON6-02/4 -- VERBOTSZONE dieses Bruchs, hier bewegt sich nichts).
+///   (b) DAS ZEHNTE GLIED kommt dazu: die HYBRID-KOMPOSIT-MAP-ZEILE (KON45-01/KON103-03). Ein plain
+///       Tier traegt "" -- das Glied ist fuer ALLE Binaries da, nicht nur fuer Hybride (KON45-01/2
+///       Empfehlung (a); die verworfene Alternative (b) waere eine hybrid-eigene Glied-Folge und damit
+///       eine ZWEITE Ordnungs-Quelle gewesen).
+///   WARUM WIEDER EIN BUMP: die Begruendung traegt an (a) -- eine reine UMSORTIERUNG bei gleicher
+///   Glied-ZAHL ist genau die Klasse von Aenderung, die ohne Format-Kennung STILL kollidieren wuerde
+///   (ein Alt-Binary mit vertauschten Zeilen kann denselben Digest treffen) -- und an der
+///   Schema-Evolution (F7: Layouts mismatchen DEKLARIERT, nicht als Byte-Zufall). KORREKTUR (A2.5,
+///   18.08.2026): das leere Zehnt-Glied (b) rechnete auch OHNE Bump nicht byte-identisch zum
+///   Vor-Stand -- sein 9. Separator kommt dazu, der Digest bewegte sich ohnehin fail-closed; (b)
+///   allein haette den Bump nicht gebraucht. Mit dem Bump mismatcht die Flotte EINMAL und baut
+///   fail-closed neu.
+///   DIE WELLE IST IM FENSTER DIESES COMMITS KOSTENLOS: der .fingerprint-Sidecar-Bestand ist weiterhin
+///   0, und eine Flotte wurde nie gebaut -- der Bruch gehoert deshalb VOR F2 (21.08.2026) und nicht
+///   dahinter, wo er einen Voll-Neubau plus Messdaten-Entwertung kostete.
+/// Format 6 (B-9/golden-102, 19.08.2026; Owner-Deckung KON101-02 E-B(i) "Wir brechen golden-CRC!"):
+///   das ELFTE Glied kommt dazu -- die BUILD_VERSION-BASIS ("m3v2", "all_axes_golden", ...). Seit
+///   Format 3 sind die SUFFIX-Segmente der build_version (+cxx=+opt=+ext=+ceb=+target=+tel=+bt=+gate=)
+///   ueber die Glieder [5]/[6] identitaets-wirksam; die BASIS davor reiste weiter als reine Provenienz
+///   (.version-Sidecar, CSV-Spalte, Objekt-Store-Praefix) und stand in KEINEM Glied: zwei Staende mit
+///   verschiedener Basis trugen DENSELBEN Fingerprint (T-1-Rot-Probe am Objekt, 19.08.2026 --
+///   probe_b9_build_version.cpp, m3v2 vs. vNEXT, identischer Hex). B-9 zieht sie als Glied [10] nach
+///   (Compile-Define COMDARE_BUILD_VERSION_GLIED, K-1-Traeger BuildVersionGlied; Wert = die BASIS,
+///   NICHT der suffigierte perm-String -- der Suffix ist via [5] schon Identitaet, eine Doppel-Tragung
+///   waere eine zweite Wahrheit). WARUM WIEDER EIN BUMP: dieselbe F7-Begruendung wie bei Format 3/4/5 --
+///   ein Bestand aus der Zeit VOR der Basis-Verankerung wuerde mit leerem neuem Glied weiter
+///   uebersprungen, obwohl seine Basis-Identitaet nie geprueft wurde; das Layout mismatcht DEKLARIERT
+///   statt still zu kollidieren. DIE WELLE IST IM FENSTER DIESES COMMITS KOSTENLOS: der
+///   .fingerprint-Sidecar-Bestand ist weiterhin 0, eine Flotte wurde nie gebaut -- deshalb faehrt der
+///   Bruch als EIN Zug VOR F2 (21.08.2026), nicht dahinter (Terminierungs-Notiz 20260819-F6).
+inline constexpr std::string_view kAnatomyFingerprintFormat = "fingerprint_format=6";
 
 /// Das letzte Preimage-Glied: der HASH ALLER SOURCE-CODE-DATEIEN IM OVERLAY (Owner-Abnahme 26.07.,
 /// Ledger 88: "consteval-SHA512-Zeile ueber Achsen-Strings + Versionen + Overlay-Source-Hashes").
@@ -410,11 +482,248 @@ private:
     std::string_view wert_;
 };
 
+/// -- KON45-01: DIE HYBRID-KOMPOSIT-MAP-NAHT (Glied [9], Format 5) -------------------------------------
+///
+/// WAS IN DEM GLIED STEHT: die fuer alle BELEGTEN Pruefdocks konkatenierte Map {Synthese-Key ->
+/// Tier-SHA}, Dock-Index AUFSTEIGEND (KON103-03). Ein Hybrid-Binary ist per Konstruktion die
+/// Verkettung der Tiere, die an seinen Docks stecken; ohne dieses Glied trueg sein Fingerprint die
+/// eingesteckten Tiere NICHT -- zwei Hybride mit derselben Heuristik, aber verschiedenen Zielen,
+/// bekaemen denselben Digest und damit einen FALSCHEN SKIP. Das ist dieselbe Fehlerklasse, die
+/// Format 3 (Toolchain) und Format 4 (Mess-Gates) geschlossen haben, eine Stufe hoeher.
+///
+/// DIE MIKRO-SYNTAX (KON103-03, aus der dokumentierten Form abgeleitet -- KEIN neues Format):
+/// key=value-Paare, ';'-getrennt (die Syntax von compose_organ_stamp_line). Der KEY ist
+/// UEBERGANGSWEISE die CT-Adresse stufen_id() = Layer * Nodes + Node
+/// (hybrid/heuristik_adapter_synthese_matrix.hpp:139) und NICHT der Laufzeit-attach-Slot: DockArray::
+/// attach ist first-free und wiederverwendbar, eine CT-Map kann keine RT-Slots tragen. Die
+/// Namens-Strings der Strategien ("Reroute<View>") scheiden als Key aus -- sie verletzen den
+/// Glied-Zeichenvorrat oben (KON45-01/6). Der WERT ist der SHA-256 (64 hex) ueber DASSELBE Preimage,
+/// das den SHA-512-Fingerprint des jeweiligen plain Tiers speist (KON103-03; das E-A-Muster, NICHT
+/// die ersten 64 hex des SHA-512). Der ABSCHLUSS-SHA-512 dieses Headers deckt die neue Zeile mit --
+/// es gibt KEINEN dritten Hash ueber die Verkettung.
+///
+/// RT <= CT, UND WARUM DAS KEINE WACHE IN DIESEM HEADER SEIN KANN (KON45-01/4, Spannung KON7-04
+/// aufgeloest): die Map ist die BAU-ZEIT-Belegung (Identitaet/Lager/Skip), angeschlossene() ist das
+/// LAUFZEIT-IST der Einrichtung. Die Invariante lautet: RT-Menge TEILMENGE der CT-Map -- zur Laufzeit
+/// darf ein Dock leer bleiben, aber es darf keines auftauchen, das der Bau nicht kannte. CT-seitig
+/// pruefbar ist davon hier genau eines: dass der Wert die Grammatik und das Budget haelt (die
+/// static_asserts unten plus die Traeger-Wache). Die MENGEN-Seite der Invariante lebt dort, wo beide
+/// Mengen zugleich sichtbar sind -- am Hybrid-Dock (HY-A2/B5), nicht in abi/. Eine Wache hier
+/// koennte nur die CT-Seite sehen und wuerde damit eine Zusage BEHAUPTEN, die sie nicht misst.
+///
+/// WIE DER WERT HIERHER KOMMT -- und warum der Slot HEUTE leer ist: per Compile-Define, exakt die
+/// sanktionierte Pre-Build-Define-Klasse (Muster COMDARE_SYSTEM_CELL_VALUES / COMDARE_TOOLCHAIN_
+/// STAMP_GLIED). Die Zeile entsteht am Hybrid-Stempel-Makro-Expansionsort, die CEB-Bau-Naht injiziert
+/// sie je Hybrid-Bau (Tier vor Hybrid, sequentiell -- KON9-03). Diese Verdrahtung ist HY-A2/HY-A3 und
+/// gehoert NICHT in diesen Schnitt; hier steht der SLOT, damit der Format-Bump und die Glied-Ordnung
+/// GENAU EINEN Anker kosten und nicht zwei (dieselbe Begruendung, aus der das Toolchain-Glied vor
+/// seiner C-3-Verdrahtung gebaut wurde).
+/// DEFAULT LEER == IDENTITAET: ein plain Tier traegt "" und rechnet damit byte-identisch zu einem
+/// Binary, das das Glied gar nicht kennt -- ausser seinem Separator. Genau das meint KON45-01/2
+/// "10. Glied fuer ALLE Binaries (Tier traegt '')".
+#ifndef COMDARE_HYBRID_KOMPOSIT_GLIED
+#define COMDARE_HYBRID_KOMPOSIT_GLIED ""
+#endif
+inline constexpr std::string_view kHybridKompositGlied = COMDARE_HYBRID_KOMPOSIT_GLIED;
+
+/// -- B-9/golden-102: DIE BUILD_VERSION-BASIS-NAHT (Glied [10], Format 6) ------------------------------
+///
+/// WAS IN DEM GLIED STEHT: die BASIS der build_version dieses Baus ("m3v2", "all_axes_golden",
+/// "m3_golden_coverage", ...) -- der Anteil VOR dem +cxx=+opt=...-Provenienz-Suffix. Der Suffix selbst
+/// ist seit Format 3 ueber die Glieder [5]/[6] identitaets-wirksam; die Basis war es bis Format 5
+/// NICHT: sie reiste nur als Provenienz (.version-Sidecar via build_orchestrator, CSV-Spalte
+/// build_version, Objekt-Store-Praefix cache_key_prefix) und stand in KEINEM Glied. Zwei Baue mit
+/// verschiedener Basis trugen denselben Fingerprint -- ein falscher Skip ueber Mess-Kampagnen-Grenzen
+/// hinweg ("m3v2" gegen "all_axes_golden") war mechanisch offen (T-1-Rot-Probe 19.08.2026).
+///
+/// WIE DER WERT HIERHER KOMMT: per Compile-Define, exakt die sanktionierte Pre-Build-Define-Klasse
+/// (Muster COMDARE_TOOLCHAIN_STAMP_GLIED / COMDARE_HYBRID_KOMPOSIT_GLIED). Die CEB kennt die Basis
+/// dieses Laufs zur Laufzeit (ProfileRunArgs) und friert sie beim Bau der Tier-Binary als CT-Konstante
+/// ein; die Bau-Naht haengt -DCOMDARE_BUILD_VERSION_GLIED an perm_compile
+/// (profile_run_facade.cpp, Wert = die BASIS args.build_version -- NIE der suffigierte perm-String:
+/// Doppel-Tragung des Suffixes waere eine zweite Wahrheit). Der Laufzeit-Zwilling
+/// (lazy_adhoc_fingerprint_for) bekommt DENSELBEN Wert explizit gereicht.
+///
+/// DEFAULT LEER == IDENTITAET: ohne Define traegt das Glied nichts bei (ausser seinem Separator) --
+/// wer die Basis nicht kennt, reicht sie nicht und rechnet byte-identisch zur Identitaet (dieselbe
+/// Zusage wie bei Toolchain-/bvset-/Komposit-Glied).
+#ifndef COMDARE_BUILD_VERSION_GLIED
+#define COMDARE_BUILD_VERSION_GLIED ""
+#endif
+inline constexpr std::string_view kBuildVersionGlied = COMDARE_BUILD_VERSION_GLIED;
+
+/// K-1-Muster (dieselbe Begruendung wie bei OverlayHash/ToolchainGlied/BvsetGlied/KompositMapGlied):
+/// die Basis reist als BENANNTER TYP. Ab Format 6 stehen SECHS injizierbare Zeichenketten im Schwanz;
+/// sechs nackte string_view koennten beliebig gegeneinander verschoben werden, es kompilierte, und der
+/// Digest waere falsch. Der Traeger traegt dieselbe Konstruktor-Wache (der Basis-Zeichenvorrat --
+/// alnum + ".-_" u.a. -- liegt vollstaendig in anatomy_glied_zeichen_erlaubt; die real committeten
+/// Profile-Basen sind gemessen konform) und dieselbe NB-3/T2-D-Lebensdauer-Haertung wie seine Nachbarn.
+class BuildVersionGlied {
+public:
+    constexpr explicit BuildVersionGlied(std::string_view v) : wert_{v} {
+        require_injizierter_glied_wert("build_version", v);
+    }
+    /// NB-3/T2-D (a): kein Traeger auf ein sterbendes Temporary (Verengung s. OverlayHash).
+    template <GliedSterbenderString S>
+    explicit BuildVersionGlied(S&&) = delete;
+
+    [[nodiscard]] constexpr std::string_view wert() const noexcept { return wert_; }
+
+private:
+    std::string_view wert_;
+};
+
+// -- KON45-01/5: DIE BELEG-RECHNUNG DES KOMPOSIT-BUDGETS, in Faktoren statt in einer Zahl -------------
+//
+// Sie steht als DREI Konstanten und nicht als eine gerundete Summe, weil genau EINER der Faktoren
+// heute willkuerlich ist -- der Dock-Deckel. Wer ihn hebt, sieht hier sofort, was das Budget kostet,
+// statt eine fertige Zahl neu erfinden zu muessen. (A2.5, 18.08.2026: der Block ist von der
+// Budget-Sektion hierher VOR den Traeger gewandert -- die Laengen- und Grammatik-Wachen des Traegers
+// brauchen die Faktoren, und abi/ definiert jede Konstante genau einmal.) Die Faktoren:
+//   DOCK-DECKEL 32   -- die Zahl der Pruefdocks eines Hybrids. Sie ist die EINZIGE feste 32 im Haus
+//                       und ausdruecklich als willkuerlich gesetzt gefuehrt; sie ist KEIN Nenner
+//                       irgendeiner Mess-Permutation. Belegte Docks <= Deckel, also ist der Deckel
+//                       die richtige Obergrenze fuer ein BUDGET (nicht der heutige IST-Wert).
+//   KEY 8            -- der Key ist die CT-Adresse stufen_id() = Layer * Nodes + Node, dezimal
+//                       gerendert. 8 Stellen decken bis 99.999.999, also jede Layer/Nodes-Kombination,
+//                       die eine 32-Dock-Matrix je erzeugen kann, mit grossem Abstand.
+//   WERT 64          -- der SHA-256-Hex je Dock-Beitrag (KON103-03). NICHT 128: die 128-hex-Fassung
+//                       der ersten Distillation war kein Owner-Wort, und mit 64 faellt der
+//                       Budget-Bruch nur halb so gross aus (2368 statt 4416 Byte -- die verworfene
+//                       Fassung rechnete 32 * (8 + 1 + 128 + 1) = 32 * 138 = 4416).
+//   Je Segment kommen ZWEI Grammatik-Zeichen dazu: '=' zwischen Key und Wert, ';' als Trenner.
+//   32 * (8 + 1 + 64 + 1) = 32 * 74 = 2368.
+inline constexpr std::size_t kAnatomyFingerprintKompositDockDeckel = 32;
+inline constexpr std::size_t kAnatomyFingerprintKompositKeyMax     = 8;
+inline constexpr std::size_t kAnatomyFingerprintKompositWertMax    = 64;
+inline constexpr std::size_t kAnatomyFingerprintKompositMax =
+    kAnatomyFingerprintKompositDockDeckel *
+    (kAnatomyFingerprintKompositKeyMax + 1 + kAnatomyFingerprintKompositWertMax + 1);
+static_assert(kAnatomyFingerprintKompositMax == 2368,
+              "KON45-01/5: die Komposit-Budget-Rechnung ist gewandert. Wer einen der drei Faktoren "
+              "aendert (Dock-Deckel, Key-Laenge, Wert-Laenge), zieht diese Zahl UND den Beleg an "
+              "kAnatomyFingerprintPreimageMax nach -- die Grenze darf sich nie still verschieben.");
+
+/// B-5a/V-02R (A2.5-Fix 9): der groesste Key, der in kAnatomyFingerprintKompositKeyMax Dezimalstellen
+/// passt -- GERECHNET (10^KeyMax - 1), nicht als nackte Zahl. komposit_key_text wirft oberhalb, statt
+/// still modulo 10^KeyMax zu trunkieren.
+inline constexpr std::size_t kAnatomyFingerprintKompositKeyDeckel = [] {
+    std::size_t zehnerpotenz = 1;
+    for (std::size_t i = 0; i < kAnatomyFingerprintKompositKeyMax; ++i) zehnerpotenz *= 10;
+    return zehnerpotenz - 1;
+}();
+static_assert(kAnatomyFingerprintKompositKeyDeckel == 99'999'999,
+              "B-5a/V-02R: der Key-Deckel ist 10^kAnatomyFingerprintKompositKeyMax - 1. Wer die "
+              "Key-Stellenzahl aendert, zieht Budget-Rechnung und Beleg mit.");
+
+/// -- A2.5-Fix 11 / Lens B-F1: DIE MAP-GRAMMATIK ALS EIN GEMEINSAMER constexpr-PRUEFER -----------------
+///
+/// DER BEFUND: die Grammatik-Wachen (kanonische Keys, 64-Kleinhex-Werte, Ordnung, Segment-Bau) galten
+/// NUR im optionalen Builder hybrid_komposit_map_bilden. Der produktive Weg -- das Define
+/// COMDARE_HYBRID_KOMPOSIT_GLIED bzw. eine direkte KompositMapGlied{sv}-Konstruktion -- prueft nur den
+/// allgemeinen Glied-Zeichenvorrat. Damit war '1=x;2=y' als EIN-Segment-Map (Wert 'x;2=y') und als
+/// ZWEI-Segment-Map BYTE-IDENTISCH zulaessig: zwei verschiedene Kompositionen, EIN Preimage, EIN
+/// Digest -- exakt die Falscher-Skip-Klasse, die das Glied [9] schliessen soll.
+///
+/// DIE REGELN (aus KON103-03/V-02R abgeleitet, keine neue Form): leer ist wohlgeformt (die
+/// Tier-Identitaet); sonst ';'-getrennte Segmente 'key=wert' mit
+///   key   = 1..kAnatomyFingerprintKompositKeyMax Dezimalstellen, ohne fuehrende Null (ausser "0"),
+///   wert  = exakt kAnatomyFingerprintKompositWertMax Kleinhex-Zeichen [0-9a-f],
+///   ';' nur ZWISCHEN Segmenten, Keys STRENG aufsteigend (deckt Duplikate mit),
+///   hoechstens kAnatomyFingerprintKompositDockDeckel Segmente.
+/// Der Pruefer ist die EINE Quelle: der Traeger-Konstruktor ruft ihn (RT + CT), die Define-Wache
+/// static_assert-et ihn, und die Builder-Wachen in hybrid_komposit_map_bilden erzeugen nur Werte, die
+/// ihn bestehen.
+[[nodiscard]] constexpr bool komposit_glied_ist_grammatisch(std::string_view glied) noexcept {
+    if (glied.empty()) return true;
+    std::size_t segmente    = 0;
+    std::size_t voriger_key = 0;
+    std::size_t i           = 0;
+    while (true) {
+        std::size_t const key_beginn = i;
+        std::size_t       key        = 0;
+        while (i < glied.size() && glied[i] >= '0' && glied[i] <= '9') {
+            key = key * 10 + static_cast<std::size_t>(glied[i] - '0');
+            ++i;
+        }
+        std::size_t const key_len = i - key_beginn;
+        if (key_len == 0 || key_len > kAnatomyFingerprintKompositKeyMax) return false;
+        if (key_len > 1 && glied[key_beginn] == '0') return false; // fuehrende Null: zwei Schreibweisen
+        if (segmente > 0 && !(voriger_key < key)) return false;    // streng aufsteigend, keine Duplikate
+        if (i >= glied.size() || glied[i] != '=') return false;
+        ++i;
+        std::size_t const wert_beginn = i;
+        while (i < glied.size() && ((glied[i] >= '0' && glied[i] <= '9') || (glied[i] >= 'a' && glied[i] <= 'f'))) ++i;
+        if (i - wert_beginn != kAnatomyFingerprintKompositWertMax) return false;
+        voriger_key = key;
+        ++segmente;
+        if (segmente > kAnatomyFingerprintKompositDockDeckel) return false;
+        if (i == glied.size()) return true;
+        if (glied[i] != ';') return false;
+        ++i;                                 // ';' trennt Segmente ...
+        if (i == glied.size()) return false; // ... und steht nie am Ende
+    }
+}
+
+/// CT-Wahrheitstafel des Pruefers (die Erheber-Faelle des Reviews, damit die Wache beweisbar beisst):
+static_assert(komposit_glied_ist_grammatisch("") &&
+                  komposit_glied_ist_grammatisch("0=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+              "A2.5-Fix 11: leer und ein kanonisches Ein-Segment muessen wohlgeformt sein.");
+static_assert(!komposit_glied_ist_grammatisch("1=x;2=y") &&          // mehrdeutige Kurz-Werte
+                  !komposit_glied_ist_grammatisch("12=abc;44=xy") && // Erheber-Tafel: zu kurze Hex-Werte
+                  !komposit_glied_ist_grammatisch("a==b") &&         // kein Dezimal-Key
+                  !komposit_glied_ist_grammatisch(";x=1"),           // ';' am Segment-Anfang
+              "A2.5-Fix 11: die Erheber-Wahrheitstafel muss ABGELEHNT werden -- vorher liess der "
+              "Zeichenvorrat alle vier durch.");
+
+/// K-1-Muster (dieselbe Begruendung wie bei OverlayHash/ToolchainGlied/BvsetGlied): das Komposit-Glied
+/// reist als BENANNTER TYP. Ab Format 5 stehen FUENF injizierbare Zeichenketten hintereinander im
+/// Schwanz; fuenf nackte string_view koennten beliebig gegeneinander verschoben werden, es kompilierte,
+/// und der Digest waere falsch. KON45-01 benennt den Traeger ausdruecklich ("Traeger = benannter Typ
+/// KompositMapGlied, K-1-Muster").
+///
+/// Er traegt dieselbe Konstruktor-Wache und dieselbe NB-3/T2-D-Lebensdauer-Haertung wie seine vier
+/// Nachbarn: die Grammatik "12=<64hex>;44=<64hex>" benutzt ausschliesslich Zeichen aus
+/// anatomy_glied_zeichen_erlaubt, traegt kein '\n' und keinen leeren Schluessel.
+///
+/// A2.5-Fixes 11+12: ZUSAETZLICH prueft der Konstruktor das Budget (die Zusage "2368" war am
+/// Parameter-Eingang unwahr -- der Laufzeit-Weg wuchs unbegrenzt) und die MAP-Grammatik
+/// (komposit_glied_ist_grammatisch oben; der Zeichenvorrat allein liess mehrdeutige Maps wie
+/// '1=x;2=y' durch). CT-Weg == Compile-Fehler, RT-Weg == benannte Fehlerklasse; damit deckt der
+/// Traeger auch den kuenftigen HY-A2-Laufzeitpfad.
+class KompositMapGlied {
+public:
+    constexpr explicit KompositMapGlied(std::string_view v) : wert_{v} {
+        require_injizierter_glied_wert("komposit", v);
+        if (v.size() > kAnatomyFingerprintKompositMax)
+            throw std::invalid_argument{
+                "fehlerklasse=stempel_injektivitaet: das Komposit-Glied sprengt sein Budget "
+                "(kAnatomyFingerprintKompositMax = 2368 = Dock-Deckel x Segment-Laenge). Entweder traegt "
+                "es mehr als 32 Eintraege oder Key/Wert sind laenger als die Faktoren -- die "
+                "Faktor-Rechnung nachziehen, nicht die Grenze still verschieben."};
+        if (!komposit_glied_ist_grammatisch(v))
+            throw std::invalid_argument{
+                "fehlerklasse=stempel_injektivitaet: das Komposit-Glied verletzt die Map-Grammatik "
+                "(leer ODER 'key=<64 Kleinhex>'-Segmente, ';' nur ZWISCHEN Segmenten, Key 1-8 "
+                "Dezimalstellen ohne fuehrende Null, Keys streng aufsteigend, hoechstens 32 Segmente). "
+                "Ohne die Wache waere '1=x;2=y' als Ein- und als Zwei-Segment-Map byte-identisch -- "
+                "zwei Kompositionen mit demselben Preimage (falscher Skip)."};
+    }
+    /// NB-3/T2-D (a): kein Traeger auf ein sterbendes Temporary (Verengung s. OverlayHash).
+    template <GliedSterbenderString S>
+    explicit KompositMapGlied(S&&) = delete;
+
+    [[nodiscard]] constexpr std::string_view wert() const noexcept { return wert_; }
+
+private:
+    std::string_view wert_;
+};
+
 /// -- S-6b: DIE TRANSPOSITIONS-SPERRE DER DREI STEMPEL-ZEILEN -------------------------------------------
 ///
 /// DIE FALLE, DIE SIE SCHLIESST -- dieselbe Klasse wie K-1, nur eine Ebene frueher: die Glieder [1][2][3]
-/// (Organ-, System- und Mess-Tooling-Zeile) reisten bis hierher als DREI rohe string_view in fester
-/// Positions-Folge. Wer zwei davon vertauscht, bekommt KEINE Diagnose: es uebersetzt, das Preimage ist
+/// (seit S-6a Mess-Tooling-, System- und Organ-Zeile) reisten bis hierher als DREI rohe string_view in
+/// fester Positions-Folge. Wer zwei davon vertauscht, bekommt KEINE Diagnose: es uebersetzt, das Preimage ist
 /// wohlgeformt, der Digest ist falsch. Sichtbar wird das erst als "der Cache greift nie" -- oder, teurer,
 /// als FALSCHER SKIP, wenn zwei verschiedene Tier-Binaries denselben Fingerprint bekommen. Die vier
 /// SCHWANZ-Glieder waren gegen genau diese Verwechslung seit K-1 geschuetzt ("drei disjunkte Typen machen
@@ -440,7 +749,7 @@ private:
 /// Anleitung. MISCH-Aufrufe (ein Argument schon typisiert, ein anderes noch roh) fallen aus BEIDEN
 /// Ueberladungen und melden sich generisch mit "no matching function" -- der Aufruf bricht also, aber ohne
 /// die Anleitung. Dasselbe gilt fuer die VERTAUSCHUNG typisierter Argumente, und dort ist es Absicht: der
-/// Typ-Name steht in der Diagnose ("...(SystemZeile, OrganZeile, MessZeile)") und sagt das Noetige. Eine
+/// Typ-Name steht in der Diagnose ("...(SystemZeile, MessZeile, OrganZeile)") und sagt das Noetige. Eine
 /// zweite variadische Sperre mit gemischtem Praefix waere KEIN Ausweg -- sie wuerde mit der Roh-Sperre
 /// mehrdeutig und ersetzte die generische Meldung durch eine Ambiguitaets-Meldung.
 ///
@@ -461,11 +770,17 @@ private:
 /// lazy_adhoc_fingerprint_for baut die Zeilen aus benannten std::string, die den Aufruf ueberleben; ein
 /// Temporary waere dort dieselbe Dangling-Falle wie bei den Schwanz-Gliedern.
 ///
-/// ABGRENZUNG, DIE NICHT VERWISCHT WERDEN DARF: MessZeile ist Glied [3] -- die Mess-TOOLING-Zeile dieser
+/// ABGRENZUNG, DIE NICHT VERWISCHT WERDEN DARF: MessZeile ist Glied [1] -- die Mess-TOOLING-Zeile dieser
 /// Tier-Binary, also ihre einkompilierte CT-Ausstattung. Sie ist NICHT der CEB-Schluessel und NICHT der
 /// Messwert-Schluessel; Paragraf 62-D trennt beide, und messwert_registrierung.hpp haelt seine eigene
 /// Ableitung. Positions-Zusagen dieses Headers duerfen dorthin nie uebertragen werden (dieselbe
 /// Grenzziehung, die anatomy_fingerprint_glieder unten fuer den generischen Emitter benennt).
+///
+/// S-6a-LESEHINWEIS: die DEFINITIONS-Reihenfolge der drei Klassen hier unten ist Organ, System, Mess --
+/// sie ist reine Historie und sagt NICHTS ueber die Preimage-Ordnung. Die Ordnung wohnt seit jeher an
+/// GENAU EINER Stelle, naemlich in anatomy_fingerprint_glieder() weiter unten, und sie lautet seit S-6a
+/// MESS, SYSTEM, ORGAN. Die Klassen sind bewusst nicht mit umsortiert worden: das waere Diff ohne
+/// Substanz gewesen und haette ausgerechnet den Eindruck erweckt, hier stuende eine zweite Ordnungsquelle.
 class OrganZeile {
 public:
     constexpr explicit OrganZeile(std::string_view v) noexcept : wert_{v} {}
@@ -534,7 +849,9 @@ static_assert(!std::is_convertible_v<OrganZeile, std::string_view> &&
 /// Anzahl der Preimage-Glieder. FEST -- die Injektivitaet der '\n'-Zerlegung haengt an der festen Anzahl.
 /// A13-M3 (Format 2): 6. O-2/C-2 (Format 3): 8 (Toolchain + bvset kommen dazu).
 /// R-3 (Format 4): 9 (das Mess-Gates-Glied kommt dazu).
-inline constexpr std::size_t kAnatomyFingerprintGliedCount = 9;
+/// S-6a/KON45-01 (Format 5): 10 (die Hybrid-Komposit-Map-Zeile kommt dazu).
+/// B-9/golden-102 (Format 6): 11 (die build_version-BASIS kommt dazu).
+inline constexpr std::size_t kAnatomyFingerprintGliedCount = 11;
 
 /// W10-C3: die POSITION der System-Zeile in der Glied-Folge, benannt statt als nackte 2.
 ///
@@ -562,10 +879,27 @@ inline constexpr std::size_t kAnatomyFingerprintOverlayGlied   = 7;
 /// Umsortierung waere ein zweites Byte-Ereignis ohne Gewinn. Das Overlay-Glied verliert damit seine
 /// Schwanz-Stellung; ihre urspruengliche Begruendung ("ein noch leeres Glied gehoert an den Schwanz,
 /// damit die Positionen der GEFUELLTEN Glieder stabil bleiben") gilt fuer das Mess-Gates-Glied NICHT --
-/// es ist niemals leer (der Aus-Zustand ist "mg=m0;s0;st0;x0;tw0;tm0;tmi0" seit B2, davor ohne das
+/// es ist niemals leer (der Aus-Zustand ist "mg=m0;s0;st0;x0;tw0;tm0;tmi0;hm0;hmi0" seit A-12/B-5e,
+/// davor ohne die beiden Hybrid-Felder, davor ohne das
 /// <st>-Feld), es kann also nicht "spaeter scharfgeschaltet" werden und braucht die Schwanz-Stellung
 /// nicht.
 inline constexpr std::size_t kAnatomyFingerprintMessGatesGlied = 8;
+
+/// S-6a/KON45-01: das Komposit-Glied haengt sich HINTER das Mess-Gates-Glied -- die Bestands-Nummern
+/// [0]..[8] bleiben, wo sie sind, exakt nach der R-3-Begruendung eine Stufe weiter. Die S-6a-Drehung
+/// betrifft AUSSCHLIESSLICH die Belegung von [1][2][3] (welche ZEILE an welcher Position steht), nicht
+/// die Nummern der Schwanz-Glieder: bestandslog_factory adressiert Glied [2] ueber
+/// kAnatomyFingerprintSystemGlied, und die System-Zeile steht vor wie nach der Drehung in der MITTE der
+/// drei Zeilen-Glieder. Genau deshalb ist die Drehung fuer die benannten Positionen ein No-op.
+inline constexpr std::size_t kAnatomyFingerprintKompositGlied = 9;
+
+/// B-9/golden-102: das build_version-Basis-Glied haengt sich HINTER das Komposit-Glied -- die
+/// Bestands-Nummern [0]..[9] bleiben, wo sie sind, exakt nach der R-3-/S-6a-Begruendung eine Stufe
+/// weiter (bestandslog_factory adressiert Glied [2], die Schwanz-Konsumenten ihre benannten
+/// Positionen; eine Umsortierung waere ein zweites Byte-Ereignis ohne Gewinn). Das Komposit-Glied
+/// verliert damit seine Schwanz-Stellung -- wie zuvor das Overlay-Glied (Format 4) und das
+/// Mess-Gates-Glied (Format 5); neue Glieder haengen sich HINTEN an.
+inline constexpr std::size_t kAnatomyFingerprintBuildVersionGlied = 10;
 
 // -- BUDGET-NACHWEIS (O-2/C-2), maschinell statt als Absatz --------------------------------------------
 // Je Glied eine Obergrenze; ihre Summe plus die (GliedCount-1) Separator-Bytes MUSS in den
@@ -582,6 +916,10 @@ inline constexpr std::size_t kAnatomyFingerprintMessGatesGlied = 8;
 //                  G3-Gate-Verfeinerung -- genau der Fall, fuer den dieses Budget Raum liess) 28
 //                  Zeichen; 64 laesst weiter Raum fuer ein viertes Mess-Tooling in der Registry,
 //                  ohne das Budget neu zu verhandeln.
+//   komposit 2368 -- KEINE Schaetzung, sondern das Produkt der drei Faktor-Konstanten am Traeger
+//                  KompositMapGlied (oben; seit dem A2.5-Fix stehen sie VOR dem Traeger, weil dessen
+//                  Wachen sie brauchen). Es ist das ZWEITE mitwachsende Glied nach bvset, und es
+//                  waechst nicht mit der Flotte, sondern mit der DOCK-BELEGUNG eines Hybrids.
 inline constexpr std::size_t kAnatomyFingerprintFormatMax      = 32;
 inline constexpr std::size_t kAnatomyFingerprintOrganMax       = 768;
 inline constexpr std::size_t kAnatomyFingerprintSystemMax      = 256;
@@ -591,17 +929,61 @@ inline constexpr std::size_t kAnatomyFingerprintToolchainMax   = 512;
 inline constexpr std::size_t kAnatomyFingerprintBvsetMax       = 1536;
 inline constexpr std::size_t kAnatomyFingerprintOverlayMax     = 128;
 inline constexpr std::size_t kAnatomyFingerprintMessGatesMax   = 64;
+//   build_version 128 -- B-9/golden-102: die BASIS ("m3v2"=4 ... "wdk_fairness_example"=20 Zeichen,
+//                  an den committeten Profilen gemessen; 64 wuerde reichen, 128 ist die einheitliche
+//                  String-Glied-Stufe wie Overlay/Werteset -- eine dritte Stufe waere eine dritte
+//                  Verhandlung ohne Gewinn).
+inline constexpr std::size_t kAnatomyFingerprintBuildVersionMax = 128;
+
+// KON45-01/5: die Beleg-Rechnung des Komposit-Budgets (Dock-Deckel x Segment-Laenge = 2368) steht seit
+// dem A2.5-Fix als Faktor-Konstanten-Block UNMITTELBAR VOR dem Traeger KompositMapGlied -- dessen
+// Laengen- und Grammatik-Wachen brauchen die Faktoren, und eine Kopie hier waere eine zweite Wahrheit.
 
 inline constexpr std::size_t kAnatomyFingerprintBudgetSum =
     kAnatomyFingerprintFormatMax + kAnatomyFingerprintOrganMax + kAnatomyFingerprintSystemMax +
     kAnatomyFingerprintMeasurementMax + kAnatomyFingerprintValuesetMax + kAnatomyFingerprintToolchainMax +
     kAnatomyFingerprintBvsetMax + kAnatomyFingerprintOverlayMax + kAnatomyFingerprintMessGatesMax +
-    (kAnatomyFingerprintGliedCount - 1);
+    kAnatomyFingerprintKompositMax + kAnatomyFingerprintBuildVersionMax + (kAnatomyFingerprintGliedCount - 1);
+
+/// S-6a/#15: die Summe ist BENANNT nachgerechnet, nicht nur "<= Puffer" geprueft -- der Beleg-Absatz
+/// an kAnatomyFingerprintPreimageMax nennt eine konkrete Zahl, und die muss stimmen, sonst ist der
+/// Beleg eine Behauptung. B-9/golden-102: 6057 + 128 (build_version-Glied) + 1 (zehnter Separator)
+/// = 6186; kAnatomyFingerprintPreimageMax 8192 BLEIBT (Luft 2006 Byte -- keine Puffer-Anhebung).
+static_assert(kAnatomyFingerprintBudgetSum == 6186,
+              "B-9/golden-102 BUDGET-BELEG: die Glied-Summe ist nicht mehr 6186. Den Beleg-Absatz an "
+              "kAnatomyFingerprintPreimageMax mit der NEUEN Rechnung nachziehen -- Zahl und Text "
+              "duerfen nie auseinanderlaufen.");
+
+/// A2.5 / Lens B-F7: die Summen-Wache allein erkennt KOMPENSIERENDE Aenderungen nicht (ein Budget
+/// gesenkt, ein anderes gehoben -- Summe unveraendert; die fruehere Kommentar-Fassung schrieb diese
+/// Faehigkeit faelschlich der Summe zu). Deshalb sind die ELF Summanden EINZELN gepinnt -- als EIN
+/// Array-Vergleich in Glied-Ordnung [0..10] statt elf Einzel-Asserts, damit die Soll-Reihe an EINER
+/// Stelle lesbar bleibt. Wer ein Glied-Budget bewusst aendert, zieht Reihe, Summe und Beleg-Absatz
+/// in EINEM Zug nach.
+static_assert(
+    std::array<std::size_t, kAnatomyFingerprintGliedCount>{
+        kAnatomyFingerprintFormatMax, kAnatomyFingerprintMeasurementMax, kAnatomyFingerprintSystemMax,
+        kAnatomyFingerprintOrganMax, kAnatomyFingerprintValuesetMax, kAnatomyFingerprintToolchainMax,
+        kAnatomyFingerprintBvsetMax, kAnatomyFingerprintOverlayMax, kAnatomyFingerprintMessGatesMax,
+        kAnatomyFingerprintKompositMax, kAnatomyFingerprintBuildVersionMax} ==
+        std::array<std::size_t, kAnatomyFingerprintGliedCount>{32, 256, 256, 768, 128, 512, 1536, 128, 64, 2368, 128},
+    "A2.5/B-F7 BUDGET-REIHE: ein Einzel-Budget ist gewandert (Reihe in Glied-Ordnung "
+    "[Format, Mess, System, Organ, Werteset, Toolchain, bvset, Overlay, mess-gates, "
+    "komposit, build_version]). Die Soll-Reihe, die Summe 6186 und den Beleg-Absatz gemeinsam "
+    "nachziehen -- kompensierende Verschiebungen duerfen nie still bleiben.");
 
 static_assert(kAnatomyFingerprintBudgetSum <= kAnatomyFingerprintPreimageMax,
               "O-2/C-2 BUDGET: die Summe der Glied-Obergrenzen plus Separatoren passt nicht mehr in "
               "kAnatomyFingerprintPreimageMax. Entweder ein Glied-Budget senken oder den Puffer heben -- "
               "und in beiden Faellen den Beleg oben nachziehen, statt die Grenze still zu verschieben.");
+
+/// A2.5-Fix 23: die 50-KB-Aussage des Beleg-Absatzes an kAnatomyFingerprintPreimageMax ist ab hier
+/// MASCHINELL, nicht mehr Prosa: der consteval-Preimage-Puffer bleibt unter dem
+/// Funktionsrumpf-Budget der sha512-Primitive.
+static_assert(::comdare::cache_engine::sha512::fits_compile_time_budget<kAnatomyFingerprintPreimageMax>(),
+              "S-6a/#15: kAnatomyFingerprintPreimageMax sprengt das 50-KB-Compile-Time-Budget der "
+              "sha512-Primitive (ctsha512.hpp, kMaxFunctionBodyBytes). Puffer senken oder das "
+              "Primitive-Budget bewusst heben -- und den Beleg-Absatz oben nachziehen.");
 
 // Die EINGEFROREREN Glieder halten ihr Budget schon compile-time ein (die injizierten pruefen ihre
 // Traeger-Header bzw. der lebende bvset-Zwilling in driver_build_variant_signature.hpp).
@@ -610,6 +992,14 @@ static_assert(kSubAxisValuesetSegment.size() <= kAnatomyFingerprintValuesetMax);
 static_assert(kToolchainStampGlied.size() <= kAnatomyFingerprintToolchainMax);
 static_assert(kBuildVariantSetSignatureGlied.size() <= kAnatomyFingerprintBvsetMax);
 static_assert(kOverlaySourceHash.size() <= kAnatomyFingerprintOverlayMax);
+static_assert(kHybridKompositGlied.size() <= kAnatomyFingerprintKompositMax,
+              "KON45-01: die injizierte Komposit-Map-Zeile sprengt ihr Budget. Entweder traegt sie mehr "
+              "als kAnatomyFingerprintKompositDockDeckel Eintraege, oder Key/Wert sind laenger als die "
+              "Faktoren oben -- in JEDEM Fall gehoert die Faktor-Rechnung nachgezogen, nicht die Grenze "
+              "still verschoben.");
+static_assert(kBuildVersionGlied.size() <= kAnatomyFingerprintBuildVersionMax,
+              "B-9/golden-102: die injizierte build_version-Basis sprengt ihr Budget (128) -- Budget "
+              "UND Beleg-Absatz nachziehen, statt die Grenze still zu verschieben.");
 static_assert(kMessGatesTuGlied.size() <= kAnatomyFingerprintMessGatesMax,
               "R-3: das mess-gates-Glied sprengt sein Budget -- kAnatomyFingerprintMessGatesMax heben UND "
               "den Budget-Beleg oben nachziehen, statt die Grenze still zu verschieben.");
@@ -632,6 +1022,25 @@ static_assert(kBuildVariantSetSignatureGlied.find(kAnatomyFingerprintSeparator) 
               "Das bvset-Glied darf den Domain-Separator '\\n' nicht enthalten.");
 static_assert(kOverlaySourceHash.find(kAnatomyFingerprintSeparator) == std::string_view::npos,
               "Das Overlay-Glied darf den Domain-Separator '\\n' nicht enthalten.");
+static_assert(kHybridKompositGlied.find(kAnatomyFingerprintSeparator) == std::string_view::npos,
+              "Das Komposit-Glied darf den Domain-Separator '\\n' nicht enthalten.");
+static_assert(kBuildVersionGlied.find(kAnatomyFingerprintSeparator) == std::string_view::npos,
+              "Das build_version-Basis-Glied darf den Domain-Separator '\\n' nicht enthalten.");
+static_assert(injizierter_glied_wert_ist_wohlgeformt(kBuildVersionGlied),
+              "B-9/golden-102: COMDARE_BUILD_VERSION_GLIED verletzt die Injektivitaets-Format-Wache "
+              "(kein '\\n'/'\\r', kein leerer Schluessel, nur der Stempel-Zeichenvorrat).");
+static_assert(injizierter_glied_wert_ist_wohlgeformt(kHybridKompositGlied),
+              "KON45-01: COMDARE_HYBRID_KOMPOSIT_GLIED verletzt die Injektivitaets-Format-Wache. Die "
+              "Map-Grammatik ist 'stufen_id=<64hex>' mit ';' als Trenner -- alles daraus liegt im "
+              "Stempel-Zeichenvorrat; ein Verstoss heisst, dass ein fremder String in den Slot geraten ist.");
+// A2.5-Fix 11: ZUSAETZLICH die volle MAP-Grammatik am Define -- die Wache darueber prueft nur den
+// Zeichenvorrat und liess damit weniger pruefen, als ihr Meldungstext versprach ('1=x;2=y' passierte,
+// obwohl es als Ein- und als Zwei-Segment-Map byte-identisch ist: Digest-Kollision, falscher Skip).
+static_assert(komposit_glied_ist_grammatisch(kHybridKompositGlied),
+              "A2.5-Fix 11/KON45-01: COMDARE_HYBRID_KOMPOSIT_GLIED ist keine wohlgeformte Komposit-Map "
+              "(leer ODER 'key=<64 Kleinhex>'-Segmente, ';' nur zwischen Segmenten, Key 1-8 "
+              "Dezimalstellen ohne fuehrende Null, Keys streng aufsteigend, hoechstens 32 Segmente). "
+              "Eine nichtkanonische Map liesse zwei Kompositionen dasselbe Preimage erzeugen.");
 
 // NB/CX-1: dieselbe VOLLE Format-Wache, die ab jetzt jeder LAUFZEIT-Wert durchlaeuft, gilt auch fuer die
 // per Define injizierten Konstanten -- sonst waere ausgerechnet der produktive Weg (Compile-Define) laxer
@@ -652,7 +1061,8 @@ static_assert(injizierter_glied_wert_ist_wohlgeformt(kMessGatesTuGlied),
               "R-3: kMessGatesTuGlied verletzt die Injektivitaets-Format-Wache.");
 static_assert(!kMessGatesTuGlied.empty(),
               "R-3/B2: das Mess-Gates-Glied ist NIEMALS leer -- der Aus-Zustand heisst "
-              "'mg=m0;s0;st0;x0;tw0;tm0;tmi0'. Ein leerer Wert waere die Identitaet und wuerde eine gate-lose "
+              "'mg=m0;s0;st0;x0;tw0;tm0;tmi0;hm0;hmi0'. Ein leerer Wert waere die Identitaet und wuerde eine "
+              "gate-lose "
               "TU mit dem CEB-Default (der bewusst leeren Nicht-Tier-Identitaet) kollidieren lassen.");
 
 namespace detail {
@@ -671,24 +1081,69 @@ inline constexpr bool kFingerprintRohZeilenGesperrt = false;
 /// derive_key_from_lines ueber seinen Aufrufer) zieht ihre Glieder HIER heraus. Wer die Ordnung aendert,
 /// aendert sie an genau dieser Stelle -- vorher drifteten vier Kopien auseinander (Risiko R6).
 ///
-/// Ordnung (O-2/C-2, Format 3):
+/// Ordnung (S-6a/KON45-01, Format 5 -- die Kategorien-Ordnung lautet MESS, SYSTEM, ORGAN):
 ///   [0] fingerprint_format-Kennung  (F7: Layout-Evolution mismatcht deterministisch)
-///   [1] Organ-Zeile                 (18 Haupt-Achsen, achse=algo@X.Y.Z)
-///   [2] System-Zeile                (3 Haupt-Achsen + Meta-Meta-Klammer-Anhang)
-///   [3] Mess-Tooling-Zeile          (Haupt-Wahl + load_framework-Anhang; die CT-Mess-AUSSTATTUNG dieser
+///   [1] Mess-Tooling-Zeile          (Haupt-Wahl + load_framework-Anhang; die CT-Mess-AUSSTATTUNG dieser
 ///                                    Tier-Binary -- NICHT der CEB-Schluessel, Paragraf 62-D trennt beide)
+///   [2] System-Zeile                (3 Haupt-Achsen + Meta-Meta-Klammer-Anhang)
+///   [3] Organ-Zeile                 (18 Haupt-Achsen, achse=algo@X.Y.Z)
 ///   [4] Sub-Achsen-Werteset-Segment (F7-VERIFY: sonst wuerde ein Werteset-Bump unter dem SHA512-only-Gate
 ///                                    STILL reused -- die Organ-Zeile traegt den Sub-Schwanz ausdruecklich nicht)
-///   [5] Toolchain-Glied             (NEU: Compiler-Haupt-Achse inkl. Flags, opt_level, atomic128, ext/bt/
+///   [5] Toolchain-Glied             (Compiler-Haupt-Achse inkl. Flags, opt_level, atomic128, ext/bt/
 ///                                    gate/ceb -- die CEB-Laufzeit-Hauptachsen als CT-Glieder; heilt C1)
-///   [6] bvset-Glied                 (NEU: Enabled-Mengen-Signatur der Build-Achsen; heilt C6)
+///   [6] bvset-Glied                 (Enabled-Mengen-Signatur der Build-Achsen; heilt C6)
 ///   [7] Overlay-Source-Hash         (heute leer, OF-M3-2 = Fallback B)
 ///   [8] Mess-Gates-Glied            (R-3, Format 4: der PRAEPROZESSOR-Zustand der Mess-Gates DIESER
-///                                    Uebersetzungseinheit -- TU-WAHRHEIT, nicht Host-Injektion. Glied [3]
+///                                    Uebersetzungseinheit -- TU-WAHRHEIT, nicht Host-Injektion. Glied [1]
 ///                                    nennt die Mess-Combo als Host-LITERAL; erst dieses Glied macht den
 ///                                    Gate-Zustand des Kompilats identitaets-wirksam)
+///   [9] Komposit-Map-Glied          (NEU, KON45-01/Format 5: die Map {stufen_id -> Tier-SHA-256} der
+///                                    belegten Hybrid-Pruefdocks, Dock-Index aufsteigend. Plain Tier
+///                                    traegt "" -- das Glied existiert fuer ALLE Binaries)
 ///
-/// Die drei Schwanz-Glieder haben Defaults, weil sie INJIZIERT werden: wer sie nicht kennt, reicht sie
+/// -- WARUM [1][2][3] SEIT S-6a MESS, SYSTEM, ORGAN LAUTEN (und was das NICHT heisst) --------------------
+///
+/// OWNER-WORT (KON21-03, Frage 1: "SOLL = MESS,SYSTEM,ORGAN fuer alle drei Aussen-Ebenen?" -- "Ja genau,
+/// meint auch #87 und #78"). Die Ordnung ist eine NEUORDNUNG, keine Wiederherstellung: der gesamte
+/// Bestand hatte organ zuerst, und ein Zehn-Wochen-Explore fand VOR dem 10.08.2026 null Belegstellen fuer
+/// eine andere Festlegung (KON5-05). Die Begruendung ist die TRAEGER-Kette (KON21-03, Frage 2: "immer der
+/// vorangegangene Traeger definiert die naechste Traeger-Stufe, das ist dynamisch") -- Planer -> CEB ->
+/// Tier, also Mess vor System vor Organ. Sie ist damit KEIN Realm-Attribut und kein Geschmack.
+///
+/// WAS SICH NICHT BEWEGT, und das ist die Haelfte, die man beim Lesen dieser Liste falsch generalisieren
+/// koennte: das LAGER behaelt seine ZWEI eigenen Kaskaden (Messdaten MESS->SYSTEM->ORGAN, Binaries
+/// SYSTEM->ORGAN->MESS, D-12) -- ausdrueckliche Ausnahme (KON6-02/4) und VERBOTSZONE dieses Bruchs,
+/// zusammen mit kOrganGruppen*, kSystemAxisOrder, kCompositionAxisNames, der Hash-Mechanik und dem
+/// Messwert-2-Tupel. Der Lager-Schluessel wandert automatisch mit, weil das Lager nichts nachrechnet: es
+/// nimmt den fertigen Hex-Wert entgegen. Die HASH-Ebene ist und bleibt EINE Welt.
+///
+/// -- GEDREHT PER OWNER-WORT: topics::AxisKind (KON101-02 V-01R; KORB A/4 damit VOLL vollzogen) --------
+///
+/// Der KORB-A-Posten lautet "VOR dem Bruch entscheiden: Glied-FOLGE + AxisKind-Ordnung im SELBEN Bruch
+/// mitnehmen -- sonst steht der teuerste Bruch spaeter erneut an". Die Glied-Folge ist oben vollzogen;
+/// die AxisKind-Haelfte ist mit der A2.5-Fix-Strecke 2 (G1, 19.08.2026) EBENFALLS vollzogen: die
+/// Enumerator-Ordnung folgt der Kategorien-Ordnung MESS, SYSTEM, ORGAN und topics/axis.hpp traegt die
+/// V-01R-Zuordnungs-Mechanik (AxisCategory, axis_category, axis_category_of; Wachen + Test
+/// test_axis_kind_kategorien_zuordnung).
+///
+/// HISTORIE (UEBERHOLT -- steht hier, damit die alte Fassung nicht als offener Fork wiederkehrt): eine
+/// fruehere Fassung dieses Blocks hiess "ENTSCHIEDEN UND NICHT GEDREHT" (Berufung auf KON96-01 KORB A/4
+/// als blosse Entscheidungs-Pflicht, KON5-04/05 "nie festgelegt", Ordinal-Stabilitaets-Zusagen der
+/// Enumerator-Kommentare, topics-Sperre KON58-05). Diese Begruendung ist DOPPELT UEBERHOLT:
+///   (a) KON21-03 (12.08.) setzte das SOLL MESS,SYSTEM,ORGAN, und KON101-01 (17.08., Owner verbatim)
+///       entschied die AxisKind-Haelfte AUSDRUECKLICH: "Das AxisKind Enum bezeichnet einfach nur compile
+///       time um Welche Mess-Achsen-kategorie es sich bei einer Achse handelt also Mess/System/Organ.
+///       ... Daher definitiv mit drehen, sonst ergibt es keinen Sinn." Der Owner UEBERSTIMMT die
+///       Lead-Empfehlung append-only (KON101-02).
+///   (b) Die damalige Stuetz-These "die system_measurement-Achse ist eine SYSTEM-Achse, der Mess-Realm
+///       haengt an measurement_meta_meta" war die K13-Fehl-Deckung: der eigene D2-Fehlerklassen-Block
+///       (measurement/axis_error_traits.hpp) fuehrt system_measurement als MESS-Realm; beide gehoeren
+///       der Kategorie MESS an (Pins in topics/axis.hpp).
+/// RICHTIG BLEIBT aus der alten Fassung: die WIRE-Form ist ein Token-String (axis_kind_token /
+/// parse_axis_kind), kein Ordinal -- deshalb ist der vollzogene Dreh wire- und preimage-neutral und
+/// beruehrt dieses Preimage-Fenster nur als Ordnungs-, nicht als Byte-Ereignis.
+///
+/// Die vier Schwanz-Glieder haben Defaults, weil sie INJIZIERT werden: wer sie nicht kennt, reicht sie
 /// nicht -- und rechnet dann byte-identisch zur Identitaet. Das ist dieselbe Zusage wie bei
 /// SystemCellValues (W10) und macht die Naht ohne Flotten-weiten Umbau baubar.
 ///
@@ -726,21 +1181,73 @@ inline constexpr bool kFingerprintRohZeilenGesperrt = false;
 /// -- S-6b: DIE DREI ZEILEN REISEN AB HIER TYPISIERT ----------------------------------------------------
 ///
 /// organ/system/measurement sind keine nackten string_view mehr, sondern OrganZeile/SystemZeile/MessZeile
-/// (Begruendung ausfuehrlich bei den Traegern oben). Die Funktion rechnet unveraendert: sie packt
-/// dieselben WERTE an dieselben Positionen. Was sich aendert, ist allein, dass eine Vertauschung nicht
-/// mehr uebersetzt.
+/// (Begruendung ausfuehrlich bei den Traegern oben). PRAEZISIERUNG (A2.5 / Lens B-F9, 18.08.2026): der
+/// alte Satz "die Funktion rechnet unveraendert, nur eine Vertauschung uebersetzt nicht mehr" beschrieb
+/// den S-6b-Stand VOR der Kategorien-Drehung und gilt seither nur fuer die TYPISIERUNG selbst -- mit
+/// S-6a haben Mess- und Organ-Zeile die Positionen getauscht ([1] <-> [3]), nur die System-Zeile [2]
+/// steht unveraendert. Und die Sperre wirkt allein an TYPISIERTEN Aufrufstellen: die 2-/3-arg-Makro-
+/// Ebene und der generische span-Weg nehmen weiter rohe Literale -- dort UEBERSETZT eine Vertauschung;
+/// diese Flaechen deckt nicht der Typ, sondern die S-6a-Positions-Proben unten.
+///
+/// -- S-6a: DIE PARAMETER-FOLGE DREHT MIT, UND ZWAR ABSICHTLICH LAUT -------------------------------------
+///
+/// Die Signatur lautet ab hier (MessZeile, SystemZeile, OrganZeile, ...). Sie MUSS mitdrehen, weil dieser
+/// Header genau eine Zusage gibt: "Argument-Folge == Preimage-Folge". Liesse man die Parameter stehen und
+/// sortierte nur das return-Aggregat um, stuenden zwei Ordnungen in einer Funktion -- und die Datei, die
+/// als DIE EINE QUELLE der Ordnung gebaut ist, waere selbst die erste, die zwei traegt.
+/// DER NEBENEFFEKT IST DER ZWECK: weil die drei Traeger-Typen seit S-6b paarweise disjunkt sind, bricht
+/// JEDE Bestands-Aufrufstelle compile-hart und nennt in der Diagnose die Typen. Der Umbau kann also nicht
+/// still an einer Stelle vorbeigehen -- genau die "erst laute Compile-Fehler, dann verschieben"-Haelfte,
+/// ohne die eine Kategorien-Drehung eine Wertevertauschung waere.
+///
+/// -- KON45-01: WARUM DAS KOMPOSIT-GLIED EINEN DEFAULT HABEN DARF UND DAS MESS-GATES-GLIED NICHT --------
+///
+/// Der Absatz oben verbietet dem Mess-Gates-Glied den Default-Weg, und das gilt unveraendert. Der
+/// Unterschied ist die BINDUNG des Wertes, nicht seine Herkunft: kMessGatesTuGlied haengt am
+/// PRAEPROZESSOR-Zustand der einzelnen Uebersetzungseinheit (interne Bindung, je TU verschieden -- ein
+/// Default waere ein ODR-Verstoss, und Misch-Programme aus Release- und Mess-TUs existieren real).
+/// kHybridKompositGlied dagegen wird je BINARY injiziert, genau wie kToolchainStampGlied,
+/// kBuildVariantSetSignatureGlied und kOverlaySourceHash: alle TUs eines Baus sehen denselben Wert. Es
+/// gehoert damit in dieselbe Default-Klasse wie seine drei Nachbarn -- und wie bei ihnen wird es am
+/// Makro-Expansionsort trotzdem EXPLIZIT gereicht, der Symmetrie halber und byte-identisch zum Default.
+///
+/// -- A2.5 / Lens B-F3: DER VERBOTSSATZ IST AB HIER MECHANIK, NICHT NUR TEXT ---------------------------
+///
+/// Der R-3-Absatz oben verbietet dem Mess-Gates-Glied den Default-Weg; trotzdem trug die Signatur
+/// `mess_gates = MessGatesGlied{""}` -- ein TU-gebundener, identitaetswirksamer Wert war still
+/// auslassbar. Der Default ist ENTFERNT, per Overload-Schnitt (C++-Default-Argumente muessen am
+/// Schwanz stehen, und das Komposit-Glied dahinter behaelt seinen legitimen Default): die VOLL-Form
+/// (ab 7 Argumenten) verlangt das Mess-Gates-Glied EXPLIZIT; die KURZ-Form (bis zum Overlay-Glied)
+/// delegiert BENANNT mit der bewusst leeren NICHT-TIER-Identitaet -- der CEB-/Proben-Fall
+/// (ceb_version_stamp.hpp, "die CEB ist KEIN Tier-Binary") steht damit im Code dieser Datei statt
+/// unsichtbar in einem Default-Slot. Dasselbe gilt fuer anatomy_fingerprint_hex und anatomy_name_hex.
 [[nodiscard]] constexpr std::array<std::string_view, kAnatomyFingerprintGliedCount>
-anatomy_fingerprint_glieder(OrganZeile organ, SystemZeile system, MessZeile measurement,
-                            ToolchainGlied toolchain  = ToolchainGlied{kToolchainStampGlied},
-                            BvsetGlied     bvset      = BvsetGlied{kBuildVariantSetSignatureGlied},
-                            OverlayHash    overlay    = OverlayHash{kOverlaySourceHash},
-                            MessGatesGlied mess_gates = MessGatesGlied{""}) {
+anatomy_fingerprint_glieder(MessZeile measurement, SystemZeile system, OrganZeile organ, ToolchainGlied toolchain,
+                            BvsetGlied bvset, OverlayHash overlay, MessGatesGlied mess_gates,
+                            KompositMapGlied  komposit      = KompositMapGlied{kHybridKompositGlied},
+                            BuildVersionGlied build_version = BuildVersionGlied{kBuildVersionGlied}) {
     require_injizierter_glied_wert("toolchain", toolchain.wert());
     require_injizierter_glied_wert("bvset", bvset.wert());
     require_injizierter_glied_wert("overlay", overlay.wert());
     require_injizierter_glied_wert("mess-gates", mess_gates.wert());
-    return {kAnatomyFingerprintFormat, organ.wert(), system.wert(),  measurement.wert(), kSubAxisValuesetSegment,
-            toolchain.wert(),          bvset.wert(), overlay.wert(), mess_gates.wert()};
+    require_injizierter_glied_wert("komposit", komposit.wert());
+    require_injizierter_glied_wert("build_version", build_version.wert());
+    return {kAnatomyFingerprintFormat, measurement.wert(), system.wert(),       organ.wert(),
+            kSubAxisValuesetSegment,   toolchain.wert(),   bvset.wert(),        overlay.wert(),
+            mess_gates.wert(),         komposit.wert(),    build_version.wert()};
+}
+
+/// B-F3-KURZ-FORM (3..6 Argumente): die injizierten Glieder duerfen defaulten (wer sie nicht kennt,
+/// reicht sie nicht); Mess-Gates- und Komposit-Glied laufen ueber die bewusst leere Nicht-Tier- bzw.
+/// die injizierte Identitaet. Wer das Mess-Gates-Glied reichen will, nimmt die Voll-Form und reicht
+/// es EXPLIZIT -- einen Default-Slot dafuer gibt es nicht mehr.
+[[nodiscard]] constexpr std::array<std::string_view, kAnatomyFingerprintGliedCount>
+anatomy_fingerprint_glieder(MessZeile measurement, SystemZeile system, OrganZeile organ,
+                            ToolchainGlied toolchain = ToolchainGlied{kToolchainStampGlied},
+                            BvsetGlied     bvset     = BvsetGlied{kBuildVariantSetSignatureGlied},
+                            OverlayHash    overlay   = OverlayHash{kOverlaySourceHash}) {
+    return anatomy_fingerprint_glieder(measurement, system, organ, toolchain, bvset, overlay, MessGatesGlied{""},
+                                       KompositMapGlied{kHybridKompositGlied}, BuildVersionGlied{kBuildVersionGlied});
 }
 
 /// S-6b ROH-SPERRE (Zwilling der K-1-Sperre unten, dieselbe Bauart und derselbe Zweck): der Alt-Aufruf mit
@@ -750,8 +1257,9 @@ template <class... Rest>
 [[nodiscard]] constexpr std::array<std::string_view, kAnatomyFingerprintGliedCount>
 anatomy_fingerprint_glieder(std::string_view, std::string_view, std::string_view, Rest...) noexcept {
     static_assert(detail::kFingerprintRohZeilenGesperrt<Rest...>,
-                  "S-6b: die drei Stempel-ZEILEN sind benannte Traeger-Typen, keine string_view -- "
-                  "OrganZeile{...}, SystemZeile{...}, MessZeile{...}, in dieser Reihenfolge. Roh gereicht "
+                  "S-6b: die drei Stempel-ZEILEN sind benannte Traeger-Typen, keine string_view -- seit "
+                  "S-6a MessZeile{...}, SystemZeile{...}, OrganZeile{...}, in dieser Reihenfolge (die "
+                  "Kategorien-Ordnung lautet MESS, SYSTEM, ORGAN -- KON21-03). Roh gereicht "
                   "koennten sie beliebig gegeneinander verschoben werden: es uebersetzte, der Digest waere "
                   "falsch, und sichtbar wuerde es erst als 'der Cache greift nie' oder als FALSCHER SKIP. "
                   "Genau das verhindert diese Sperre. Die Aufrufstelle auf die Traeger-Typen ziehen.");
@@ -760,49 +1268,86 @@ anatomy_fingerprint_glieder(std::string_view, std::string_view, std::string_view
 
 /// W10-C3: die Positions-Konstante ist BEWIESEN, nicht behauptet -- wer die Glied-Ordnung oben umbaut,
 /// bricht hier compile-time, statt den Zellwert still ins Organ-Glied zu schreiben.
-static_assert(anatomy_fingerprint_glieder(OrganZeile{"ORGAN"}, SystemZeile{"SYSTEM"},
-                                          MessZeile{"MESS"})[kAnatomyFingerprintSystemGlied] == "SYSTEM",
+static_assert(anatomy_fingerprint_glieder(MessZeile{"MESS"}, SystemZeile{"SYSTEM"},
+                                          OrganZeile{"ORGAN"})[kAnatomyFingerprintSystemGlied] == "SYSTEM",
               "kAnatomyFingerprintSystemGlied zeigt nicht mehr auf die System-Zeile der Glied-Folge.");
 static_assert(kAnatomyFingerprintSystemGlied < kAnatomyFingerprintGliedCount);
+
+/// S-6a: DIE KATEGORIEN-DREHUNG IST BEWIESEN, NICHT BEHAUPTET. Diese beiden Asserts sind der Kern der
+/// Scheibe -- sie sagen, WELCHE Zeile an [1] und welche an [3] steht. Ohne sie waere die Drehung eine
+/// Aussage im Kommentar, und genau diese Klasse von Aussage ist am 17.08. am Objekt still danebengelegen.
+static_assert(anatomy_fingerprint_glieder(MessZeile{"MESS"}, SystemZeile{"SYSTEM"}, OrganZeile{"ORGAN"})[1] == "MESS",
+              "S-6a: Glied [1] ist die MESS-Tooling-Zeile (Kategorien-Ordnung MESS, SYSTEM, ORGAN -- "
+              "KON21-03). Steht hier etwas anderes, ist die Drehung halb vollzogen und der Digest falsch.");
+static_assert(anatomy_fingerprint_glieder(MessZeile{"MESS"}, SystemZeile{"SYSTEM"}, OrganZeile{"ORGAN"})[3] == "ORGAN",
+              "S-6a: Glied [3] ist die ORGAN-Zeile -- sie steht seit der Kategorien-Drehung HINTEN, nicht "
+              "mehr vorn.");
 
 /// O-2/C-2: dieselbe Beweis-Form fuer die drei neuen/verschobenen Positionen. Sie sind KEINE Kommentare:
 /// bestandslog_factory vervollstaendigt Glied [2] anhand seiner Konstante, und die Konsumenten der
 /// Toolchain-/bvset-Naht adressieren ihre Glieder ebenso. Eine Umsortierung ohne Nachzug bricht hier.
-static_assert(anatomy_fingerprint_glieder(OrganZeile{"O"}, SystemZeile{"S"}, MessZeile{"M"}, ToolchainGlied{"TC"},
+static_assert(anatomy_fingerprint_glieder(MessZeile{"M"}, SystemZeile{"S"}, OrganZeile{"O"}, ToolchainGlied{"TC"},
                                           BvsetGlied{"BV"},
                                           OverlayHash{"OV"})[kAnatomyFingerprintToolchainGlied] == "TC",
               "kAnatomyFingerprintToolchainGlied zeigt nicht mehr auf das Toolchain-Glied.");
-static_assert(anatomy_fingerprint_glieder(OrganZeile{"O"}, SystemZeile{"S"}, MessZeile{"M"}, ToolchainGlied{"TC"},
+static_assert(anatomy_fingerprint_glieder(MessZeile{"M"}, SystemZeile{"S"}, OrganZeile{"O"}, ToolchainGlied{"TC"},
                                           BvsetGlied{"BV"}, OverlayHash{"OV"})[kAnatomyFingerprintBvsetGlied] == "BV",
               "kAnatomyFingerprintBvsetGlied zeigt nicht mehr auf das bvset-Glied.");
-static_assert(anatomy_fingerprint_glieder(OrganZeile{"O"}, SystemZeile{"S"}, MessZeile{"M"}, ToolchainGlied{"TC"},
+static_assert(anatomy_fingerprint_glieder(MessZeile{"M"}, SystemZeile{"S"}, OrganZeile{"O"}, ToolchainGlied{"TC"},
                                           BvsetGlied{"BV"}, OverlayHash{"OV"})[kAnatomyFingerprintOverlayGlied] == "OV",
               "kAnatomyFingerprintOverlayGlied zeigt nicht mehr auf das Overlay-Glied.");
-static_assert(anatomy_fingerprint_glieder(OrganZeile{"O"}, SystemZeile{"S"}, MessZeile{"M"}, ToolchainGlied{"TC"},
+static_assert(anatomy_fingerprint_glieder(MessZeile{"M"}, SystemZeile{"S"}, OrganZeile{"O"}, ToolchainGlied{"TC"},
                                           BvsetGlied{"BV"}, OverlayHash{"OV"},
                                           MessGatesGlied{"MG"})[kAnatomyFingerprintMessGatesGlied] == "MG",
               "kAnatomyFingerprintMessGatesGlied zeigt nicht mehr auf das Mess-Gates-Glied.");
+/// A2.5-Fix 11: die Positions-Probe benutzt eine GUELTIGE Map -- die Grammatik wohnt seit dem Fix im
+/// Traeger, und "KM" war keine Map (die Probe haette den Traeger selbst gebrochen).
+inline constexpr std::string_view kKompositPositionsProbeMap =
+    "1=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+static_assert(anatomy_fingerprint_glieder(MessZeile{"M"}, SystemZeile{"S"}, OrganZeile{"O"}, ToolchainGlied{"TC"},
+                                          BvsetGlied{"BV"}, OverlayHash{"OV"}, MessGatesGlied{"MG"},
+                                          KompositMapGlied{
+                                              kKompositPositionsProbeMap})[kAnatomyFingerprintKompositGlied] ==
+                  kKompositPositionsProbeMap,
+              "kAnatomyFingerprintKompositGlied zeigt nicht mehr auf das Hybrid-Komposit-Map-Glied.");
 /// R-3: das Overlay-Glied war bis Format 3 das SCHWANZ-Glied (O-2/C-2: "ein noch leeres Glied gehoert
 /// an den Schwanz, damit die Positionen der GEFUELLTEN Glieder stabil bleiben"). Ab Format 4 steht das
-/// Mess-Gates-Glied dahinter -- und zwar OHNE die alte Begruendung zu verletzen: die Bestands-Nummern
-/// [0]..[7] sind unveraendert, das neue Glied haengt sich an. Das Overlay-Glied bleibt damit das letzte
-/// NOCH LEERE Glied; wird es scharfgeschaltet (L14/Phase 6), verschiebt sich weiterhin keine Position.
-static_assert(kAnatomyFingerprintOverlayGlied == kAnatomyFingerprintGliedCount - 2,
-              "Das Overlay-Glied ist das letzte NOCH LEERE Glied (L14/Phase 6) und steht vor dem "
-              "Mess-Gates-Glied.");
-static_assert(kAnatomyFingerprintMessGatesGlied == kAnatomyFingerprintGliedCount - 1,
-              "Das Mess-Gates-Glied ist per R-3 (Format 4) das SCHWANZ-Glied.");
+/// Mess-Gates-Glied dahinter, ab Format 5 zusaetzlich das Komposit-Glied -- und zwar OHNE die alte
+/// Begruendung zu verletzen: die Bestands-Nummern [0]..[8] sind unveraendert, das neue Glied haengt sich
+/// hinten an.
+/// WARUM DIESE ZUSAGE AB FORMAT 5 ABSOLUT STEHT UND NICHT MEHR RELATIV ZUR GLIED-ZAHL: die frueheren
+/// Fassungen sagten "Overlay == GliedCount - 2" und "Overlay ist das letzte NOCH LEERE Glied". Beide
+/// Saetze waren an die Glied-ZAHL gebunden und wurden mit jedem Anhaengen wieder unwahr -- der zweite
+/// zusaetzlich dadurch, dass das Komposit-Glied fuer plain Tiere ebenfalls leer ist. Die Zusage, auf die
+/// es ankommt, ist ohnehin eine andere: das Overlay-Glied steht UNMITTELBAR VOR dem Mess-Gates-Glied,
+/// und daran aendert kein Anhaengen etwas.
+static_assert(kAnatomyFingerprintOverlayGlied + 1 == kAnatomyFingerprintMessGatesGlied,
+              "Das Overlay-Glied steht unmittelbar vor dem Mess-Gates-Glied -- die Bestands-Nummern "
+              "[0]..[8] sind seit Format 4 eingefroren, neue Glieder haengen sich HINTEN an.");
+static_assert(kAnatomyFingerprintKompositGlied + 1 == kAnatomyFingerprintBuildVersionGlied,
+              "B-9/golden-102: das build_version-Basis-Glied steht unmittelbar hinter dem Komposit-Glied "
+              "-- die Bestands-Nummern [0]..[9] sind eingefroren, neue Glieder haengen sich HINTEN an.");
+static_assert(kAnatomyFingerprintBuildVersionGlied == kAnatomyFingerprintGliedCount - 1,
+              "Das build_version-Basis-Glied ist per B-9/golden-102 (Format 6) das SCHWANZ-Glied.");
 static_assert(kAnatomyFingerprintSystemGlied < kAnatomyFingerprintToolchainGlied &&
                   kAnatomyFingerprintToolchainGlied < kAnatomyFingerprintBvsetGlied &&
                   kAnatomyFingerprintBvsetGlied < kAnatomyFingerprintOverlayGlied &&
-                  kAnatomyFingerprintOverlayGlied < kAnatomyFingerprintMessGatesGlied,
+                  kAnatomyFingerprintOverlayGlied < kAnatomyFingerprintMessGatesGlied &&
+                  kAnatomyFingerprintMessGatesGlied < kAnatomyFingerprintKompositGlied &&
+                  kAnatomyFingerprintKompositGlied < kAnatomyFingerprintBuildVersionGlied,
               "Die benannten Positionen muessen aufsteigend und paarweise verschieden sein.");
-static_assert(kAnatomyFingerprintGliedCount == 9,
-              "R-3 (Format 4): die Glied-Folge hat NEUN Glieder. Wer sie aendert, aendert das "
+static_assert(kAnatomyFingerprintGliedCount == 11,
+              "B-9/golden-102 (Format 6): die Glied-Folge hat ELF Glieder. Wer sie aendert, aendert das "
               "Preimage-Layout -- also die Identitaet jeder Tier-Binary -- und MUSS die Format-Kennung "
               "kAnatomyFingerprintFormat mitbumpen (F7).");
-static_assert(kAnatomyFingerprintFormat == "fingerprint_format=4",
-              "R-3: die Format-Kennung und die Glied-Zahl sind auseinandergelaufen.");
+static_assert(kAnatomyFingerprintFormat == "fingerprint_format=6",
+              "B-9/golden-102: die Format-Kennung und die Glied-Zahl sind auseinandergelaufen.");
+/// B-9/golden-102: die Positions-Probe des neuen Glieds -- dieselbe Beweis-Form wie bei allen Vorgaengern.
+static_assert(anatomy_fingerprint_glieder(MessZeile{"M"}, SystemZeile{"S"}, OrganZeile{"O"}, ToolchainGlied{"TC"},
+                                          BvsetGlied{"BV"}, OverlayHash{"OV"}, MessGatesGlied{"MG"},
+                                          KompositMapGlied{kKompositPositionsProbeMap},
+                                          BuildVersionGlied{"m3v2"})[kAnatomyFingerprintBuildVersionGlied] == "m3v2",
+              "kAnatomyFingerprintBuildVersionGlied zeigt nicht mehr auf das build_version-Basis-Glied.");
 
 // -- NB2-2: DIE EINE PREIMAGE-KONSTRUKTION -------------------------------------------------------------
 //
@@ -880,22 +1425,29 @@ constexpr void anatomy_fingerprint_preimage_emit(std::span<std::string_view cons
     return std::move(senke.aus);
 }
 
-/// anatomy_fingerprint_hex(organ, system, measurement[, Traeger...]) -- 128-hex SHA-512 (nullterminiert,
+/// anatomy_fingerprint_hex(measurement, system, organ[, Traeger...]) -- 128-hex SHA-512 (nullterminiert,
 /// array<char, 129>) ueber die '\n'-getrennte Glied-Folge aus anatomy_fingerprint_glieder(). consteval:
 /// reine Compile-Zeit-Ableitung der einkompilierten Stempel-Literale (leere Zeilen -> leeres Glied, aber
-/// der Separator bleibt -> die Feldgrenze ist erhalten; genau das ist der GA-01-Fix).
+/// der Separator bleibt -> die Feldgrenze ist erhalten; genau das ist der GA-01-Fix). (A2.5-Fix 18: der
+/// Satz hier stand bis 18.08.2026 mit der VOR-S-6a-Folge "(organ, system, measurement" -- genau die
+/// Anleitung, nach der eine vierte Emissions-Stelle falsch gebaut worden waere; die 2-/3-arg-Makro-Ebene
+/// nimmt rohe Literale, ein danach vertauschter Aufruf UEBERSETZT.)
 ///
 /// NB2-2: der Puffer wird ueber DENSELBEN Kern gefuellt wie der Laufzeit-Weg -- inklusive Wache. Die
 /// Funktion ist deshalb NICHT mehr `noexcept`: ein Glied mit Domain-Separator MUSS die consteval-Auswertung
 /// abbrechen (kein konstanter Ausdruck), statt still ueber std::terminate zu laufen oder -- schlimmer -- ein
 /// mehrdeutiges Preimage zu hashen.
+///
+/// B-F3 (A2.5): Voll-Form ab 7 Argumenten -- das Mess-Gates-Glied hat KEINEN Default-Slot mehr
+/// (Begruendung am Overload-Schnitt von anatomy_fingerprint_glieder); die Kurz-Form darunter traegt
+/// die bewusst leere Nicht-Tier-Identitaet benannt.
 [[nodiscard]] consteval std::array<char, 129>
-anatomy_fingerprint_hex(OrganZeile organ, SystemZeile system, MessZeile measurement,
-                        ToolchainGlied toolchain  = ToolchainGlied{kToolchainStampGlied},
-                        BvsetGlied     bvset      = BvsetGlied{kBuildVariantSetSignatureGlied},
-                        OverlayHash    overlay    = OverlayHash{kOverlaySourceHash},
-                        MessGatesGlied mess_gates = MessGatesGlied{""}) {
-    auto const glieder = anatomy_fingerprint_glieder(organ, system, measurement, toolchain, bvset, overlay, mess_gates);
+anatomy_fingerprint_hex(MessZeile measurement, SystemZeile system, OrganZeile organ, ToolchainGlied toolchain,
+                        BvsetGlied bvset, OverlayHash overlay, MessGatesGlied mess_gates,
+                        KompositMapGlied  komposit      = KompositMapGlied{kHybridKompositGlied},
+                        BuildVersionGlied build_version = BuildVersionGlied{kBuildVersionGlied}) {
+    auto const glieder = anatomy_fingerprint_glieder(measurement, system, organ, toolchain, bvset, overlay, mess_gates,
+                                                     komposit, build_version);
     detail::PreimageBytesSenke<kAnatomyFingerprintPreimageMax> senke{};
     anatomy_fingerprint_preimage_emit(std::span<std::string_view const>{glieder.data(), glieder.size()}, senke);
     auto const digest =
@@ -905,6 +1457,324 @@ anatomy_fingerprint_hex(OrganZeile organ, SystemZeile system, MessZeile measurem
     for (std::size_t i = 0; i < 128; ++i) out[i] = hex[i];
     out[128] = '\0';
     return out;
+}
+
+/// B-F3-KURZ-FORM (3..6 Argumente), wortgleich zur Glieder-Kurz-Form und aus demselben Grund.
+[[nodiscard]] consteval std::array<char, 129>
+anatomy_fingerprint_hex(MessZeile measurement, SystemZeile system, OrganZeile organ,
+                        ToolchainGlied toolchain = ToolchainGlied{kToolchainStampGlied},
+                        BvsetGlied     bvset     = BvsetGlied{kBuildVariantSetSignatureGlied},
+                        OverlayHash    overlay   = OverlayHash{kOverlaySourceHash}) {
+    return anatomy_fingerprint_hex(measurement, system, organ, toolchain, bvset, overlay, MessGatesGlied{""},
+                                   KompositMapGlied{kHybridKompositGlied}, BuildVersionGlied{kBuildVersionGlied});
+}
+
+/// -- B-5a/V-02R: DIE COMPOSE-BAUSTEINE DER HYBRID-MAP ---------------------------------------------------
+///
+/// WAS BISHER FEHLTE: kHybridKompositGlied oben ist ein INJIZIERTER Wert (Define, Default ""). Wer die
+/// Zeile erzeugt, tat es bis hierher AUSSERHALB dieses Headers -- die Grammatik stand nur als Beispiel im
+/// Kommentar ("12=<64hex>;44=<64hex>"). Ein Beispiel ist keine Bildung: zwei Erzeuger koennten sie
+/// verschieden lesen, und der Fingerprint saehe es nicht. Diese Bausteine machen die Grammatik zu Code.
+///
+/// DIE FORM, aus der dokumentierten Fassung abgeleitet und nicht neu erfunden (V-02R/KON103-03):
+///   key=value, ';'-getrennt, Dock-Index AUFSTEIGEND     -- die compose_organ_stamp_line-Syntax
+///   key   = stufen_id() = Layer * Nodes + Node          -- die CT-ADRESSE, nicht der RT-attach-Slot
+///   value = 64 Hex, EIGENER SHA-256 je Dock-Beitrag     -- dieselbe Linie wie E-A (Name) und V-08R
+///
+/// WARUM DER KEY DIE CT-ADRESSE IST UND NICHT DER LAUFZEIT-SLOT: DockArray::attach vergibt first-free und
+/// wiederverwendbar -- dieselbe Binary koennte je Lauf andere Slots belegen. Eine CT-Map kann keine
+/// RT-Slots tragen, ohne ihre eigene Bestaendigkeit zu verlieren. stufen_id ist dagegen aus Layer und Node
+/// gerechnet und damit fuer dieselbe Komposition immer dieselbe Zahl.
+///
+/// WARUM KEINE NAMEN ALS KEYS: Namens-Strings wie "Reroute<View>" verletzen den Glied-Zeichenvorrat
+/// (KON45-01/6) -- '<' und '>' stehen nicht in anatomy_glied_zeichen_erlaubt. Die Zahl tut es.
+namespace detail {
+
+/// Der Puffer der Komposit-Bildung: exakt das Budget, das die Rechnung oben nennt. Kein Heap, damit die
+/// Bildung in einer constant expression laufen kann -- wie bei MessGatesGliedText und aus demselben Grund.
+class KompositMapText {
+public:
+    constexpr void anhaengen(std::string_view t) {
+        for (char const c : t) puffer_.at(laenge_++) = c;
+    }
+    constexpr void anhaengen(char c) { puffer_.at(laenge_++) = c; }
+    /// A2.5 / Lens B-F5: sv() nur auf einem BENANNTEN Traeger -- auf einem Temporary stuerbe der Puffer
+    /// am Ausdrucks-Ende und die Sicht hinge (dieselbe Dangling-Klasse, gegen die die Glied-Traeger
+    /// ihren Rvalue-Konstruktor loeschen). Der const&&-Delete deckt auch const-Rvalues.
+    [[nodiscard]] constexpr std::string_view sv() const& noexcept { return std::string_view{puffer_.data(), laenge_}; }
+    constexpr std::string_view               sv() const&& = delete;
+    [[nodiscard]] constexpr std::size_t      size() const noexcept { return laenge_; }
+
+private:
+    std::array<char, kAnatomyFingerprintKompositMax> puffer_{};
+    std::size_t                                      laenge_ = 0;
+};
+
+/// Die Dezimal-Darstellung eines stufen_id-Keys. Bewusst ohne fuehrende Nullen und ohne Vorzeichen: die
+/// Grammatik kennt nur Ziffern, und zwei Schreibweisen derselben Zahl waeren zwei Schluessel fuer dieselbe
+/// Stufe -- also zwei Preimages fuer dasselbe Binary.
+[[nodiscard]] constexpr KompositMapText komposit_key_text(std::size_t stufen_id) {
+    // A2.5-Fix 9 / Lens B-F2: Bereichs-Wurf VOR der Ziffern-Schleife, Grenze aus KeyMax GERECHNET
+    // (kAnatomyFingerprintKompositKeyDeckel = 10^KeyMax - 1). Vorher trunkierte die Schleife still
+    // modulo 10^8: 100000001 und 200000001 ergaben BEIDE den Key-Text "00000001" -- Duplikat-Keys
+    // trotz gruener Streng-Aufsteigend-Wache (die vergleicht die Original-Ids), also zwei
+    // Kompositionen mit demselben Preimage. CT = Compile-Fehler, RT = benannte Fehlerklasse.
+    if (stufen_id > kAnatomyFingerprintKompositKeyDeckel)
+        throw std::invalid_argument{
+            "B-5a/V-02R: stufen_id sprengt kAnatomyFingerprintKompositKeyMax (8 Dezimalstellen, Deckel "
+            "10^8-1). Ohne den Wurf trunkierte die Ziffern-Schleife still modulo 10^8 und zwei "
+            "verschiedene Stufen bekaemen denselben Key-Text (Duplikat-Keys, falscher Skip). Waechst "
+            "die Adress-Matrix je ueber den Deckel, die Faktor-Rechnung des Budgets nachziehen."};
+    KompositMapText t{};
+    if (stufen_id == 0) {
+        t.anhaengen('0');
+        return t;
+    }
+    char        ziffern[kAnatomyFingerprintKompositKeyMax]{};
+    std::size_t n = 0;
+    for (std::size_t rest = stufen_id; rest > 0 && n < kAnatomyFingerprintKompositKeyMax; rest /= 10)
+        ziffern[n++] = static_cast<char>('0' + (rest % 10));
+    for (std::size_t i = n; i > 0; --i) t.anhaengen(ziffern[i - 1]);
+    return t;
+}
+
+/// Ist der Wert ein wohlgeformter 64-Hex-Digest (kleingeschrieben)? Der Value ist der EIGENE SHA-256 des
+/// eingesteckten Tiers; alles andere an dieser Stelle waere ein Wert, den niemand nachrechnen kann.
+[[nodiscard]] constexpr bool komposit_wert_ist_64hex(std::string_view v) noexcept {
+    if (v.size() != kAnatomyFingerprintKompositWertMax) return false;
+    for (char const c : v)
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
+    return true;
+}
+
+} // namespace detail
+
+/// EIN Dock-Beitrag: der Baustein, aus dem die Zeile besteht. Getrennt von der Zeilen-Bildung, damit eine
+/// einzelne Zelle fuer sich geprueft werden kann -- und damit die Zeile keinen zweiten Weg kennt, ein
+/// Segment zu schreiben.
+struct KompositBeitrag {
+    std::size_t      stufen_id{};
+    std::string_view name_hex{}; ///< 64 Hex, aus anatomy_name_hex des eingesteckten Tiers
+};
+
+/// hybrid_komposit_map_bilden(beitraege) -- DIE EINE BILDUNG der Komposit-Zeile.
+///
+/// LEER BLEIBT LEER: ohne Beitraege entsteht die leere Zeichenkette, nicht etwa ein Praefix oder ein
+/// Trenner. Das ist die K-1-/KON45-01-2-Zusage "Tier traegt ''" -- ein plain Tier rechnet damit
+/// byte-identisch zu einem Binary, das das Glied gar nicht kennt (ausser seinem Separator).
+///
+/// FAIL-LOUD statt still falsch: ein unwohlgeformter Wert, eine verletzte Ordnung oder ein doppelter Key
+/// brechen die consteval-Auswertung (throw in einer constant expression == Uebersetzungsfehler). Die
+/// Alternative waere eine Zeile, die aussieht wie eine Map und keine ist.
+[[nodiscard]] constexpr detail::KompositMapText hybrid_komposit_map_bilden(std::span<KompositBeitrag const> beitraege) {
+    // A2.5-Fix 10 / Lens B-F4: der Dock-Deckel als DRITTE SOLL-Wache, am Anfang der Bildung. Der
+    // 2368er-Puffer deckt ihn NICHT (33+ kurze Keys passen hinein: 34 zweistellige Keys = 2311 Byte);
+    // erst der Wurf erzwingt die Faktor-Herleitung des Budgets am Code.
+    if (beitraege.size() > kAnatomyFingerprintKompositDockDeckel)
+        throw std::invalid_argument{
+            "B-5a/V-02R: mehr Dock-Beitraege als der Deckel (kAnatomyFingerprintKompositDockDeckel = "
+            "32). Das Komposit-Budget ist als Deckel x Segment-Laenge GERECHNET -- mehr Beitraege "
+            "hiessen, die Belegung sprengt die Pruefdock-Matrix; den Deckel bewusst heben und die "
+            "Faktor-Rechnung nachziehen, statt still mehr Segmente zu schreiben."};
+    detail::KompositMapText aus{};
+    for (std::size_t i = 0; i < beitraege.size(); ++i) {
+        auto const& b = beitraege[i];
+        if (!detail::komposit_wert_ist_64hex(b.name_hex))
+            throw std::invalid_argument{"B-5a/V-02R: ein Komposit-Wert ist kein 64-Hex-Digest. Der Wert je Dock "
+                                        "ist der EIGENE SHA-256 des eingesteckten Tiers (anatomy_name_hex), "
+                                        "nicht sein Name, nicht sein Pfad und nicht die ersten 64 hex seines "
+                                        "SHA-512."};
+        if (i > 0 && !(beitraege[i - 1].stufen_id < b.stufen_id))
+            throw std::invalid_argument{"B-5a/V-02R: die Dock-Beitraege stehen nicht STRENG AUFSTEIGEND nach "
+                                        "stufen_id. Aufsteigend ist die Ordnung der Map (V-02R); streng, weil "
+                                        "zwei Beitraege derselben Stufe zwei Wahrheiten ueber dieselbe Zelle "
+                                        "waeren. Beides still zu dulden hiesse, zwei verschiedene Hybride "
+                                        "koennten dieselbe Zeile erzeugen."};
+        if (i > 0) aus.anhaengen(';');
+        auto const key = detail::komposit_key_text(b.stufen_id);
+        aus.anhaengen(key.sv());
+        aus.anhaengen('=');
+        aus.anhaengen(b.name_hex);
+    }
+    return aus;
+}
+
+/// komposit_map_wert_bei(glied, stufen_id) -- DIE EINE LESUNG der Komposit-Zeile (G3/A-03,
+/// KON47-02-RT-Seite: die Gegenrichtung zur EINEN Bildung oben).
+///
+/// WOZU EINE BENANNTE LESE-SEITE: die Invariante RT <= CT (KON45-01(6) + KON47-02) vergleicht die
+/// zur Laufzeit an den Pruefdocks gecachten Tier-Stempel gegen die CT-Map dieses Glieds. Ohne
+/// benannten Leser schriebe jeder Pruefer seinen eigenen Segment-Parser -- zwei Parser waeren zwei
+/// Grammatik-Wahrheiten, exakt die Drift-Klasse, gegen die hybrid_komposit_map_bilden als DIE EINE
+/// Bildung gebaut ist. Der Key-Text kommt deshalb aus DERSELBEN Quelle (komposit_key_text) wie
+/// beim Schreiben -- inklusive ihres Deckel-Wurfs: eine stufen_id ueber dem Key-Deckel ist auf
+/// BEIDEN Seiten derselbe laute Fehler, nie ein stilles "nicht gefunden".
+///
+/// FORMNEUTRAL (F2-Vorlage P5): der Leser laeuft ueber die Trenner '=' und ';' und vergleicht
+/// Key-Texte VOLLSTAENDIG (kein Praefix-Treffer: "4" findet "44=..." nicht). Er nagelt KEINE
+/// Wert-Laenge fest -- dreht die offene P5-Frage die Hash-Form (64 vs. 128 hex), wandert diese
+/// Funktion unveraendert mit; die Form-Wache bleibt allein komposit_glied_ist_grammatisch.
+///
+/// VORBEDINGUNG UND RUECKGABE: glied ist grammatisch (der Traeger KompositMapGlied erzwingt das
+/// am Eingang; fuer nicht-grammatische Sichten ist das Ergebnis defensiv "nicht gefunden", nie
+/// UB). Rueckgabe = die Wert-Sicht INS GLIED beim Key, oder die LEERE Sicht, wenn der Key nicht
+/// vorkommt. Ein leerer Wert ist in der Grammatik unmoeglich (wert = exakt WertMax Zeichen); die
+/// leere Sicht ist also eindeutig "kein Eintrag".
+[[nodiscard]] constexpr std::string_view komposit_map_wert_bei(std::string_view glied, std::size_t stufen_id) {
+    auto const             key    = detail::komposit_key_text(stufen_id); // benannt -- sv() auf Temporary ist geloescht
+    std::string_view const key_sv = key.sv();
+    std::size_t            i      = 0;
+    while (i < glied.size()) {
+        std::size_t const key_beginn = i;
+        while (i < glied.size() && glied[i] != '=') ++i;
+        if (i >= glied.size()) return {}; // grammatisch unmoeglich (Segment ohne '='); defensiv: kein Eintrag
+        std::string_view const seg_key = glied.substr(key_beginn, i - key_beginn);
+        ++i; // '='
+        std::size_t const wert_beginn = i;
+        while (i < glied.size() && glied[i] != ';') ++i;
+        if (seg_key == key_sv) return glied.substr(wert_beginn, i - wert_beginn);
+        if (i < glied.size()) ++i; // ';' -- nur ZWISCHEN Segmenten (Grammatik)
+    }
+    return {};
+}
+
+namespace detail {
+/// CT-Proben der Lese-Seite, am Eigentuemer (dasselbe Muster wie die Grammatik-Proben oben):
+/// zwei 64-Hex-Probewerte in der HEUTIGEN Wert-Form -- Probe-DATEN, kein neuer Form-Pin; sie
+/// wandern bei einem P5-Dreh mit demselben Edit wie die Grammatik-Proben an Zeile ~601.
+inline constexpr std::string_view kKompositLeseProbeWertA =
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+inline constexpr std::string_view kKompositLeseProbeWertB =
+    "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+inline constexpr std::string_view kKompositLeseProbeMap =
+    "4=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    ";44=fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+} // namespace detail
+static_assert(komposit_map_wert_bei("", 0).empty() && komposit_map_wert_bei("", 7).empty(),
+              "G3/A-03: die leere Map ('Tier traegt \"\"') hat KEINEN Eintrag -- jede Suche liefert "
+              "die leere Sicht.");
+static_assert(komposit_map_wert_bei(detail::kKompositLeseProbeMap, 4) == detail::kKompositLeseProbeWertA &&
+                  komposit_map_wert_bei(detail::kKompositLeseProbeMap, 44) == detail::kKompositLeseProbeWertB,
+              "G3/A-03: die Lesung findet JEDEN Eintrag der Probe-Map an seinem Key -- erstes und "
+              "letztes Segment, nicht nur eines von beiden.");
+static_assert(komposit_map_wert_bei(detail::kKompositLeseProbeMap, 13).empty(),
+              "G3/A-03: ein Key ohne Eintrag liefert die leere Sicht -- nie den Wert eines Nachbarn.");
+static_assert(komposit_map_wert_bei("44=fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210", 4).empty(),
+              "G3/A-03: KEIN PRAEFIX-TREFFER -- der Key '4' darf das Segment '44=...' nicht finden. "
+              "Ein Praefix-Vergleich waere ein falscher RT<=CT-Beweis fuer eine fremde Zelle.");
+
+/// anatomy_name_hex(measurement, system, organ[, Traeger...]) -- E-A/B-6 (18.08.2026): DER NAME.
+///
+/// EIGENER Hash, KEIN fingerprint[0:64].
+///
+/// Diese Zeile ist die Bau-Auflage und zugleich die ganze Pointe. Der Name entsteht aus DEMSELBEN
+/// Preimage wie der Fingerprint -- Glied fuer Glied, ueber dieselbe EINE Konstruktion
+/// (anatomy_fingerprint_preimage_emit, inklusive ihrer Separator-Wache) --, aber er wird mit einem
+/// ANDEREN Verfahren gehasht: SHA-256 statt SHA-512. Er ist deshalb NICHT die erste Haelfte des
+/// Fingerprints und darf es nie werden.
+///
+/// WARUM DER UNTERSCHIED TRAEGT, und nicht bloss Geschmack ist: waere der Name ein Praefix des
+/// Fingerprints, traege er keine eigene Aussage -- wer den Namen kennt, wuesste 64 hex des Digests,
+/// und zwei Dinge, die getrennte Zusagen machen sollen (Identitaet vs. Bezeichnung), haetten
+/// dieselbe Quelle mit derselben Kollisionslage. Der static_assert unten haelt genau das fest: er
+/// vergleicht die beiden Ableitungen an einem realen Wert und bricht, sobald jemand die Namens-
+/// funktion auf ein Fingerprint-Praefix umstellt.
+///
+/// KONSISTENZ-LINIE (KON103-03): SHA-256 fuer Name (E-A), fuer die Hybrid-Map-Werte (V-02R) und fuer
+/// den Planer (V-08R). Die 128-hex-Festlegung einer aelteren Fassung war Lead-Distillation, kein
+/// Owner-Wort; das juengste und einzige Owner-Wort mit Bitlaenge nennt sha256.
+///
+/// Rueckgabe: 64 Hex + '\0' (array<char, 65>), analog zur 129er-Form des Fingerprints -- damit der
+/// Wert ohne Laengen-Argument in ein POD-Feld (name_line) und in generierte Literale wandern kann.
+/// B-F3 (A2.5): Voll-Form ab 7 Argumenten -- kein Default-Slot fuer das Mess-Gates-Glied (Begruendung
+/// am Overload-Schnitt von anatomy_fingerprint_glieder); Kurz-Form darunter.
+[[nodiscard]] consteval std::array<char, 65>
+anatomy_name_hex(MessZeile measurement, SystemZeile system, OrganZeile organ, ToolchainGlied toolchain,
+                 BvsetGlied bvset, OverlayHash overlay, MessGatesGlied mess_gates,
+                 KompositMapGlied  komposit      = KompositMapGlied{kHybridKompositGlied},
+                 BuildVersionGlied build_version = BuildVersionGlied{kBuildVersionGlied}) {
+    // DASSELBE Preimage: dieselbe Glied-Folge, dieselbe Senke, dieselbe Emit-Funktion samt Wache.
+    // Ein zweiter, eigener Aufbau waere die Drift-Klasse, gegen die anatomy_fingerprint_preimage_emit
+    // ueberhaupt erst zur EINEN Konstruktion gemacht wurde.
+    auto const glieder = anatomy_fingerprint_glieder(measurement, system, organ, toolchain, bvset, overlay, mess_gates,
+                                                     komposit, build_version);
+    detail::PreimageBytesSenke<kAnatomyFingerprintPreimageMax> senke{};
+    anatomy_fingerprint_preimage_emit(std::span<std::string_view const>{glieder.data(), glieder.size()}, senke);
+    auto const digest =
+        ::comdare::cache_engine::sha256::sha256(std::span<const std::uint8_t>{senke.aus.data(), senke.n});
+    auto const           hex = ::comdare::cache_engine::sha256::to_hex(digest); // array<char, 64>
+    std::array<char, 65> out{};
+    for (std::size_t i = 0; i < 64; ++i) out[i] = hex[i];
+    out[64] = '\0';
+    return out;
+}
+
+/// B-F3-KURZ-FORM (3..6 Argumente), wortgleich zu den beiden anderen und aus demselben Grund.
+[[nodiscard]] consteval std::array<char, 65>
+anatomy_name_hex(MessZeile measurement, SystemZeile system, OrganZeile organ,
+                 ToolchainGlied toolchain = ToolchainGlied{kToolchainStampGlied},
+                 BvsetGlied     bvset     = BvsetGlied{kBuildVariantSetSignatureGlied},
+                 OverlayHash    overlay   = OverlayHash{kOverlaySourceHash}) {
+    return anatomy_name_hex(measurement, system, organ, toolchain, bvset, overlay, MessGatesGlied{""},
+                            KompositMapGlied{kHybridKompositGlied}, BuildVersionGlied{kBuildVersionGlied});
+}
+
+namespace detail {
+/// Die Probe, an der die Ungleichheits-Wache haengt: EIN realer Wert, beide Ableitungen. Sie steht als
+/// eigenes Paar da (statt als Ausdruck im static_assert), damit im Fehlerfall sichtbar ist, WELCHE
+/// beiden Werte verglichen wurden.
+inline constexpr auto kNameProbeFingerprint =
+    anatomy_fingerprint_hex(MessZeile{"probe-mess"}, SystemZeile{"probe-system"}, OrganZeile{"probe-organ"});
+inline constexpr auto kNameProbeName =
+    anatomy_name_hex(MessZeile{"probe-mess"}, SystemZeile{"probe-system"}, OrganZeile{"probe-organ"});
+
+/// true, wenn der Name die ersten 64 hex des Fingerprints WAERE -- also genau der Zustand, den die
+/// Bau-Auflage verbietet.
+[[nodiscard]] consteval bool name_ist_fingerprint_praefix() {
+    for (std::size_t i = 0; i < 64; ++i)
+        if (kNameProbeName[i] != kNameProbeFingerprint[i]) return false;
+    return true;
+}
+} // namespace detail
+
+/// E-A/B-6 -- DIE UNGLEICHHEITS-WACHE. Sie ist der Grund, warum die Auflage "EIGENER Hash, KEIN
+/// fingerprint[0:64]" nicht bloss im Kommentar steht: ein Satz im Text haelt niemanden auf, ein
+/// static_assert schon. Wer die Namensfunktion auf ein Fingerprint-Praefix umstellt -- absichtlich oder
+/// durch ein verrutschtes sha512 statt sha256 --, bekommt DIESE Meldung, nicht einen stillen Wert.
+static_assert(!detail::name_ist_fingerprint_praefix(),
+              "E-A/B-6: der NAME ist zum Praefix des Fingerprints geworden. Das ist genau der Zustand, den "
+              "die Bau-Auflage ausschliesst ('EIGENER Hash, KEIN fingerprint[0:64]'): der Name traegt dann "
+              "keine eigene Aussage mehr, sondern verraet 64 hex des Digests, und Identitaet und Bezeichnung "
+              "haetten dieselbe Quelle mit derselben Kollisionslage. Pruefen, ob anatomy_name_hex noch "
+              "sha256 (nicht sha512) rechnet.");
+
+/// Und die Gegenrichtung, damit die Wache oben nicht bloss 'irgendetwas ungleich' feststellt: der Name
+/// ist genau 64 Hex-Zeichen lang, nullterminiert, und deterministisch (zwei Aufrufe mit denselben Zeilen
+/// liefern denselben Wert -- bei einer consteval-Funktion trivial, aber es ist die Zusage, die die
+/// Lager-/Stempel-Seite braucht).
+static_assert(detail::kNameProbeName.size() == 65 && detail::kNameProbeName[64] == '\0',
+              "E-A/B-6: der Name ist nicht 64 Hex + Nullterminierung.");
+/// A2.5 / Lens B-F6: die Wache darueber prueft nur Arraygroesse und Byte 64 -- '64 Hex' war fuer die
+/// Bytes [0..63] eine Behauptung. Hier prueft der 64-Kleinhex-Pruefer der Komposit-Werte (dieselbe
+/// Form, KON103-03) alle Nutzbytes: eingebettete NULs oder Grossbuchstaben hiessen, to_hex ist nicht
+/// mehr das Kleinhex-Alphabet.
+static_assert(detail::komposit_wert_ist_64hex(std::string_view{detail::kNameProbeName.data(), 64}),
+              "E-A/B-6 (B-F6): die 64 Nutzbytes des Namens muessen saemtlich [0-9a-f] sein.");
+static_assert(detail::kNameProbeName ==
+                  anatomy_name_hex(MessZeile{"probe-mess"}, SystemZeile{"probe-system"}, OrganZeile{"probe-organ"}),
+              "E-A/B-6: die Namensfunktion ist nicht deterministisch -- derselbe Eingang liefert zwei Werte.");
+
+/// K-1-SPERRE der NAMENSFUNKTION -- wortgleich zur Fingerprint-Sperre darunter und aus demselben Grund:
+/// drei nackte Zeichenketten am Anfang sind seit S-6b ein Aufruf-Fehler, nicht eine Bequemlichkeit.
+template <class... Rest>
+[[nodiscard]] consteval std::array<char, 65> anatomy_name_hex(std::string_view, std::string_view, std::string_view,
+                                                              Rest...) noexcept {
+    static_assert(detail::kFingerprintRohZeilenGesperrt<Rest...>,
+                  "S-6b/E-A: auch die NAMENS-Funktion nimmt die drei Stempel-ZEILEN als benannte Traeger -- "
+                  "MessZeile{...}, SystemZeile{...}, OrganZeile{...}, in dieser Reihenfolge. Roh gereicht "
+                  "koennten sie gegeneinander verschoben werden: es uebersetzte, und der NAME waere der eines "
+                  "anderen Binaries. Die Aufrufstelle auf die Traeger-Typen ziehen.");
+    return {};
 }
 
 /// K-1-SPERRE, ab S-6b auf DREI rohe Zeichenketten VERENGT: jeder Alt-Aufruf, der mit drei nackten
@@ -926,14 +1796,16 @@ template <class... Rest>
 [[nodiscard]] consteval std::array<char, 129> anatomy_fingerprint_hex(std::string_view, std::string_view,
                                                                       std::string_view, Rest...) noexcept {
     static_assert(detail::kFingerprintRohZeilenGesperrt<Rest...>,
-                  "S-6b: die drei Stempel-ZEILEN sind benannte Traeger-Typen, keine string_view -- "
-                  "OrganZeile{...}, SystemZeile{...}, MessZeile{...}, in dieser Reihenfolge. Roh gereicht "
+                  "S-6b: die drei Stempel-ZEILEN sind benannte Traeger-Typen, keine string_view -- seit "
+                  "S-6a MessZeile{...}, SystemZeile{...}, OrganZeile{...}, in dieser Reihenfolge (die "
+                  "Kategorien-Ordnung lautet MESS, SYSTEM, ORGAN -- KON21-03). Roh gereicht "
                   "koennten sie beliebig gegeneinander verschoben werden: es uebersetzte, der Digest waere "
                   "falsch, und sichtbar wuerde es erst als 'der Cache greift nie' oder als FALSCHER SKIP. "
                   "A13-M3/K-1 (weiterhin gueltig): die merge-ZEILE existiert nicht mehr (Owner-E2 "
                   "02.08.2026) -- auch das 4. Argument ist ein BENANNTER Glied-TYP. Die Schwanz-Slots "
-                  "heissen ToolchainGlied{...}, BvsetGlied{...}, OverlayHash{...}, MessGatesGlied{...}, in "
-                  "dieser Reihenfolge. Die Aufrufstelle auf die Traeger-Typen ziehen.");
+                  "heissen ToolchainGlied{...}, BvsetGlied{...}, OverlayHash{...}, MessGatesGlied{...}, "
+                  "KompositMapGlied{...}, BuildVersionGlied{...}, in dieser Reihenfolge. Die Aufrufstelle "
+                  "auf die Traeger-Typen ziehen.");
     return {};
 }
 

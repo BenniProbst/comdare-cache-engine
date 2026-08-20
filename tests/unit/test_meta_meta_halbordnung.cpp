@@ -218,7 +218,7 @@ TEST(MetaMetaHalbordnung, TypEbeneUrteiltWieDieFlagEbene) {
 
     auto const flag_urteil_prod1 = meas::admit_organ_on_machine(kRequiresAvx512, meas::Prod1Zen5Signature::signature());
     auto const flag_urteil_prod2 =
-        meas::admit_organ_on_machine(kRequiresAvx512, meas::Prod2RaptorLakeSignature::signature());
+        meas::admit_organ_on_machine(kRequiresAvx512, meas::Prod2AlderLakeSignature::signature());
 
     EXPECT_FALSE(flag_urteil_prod1.has_value()) << "prod1/Zen5 besitzt avx512f -> Zulassung erwartet.";
     ASSERT_TRUE(flag_urteil_prod2.has_value()) << "prod2 hat AVX-512 fused-off -> Ablehnung erwartet.";

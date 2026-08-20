@@ -183,7 +183,8 @@
 // Renderer ist unangetastet und bekommt denselben Legenden-String wie zuvor
 // (resolve_live_measurement_combo_legend gibt die bisherige Aufloesung 1:1 zurueck). Es gibt keinen
 // Format-Bump 3->4: das Preimage traegt die Mess-Zeile bereits als eigenes Glied von acht
-// (kAnatomyFingerprintGliedCount = 8). Was sich aendert, ist der WERT der Compile-Kommandos -- nicht
+// (kAnatomyFingerprintGliedCount = 8 -- der Stand von M-1; heute sind es ZEHN, s. den
+// UEBERHOLT-Vermerk direkt darunter). Was sich aendert, ist der WERT der Compile-Kommandos -- nicht
 // die Form des Preimage.
 //
 // ------------------------------------------------------------------------------------------------
@@ -223,6 +224,29 @@ namespace comdare::cache_engine::profile_facade {
 /// dynamischer Container -- die Menge ist eine statische Achsen-Belegung, kein Laufzeit-Zustand.
 using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::kMeasurementToolingCount>;
 
+/// mess_menge_mit_wallclock_erbe(bestellung) -- DIE B3-ENTSCHEIDUNG (KON37-01/KON34-04, 19.08.2026):
+/// die CEB entscheidet die wallclock-Deklaration SELBST, das Tier erbt sie.
+///
+/// KON37-01 (Owner verbatim): "Die CEB ruft nur die Messfuehler in der Tier-Binary und Hybrid auf,
+/// die sie selbst gebaut hat bzw. baut hoehere Traeger-Stufen nur nach ihren eigenen
+/// Messeigenschaften." G1 (COMDARE_MEASUREMENT_ON) IST das wallclock-Instrument (M-1/H-1-Befund,
+/// Block in mess_achsen_defines) und wird von JEDER nicht-leeren Menge gezogen -- jede messende CEB
+/// TRAEGT also wallclock und BAUT es in jede Tier-Binary ein. Diese Funktion macht diese Eigenschaft
+/// zur expliziten Entscheidung: die effektive Menge nennt wallclock, sobald irgendein Tooling
+/// gewaehlt ist. Eine leere Bestellung bleibt leer (nichts gewaehlt -> nichts geerbt).
+///
+/// DAS IST DIE G3-MECHANIK EINE SCHICHT TIEFER: wie die Naht das G3-Gate immer MIT-entscheidet,
+/// sobald sie G2 emittiert (B2), entscheidet sie die w-Deklaration immer mit, sobald G1 gezogen
+/// wird. Ein blosses Weglassen waere keine Entscheidung, sondern der alte D-1-Zustand in klein:
+/// wallclock-Messcode im Kompilat, aber keine Deklaration, die ihn nennt.
+[[nodiscard]] inline MessToolingMenge mess_menge_mit_wallclock_erbe(MessToolingMenge bestellung) noexcept {
+    namespace cm    = ::comdare::cache_engine::measurement;
+    bool nicht_leer = false;
+    for (bool const b : bestellung) nicht_leer = nicht_leer || b;
+    if (nicht_leer) bestellung[static_cast<std::size_t>(cm::MeasurementTooling::WallClock)] = true;
+    return bestellung;
+}
+
 /// ct_measurement_combo_legend() -- die EINE Lesung des einkompilierten Mess-Combo-Makros.
 ///
 /// Bis M-1 stand diese Lesung als nacktes #ifdef mitten in measurement_stamp_from_env(). Sie steht
@@ -251,6 +275,15 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
 /// [all]-Ausnahme. Der einzige Unterschied ist, WAS zurueckkommt -- die LEGENDE statt der gerenderten
 /// Stempel-Zeile. Der Renderer bleibt beim Aufrufer, und weil er derselbe ist und denselben String
 /// bekommt, ist die Mess-Zeile der Tier-Fingerprints byte-identisch zum Vor-M-1-Stand.
+///
+/// B3 (19.08.2026, KON37-01/KON34-04): die Rueckgabe ist ab B3 die GEERBTE Legende -- jede
+/// Rueckgabe laeuft durch mess_combo_legende_mit_wallclock_erbe (Herleitung dort). BYTE-BILANZ:
+/// fuer jede bis B3 baubare Aufloesung ist das ein No-op, denn der M-1/H-1-Pflicht-Wurf wies
+/// w-lose Bestellungen ab und die Vollmenge traegt wallclock ohnehin; die WACHEN unten vergleichen
+/// weiter die ROHEN Bestell-Kanaele (Env gegen CT-Define), das Erbe liegt HINTER ihnen. Erst eine
+/// w-lose spezifische Bestellung -- bis B3 unbaubar, Bestand 0 -- bekommt hier erstmals eine
+/// geerbte Legende: Stempel-Seite UND Bau-Seite sehen dieselbe, weil BEIDE nur diese eine
+/// Aufloesung lesen.
 ///
 /// SEMANTIK (K7b-2 / Section 64-D1-B, unveraendert):
 ///   -- Ist eine Combo EINKOMPILIERT, ist SIE die Wahrheit (Stufe-2-CT-EINBAU der Stufen-Doktrin).
@@ -298,6 +331,55 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
     return inner.empty() || inner == "all";
 }
 
+/// mess_combo_legende_mit_wallclock_erbe(legend) -- die LEGENDEN-Form der B3-Entscheidung
+/// (mess_menge_mit_wallclock_erbe oben): nennt eine spezifische Legende wallclock nicht, wird es
+/// VORN ergaenzt -- exakt die Abhilfe-Form, die der bis B3 hier lebende M-1/H-1-Pflicht-Wurf dem
+/// Bediener diktierte ("die Combo als '[wallclock,...]' schreiben"). Nennt sie es, kommt der
+/// Eingabe-String BYTE-IDENTISCH zurueck (keine Umsortierung, keine Kanonisierung).
+///
+/// WARUM ES DIESE FORM BRAUCHT: das Preimage-Glied [3] entsteht in einem ANDEREN Renderer
+/// (abi::measurement_stamp_line_from_combo_legend), der die LEGENDE nimmt, nicht die Menge. Eine
+/// nur auf Mengen-Ebene geerbte Deklaration erreichte den Stempel nie -- der Stempel verschwiege
+/// wallclock, und ein Versions-Sprung der wallclock-Mess-Achse bewegte den Fingerprint nicht
+/// (Owner-KERN F2, der M-1/H-1-Befund). Deshalb laeuft die EINE Aufloesung
+/// (resolve_live_measurement_combo_legend) durch DIESE Funktion: Stempel-Seite und Bau-Seite sehen
+/// dieselbe geerbte Wahrheit, keine zweite.
+///
+/// BEWUSST NICHT MEINE FAELLE (Semantik der Konsumenten, hier nur durchgereicht):
+///   -- leere Legende: Stempel-Seite rendert leer, Bau-Seite wirft (mess_tooling_menge_from_legend);
+///      beide Orte bleiben, wo sie sind.
+///   -- Vollmengen-Formen ([all]/all/[]/leer-innen): wallclock ist Teil der Vollmenge, nichts zu
+///      erben; der String bleibt byte-stabil (der gesamte Bestand ist [all]).
+///   -- unbekannte ids: bleiben stehen; der Bau wirft an seiner bestehenden Stelle (fail-loud),
+///      der Stempel-Renderer behaelt sein @0.0.0-Sentinel-Verhalten. Diese Funktion beantwortet
+///      NUR die wallclock-Frage und verschiebt keinen Wurf-Ort.
+/// Die Zerlegung (Klammern strippen, ',', leere Tokens ueberspringen) ist dieselbe wie im Parser
+/// und im Renderer; die Kommutativitaets-Wache im M-1-Biss haelt Mengen- und Legenden-Form aneinander.
+[[nodiscard]] inline std::string mess_combo_legende_mit_wallclock_erbe(std::string legend) {
+    namespace cm = ::comdare::cache_engine::measurement;
+    if (combo_legend_ist_vollmenge(legend)) return legend;
+    std::string_view inner        = legend;
+    bool const       hat_klammern = inner.size() >= 2 && inner.front() == '[' && inner.back() == ']';
+    if (hat_klammern) inner = inner.substr(1, inner.size() - 2);
+    std::string_view const wallclock_id =
+        cm::kMeasurementToolingRegistry[static_cast<std::size_t>(cm::MeasurementTooling::WallClock)].id;
+    for (std::size_t start = 0; start <= inner.size();) {
+        std::size_t const comma = inner.find(',', start);
+        std::size_t const end   = comma == std::string_view::npos ? inner.size() : comma;
+        if (end > start && inner.substr(start, end - start) == wallclock_id) return legend; // w genannt: unbewegt
+        if (comma == std::string_view::npos) break;
+        start = comma + 1;
+    }
+    std::string geerbt;
+    geerbt.reserve(legend.size() + wallclock_id.size() + 3);
+    if (hat_klammern) geerbt += '[';
+    geerbt += wallclock_id;
+    geerbt += ',';
+    geerbt += inner;
+    if (hat_klammern) geerbt += ']';
+    return geerbt;
+}
+
 [[nodiscard]] inline std::string resolve_live_measurement_combo_legend() {
     std::string const ct_legend = ct_measurement_combo_legend();
 #ifdef COMDARE_MEASUREMENT_COMBO_CT
@@ -314,12 +396,15 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
     if (!env_fehlt && std::string_view{e} != std::string_view{ct_legend})
         throw std::runtime_error("fehlerklasse=konfiguration_widerspruch: COMDARE_MEASUREMENT_COMBO ('" +
                                  std::string{e} + "') != einkompilierte Combo ('" + ct_legend + "')");
-    return ct_legend;
+    return mess_combo_legende_mit_wallclock_erbe(ct_legend); // B3: das Tier erbt die CEB-Entscheidung
 #else
     char const* const e = std::getenv("COMDARE_MEASUREMENT_COMBO");
     // UNGESETZT == [all]: der Renderer bildet "[all]" auf measurement_stamp_line_full_set() ab, die
     // Vollmengen-Provenienz bleibt damit byte-identisch zum frueheren full_set()-Direktaufruf.
-    if (e == nullptr || *e == '\0') return std::string{"[all]"};
+    // (B3: die Vollmenge traegt wallclock -- das Erbe unten ist hier beweisbar ein No-op; die
+    // Rueckgaben laufen trotzdem ausnahmslos durch die eine Erbe-Stelle, damit kein Pfad an ihr
+    // vorbei existiert.)
+    if (e == nullptr || *e == '\0') return mess_combo_legende_mit_wallclock_erbe(std::string{"[all]"});
     // M-1/H-A: die STUFEN-WACHE. Eine spezifische Env-Combo ohne einkompilierte Combo ist der
     // uebersprungene Stufe-2-CT-Einbau (Herleitung im Kopf dieser Funktion) -- fail-loud, nie still.
     if (!combo_legend_ist_vollmenge(e))
@@ -330,7 +415,7 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
             "dreistufig: Planer (RT-Freigabe) -> CEB (CT-Einbau) -> Tier (CT-Einbau). Abhilfe: die CEB "
             "mit -DCOMDARE_MEASUREMENT_COMBO=" +
             std::string{e} + " konfigurieren und neu bauen (Owner-KERN F2)");
-    return std::string{e};
+    return mess_combo_legende_mit_wallclock_erbe(std::string{e}); // B3: nur Vollmengen-Formen erreichbar, No-op
 #endif
 }
 
@@ -458,8 +543,15 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
 /// Bau-Kommando und das neunte Preimage-Glied (Feld <st>) bewegen sich aber fuer JEDE TU -- jeder
 /// Fingerprint wandert, jedes Sidecar wird stale, die Flotte baut neu. Das ist die bestellte
 /// Wirkung der Gate-Trennung (KON34/B2), kein Nebeneffekt; das golden-Fenster kommt separat.
-[[nodiscard]] inline std::vector<std::string> mess_achsen_defines(MessToolingMenge const& menge) {
+/// BYTE-BILANZ B3 (19.08.2026): die Eingangs-Bestellung laeuft durch mess_menge_mit_wallclock_erbe.
+/// Fuer jede bis B3 baubare Bestellung (wallclock genannt oder Vollmenge) ist das Erbe ein No-op --
+/// derselbe Vektor Byte fuer Byte. w-lose Bestellungen waren bis B3 der M-1/H-1-Wurf (Bestand 0);
+/// sie werden erstmals baubar und additiv. Kein bestehendes Compile-Kommando bewegt sich.
+[[nodiscard]] inline std::vector<std::string> mess_achsen_defines(MessToolingMenge const& bestellung) {
     namespace cm = ::comdare::cache_engine::measurement;
+    // B3 (KON37-01/KON34-04): die CEB entscheidet die wallclock-Deklaration selbst, das Tier erbt --
+    // die EINE Entscheidung wohnt in mess_menge_mit_wallclock_erbe (Herleitung dort und im Block unten).
+    MessToolingMenge const   menge = mess_menge_mit_wallclock_erbe(bestellung);
     std::vector<std::string> d;
 
     // G1 BASIS-ZEIT -- IMeasurableWorkload::run_workload (abi_adapter.hpp:589-1123) haengt an diesem
@@ -474,13 +566,15 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
     }();
 
     // ------------------------------------------------------------------------------------------------
-    // M-1/H-1 (06.08.2026) -- DIE DEKLARATIONS-PFLICHT FUER G1. Fail-closed, kein Byte am Bestand.
+    // B3 (19.08.2026, KON37-01/KON34-04) -- DIE SCHALTER-HOHEIT LIEGT BEI DER CEB. Der M-1/H-1-
+    // Pflicht-Wurf ist GEFALLEN; die wallclock-Deklaration ist am Funktionseingang GEERBT.
     // ------------------------------------------------------------------------------------------------
-    // BEFUND, am Objekt gemessen: G1 (COMDARE_MEASUREMENT_ON) IST das wallclock-Instrument -- der
-    // aeussere steady_clock je Batch in run_workload (abi_adapter.hpp). Die Zuordnung oben in diesem
-    // Header sagt es woertlich: "auch [wallclock] misst ueber run_workload". Weil JEDE nicht-leere
-    // Menge G1 zieht, traegt auch eine [macro]-Tier-Binary den wallclock-Messcode -- ihr Glied [3]
-    // nannte ihn aber NICHT. Das ist D-1 in klein, eine Ebene tiefer:
+    // BEFUND M-1/H-1 (06.08.2026), am Objekt gemessen -- er bleibt der GRUND, nur die Antwort hat
+    // sich gedreht: G1 (COMDARE_MEASUREMENT_ON) IST das wallclock-Instrument -- der aeussere
+    // steady_clock je Batch in run_workload (abi_adapter.hpp). Die Zuordnung oben in diesem Header
+    // sagt es woertlich: "auch [wallclock] misst ueber run_workload". Weil JEDE nicht-leere Menge G1
+    // zieht, traegt auch eine [macro]-Tier-Binary den wallclock-Messcode -- ihr Glied [3] nannte ihn
+    // aber NICHT. Das ist D-1 in klein, eine Ebene tiefer:
     //     Wallclock-Messcode auf high_resolution_clock geaendert + Registry wallclock 1.0.0c -> 2.0.0c
     //     [macro]-TIER-OBJEKT   329e45a0... -> 87bbbce6...   GEAENDERT
     //     [macro]-Glied [3]     measurement_tooling=macro@1.0.0.c;[...]   BYTE-GLEICH
@@ -490,31 +584,27 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
     // sehr wohl, sobald wallclock in der Legende steht. Das Verfahren ist sehend -- der Stempel sah weg.
     // Folge: dll_is_current meldet "current" ueber eine Mess-Code-VERSIONSGRENZE hinweg. Owner-KERN F2.
     //
-    // WARUM WURF UND NICHT STILLE ERGAENZUNG DER MENGE: die Menge still um wallclock zu erweitern
-    // hiesse, die Bestellung des Bedieners umzuschreiben -- und die Stempel-Zeile entsteht in einem
-    // ANDEREN Renderer (abi::measurement_stamp_line_from_combo_legend), der die Legende nimmt, nicht
-    // die Menge. Eine hier korrigierte Menge wuerde den Stempel also gar nicht erreichen; SIE waere die
-    // zweite Wahrheit. Der Wurf dagegen ist an EINER Stelle wahr und verlangt vom Bediener genau das,
-    // was der Bau ohnehin tut: wallclock mitzuschreiben. "[macro]" -> "[wallclock,macro]".
+    // DIE B3-ANTWORT AUF DEN BEFUND (KON37-01, Owner verbatim: "Die CEB ruft nur die Messfuehler in
+    // der Tier-Binary und Hybrid auf, die sie selbst gebaut hat bzw. baut hoehere Traeger-Stufen nur
+    // nach ihren eigenen Messeigenschaften"; KON34-04: der Wallclock-Umzug Tier -> CEB hebt den
+    // Pflicht-Wurf auf): nicht mehr der BEDIENER muss wallclock nennen -- die CEB ENTSCHEIDET die
+    // Deklaration selbst, weil sie das Instrument ohnehin in jede Tier-Binary einbaut, und das Tier
+    // ERBT sie. Mengen-Form am Funktionseingang (mess_menge_mit_wallclock_erbe), Legenden-Form in der
+    // EINEN Aufloesung (resolve_live_measurement_combo_legend -> mess_combo_legende_mit_wallclock_erbe),
+    // damit das Glied [3] dieselbe geerbte Wahrheit stempelt, die dieser Vektor baut.
     //
-    // BYTE-BILANZ: [all] enthaelt wallclock -> unberuehrt. Der gesamte heutige Bestand ist [all]
-    // (Sidecar-Bestand 0). Diese Wache kann kein einziges bestehendes Byte bewegen.
-    if (braucht_g1 && !menge[static_cast<std::size_t>(cm::MeasurementTooling::WallClock)]) {
-        std::string genannt;
-        for (std::size_t i = 0; i < cm::kMeasurementToolingCount; ++i)
-            if (menge[i]) {
-                if (!genannt.empty()) genannt += ",";
-                genannt += std::string{cm::kMeasurementToolingRegistry[i].id};
-            }
-        throw std::runtime_error(
-            "fehlerklasse=konfiguration_widerspruch: die Mess-Combo '[" + genannt +
-            "]' nennt 'wallclock' NICHT, baut es aber unvermeidlich ein -- das Gate G1 "
-            "(COMDARE_MEASUREMENT_ON) IST das wallclock-Instrument (steady_clock je Batch in "
-            "run_workload) und wird von JEDEM Tooling gezogen. Ein Stempel, der es verschweigt, sieht "
-            "einen Versions-Sprung der wallclock-Mess-Achse nicht (Owner-KERN F2). Abhilfe: die Combo "
-            "als '[wallclock," +
-            genannt + "]' schreiben");
-    }
+    // [HISTORIE M-1/H-1, bis B3 -- WARUM DAMALS WURF UND NICHT STILLE ERGAENZUNG DER MENGE: die
+    // Stempel-Zeile entsteht in einem ANDEREN Renderer (abi::measurement_stamp_line_from_combo_legend),
+    // der die Legende nimmt, nicht die Menge; eine NUR hier korrigierte Menge haette den Stempel nie
+    // erreicht und waere die zweite Wahrheit gewesen. Der Wurf verlangte deshalb vom Bediener, was der
+    // Bau ohnehin tat: "[macro]" -> "[wallclock,macro]". GENAU DIESES Argument ist durch die
+    // Legenden-Form der Vererbung gegenstandslos: die Ergaenzung passiert jetzt VOR dem Renderer, in
+    // der Aufloesung, die Stempel- UND Bau-Seite gemeinsam lesen -- sie erzeugt byte-genau die
+    // Abhilfe-Form, die der Wurf diktierte, nur ohne den Umweg ueber den Bediener.]
+    //
+    // BYTE-BILANZ: [all] enthaelt wallclock -> unberuehrt; jede bis B3 baubare Bestellung nannte
+    // wallclock selbst -> Erbe ist No-op. Der gesamte heutige Bestand ist [all] (Sidecar-Bestand 0).
+    // Die Vererbung kann kein einziges bestehendes Byte bewegen; w-lose Bestellungen sind additiv neu.
     if (braucht_g1) d.emplace_back("-DCOMDARE_MEASUREMENT_ON=1");
 
     // G2 OBSERVER -- fill_observer_v3 / axis_stats. [wallclock] allein braucht sie nicht und bekommt
@@ -585,7 +675,13 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
                hat("-DCOMDARE_MEASUREMENT_ON=1"), g2, st, /*experiment_mode_on=*/true,
                hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::WallClock))),
                hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::Macro))),
-               hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::Micro))))
+               hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::Micro))),
+               // A-12/B-5e: die Hybrid-Ebene. Der PERM-BAU-Pfad baut TIER-Binaries -- er setzt die
+               // Hybrid-Gates NICHT, also sagt die Vorhersage sie AUS vorher. Das ist keine Annahme,
+               // sondern dieselbe Mechanik wie oben: was nicht im Define-Vektor steht, ist aus. Sobald
+               // der Hybrid-Bau eigene Defines emittiert (B-8/A-12), gehoert HIER sein hat(...)-Paar
+               // hin -- eine zweite Ableitung woanders waere die Drift-Klasse aus D-1.
+               hat("-DCOMDARE_HYBRID_TOOLING_MACRO=1"), hat("-DCOMDARE_HYBRID_TOOLING_MICRO=1"))
         .str();
 }
 

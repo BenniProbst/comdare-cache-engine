@@ -70,12 +70,12 @@
     <category name="THROUGHPUT"/>
   </measurement_categories>
 
-  <!-- GO-5 Fork 6: die Thesis-§sec:fairness-TRENNUNG je Vergleich — derselbe Vergleich (hot, Stufe1)
+  <!-- GO-5 Fork 6: die Thesis-§sec:fairness-TRENNUNG je Vergleich - derselbe Vergleich (hot, Verbund1)
        einmal als Common-Denominator- und einmal als Native-Reihe; prt_art ohne fairness (ungesetzt = "-"). -->
   <sota_series_set>
-    <sota_series id="A" lebewesen="prt_art" merge="Stufe1_CeOnly"/>
-    <sota_series id="A" lebewesen="hot"     merge="Stufe1_CeOnly" fairness="common_denominator"/>
-    <sota_series id="A" lebewesen="hot"     merge="Stufe1_CeOnly" fairness="native"/>
+    <sota_series id="A" lebewesen="prt_art" merge="Verbund1_CeOnly"/>
+    <sota_series id="A" lebewesen="hot"     merge="Verbund1_CeOnly" fairness="common_denominator"/>
+    <sota_series id="A" lebewesen="hot"     merge="Verbund1_CeOnly" fairness="native"/>
   </sota_series_set>
 
   <compile_dims>
@@ -93,7 +93,7 @@
   <run_options cap="1" platform="linux-x86_64" build_version="wdk_fairness_example" resume="true"/>
 
   <modes>
-    <mode name="wdk_example_base" merge="Stufe1_CeOnly"
+    <mode name="wdk_example_base" merge="Verbund1_CeOnly"
           active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization value_handle index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2 persistence_target"/>
   </modes>
 

@@ -59,3 +59,15 @@ extern "C" COMDARE_ANATOMY_ABI_EXPORT void
 comdare_destroy_anatomy(::comdare::cache_engine::anatomy::IAnatomyBase* ptr) noexcept {
     delete ptr;
 }
+
+// Q2/V-06 (18.08.2026) -- die ZWEI IDENTITAETS-SYMBOLE auch an dieser NEGATIV-PROBE. Das ist kein
+// Selbstzweck: die Fixture soll an GENAU EINEM Schloss scheitern (Schloss 1: Alt-Magic + Alt-Version), nicht
+// zufaellig zusaetzlich an einem fehlenden Symbol. Traegt sie die Symbole, ist der Fehlerbild-Beleg
+// eindeutig -- fehlten sie, waere jede Ablehnung mehrdeutig und die Probe wertlos.
+extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_gattung() noexcept {
+    return static_cast<std::uint8_t>(
+        ::comdare::cache_engine::anatomy::gattung_of(::comdare::cache_engine::anatomy::AnatomyGenus::Set));
+}
+extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint8_t comdare_anatomy_genus() noexcept {
+    return static_cast<std::uint8_t>(::comdare::cache_engine::anatomy::AnatomyGenus::Set);
+}

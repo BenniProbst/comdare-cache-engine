@@ -68,7 +68,8 @@
 //       Gate -- das ist die Lehre des D-1-Befunds in der Gegenrichtung.
 //   (b) ES GIBT NICHTS ZU UEBERSPRINGEN. Alles, was die CEB PRODUZIERT, ist bereits gegatet, und zwar von
 //       Gattern, die vollstaendig sind: die Tier-.so ueber das Preimage-Glied [3] (anatomy_fingerprint.hpp,
-//       kAnatomyFingerprintGliedCount = 9 seit R-3) mit dem fail-closed dll_is_current (build_orchestrator.hpp),
+//       kAnatomyFingerprintGliedCount = 10 seit S-6a/KON45-01; die Zahl stand hier auf 9 seit R-3) mit dem
+//       fail-closed dll_is_current (build_orchestrator.hpp),
 //       der Objekt-Cache ueber "+mtool=" (artifact_transport/artifact_cache.hpp). Eine Mess-Achsen-
 //       Aenderung erzwingt heute schon den Tier-Neubau. Ein zweites Gatter ueber dieselbe Information
 //       waere kein Gewinn, sondern eine ZWEITE WAHRHEIT, die der ersten widersprechen kann.
@@ -590,8 +591,8 @@ inline constexpr std::string_view kCebMeasurementStampFor{kCebMeasurementStampAr
 /// die Defaults lieferten.
 template <CebComboLegend L>
 inline constexpr auto kCebFingerprintArrayFor = ::comdare::cache_engine::abi::anatomy_fingerprint_hex(
-    ::comdare::cache_engine::abi::OrganZeile{""}, ::comdare::cache_engine::abi::SystemZeile{""},
-    ::comdare::cache_engine::abi::MessZeile{kCebMeasurementStampFor<L>},
+    ::comdare::cache_engine::abi::MessZeile{kCebMeasurementStampFor<L>}, ::comdare::cache_engine::abi::SystemZeile{""},
+    ::comdare::cache_engine::abi::OrganZeile{""},
     ::comdare::cache_engine::abi::ToolchainGlied{::comdare::cache_engine::abi::kToolchainStampGlied},
     ::comdare::cache_engine::abi::BvsetGlied{::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied},
     ::comdare::cache_engine::abi::OverlayHash{""});

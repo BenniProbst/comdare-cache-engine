@@ -358,7 +358,7 @@ void emit_target_isa_complex_members(std::ofstream& f) {
     f << "           declaration_source konserviert den eingefrorenen Ursprung einer deklarierten Zahl\n";
     f << "           (A2-Notiz, keine Stufe; Laufzeit-Stufen stehen NIE in dieser XML; P3). -->\n";
     emit_complex(std::type_identity<meas::Prod1Zen5TargetIsa>{});
-    emit_complex(std::type_identity<meas::Prod2RaptorLakeTargetIsa>{});
+    emit_complex(std::type_identity<meas::Prod2AlderLakeTargetIsa>{});
     f << "    </sub_axis>\n";
 }
 
@@ -675,7 +675,7 @@ int main(int argc, char** argv) {
             f << "    </machine>\n";
         };
         emit_machine(std::type_identity<meas::Prod1Zen5Signature>{});
-        emit_machine(std::type_identity<meas::Prod2RaptorLakeSignature>{});
+        emit_machine(std::type_identity<meas::Prod2AlderLakeSignature>{});
         emit_machine(std::type_identity<meas::OdroidGracemontSignature>{});
         f << "  </machine_signatures>\n";
     }

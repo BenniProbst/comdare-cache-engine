@@ -91,8 +91,10 @@ TEST(R5D_CebContract, CodegenMinorIsPinnedLiterally) {
     // fuehrte KEIN Test den Minor literal, ein vergessener oder falscher Bump waere still durchgelaufen.
     // Dieser eine Pin ist die Gegenprobe und steht bewusst neben den beiden anderen literalen Konstanten-Pins
     // dieser Datei (ABI-Major/Minor), weil Major und Minor zusammen die ceb_contract_version bilden.
-    static_assert(ce_abi::kCebContractCodegenMinor == 1,
-                  "B14-NB4: der CEB-Contract-codegen-Minor steht auf 1 (Bump 0 -> 1 unter Major 8, im SELBEN "
+    static_assert(ce_abi::kCebContractCodegenMinor == 2,
+                  "A-14/B-5b (18.08.2026): der CEB-Contract-codegen-Minor steht auf 2 (Bump 1 -> 2 unter Major 8, "
+                  "im SELBEN Commit wie der POD-Append name_line/len und die Preimage-Grammatik-Erweiterung). "
+                  "Voriger Text (B14-NB4, Bump 0 -> 1 unter Major 8, im SELBEN "
                   "Commit wie die Benennung von kV3AxisSchema[5][5] = line_bytes). Der Minor zaehlt "
                   "Vertrags-Erweiterungen INNERHALB eines Majors; die 8.0-Basis, gegen die gebumpt wird, "
                   "existiert (anders als das beim E-24-C8-Reset verworfene '8.1 ohne 8.0'). Wer diesen Wert "
@@ -123,15 +125,15 @@ TEST(R5D_CebContract, CodegenMinorIsPinnedLiterally) {
     // kAnatomyVersionLinesLayout, bricht dieser Pin und zwingt zur Entscheidung ueber den Minor. Die uebrigen
     // universellen Quellen (all_axes_umbrella / adhoc_emitter / Observer-Basis-Emission) sind damit NICHT
     // gedeckt -- fuer sie bleibt der Bump eine Disziplin-Frage, bis ein Content-Digest-Gate sie erfasst.
-    static_assert(ce_abi::kAnatomyVersionLinesLayout == 6,
+    static_assert(ce_abi::kAnatomyVersionLinesLayout == 7,
                   "A13-M4: das Stempel-POD-Layout ist an den CEB-Contract-Minor gekoppelt -- wer das Layout "
                   "bumpt, entscheidet im SELBEN Commit ueber kCebContractCodegenMinor.");
     // B14-NB4: diese beiden Laufzeit-Pins trugen die 0 ein ZWEITES Mal (neben dem static_assert oben) --
     // beim Bump 0 -> 1 sind sie zuerst uebersehen worden und vom ctest-Lauf gefangen worden. Sie bleiben
     // LITERAL (das ist ihr Zweck: der hand-gebumpte Minor braucht eine Stelle, die nicht mitwandert), aber
     // sie stehen jetzt unmittelbar unter dem static_assert, damit ein kuenftiger Bump beide zugleich sieht.
-    EXPECT_EQ(ce_abi::kCebContractCodegenMinor, 1u);
-    EXPECT_EQ(ce_abi::kCebContractVersion.pack(), (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) | 1ULL);
+    EXPECT_EQ(ce_abi::kCebContractCodegenMinor, 2u); // A-14/B-5b: 1 -> 2
+    EXPECT_EQ(ce_abi::kCebContractVersion.pack(), (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) | 2ULL);
 }
 
 TEST(R5D_AnatomyAbiVersion, PackUnpackRoundtrip) {

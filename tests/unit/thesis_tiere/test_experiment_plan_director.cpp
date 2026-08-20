@@ -236,10 +236,10 @@ TEST(ExperimentPlanDirector, ExperimentGoldenWalksPhasesUnderEachPerm) {
     EXPECT_EQ(cb.header.source_kind, "experiment");
     ASSERT_EQ(cb.perms.size(), 4u) << "2x2 Perms";
     for (auto const& steps : cb.steps_per_perm) {
-        ASSERT_EQ(steps.size(), 19u) << "3 Phasen: Stufe1=7 + Stufe2=6 + Stufe3=6 (prt_art degeneriert)";
+        ASSERT_EQ(steps.size(), 19u) << "3 Phasen: Verbund1=7 + Verbund2=6 + Verbund3=6 (prt_art degeneriert)";
         EXPECT_EQ(steps[0].kind, "experiment_phase_pass");
         EXPECT_EQ(steps[0].label, "phase2_cache_engine");
-        EXPECT_EQ(steps[0].merge, "Stufe1_CeOnly");
+        EXPECT_EQ(steps[0].merge, "Verbund1_CeOnly");
         EXPECT_FALSE(steps[0].binary_id.empty());
         EXPECT_NE(steps[0].binary_id.find("sota_tier="), std::string::npos);
     }
@@ -1621,7 +1621,7 @@ struct EmittierterPlan {
 // (Nachsatz W0b-3, 08.08.2026) BEIDE Methodiken, nicht nur der eine golden-measure-Release-Pfad:
 // der Review fand alle drei Wachen-Tests auf demselben Pfad -- der Debug-Zweig ((j3) Dual-Compile,
 // ZWEI Treiber-Aufrufe je Mess-Fenster, eigene Testat-Zeilen) war strukturell ungeprueft. Die
-// Debug-Plaene entstehen wie in MeasurementModi61 (j2): dieselben Achsen, run_methodology={"debug"}.
+// Debug-Plaene entstehen wie in MeasurementModi61 (j2): dieselben Achsen, run_methodology={"build"}.
 // Vier Plaene = {Stufe 1, Stufe 2} x {measure, debug}; jede Wache laeuft ueber ALLE vier.
 [[nodiscard]] std::vector<EmittierterPlan> alle_wachen_plaene(cx::ThesisProfile const& tp) {
     planner::ExperimentPlanDirector const director;
@@ -1630,7 +1630,7 @@ struct EmittierterPlan {
     director.construct(tp, b1m);
     director.construct(tp, b2m);
     cx::ThesisProfile dbg = tp;
-    dbg.run_methodology   = {"debug"};
+    dbg.run_methodology   = {"build"};
     planner::CiYamlBuilder     b1d;
     planner::TierCiYamlBuilder b2d;
     director.construct(dbg, b1d);
@@ -3068,10 +3068,10 @@ TEST(PmcPflichtInvariante, JedeTreiberKonfigurationTraegtDasPmcFlag) {
     ASSERT_TRUE(tp.has_value());
     planner::CiYamlBuilder cb;
     director.construct(*tp, cb);
-    expect_pmc_invariant(cb.text(), "Thesis/Stufe1 CiYamlBuilder (ceb:build + ceb:emit)", amd);
+    expect_pmc_invariant(cb.text(), "Thesis/Verbund1 CiYamlBuilder (ceb:build + ceb:emit)", amd);
     planner::TierCiYamlBuilder tb;
     director.construct(*tp, tb);
-    expect_pmc_invariant(tb.text(), "Thesis/Stufe2 TierCiYamlBuilder (tier-build-batch + measure-batch)", amd);
+    expect_pmc_invariant(tb.text(), "Thesis/Verbund2 TierCiYamlBuilder (tier-build-batch + measure-batch)", amd);
 
     // (2) Derselbe Thesis-Kanal GEFANNT (drei Mess-Combos): der Fanout vervielfacht die Stufe-1-Stellen.
     //     Die Invariante darf davon nicht abhaengen -- genau das ist ihr Punkt gegenueber einer festen Zahl.
@@ -3080,20 +3080,20 @@ TEST(PmcPflichtInvariante, JedeTreiberKonfigurationTraegtDasPmcFlag) {
     tp_fan->measurement_tooling = {{"wallclock"}, {"macro"}, {"micro"}};
     planner::CiYamlBuilder cb_fan;
     director.construct(*tp_fan, cb_fan);
-    expect_pmc_invariant(cb_fan.text(), "Thesis/Stufe1 GEFANNT (3 Combos)", amd);
+    expect_pmc_invariant(cb_fan.text(), "Thesis/Verbund1 GEFANNT (3 Combos)", amd);
     planner::TierCiYamlBuilder tb_fan;
     director.construct(*tp_fan, tb_fan);
-    expect_pmc_invariant(tb_fan.text(), "Thesis/Stufe2 GEFANNT (3 Combos)", amd);
+    expect_pmc_invariant(tb_fan.text(), "Thesis/Verbund2 GEFANNT (3 Combos)", amd);
 
     // (3) Minimal-Profil: die kleinste Emission ueberhaupt. Auch sie baut den Treiber.
     auto const tp_min = parse_thesis(COMDARE_PLANNER_THESIS_MIN);
     ASSERT_TRUE(tp_min.has_value());
     planner::CiYamlBuilder cb_min;
     director.construct(*tp_min, cb_min);
-    expect_pmc_invariant(cb_min.text(), "Thesis-min/Stufe1", amd);
+    expect_pmc_invariant(cb_min.text(), "Thesis-min/Verbund1", amd);
     planner::TierCiYamlBuilder tb_min;
     director.construct(*tp_min, tb_min);
-    expect_pmc_invariant(tb_min.text(), "Thesis-min/Stufe2", amd);
+    expect_pmc_invariant(tb_min.text(), "Thesis-min/Verbund2", amd);
 
     // (4) Experiment-Kanal (eigene Schrittzahl, eigener Zwilling -- im Haus schon einmal als "Fix fehlt im
     //     Experiment-Zwilling" aufgefallen).
@@ -3101,10 +3101,10 @@ TEST(PmcPflichtInvariante, JedeTreiberKonfigurationTraegtDasPmcFlag) {
     ASSERT_TRUE(ep.has_value()) << "experiment_golden.xml nicht parsbar: " << COMDARE_EXPERIMENT_GOLDEN;
     planner::CiYamlBuilder cb_exp;
     director.construct(*ep, cb_exp);
-    expect_pmc_invariant(cb_exp.text(), "Experiment/Stufe1", amd);
+    expect_pmc_invariant(cb_exp.text(), "Experiment/Verbund1", amd);
     planner::TierCiYamlBuilder tb_exp;
     director.construct(*ep, tb_exp);
-    expect_pmc_invariant(tb_exp.text(), "Experiment/Stufe2", amd);
+    expect_pmc_invariant(tb_exp.text(), "Experiment/Verbund2", amd);
 
     // (5) DIE GEGENRICHTUNG, die es vor dem 10.08. nicht gab: ein Host OHNE benutzbare PMU bekommt KEIN
     //     Flag -- in ALLEN vier Emissionen. Ohne diese Haelfte koennte man die Erkennung wieder ausbauen
@@ -3114,10 +3114,10 @@ TEST(PmcPflichtInvariante, JedeTreiberKonfigurationTraegtDasPmcFlag) {
     director_ohne.set_pmc_befund(ohne);
     planner::CiYamlBuilder cb_ohne;
     director_ohne.construct(*tp, cb_ohne);
-    expect_pmc_invariant(cb_ohne.text(), "Thesis/Stufe1 OHNE PMU", ohne);
+    expect_pmc_invariant(cb_ohne.text(), "Thesis/Verbund1 OHNE PMU", ohne);
     planner::TierCiYamlBuilder tb_ohne;
     director_ohne.construct(*tp, tb_ohne);
-    expect_pmc_invariant(tb_ohne.text(), "Thesis/Stufe2 OHNE PMU", ohne);
+    expect_pmc_invariant(tb_ohne.text(), "Thesis/Verbund2 OHNE PMU", ohne);
 }
 
 // (M-2/B2, Zusatz) Die Invariante haengt an der SACHE, nicht an der Konfigurations-Nachbarschaft: der
@@ -3233,19 +3233,19 @@ TEST(PmcMetaMetaAchse, JedeTreiberEmissionNenntDenGemessenenHostBefund) {
     ASSERT_TRUE(tp.has_value());
     planner::CiYamlBuilder cb;
     director.construct(*tp, cb);
-    expect_pmc_befund_annotation(cb.text(), "Thesis/Stufe1 CiYamlBuilder (ceb:build + ceb:emit)");
+    expect_pmc_befund_annotation(cb.text(), "Thesis/Verbund1 CiYamlBuilder (ceb:build + ceb:emit)");
     planner::TierCiYamlBuilder tb;
     director.construct(*tp, tb);
-    expect_pmc_befund_annotation(tb.text(), "Thesis/Stufe2 TierCiYamlBuilder (tier-build-batch + measure-batch)");
+    expect_pmc_befund_annotation(tb.text(), "Thesis/Verbund2 TierCiYamlBuilder (tier-build-batch + measure-batch)");
 
     auto const ep = parse_experiment(COMDARE_EXPERIMENT_GOLDEN);
     ASSERT_TRUE(ep.has_value());
     planner::CiYamlBuilder cb_exp;
     director.construct(*ep, cb_exp);
-    expect_pmc_befund_annotation(cb_exp.text(), "Experiment/Stufe1");
+    expect_pmc_befund_annotation(cb_exp.text(), "Experiment/Verbund1");
     planner::TierCiYamlBuilder tb_exp;
     director.construct(*ep, tb_exp);
-    expect_pmc_befund_annotation(tb_exp.text(), "Experiment/Stufe2");
+    expect_pmc_befund_annotation(tb_exp.text(), "Experiment/Verbund2");
 }
 
 // ================================================================================================
@@ -3455,6 +3455,58 @@ TEST(PmcHostProbe, RealeProbeStimmtMitProcCpuinfoUeberein) {
     std::cout << "[REALE PROBE] " << b.nenner_zeile() << "\n";
 }
 
+namespace {
+
+/// P1/A-05 (18.08.2026) -- DER STATE-DIREKTE ZUGANG ZUR (j3)-MECHANIK.
+///
+/// LAGE: der Emitter verzweigt ausschliesslich auf header_.build_semantic.cmake_build_type == "Debug"
+/// (TierCiYamlBuilder, (j3)-Zweig). Bis zum work_mode-Umbau kam dieser Zustand aus dem Profil-Token
+/// "debug"; den gibt es nicht mehr (V-12), und der EINGANG, der ihn kuenftig setzt (--debug bis in den
+/// Director), ist ein eigener W2-Posten (Board #22/OD-7, S-8) -- er wird dort MIT eigenem
+/// End-zu-Ende-Test gebaut. Die MECHANIK aber lebt, und ohne diesen Zugang waere sie unbeobachtbar:
+/// ein Zweig ohne Test ist ein Zweig, der still verrotten darf.
+///
+/// WARUM EIN DECORATOR UND NICHT EINE VORAB-INJEKTION: eine Vorab-Injektion (begin_plan am Builder
+/// VOR construct) traegt nicht -- construct ruft begin_plan selbst mit dem intern abgeleiteten Header
+/// und ueberschreibt sie; das wurde am Objekt gemessen (Revert-Beleg ca26044e). Dieser Decorator sitzt
+/// statt dessen ZWISCHEN Director und ConcreteBuilder: der Director ruft SEINE begin_plan, und er
+/// reicht den Kopf gedreht nach innen. Es gibt keine Reihenfolge, die das ueberholen koennte, weil er
+/// im Aufrufweg steht statt davor.
+///
+/// WAS DER TEST DAMIT WEITER PRUEFT -- und was nicht (ehrlich getrennt): der VOLLE Director-Walk laeuft
+/// (construct -> walk_perms_ -> alle Perms/Steps/Combos), und geprueft wird, was der Director bei
+/// Debug-Zustand EMITTIERT: (j3)-Dual-Compile, +bt-Signal, provision-only-Vorlauf. NICHT geprueft wird,
+/// woher der Zustand kommt -- die ABLEITUNG eines Debug-Zustands aus einem Eingang existiert heute
+/// nicht und gehoert zu S-8. Die Trennung ist die Aussage, nicht ihre Umgehung.
+class DebugSemantikInjektor final : public planner::IPlanBuilder {
+public:
+    explicit DebugSemantikInjektor(planner::IPlanBuilder& inner) : inner_(inner) {}
+
+    void begin_plan(planner::PlanHeader const& h) override { inner_.begin_plan(auf_debug_gedreht(h)); }
+    void begin_perm(planner::PlanPerm const& p) override { inner_.begin_perm(p); }
+    void on_step(planner::PlanStep const& s) override { inner_.on_step(s); }
+    void end_perm(planner::PlanPerm const& p) override { inner_.end_perm(p); }
+    void end_plan(planner::PlanHeader const& h) override { inner_.end_plan(auf_debug_gedreht(h)); }
+    void begin_measurement_combo(planner::PlanMeasurementCombo const& c) override { inner_.begin_measurement_combo(c); }
+    void end_measurement_combo(planner::PlanMeasurementCombo const& c) override { inner_.end_measurement_combo(c); }
+
+private:
+    /// Die VOLLE Zeile, die der ausgebaute work_mode "debug" trug: {Debug, misst, NICHT 1-Thread}.
+    /// Nur cmake_build_type hat heute Leser (s. PlanBuildSemantic-Struct-Doku); die anderen beiden
+    /// werden trotzdem wahrheitsgemaess gesetzt, damit der injizierte Zustand kein Drittel-Zustand
+    /// ist, den es so nie gab.
+    [[nodiscard]] static planner::PlanHeader auf_debug_gedreht(planner::PlanHeader h) {
+        h.build_semantic.cmake_build_type = "Debug";
+        h.build_semantic.measurement_on   = true;
+        h.build_semantic.single_thread    = false;
+        return h;
+    }
+
+    planner::IPlanBuilder& inner_;
+};
+
+} // namespace
+
 // (S6-P1 g/h) §61-MODI: der Mess-Job traegt (g) den smoke=Debug-Branch (parallel/schnell) + measure=Release (sonst),
 //       den §61-Regressions-Fix (DLL-Bau parallel statt =1) und (h) per-Host-Lanes (prod1/amd, prod2/intel; avx512
 //       nie intel). Paralleles MESSEN (debug-Ideal) bleibt UNGEBAUT (§16.2-M1) -- hier NICHT getestet (ehrliche Luecke).
@@ -3502,15 +3554,33 @@ TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
     EXPECT_EQ(planner::measure_host_lane("avx2", "[wallclock]"), "intel") << "avx2 -> intel (Combo ignoriert)";
     EXPECT_NE(planner::measure_host_lane("avx512", "[macro]"), "intel") << "avx512 landet NIE auf intel";
 
-    // DEBUG-Profil (j2: Methodik aus dem PROFIL): dieselben Achsen, run_methodology=debug -> STATISCH Debug-Build +
-    // (i) COMDARE_BUILD_TYPE=Debug-Signal (Nicht-Default => +bt=Debug an der facade-Suffix-Naht, benannter Folgepunkt).
+    // DEBUG-AUSPRAEGUNG -- STATE-DIREKT GETRIEBEN (A-05/V-12, 18.08.2026).
+    //
+    // Bis zum work_mode-Umbau stand hier `run_methodology = {"debug"}`: die Debug-Bau-Semantik kam aus
+    // dem PROFIL-Token. Diesen Token gibt es nicht mehr -- debug war der einzige work_mode, der MASS UND
+    // DABEI PARALLEL LIEF, und ist deshalb ausgebaut. Der work_mode bleibt hier `build` (die Ordnung ist
+    // unberuehrt); die AUSPRAEGUNG dreht der DebugSemantikInjektor am Zustandsfeld (s. dessen Doku oben).
+    //
+    // GEPRUEFT WIRD UNVERAENDERT DIESELBE FAEHIGKEIT: (j3)-Dual-Compile, +bt-Signal, provision-only-
+    // Vorlauf. Was fehlt und benannt bleibt: der EINGANG (--debug bis in den Director) kommt mit S-8/W2
+    // und bekommt dort seinen eigenen End-zu-Ende-Test. Ohne diesen Zugang haette der (j3)-Zweig heute
+    // GAR keine Deckung -- das waere ein verdeckter Zweig, kein bestandener Test.
     auto dbg             = tp;
-    dbg->run_methodology = {"debug"};
+    dbg->run_methodology = {"build"};
     planner::TierCiYamlBuilder tb_dbg;
-    director.construct(*dbg, tb_dbg);
+    DebugSemantikInjektor      inj_dbg{tb_dbg};
+    director.construct(*dbg, inj_dbg);
     std::string const& ydbg = tb_dbg.text();
-    EXPECT_NE(ydbg.find("-DCMAKE_BUILD_TYPE=Debug"), std::string::npos) << "debug-Profil => statisch Debug (j2)";
+    EXPECT_NE(ydbg.find("-DCMAKE_BUILD_TYPE=Debug"), std::string::npos)
+        << "Debug-Zustand => statisch Debug (Auspraegung, nicht Modus)";
     EXPECT_NE(ydbg.find("COMDARE_BUILD_TYPE=\"Debug\""), std::string::npos) << "(i) Nicht-Default => +bt-Signal";
+    // GEGENPROBE, damit der Injektor nicht selbst die Aussage ist: DERSELBE Profil-Zustand OHNE Injektor
+    // muss den Debug-Zweig NICHT nehmen. Faellt diese Erwartung, dreht nicht der Zustand die Emission,
+    // sondern irgendetwas anderes -- und der Test oben waere eine Tautologie.
+    planner::TierCiYamlBuilder tb_ohne_inj;
+    director.construct(*dbg, tb_ohne_inj);
+    EXPECT_EQ(tb_ohne_inj.text().find("-DCMAKE_BUILD_TYPE=Debug"), std::string::npos)
+        << "work_mode 'build' allein traegt KEIN Debug -- die Auspraegung kommt aus dem Zustandsfeld";
 
     // (j3) §61-STUFEN Dual-Compile: der Debug-Mess-Job macht ZWEI Treiber-Aufrufe -- (1) Release provision-only
     // (O2/O3-Reuse-Masse, eigenes _release_provision-Dir, KEIN +bt), (2) Debug-Bau+Messung (-O0/+bt). Blocker #50:
@@ -3544,9 +3614,12 @@ TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
         << "Default = ProcessorCount";
     EXPECT_EQ(cm.text().find("COMDARE_BUILD_PARALLEL=1\n"), std::string::npos);
     EXPECT_EQ(cm.text().find("COMDARE_BUILD_TYPE=Debug"), std::string::npos) << "measure => kein +bt (cmake)";
+    // cmake-Zweig: derselbe state-direkte Zugang (TierCmakeGraphBuilder setzt header_ ebenfalls in begin_plan).
     planner::TierCmakeGraphBuilder cm_dbg;
-    director.construct(*dbg, cm_dbg);
-    EXPECT_NE(cm_dbg.text().find("\"COMDARE_BUILD_TYPE=Debug\""), std::string::npos) << "debug => +bt-Signal (cmake)";
+    DebugSemantikInjektor          inj_cm_dbg{cm_dbg};
+    director.construct(*dbg, inj_cm_dbg);
+    EXPECT_NE(cm_dbg.text().find("\"COMDARE_BUILD_TYPE=Debug\""), std::string::npos)
+        << "Debug-Zustand => +bt-Signal (cmake)";
 
     // (j3) cmake-symmetrisch: das Debug-Mess-Target traegt VOR dem Debug-Mess-COMMAND einen Release-Provision-Vorlauf
     // (eigenes _release_provision-Dir, ARTEFAKT_TRIES=1). measure/Release bleibt byte-stabil (kein Vorlauf).
@@ -3585,19 +3658,19 @@ TEST(MeasurementModi61, TwoModeProfileHardFailsExactlyOne) {
 
     auto tp2 = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp2.has_value());
-    tp2->run_methodology = {"debug", "measure"}; // 2 Modi = Kontraktbruch (exactly-one verletzt)
+    tp2->run_methodology = {"build", "measure"}; // 2 Modi = Kontraktbruch (exactly-one verletzt)
     planner::TierCmakeGraphBuilder cm_two;
     EXPECT_THROW(director.construct(*tp2, cm_two), std::invalid_argument)
         << "(R5) tp-Pfad: build_semantic_of_run_methodology bricht bei >1 Modi HART ab (kein stilles front())";
 
     // Runtime-Konsum (Mess-Loop-Naht, resolve_measure_parallelism -> run_methodology_for_ids): wirft ebenfalls bei >1.
-    EXPECT_THROW((void)mm::run_methodology_for_ids({"debug", "measure"}), std::invalid_argument)
+    EXPECT_THROW((void)mm::run_methodology_for_ids({"build", "measure"}), std::invalid_argument)
         << "(R5) run_methodology_for_ids bricht bei >1 Methoden HART ab";
     EXPECT_THROW((void)mm::run_methodology_for_ids({"measure", "release"}), std::invalid_argument);
 
     // exactly-one bleibt gueltig + byte-neutral (kein Fehlalarm):
-    EXPECT_EQ(mm::run_methodology_for_ids({"debug"}).methodology, mm::RunMethodology::Debug);
-    EXPECT_EQ(mm::run_methodology_for_ids({}).methodology, mm::RunMethodology::Measure); // leer => measure-Default
+    EXPECT_EQ(mm::run_methodology_for_ids({"build"}).methodology, mm::WorkMode::Build);
+    EXPECT_EQ(mm::run_methodology_for_ids({}).methodology, mm::WorkMode::Measure); // leer => measure-Default
     auto tp1 = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp1.has_value());
     tp1->run_methodology = {"measure"};
@@ -3627,7 +3700,16 @@ TEST(MeasurementModi61, UnknownModeTokenFailsClosedInsteadOfSilentMeasure) {
     } catch (std::invalid_argument const& e) {
         std::string const msg = e.what();
         EXPECT_NE(msg.find("mesure"), std::string::npos) << msg;
-        EXPECT_NE(msg.find("debug, measure, release, compare"), std::string::npos) << msg;
+        // A-05/V-12 (18.08.2026): die gueltige Menge steht hier NICHT mehr als Literal. Sie stand es bis
+        // zum work_mode-Umbau ("debug, measure, release, compare") und war damit genau das, was die
+        // Meldung selbst vermeiden will: eine zweite, handgepflegte Wissensquelle, die bei jeder
+        // Enum-Bewegung still veraltet. Geprueft wird jetzt gegen DIESELBE Ableitung, aus der die Meldung
+        // gebaut wird -- damit kann der Test die Menge nicht mehr verfehlen, egal wie sie sich aendert.
+        EXPECT_NE(msg.find(mm::detail::run_methodology_known_ids()), std::string::npos) << msg;
+        // Gegenprobe, damit die Zeile darueber keine Tautologie ist (leerer Teilstring findet immer):
+        // die Menge ist nicht leer und nennt wirklich die Tokens.
+        ASSERT_FALSE(mm::detail::run_methodology_known_ids().empty());
+        EXPECT_NE(msg.find("measure"), std::string::npos) << msg;
     }
 
     // (2) Planer-Konsum (build_semantic_of_run_methodology via construct()) -- KEINE Emission mehr aus Tippfehlern.
@@ -3639,11 +3721,11 @@ TEST(MeasurementModi61, UnknownModeTokenFailsClosedInsteadOfSilentMeasure) {
         << "tp-Pfad: unbekannter Token bricht HART ab (kein stiller measure-Ersatz)";
 
     // Gegenprobe (byte-neutral, kein Fehlalarm): die VIER gueltigen Tokens und die leere Liste tragen unveraendert.
-    EXPECT_EQ(mm::run_methodology_for_ids({"debug"}).methodology, mm::RunMethodology::Debug);
-    EXPECT_EQ(mm::run_methodology_for_ids({"measure"}).methodology, mm::RunMethodology::Measure);
-    EXPECT_EQ(mm::run_methodology_for_ids({"release"}).methodology, mm::RunMethodology::Release);
-    EXPECT_EQ(mm::run_methodology_for_ids({"compare"}).methodology, mm::RunMethodology::Compare);
-    EXPECT_EQ(mm::run_methodology_for_ids({}).methodology, mm::RunMethodology::Measure) << "leer => measure-Default";
+    EXPECT_EQ(mm::run_methodology_for_ids({"build"}).methodology, mm::WorkMode::Build);
+    EXPECT_EQ(mm::run_methodology_for_ids({"measure"}).methodology, mm::WorkMode::Measure);
+    EXPECT_EQ(mm::run_methodology_for_ids({"release"}).methodology, mm::WorkMode::Release);
+    EXPECT_EQ(mm::run_methodology_for_ids({"compare"}).methodology, mm::WorkMode::Compare);
+    EXPECT_EQ(mm::run_methodology_for_ids({}).methodology, mm::WorkMode::Measure) << "leer => measure-Default";
     auto tp_ok = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp_ok.has_value());
     tp_ok->run_methodology = {"compare"};
@@ -3671,8 +3753,8 @@ TEST(MeasurementModi61, PlanBuildSemanticSpiegeltDieRegistryZeileFuerJedenModus)
         return b.header.build_semantic;
     };
 
-    for (std::size_t i = 0; i < mm::kRunMethodologyCount; ++i) {
-        auto const& zeile = mm::kRunMethodologyRegistry[i];
+    for (std::size_t i = 0; i < mm::kWorkModeCount; ++i) {
+        auto const& zeile = mm::kWorkModeRegistry[i];
         auto const  sem   = semantik_fuer({std::string(zeile.id)});
         EXPECT_EQ(sem.cmake_build_type, std::string(zeile.cmake_build_type)) << zeile.id;
         EXPECT_EQ(sem.measurement_on, zeile.measurement_on) << zeile.id;
@@ -3680,7 +3762,7 @@ TEST(MeasurementModi61, PlanBuildSemanticSpiegeltDieRegistryZeileFuerJedenModus)
     }
 
     // Leer => die measure-Zeile (Abwesenheit ist der Default, kein eigener Zustand).
-    auto const& measure = mm::run_methodology_info(mm::RunMethodology::Measure);
+    auto const& measure = mm::work_mode_info(mm::WorkMode::Measure);
     auto const  leer    = semantik_fuer({});
     EXPECT_EQ(leer.cmake_build_type, std::string(measure.cmake_build_type));
     EXPECT_EQ(leer.measurement_on, measure.measurement_on);
@@ -3688,15 +3770,31 @@ TEST(MeasurementModi61, PlanBuildSemanticSpiegeltDieRegistryZeileFuerJedenModus)
 
     // Und die Unterscheidungs-Probe, ohne die der Spiegel-Test nichts messen wuerde: measurement_on traegt NICHT
     // ueber alle Modi denselben Wert. Ein Feld, das immer gleich ist, waere auch als Annotation wertlos.
-    EXPECT_TRUE(semantik_fuer({"debug"}).measurement_on);
+    // A-05/V-12 (18.08.2026): der TRUE-Fall stand hier auf {"build"} -- das war die alte debug-Zeile
+    // unter neuem Namen. Er ist FALSCH: `build` BAUT, es misst nicht (Registry-Zeile
+    // {Build,"build","Build","Release",false,false}). Der einzige messende Modus ist heute `measure`.
+    // Die ABSICHT des Blocks bleibt unberuehrt -- es geht darum, dass die Felder ueber die Modi
+    // WIRKLICH variieren; ein Feld, das immer gleich ist, waere auch als Annotation wertlos.
+    EXPECT_TRUE(semantik_fuer({"measure"}).measurement_on);
+    EXPECT_FALSE(semantik_fuer({"build"}).measurement_on);
     EXPECT_FALSE(semantik_fuer({"release"}).measurement_on);
     EXPECT_FALSE(semantik_fuer({"compare"}).measurement_on);
     EXPECT_TRUE(semantik_fuer({"measure"}).single_thread);
-    EXPECT_FALSE(semantik_fuer({"debug"}).single_thread);
+    EXPECT_FALSE(semantik_fuer({"build"}).single_thread);
+    // Und die Variations-Aussage selbst, statt sie den Einzelzeilen oben nur zu entnehmen: BEIDE Felder
+    // tragen ueber die Registry mindestens einen true- UND einen false-Fall. Faellt das, ist der
+    // Spiegel-Test oben ein Spiegel ohne Bild -- er verglaeche dann eine Konstante mit sich selbst.
+    bool mess_gesehen[2]{}, thread_gesehen[2]{};
+    for (std::size_t i = 0; i < mm::kWorkModeCount; ++i) {
+        mess_gesehen[mm::kWorkModeRegistry[i].measurement_on ? 1 : 0]  = true;
+        thread_gesehen[mm::kWorkModeRegistry[i].single_thread ? 1 : 0] = true;
+    }
+    EXPECT_TRUE(mess_gesehen[0] && mess_gesehen[1]) << "measurement_on variiert nicht mehr ueber die Modi";
+    EXPECT_TRUE(thread_gesehen[0] && thread_gesehen[1]) << "single_thread variiert nicht mehr ueber die Modi";
 }
 
 // (smoke=>debug-Entkopplung 2026-07-22): der Director-Methodik-Override entkoppelt Bau-Profil != Methodik-Profil.
-// Ein all_axes_golden-Katalog (run_methodology=measure) emittiert MIT Override {"debug"} die DEBUG-Methodik
+// Ein all_axes_golden-Katalog (run_methodology=measure) emittiert MIT Override {"build"} die DEBUG-Methodik
 // ((j3)-Dual-Compile + COMDARE_BUILD_TYPE=Debug + TRIES=1 + Methodik-Profil-Forward), WAEHREND Achsen/Perms/Lanes
 // aus tp UNVERAENDERT bleiben (nur die Methodik wechselt, nicht der Katalog). Leerer Override => byte-identisch.
 TEST(MeasurementModi61, MethodikOverrideDecouplesCatalogFromMethodik) {
@@ -3718,23 +3816,58 @@ TEST(MeasurementModi61, MethodikOverrideDecouplesCatalogFromMethodik) {
     EXPECT_EQ(yref.find("COMDARE_PLAN_METHODIK_PROFILE=\"${COMDARE_PLAN_METHODIK_PROFILE:-}\""), std::string::npos)
         << "measure ohne Override => KEIN emit_measure_job-Methodik-Forward (measure byte-identisch)";
 
-    planner::TierCiYamlBuilder tb_dbg; // MIT Override {"debug"} => DEBUG-Methodik trotz measure-Katalog
-    director.construct(*tp, tb_dbg, /*combo_selector=*/{}, /*methodik_run_methodology=*/{"debug"});
+    // -- A-05/V-12 (18.08.2026): WAS AN DIESEM TEST HEUTE NOCH BEWEISBAR IST -- und was nicht ----------
+    //
+    // Bis zum work_mode-Umbau bewies dieser Block die Entkopplung an der EMISSION: Override {"debug"}
+    // drehte den Katalog auf Debug-Bau, und der (j3)-Zweig wurde sichtbar. Das geht nicht mehr, und der
+    // Grund ist keine Test-Schwaeche, sondern eine Eigenschaft des neuen Enums: ALLE VIER work_modes
+    // tragen cmake_build_type "Release" (Registry-Zeilen build/measure/compare/release). Sie
+    // unterscheiden sich nur noch in measurement_on/single_thread -- und die haben im Emitter NULL
+    // Leser (s. PlanBuildSemantic-Struct-Doku). Ein Methodik-Override kann die Emission also
+    // GAR NICHT mehr bewegen; jede Erwartung auf einen sichtbaren Unterschied waere ab heute eine
+    // Erwartung an etwas, das es nicht gibt.
+    //
+    // DER TEST BEHAUPTET DESHALB NICHT MEHR, WAS ER NICHT MEHR ZEIGEN KANN. Er beweist statt dessen die
+    // NAHT selbst -- dass der Override ueberhaupt GELESEN wird und den Katalog-Wert verdraengt --, und
+    // zwar an der einzigen Stelle, an der das heute beobachtbar ist: an der fail-closed-Wache. Ein
+    // ungueltiger Override muss werfen, OBWOHL das Katalog-Profil (measure) voellig gueltig ist. Wuerde
+    // der Override ignoriert, liefe der Aufruf still durch.
+    {
+        bool geworfen = false;
+        try {
+            planner::TierCiYamlBuilder tb_bogus;
+            director.construct(*tp, tb_bogus, /*combo_selector=*/{}, /*methodik_run_methodology=*/{"mesure"});
+        } catch (std::invalid_argument const&) { geworfen = true; }
+        EXPECT_TRUE(geworfen) << "der Methodik-Override wird NICHT gelesen -- ein ungueltiger Override lief still "
+                                 "durch, waehrend das Katalog-Profil ihn verdeckte";
+    }
+
+    // Und die Gegenrichtung, damit die Wache oben nicht bloss 'irgendetwas wirft': ein GUELTIGER
+    // Override laeuft durch und laesst den KATALOG unberuehrt -- Perm-Lanes und Mess-Job-Zahl bleiben
+    // exakt die aus tp. Das ist die Entkopplungs-Aussage, soweit sie heute traegt.
+    planner::TierCiYamlBuilder tb_ovr;
+    director.construct(*tp, tb_ovr, /*combo_selector=*/{}, /*methodik_run_methodology=*/{"build"});
+    std::string const& yovr = tb_ovr.text();
+    EXPECT_NE(yovr.find("  tags: [\"amd\"]"), std::string::npos) << "no_extension-Perm-Lane aus tp erhalten";
+    EXPECT_NE(yovr.find("  tags: [\"intel\"]"), std::string::npos) << "avx2-Perm-Lane aus tp erhalten";
+    EXPECT_GT(count_occurrences(yref, "# JOB measure-batch "), 0u) << "Katalog emittiert Mess-Jobs";
+    EXPECT_EQ(count_occurrences(yovr, "# JOB measure-batch "), count_occurrences(yref, "# JOB measure-batch "))
+        << "Perm-/Mess-Job-Zahl (Katalog) unveraendert -- Entkopplung Bau != Methodik";
+
+    // DIE (j3)-HAELFTE, ehrlich getrennt: sie haengt heute am ZUSTAND, nicht mehr am Override. Getrieben
+    // wird sie state-direkt (DebugSemantikInjektor) -- so bleibt der Zweig unter Beobachtung, ohne dass
+    // der Test vorgibt, der Override habe ihn ausgeloest. Sobald der --debug-Eingang aus S-8/W2 steht,
+    // gehoert die Verbindung Override/Flag -> Zustand DORT hin und wird DORT geprueft.
+    planner::TierCiYamlBuilder tb_dbg;
+    DebugSemantikInjektor      inj_ovr{tb_dbg};
+    director.construct(*tp, inj_ovr, /*combo_selector=*/{}, /*methodik_run_methodology=*/{"build"});
     std::string const& ydbg = tb_dbg.text();
     EXPECT_NE(ydbg.find("(j3) Aufruf 1/2: Release provision-only"), std::string::npos)
-        << "Override debug => (j3)-Dual-Compile trotz measure-Katalog";
-    EXPECT_NE(ydbg.find("COMDARE_BUILD_TYPE=\"Debug\""), std::string::npos) << "Override debug => +bt-Signal";
-    EXPECT_NE(ydbg.find("export COMDARE_ARTEFAKT_TRIES=1"), std::string::npos) << "Override debug => Blocker #50";
+        << "Debug-Zustand => (j3)-Dual-Compile trotz measure-Katalog";
+    EXPECT_NE(ydbg.find("COMDARE_BUILD_TYPE=\"Debug\""), std::string::npos) << "Debug-Zustand => +bt-Signal";
+    EXPECT_NE(ydbg.find("export COMDARE_ARTEFAKT_TRIES=1"), std::string::npos) << "Debug-Zustand => Blocker #50";
     EXPECT_NE(ydbg.find("COMDARE_PLAN_METHODIK_PROFILE=\"${COMDARE_PLAN_METHODIK_PROFILE:-}\""), std::string::npos)
-        << "Override debug => emit_measure_job-Methodik-Forward an den Grandchild-Mess-Run";
-
-    // ENTKOPPLUNG: der Bau-Katalog (Perm-Lanes + Mess-Job-Zahl aus all_axes_golden) bleibt IDENTISCH -- nur die
-    // Methodik wechselte, nicht der Katalog.
-    EXPECT_NE(ydbg.find("  tags: [\"amd\"]"), std::string::npos) << "no_extension-Perm-Lane aus tp erhalten";
-    EXPECT_NE(ydbg.find("  tags: [\"intel\"]"), std::string::npos) << "avx2-Perm-Lane aus tp erhalten";
-    EXPECT_GT(count_occurrences(yref, "# JOB measure-batch "), 0u) << "Katalog emittiert Mess-Jobs";
-    EXPECT_EQ(count_occurrences(ydbg, "# JOB measure-batch "), count_occurrences(yref, "# JOB measure-batch "))
-        << "Perm-/Mess-Job-Zahl (Katalog) unveraendert -- Entkopplung Bau != Methodik";
+        << "Debug-Zustand => emit_measure_job-Methodik-Forward an den Grandchild-Mess-Run";
 }
 
 // (i)-facade §61-STUFEN Byte-Wache: die facade-Suffix-Naht build_type_version_suffix liest COMDARE_BUILD_TYPE und
@@ -3909,12 +4042,12 @@ TEST(CompilerPinInvariante, JedeTreiberKonfigurationGepinntUndJedeBauStufeMitCla
     director.construct(*tp, cb);
     std::size_t const combos_s1 = count_occurrences(cb.text(), "# JOB ceb-build combo");
     ASSERT_GT(combos_s1, 0u);
-    expect_compiler_pin_invariante(cb.text(), "Thesis/Stufe1 CiYamlBuilder", combos_s1);
+    expect_compiler_pin_invariante(cb.text(), "Thesis/Verbund1 CiYamlBuilder", combos_s1);
     planner::TierCiYamlBuilder tb;
     director.construct(*tp, tb);
     std::size_t const batches_s2 = count_occurrences(tb.text(), "# JOB tier-build-batch host=");
     ASSERT_GT(batches_s2, 0u);
-    expect_compiler_pin_invariante(tb.text(), "Thesis/Stufe2 TierCiYamlBuilder", batches_s2);
+    expect_compiler_pin_invariante(tb.text(), "Thesis/Verbund2 TierCiYamlBuilder", batches_s2);
 
     // (2) GEFANNT (3 Combos): die Invariante haengt nicht an der Stellenzahl.
     auto tp_fan = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
@@ -3922,11 +4055,11 @@ TEST(CompilerPinInvariante, JedeTreiberKonfigurationGepinntUndJedeBauStufeMitCla
     tp_fan->measurement_tooling = {{"wallclock"}, {"macro"}, {"micro"}};
     planner::CiYamlBuilder cb_fan;
     director.construct(*tp_fan, cb_fan);
-    expect_compiler_pin_invariante(cb_fan.text(), "Thesis/Stufe1 GEFANNT",
+    expect_compiler_pin_invariante(cb_fan.text(), "Thesis/Verbund1 GEFANNT",
                                    count_occurrences(cb_fan.text(), "# JOB ceb-build combo"));
     planner::TierCiYamlBuilder tb_fan;
     director.construct(*tp_fan, tb_fan);
-    expect_compiler_pin_invariante(tb_fan.text(), "Thesis/Stufe2 GEFANNT",
+    expect_compiler_pin_invariante(tb_fan.text(), "Thesis/Verbund2 GEFANNT",
                                    count_occurrences(tb_fan.text(), "# JOB tier-build-batch host="));
 
     // (3) Experiment-Kanal (eigener Zwilling -- die "Fix fehlt im Experiment-Zwilling"-Klasse).
@@ -3934,11 +4067,11 @@ TEST(CompilerPinInvariante, JedeTreiberKonfigurationGepinntUndJedeBauStufeMitCla
     ASSERT_TRUE(ep.has_value());
     planner::CiYamlBuilder cb_exp;
     director.construct(*ep, cb_exp);
-    expect_compiler_pin_invariante(cb_exp.text(), "Experiment/Stufe1",
+    expect_compiler_pin_invariante(cb_exp.text(), "Experiment/Verbund1",
                                    count_occurrences(cb_exp.text(), "# JOB ceb-build combo"));
     planner::TierCiYamlBuilder tb_exp;
     director.construct(*ep, tb_exp);
-    expect_compiler_pin_invariante(tb_exp.text(), "Experiment/Stufe2",
+    expect_compiler_pin_invariante(tb_exp.text(), "Experiment/Verbund2",
                                    count_occurrences(tb_exp.text(), "# JOB tier-build-batch host="));
 
     // (4) OHNE PMU: der Pin haengt NICHT am PMC-Befund (zwei orthogonale Invarianten).
@@ -3947,7 +4080,7 @@ TEST(CompilerPinInvariante, JedeTreiberKonfigurationGepinntUndJedeBauStufeMitCla
     director_ohne.set_pmc_befund(ohne);
     planner::CiYamlBuilder cb_ohne;
     director_ohne.construct(*tp, cb_ohne);
-    expect_compiler_pin_invariante(cb_ohne.text(), "Thesis/Stufe1 OHNE PMU",
+    expect_compiler_pin_invariante(cb_ohne.text(), "Thesis/Verbund1 OHNE PMU",
                                    count_occurrences(cb_ohne.text(), "# JOB ceb-build combo"));
 }
 
@@ -3958,10 +4091,16 @@ TEST(CompilerPinInvariante, ZwillingFolgtDemBuildTypDesProfils) {
     ASSERT_TRUE(tp.has_value());
     planner::ExperimentPlanDirector director;
     director.set_pmc_befund(befund_mit(planner::PmcLage::Amd, "AuthenticAMD"));
-    planner::TierCiYamlBuilder tb_dbg; // Methodik-Override debug => (j3)-Zweig + Debug-BUILD_TYPE
-    director.construct(*tp, tb_dbg, /*combo_selector=*/{}, /*methodik_run_methodology=*/{"debug"});
+    // A-05/V-12 (18.08.2026): der (j3)-Zweig haengt am build_semantic-ZUSTAND, nicht mehr an einem
+    // Profil-Token -- alle vier work_modes tragen heute cmake_build_type "Release" (s. die ausfuehrliche
+    // Begruendung an MethodikOverrideDecouplesCatalogFromMethodik). Der Zustand wird deshalb
+    // state-direkt gesetzt; die SOLL-Matrix-Aussage dieses Tests -- der Zwilling FOLGT dem BUILD_TYPE
+    // der Stufe -- ist davon unberuehrt, denn genau dieses Folgen wird hier geprueft.
+    planner::TierCiYamlBuilder tb_dbg;
+    DebugSemantikInjektor      inj_pin{tb_dbg};
+    director.construct(*tp, inj_pin, /*combo_selector=*/{}, /*methodik_run_methodology=*/{"build"});
     std::string const& ydbg = tb_dbg.text();
-    expect_compiler_pin_invariante(ydbg, "Thesis/Stufe2 (j3)-Debug",
+    expect_compiler_pin_invariante(ydbg, "Thesis/Verbund2 (j3)-Debug",
                                    count_occurrences(ydbg, "# JOB tier-build-batch host="));
     EXPECT_NE(ydbg.find("cmake -B build-clang -G Ninja -DCOMDARE_V32_ENABLE=ON"), std::string::npos);
     EXPECT_NE(ydbg.find("-DCMAKE_BUILD_TYPE=Debug"), std::string::npos)

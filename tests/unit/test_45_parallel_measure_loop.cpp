@@ -22,6 +22,9 @@
 #include <vector>
 
 namespace ex = comdare::cache_engine::builder::experiment;
+// A-05/V-12: die Registry-Zeile als Zustand (WorkModeInfo/WorkMode) -- fuer den state-direkten Zugang
+// zur Parallelitaets-Mechanik, deren Token-Eingang mit dem work_mode-Umbau entfallen ist.
+namespace mm = comdare::cache_engine::measurement;
 
 static int  g_fail = 0;
 static void check_true(char const* what, bool c) {
@@ -95,18 +98,87 @@ int main() {
         ::unsetenv("COMDARE_MEASURE_PARALLEL");
         check_true("(2) measure => 0 (sequentiell)", ex::resolve_measure_parallelism({"measure"}) == 0);
         check_true("(2) release => 0 (sequentiell)", ex::resolve_measure_parallelism({"release"}) == 0);
+        check_true("(2) build => 0 (sequentiell)", ex::resolve_measure_parallelism({"build"}) == 0);
+        check_true("(2) compare => 0 (sequentiell)", ex::resolve_measure_parallelism({"compare"}) == 0);
         check_true("(2) undeklariert => 0 (measure-Default, sequentiell)", ex::resolve_measure_parallelism({}) == 0);
-        check_true("(2) debug (ohne Env) => nproc>0 (parallel)", ex::resolve_measure_parallelism({"debug"}) > 0);
 
-        ::setenv("COMDARE_MEASURE_PARALLEL", "5", 1);
-        check_eq("(2) debug + COMDARE_MEASURE_PARALLEL=5 => 5", ex::resolve_measure_parallelism({"debug"}),
-                 std::size_t{5});
-        check_true("(2) measure + Env=5 => 0 (Gate schlaegt Env)", ex::resolve_measure_parallelism({"measure"}) == 0);
+        // -- A-05/V-12 (18.08.2026): DER TOKEN "debug" IST WEG -- UND DAS WIRD HIER POSITIV GEPRUEFT -----
+        //
+        // Bis zum work_mode-Umbau stand hier `resolve_measure_parallelism({"debug"}) > 0`. Der Token
+        // existiert nicht mehr; der Aufruf laeuft heute in die fail-closed-Wache der Registry. Diese Zeile
+        // WAR also nicht "kaputt" -- sie beschrieb eine Welt, die es nicht mehr gibt. Statt sie zu
+        // streichen, dreht sie sich um: der Abgang des Tokens ist jetzt selbst die Zusage, und zwar mit
+        // der EXAKTEN Meldung, damit ein stiller Rueckfall auf measure auffiele.
+        {
+            bool        geworfen = false;
+            std::string gesehen;
+            try {
+                (void)ex::resolve_measure_parallelism({"debug"});
+            } catch (std::invalid_argument const& e) {
+                geworfen = true;
+                gesehen  = e.what();
+            }
+            check_true("(2/V-12) Token 'debug' existiert nicht mehr => wirft (kein stiller measure-Ersatz)", geworfen);
+            std::string const soll =
+                "run_methodology_for_ids: unbekannter Modus-Token \"debug\" -- gueltig sind {build, measure, compare, "
+                "release}. FAIL-CLOSED (Welle B/1): ein stiller measure-Ersatz wuerde eine Messung ausloesen, die "
+                "niemand angefordert hat.";
+            check_eq("(2/V-12) und zwar mit der EXAKTEN Meldung (Token + gueltige Menge + Grund)", gesehen, soll);
+        }
 
-        ::setenv("COMDARE_MEASURE_PARALLEL", "nonsense", 1);
-        check_true("(2) debug + unparsebares Env => nproc>0 (Default, kein Abbruch)",
-                   ex::resolve_measure_parallelism({"debug"}) > 0);
-        ::unsetenv("COMDARE_MEASURE_PARALLEL");
+        // -- DIE MECHANIK HINTER DEM GATE, STATE-DIREKT GETRIEBEN ---------------------------------------
+        //
+        // Das Gate verlangt (measurement_on && !single_thread). KEINE heutige Registry-Zeile erfuellt das
+        // -- "debug" war die einzige. Ueber den Token-Weg ist alles dahinter deshalb unerreichbar. Geprueft
+        // wird es trotzdem, und zwar am ZUSTAND: eine Zeile mit genau dieser Eigenschaft, so wie der
+        // ausgebaute Modus sie trug. Das haelt Env-Auswertung und nproc-Default unter Beobachtung, bis der
+        // --debug-Eingang (S-8/W2) sie wieder erreichbar macht.
+        {
+            mm::WorkModeInfo const misst_parallel{mm::WorkMode::Measure,   "measure", "Measure", "Debug",
+                                                  /*measurement_on=*/true,
+                                                  /*single_thread=*/false};
+            ::unsetenv("COMDARE_MEASURE_PARALLEL");
+            check_true("(2s) misst+parallel, ohne Env => nproc>0",
+                       ex::resolve_measure_parallelism_of_mode(misst_parallel) > 0);
+
+            ::setenv("COMDARE_MEASURE_PARALLEL", "5", 1);
+            check_eq("(2s) misst+parallel + Env=5 => 5", ex::resolve_measure_parallelism_of_mode(misst_parallel),
+                     std::size_t{5});
+            check_true("(2s) measure-Zeile + Env=5 => 0 (Gate schlaegt Env)",
+                       ex::resolve_measure_parallelism({"measure"}) == 0);
+
+            ::setenv("COMDARE_MEASURE_PARALLEL", "nonsense", 1);
+            check_true("(2s) misst+parallel + unparsebares Env => nproc>0 (Default, kein Abbruch)",
+                       ex::resolve_measure_parallelism_of_mode(misst_parallel) > 0);
+            ::unsetenv("COMDARE_MEASURE_PARALLEL");
+
+            // Gegenprobe, damit (2s) nicht bloss den Injektor misst: DIESELBE Zeile mit single_thread=true
+            // faellt zurueck auf 0. Ohne sie koennte das Gate ausgebaut sein und alles hier bliebe gruen.
+            mm::WorkModeInfo const misst_1thread{mm::WorkMode::Measure, "measure", "Measure", "Debug", true, true};
+            ::setenv("COMDARE_MEASURE_PARALLEL", "5", 1);
+            check_true("(2s) Gegenprobe: misst+1-Thread => 0 trotz Env=5 (das Gate lebt)",
+                       ex::resolve_measure_parallelism_of_mode(misst_1thread) == 0);
+            ::unsetenv("COMDARE_MEASURE_PARALLEL");
+
+            // -- A2.5-g5 (Review #15, Fix 28 + E-2): die zwei fehlenden Zellen der Env-Zahlenkante ------
+            // (i) Env="0": v>0-Kante -- dokumentierter Default-Weg ("Env-unparsebar/0 => nproc-Default").
+            ::setenv("COMDARE_MEASURE_PARALLEL", "0", 1);
+            check_true("(2s null) misst+parallel + Env=0 => nproc>0 (dokumentierter Default, kein 0-Pool)",
+                       ex::resolve_measure_parallelism_of_mode(misst_parallel) > 0);
+            // (ii) 21-stelliges Env (2^64+5 = 18446744073709551621): die Ziffern-Akkumulation ohne
+            //      Bereichsdeckel wickelte still auf den Wrap-Rest 5 -- ein PLAUSIBLER falscher Pool.
+            //      SOLL (Fix 28): Wrap-Eingaben fallen wie andere unparsebare Werte auf den nproc-Default;
+            //      gemessen als GLEICHHEIT zum Env-losen Lauf (nproc), nicht als nackte Zahl.
+            ::unsetenv("COMDARE_MEASURE_PARALLEL");
+            std::size_t const nproc_referenz = ex::resolve_measure_parallelism_of_mode(misst_parallel);
+            ::setenv("COMDARE_MEASURE_PARALLEL", "18446744073709551621", 1);
+            std::size_t const wrap_ergebnis = ex::resolve_measure_parallelism_of_mode(misst_parallel);
+            check_eq("(2s ueberlauf) 21-stelliges Env == Env-loser nproc-Default (kein 2^64-Wrap-Rest 5)",
+                     wrap_ergebnis, nproc_referenz);
+            check_true("(2s ueberlauf) und explizit NICHT der Wrap-Rest 5 (prod1: nproc=32, nie 5)",
+                       wrap_ergebnis != 5);
+            ::unsetenv("COMDARE_MEASURE_PARALLEL");
+        }
 
         // (2c Welle B/1, 2026-08-07) FAIL-CLOSED: ein UNBEKANNTES Token (Tippfehler im Profil) fiel bis heute STILL
         //   auf measure zurueck -- resolve_measure_parallelism lieferte klaglos 0 und der Lauf MASS, obwohl niemand
@@ -120,21 +192,31 @@ int main() {
         check_true("(2c) unbekannter Token 'mesure' => wirft (kein stiller measure-Ersatz)", wirft_bei({"mesure"}));
         check_true("(2c) unbekannter Token 'profiling' => wirft", wirft_bei({"profiling"}));
         check_true("(2c) leeres Token '' => wirft (Token != leere Liste)", wirft_bei({""}));
-        // Gegenprobe: die vier gueltigen Tokens und die LEERE Liste werfen NIE (kein Fehlalarm, byte-neutral).
-        check_true("(2c) Gegenprobe: gueltige Tokens + leere Liste werfen nicht",
-                   !wirft_bei({"debug"}) && !wirft_bei({"measure"}) && !wirft_bei({"release"}) &&
-                       !wirft_bei({"compare"}) && !wirft_bei({}));
+        // Gegenprobe: die GUELTIGEN Tokens und die LEERE Liste werfen NIE (kein Fehlalarm, byte-neutral).
+        // V-12: "debug" steht hier NICHT mehr -- er ist seit dem work_mode-Umbau ungueltig und wird oben
+        // als POSITIV-Fall gefuehrt. Die Menge kommt aus der Registry, nicht aus dieser Zeile.
+        {
+            bool alle_gueltigen_still = true;
+            for (std::size_t i = 0; i < mm::kWorkModeCount; ++i)
+                if (wirft_bei({std::string(mm::kWorkModeRegistry[i].id)})) alle_gueltigen_still = false;
+            check_true("(2c) Gegenprobe: ALLE Registry-Tokens + leere Liste werfen nicht",
+                       alle_gueltigen_still && !wirft_bei({}));
+        }
 
-        // (2b smoke=>debug-Entkopplung 2026-07-22): der METHODIK-Override (profile_run_entry-Naht
-        //   override.empty() ? tp.run_methodology : override) hat Vorrang -- ein measure-KATALOG misst PARALLEL, wenn
-        //   die Methodik debug ist; OHNE Override bleibt der measure-Katalog 1-Thread. Beweis der Entkopplung
-        //   Bau-Profil != Methodik-Profil (Runtime-Seite; die Emit-Seite deckt test_experiment_plan_director ab).
+        // (2b smoke=>debug-Entkopplung 2026-07-22, A-05/V-12-Nachzug 18.08.2026): der METHODIK-Override
+        //   (profile_run_entry-Naht override.empty() ? tp.run_methodology : override) hat Vorrang vor dem
+        //   Katalog. GEPRUEFT WIRD DIE NAHT, NICHT MEHR IHRE WIRKUNG AUF DIE PARALLELITAET: seit V-12 ist
+        //   KEIN Token mehr "misst und laeuft parallel", also liefern Katalog und Override denselben Wert 0
+        //   -- ein Vergleich der ZAHLEN koennte den Vorrang nicht mehr zeigen. Sichtbar bleibt er an der
+        //   fail-closed-Wache: ein ungueltiger Override wirft, obwohl der Katalog gueltig ist. Genau das
+        //   beweist, dass der Override den Katalog verdraengt. Die Parallelitaets-Haelfte deckt (2s) am
+        //   Zustand ab; die Emit-Seite deckt test_experiment_plan_director.
         ::setenv("COMDARE_MEASURE_PARALLEL", "6", 1);
         std::vector<std::string> const catalog_measure{"measure"}; // all_axes_golden-Katalog
-        std::vector<std::string> const methodik_debug{"debug"};    // m3_smoke_coverage-Methodik-Override
-        auto const                     eff = methodik_debug.empty() ? catalog_measure : methodik_debug; // Naht :413
-        check_eq("(2b) measure-Katalog + debug-Override => 6 (parallel; Override hat Vorrang)",
-                 ex::resolve_measure_parallelism(eff), std::size_t{6});
+        std::vector<std::string> const methodik_ovr{"mesure"};     // Override mit Tippfehler
+        auto const                     eff = methodik_ovr.empty() ? catalog_measure : methodik_ovr; // Naht :413
+        check_true("(2b) Override verdraengt den Katalog: ungueltiger Override wirft trotz gueltigem Katalog",
+                   wirft_bei(eff) && !wirft_bei(catalog_measure));
         check_true("(2b) measure-Katalog OHNE Override => 0 (1-Thread, byte-neutral)",
                    ex::resolve_measure_parallelism(catalog_measure) == 0);
         ::unsetenv("COMDARE_MEASURE_PARALLEL");

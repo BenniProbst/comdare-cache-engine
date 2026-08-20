@@ -37,7 +37,11 @@ cd "$(dirname "$0")/.."
 # libs/cache_engine/anatomy und war damit blind fuer das GESCHWISTER-Verzeichnis anatomy_drive/
 # (K2, Owner 09.08.) -- eine ganze stufen-neutrale Schicht lag ausserhalb ihres Scopes.
 # Wer hier ein drittes neutrales Verzeichnis anlegt, traegt es in DIESE Liste ein.
-ZIELE="libs/cache_engine/anatomy libs/cache_engine/anatomy_drive"
+# A2.5-g5 (Review #15, Fix 20): DRITTES Ziel libs/cache_engine/hybrid -- die im Bruch entstandene
+# Kante builder/ -> hybrid/ ist die ERLAUBTE Richtung (genus_build_admission.hpp beruft sich auf
+# genau diese Wache); die GEGENRICHTUNG hybrid/ -> builder/ ist damit ab jetzt MASCHINELL bewacht
+# statt nur dokumentiert (heute 0 builder-Includes unter hybrid/, ALLOWLIST_SOLL bleibt 1).
+ZIELE="libs/cache_engine/anatomy libs/cache_engine/anatomy_drive libs/cache_engine/hybrid"
 GREP="/usr/bin/grep"
 
 # ERLAUBTE builder-Kanten -- benannt, begruendet, einzeln. KEINE Muster, keine Wildcards:

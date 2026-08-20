@@ -6,8 +6,9 @@
 // dlopen/LoadLibrary + ABI-Version-Check.
 //
 // Aufgabe: laedt eine Anatomy-Permutations-.so/.dll die per
-// COMDARE_DEFINE_ANATOMY_MODULE generiert wurde, resolved die 4 Pflicht-Symbole
-// (comdare_anatomy_abi_version/magic/create_anatomy/destroy_anatomy), prueft
+// COMDARE_DEFINE_ANATOMY_MODULE generiert wurde, resolved die SECHS Pflicht-Symbole
+// (comdare_anatomy_abi_version/magic/create_anatomy/destroy_anatomy und -- seit Q2/V-06 -- die
+// zwei Identitaets-Symbole comdare_anatomy_gattung/comdare_anatomy_genus), prueft
 // ABI-Kompatibilitaet und instantiiert einen SearchAlgorithmAbiAdapter via
 // `comdare_create_anatomy()`.
 //
@@ -41,6 +42,32 @@ inline constexpr int status_abi_major_mismatch    = 5;
 inline constexpr int status_abi_minor_too_new     = 6;
 inline constexpr int status_factory_returned_null = 7;
 inline constexpr int status_null_module           = 8;
+// Q2/V-06 (18.08.2026) -- die zwei IDENTITAETS-SYMBOLE sind PFLICHT. ZWEI Codes statt einem, aus
+// demselben Grund, aus dem es zwei Alt-Major-Fixtures gibt: jedes Schloss muss EINZELN beobachtbar
+// sein. Ein Sammel-Code "identitaet_fehlt" haette gesagt, DASS etwas fehlt, nicht WAS -- und genau
+// diese Auskunft braucht der, der ein Modul baut und es nicht geladen bekommt.
+inline constexpr int status_gattung_symbol_missing = 9;
+inline constexpr int status_genus_symbol_missing   = 10;
+// Der KONSISTENZ-RIEGEL. Ein Modul, dessen Symbol-Wert nicht zu der Instanz passt, die seine eigene
+// Factory liefert, ist WIDERSPRUECHLICH -- und ein Widerspruch, den der Loader durchlaesst, wandert
+// als falsche Identitaet in Stempel, Lager und Messreihe. Deshalb fail-closed hier, nicht spaeter.
+inline constexpr int status_identity_mismatch = 11;
+// Review #15 Fix 2 (18.08.2026) -- die WERTKLASSEN-Haelfte des Riegels, VOR der Factory: das
+// genus-Symbol darf nur ein BEKANNTES (anatomy_base.hpp genus_bekannt) UND ABI-SICHTBARES Genus
+// (hybrid::ist_abi_sichtbares_genus -- nie FunctionInterfaceReroute, Weg C) melden. Ohne dieses
+// Gate passierte eine in sich KONSISTENTE Luege (Symbol, gattung_of und Instanz einig auf 250 oder
+// auf 5) den Konsistenz-Riegel unten: der prueft nur, dass zwei Antworten GLEICH sind, nie, dass
+// ihr Wert ZULAESSIG ist. Eigener Code aus demselben Grund wie bei 9/10: die Diagnose muss sagen,
+// WAS abgelehnt wurde, nicht nur DASS.
+inline constexpr int status_genus_not_abi_visible = 12;
+// A-11/golden-102 (19.08.2026) -- DIE STEMPEL-PFLICHT. comdare_anatomy_version_lines ist das SIEBTE
+// PFLICHT-Symbol ("aus sechs werden sieben"): ein Modul ohne Stempel-Symbol -- oder mit einem Symbol,
+// das nullptr liefert -- deklariert NICHTS und wird am dlopen-Weg abgewiesen, statt als erfolgreiche
+// Ladung mit nullptr-Handle weiterzureisen. Position der Pruefung: NACH Magic/Version/gattung/genus/
+// Factory/Identitaets-Riegel (die fruehen Schloesser behalten ihr Fehlerbild -- Alt-Module treffen
+// weiter IHRE Codes 4/5/9/10/11); nur bis dahin fehlerfreie, stempellose Module fallen neu auf 13.
+// Eigener Code aus demselben Grund wie bei 9/10: die Diagnose muss sagen, WAS fehlt.
+inline constexpr int status_version_lines_symbol_missing = 13;
 
 [[nodiscard]] constexpr const char* status_name(int s) noexcept {
     switch (s) {
@@ -53,6 +80,11 @@ inline constexpr int status_null_module           = 8;
         case status_abi_minor_too_new: return "abi_minor_too_new";
         case status_factory_returned_null: return "factory_returned_null";
         case status_null_module: return "null_module";
+        case status_gattung_symbol_missing: return "gattung_symbol_missing";
+        case status_genus_symbol_missing: return "genus_symbol_missing";
+        case status_identity_mismatch: return "identity_mismatch";
+        case status_genus_not_abi_visible: return "genus_not_abi_visible";
+        case status_version_lines_symbol_missing: return "version_lines_symbol_missing";
         default: return "unknown";
     }
 }
@@ -128,18 +160,19 @@ public:
     }
 
     /// version_lines() -- M-1/D-2 (06.08.2026): die vom geladenen Modul DEKLARIERTEN Stempel-Zeilen
-    /// (Organ/System/Mess + Fingerprint + die drei Entry-Arrays), oder nullptr.
+    /// (Organ/System/Mess + Fingerprint + die drei Entry-Arrays).
     ///
-    /// nullptr heisst GENAU EINES von zwei Dingen, und beide sind aus Sicht des Mess-Konsistenz-Gates
-    /// derselbe Fall "die Binary deklariert nichts": (a) das Modul wurde ohne
-    /// COMDARE_ANATOMY_VERSION_STAMP(_M) gebaut und exportiert das OPTIONALE 5. Symbol gar nicht
-    /// (dlsym/GetProcAddress findet es nicht), oder (b) das Symbol ist da, liefert aber nullptr.
+    /// A-11/golden-102 (19.08.2026): AB status_ok GARANTIERT NON-NULL. Der Loader weist ein Modul ohne
+    /// Stempel-Symbol -- oder mit nullptr-liefernder Antwort -- mit status_version_lines_symbol_missing
+    /// (13) ab; eine erfolgreiche Ladung traegt hier also immer einen gueltigen POD. nullptr steht nur
+    /// noch an einer default-konstruierten oder entladenen Handle.
     ///
-    /// WARUM DAS KEIN ABI-SCHRITT IST: gelesen wird ausschliesslich das bereits bestehende optionale
+    /// WARUM DAS KEIN ABI-SCHRITT IST: gelesen wird ausschliesslich das bereits bestehende
     /// Probe-Symbol comdare_anatomy_version_lines (anatomy_module_abi_v1_decl.hpp) und das bereits
-    /// bestehende POD-Layout 6. Der Loader verlangt weiterhin NUR die VIER Pflicht-Symbole -- ein Modul
-    /// ohne Stempel laedt unveraendert, es traegt hier eben nullptr. COMDARE_ANATOMY_ABI_MAJOR und
-    /// kAnatomyVersionLinesLayout bleiben unberuehrt.
+    /// bestehende POD-Layout 7. Der Loader verlangt die sechs bisherigen Pflicht-Symbole plus (seit
+    /// A-11) dieses SIEBTE -- die EMITTER-Aritaet der DEFINE-Makros ist unberuehrt (der Stempel ist
+    /// ein ZUSAETZLICHER Makro-Call am Emissions-Ort, kein Makro-Umbau). COMDARE_ANATOMY_ABI_MAJOR
+    /// und kAnatomyVersionLinesLayout bleiben unberuehrt.
     ///
     /// LEBENSZEIT: der POD ist im MODUL ein `static constexpr` (Makro-Materialisierung) -- er lebt, solange
     /// das dlopen-Handle lebt, also genau so lange wie diese Handle. Nach unload() ist der Zeiger tot;
@@ -169,14 +202,24 @@ public:
     /// load() — Loadet `dll_path`. Bei Erfolg: status_ok, handle_out gesetzt.
     /// Bei Misserfolg: errno-style status, handle_out unveraendert.
     ///
-    /// Validierungs-Schritte (in dieser Reihenfolge):
+    /// Validierungs-Schritte (in dieser Reihenfolge; seit A-11/golden-102 sind SIEBEN Symbole Pflicht):
     /// 1. Datei existiert
     /// 2. dlopen/LoadLibrary erfolgreich
-    /// 3. Alle 4 Pflicht-Symbole resolvable
+    /// 3. Die vier Ur-Pflicht-Symbole resolvable (abi_version/abi_magic/create/destroy)
     /// 4. Magic-Number == COMDARE_ANATOMY_ABI_MAGIC
     /// 5. Major-Version match (Host vs Modul)
     /// 6. Modul-Minor <= Host-Minor
-    /// 7. Factory comdare_create_anatomy() liefert non-null
+    /// 7. comdare_anatomy_gattung resolvable (Pflicht-Symbol 5; NACH Magic/Version, damit
+    ///    Alt-Module ihr altes Fehlerbild behalten)
+    /// 8. comdare_anatomy_genus resolvable (Pflicht-Symbol 6)
+    /// 9. Wertklassen-Gates am rohen genus-Byte, VOR der Factory (Review #15 Fix 2):
+    ///    genus_bekannt UND hybrid::ist_abi_sichtbares_genus -- sonst status_genus_not_abi_visible
+    /// 10. Factory comdare_create_anatomy() liefert non-null
+    /// 11. Identitaets-Riegel: Instanz-genus() == Symbol-Wert UND Gattungs-Symbol ==
+    ///     gattung_of(genus) -- sonst status_identity_mismatch
+    /// 12. STEMPEL-PFLICHT (A-11): comdare_anatomy_version_lines resolvable UND non-null (Pflicht-
+    ///     Symbol 7; an der HISTORISCHEN Pull-Position, also NACH allen fruehen Schloessern) --
+    ///     sonst status_version_lines_symbol_missing
     [[nodiscard]] static int load(std::filesystem::path const& dll_path, AnatomyModuleHandle& handle_out) noexcept;
 
     /// load_all() — Loadet alle anatomy-Pilot-DLLs in einem Verzeichnis.

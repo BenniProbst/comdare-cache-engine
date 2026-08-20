@@ -336,11 +336,18 @@ inline constexpr std::size_t     kStemMax = 120;
 /// (test_g3_sha512_index.cpp, identisch in test_w10_system_cell_values.cpp und test_m_w12_stamp_bausteine.cpp).
 ///
 /// [NACHGEFUEHRT 2026-08-05, O-2/C-2 -- DER GLIED-SATZ, GEGEN DEN DIESES GATE VERGLEICHT:] das Preimage traegt
-/// seit fingerprint_format=3 ACHT Glieder (abi::anatomy_fingerprint_glieder ist unveraendert die EINE Quelle):
-///   [0] Format-Kennung  [1] Organ-Zeile  [2] System-Zeile  [3] Mess-Tooling-Zeile  [4] Sub-Achsen-Werteset
+/// [NACHGEZOGEN 18.08.2026, S-6a/KON45-01: der Absatz nannte ACHT Glieder in der Format-3-Ordnung. Es sind
+///  ZEHN, die Ordnung der drei Zeilen ist gedreht (MESS, SYSTEM, ORGAN -- KON21-03), und das Overlay-Glied
+///  ist NICHT mehr leer (E-E hat es scharfgeschaltet). Die alte Fassung stand hier seit dem 05.08. und war
+///  ab R-3 (9 Glieder) das erste Mal falsch -- sie hat also ZWEI Bumps ueberdauert.]
+/// seit fingerprint_format=6 ELF Glieder (abi::anatomy_fingerprint_glieder ist unveraendert die EINE Quelle):
+///   [0] Format-Kennung  [1] Mess-Tooling-Zeile  [2] System-Zeile  [3] Organ-Zeile  [4] Sub-Achsen-Werteset
 ///   [5] TOOLCHAIN-Glied (Compiler-Haupt-Achse inkl. Flags, opt_level, atomic128, ext/bt/gate/ceb -- heilt C1)
 ///   [6] BVSET-Glied (Enabled-Mengen-Signatur der Build-Achsen -- heilt C6)
-///   [7] Overlay-Source-Hash (weiter LEER, s. L14 oben; ans Ende gewandert)
+///   [7] Overlay-Source-Hash (SCHARF seit E-E -- die L14-Luecke oben ist damit geschlossen)
+///   [8] Mess-Gates-Glied (R-3; NIEMALS leer, der Aus-Zustand ist ein Wert)
+///   [9] Hybrid-Komposit-Map-Zeile (S-6a/KON45-01; plain Tier traegt "")
+///   [10] build_version-BASIS (B-9/golden-102; die Provenienz-Basis "m3v2"/... wird Identitaet)
 /// Der Overlay-Absatz oben bleibt unveraendert gueltig -- nur seine Positions-Angabe ("das 6. Glied") war an
 /// die Format-2-Ordnung gebunden. Die per-Perm-BEFUELLUNG der beiden neuen Glieder ist die Folge-Scheibe C-3;
 /// bis dahin sind sie leer und dieses Gate verhaelt sich unveraendert, ausser dass der Format-Bump den

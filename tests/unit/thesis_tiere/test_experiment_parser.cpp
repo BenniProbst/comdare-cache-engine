@@ -17,7 +17,7 @@
 #include "validate_profile.hpp"                    // validate_experiment_profile / ExperimentValidationResult
 #include "xml_config_parser/xml_config_parser.hpp" // XmlConfigParser / ExperimentProfile
 
-#include <cache_engine/measurement/run_methodology_registry.hpp> // Lane D: kRunMethodologyCount/Compare (4. Modus)
+#include <cache_engine/measurement/run_methodology_registry.hpp> // Lane D: kWorkModeCount/Compare (4. Modus)
 
 #include <gtest/gtest.h>
 
@@ -124,15 +124,15 @@ TEST(ExperimentParser, ParsesGoldenInstanceLiterally) {
     // 3 phases mit merge/engine/engines/pruefling.
     ASSERT_EQ(ep->phases.size(), 3u);
     EXPECT_EQ(ep->phases[0].name, "phase2_cache_engine");
-    EXPECT_EQ(ep->phases[0].merge, "Stufe1_CeOnly");
+    EXPECT_EQ(ep->phases[0].merge, "Verbund1_CeOnly");
     EXPECT_EQ(ep->phases[0].engine, "ee_ce");
     EXPECT_TRUE(ep->phases[0].engines.empty());
     EXPECT_EQ(ep->phases[1].name, "phase1_prt_art");
-    EXPECT_EQ(ep->phases[1].merge, "Stufe2_PrueflingReplace");
+    EXPECT_EQ(ep->phases[1].merge, "Verbund2_Replace");
     EXPECT_EQ(ep->phases[1].engine, "ee_prt");
     EXPECT_EQ(ep->phases[1].pruefling, "prt_art");
     EXPECT_EQ(ep->phases[2].name, "phase3_kombiniert");
-    EXPECT_EQ(ep->phases[2].merge, "Stufe3_FullJoin");
+    EXPECT_EQ(ep->phases[2].merge, "Verbund3_Union");
     EXPECT_TRUE(ep->phases[2].engine.empty());
     ASSERT_EQ(ep->phases[2].engines.size(), 2u);
     EXPECT_EQ(ep->phases[2].engines[0], "ee_ce");
@@ -205,8 +205,8 @@ TEST(ExperimentParser, ValidatesGoldenAgainstRegistries) {
     fs::remove_all(reg, ec);
 }
 
-// (c1) VALIDATE FEHLER — eine ungueltige phase.merge ist ein HARTER Fehler (kein MergeStrategy-Enum-Wert).
-TEST(ExperimentParser, InvalidMergeStrategyIsError) {
+// (c1) VALIDATE FEHLER -- eine ungueltige phase.merge ist ein HARTER Fehler (kein PrueflingVerbundStrategy-Enum-Wert).
+TEST(ExperimentParser, InvalidPrueflingVerbundStrategyIsError) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
     ep->phases[0].merge = "Stufe9_Bogus";
@@ -550,7 +550,7 @@ TEST(ExperimentParser, TemplateWithUnknownRefValidatesTolerant) {
 TEST(ExperimentParser, ParsesPerAxisMergeAndPhaseIdentity) {
     auto const ep = parse_experiment_with_system_axes(
         "  <phases>\n"
-        "    <phase name=\"self_phase\" merge=\"Stufe1_CeOnly\" identity=\"CacheEngine\"/>\n"
+        "    <phase name=\"self_phase\" merge=\"Verbund1_CeOnly\" identity=\"CacheEngine\"/>\n"
         "  </phases>\n"
         "  <axes_default_lookup enabled=\"true\">\n"
         "    <axis ref=\"mapping\" allowed_variants=\"direct_placement\" merge=\"merge\"/>\n"
@@ -577,17 +577,29 @@ TEST(ExperimentParser, BogusPerAxisMergeModeIsError) {
     EXPECT_EQ(vr.axis_merge_checked, 1u);
 }
 
-// (k3d) K3 — ein gueltiger per-Achse Merge-Modus ("merge") wird AKZEPTIERT; leere merge (Default) zaehlt nicht mit.
+// (k3d) K3 -- ein gueltiger per-Achse Merge-Modus ("replace") wird AKZEPTIERT; leere merge (Default) zaehlt
+// nicht mit. A2.5-g5 (Review #15, Fix 15): "merge" ist zwar TOKEN-gueltig (kExperimentAxisMergeModes),
+// aber bis zur Materialisierung von Verbund2_Hybrid am Validator GESPERRT -- der Akzeptanz-Beleg faehrt
+// deshalb "replace"; das Deferred-Gate fuer "merge" pinnt der zweite Block unten.
 TEST(ExperimentParser, ValidPerAxisMergeModeIsAccepted) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
-    ep->axes_default_lookup[0].merge_mode = "merge"; // gueltig; axes[1..2] bleiben leer = replace-Default
+    ep->axes_default_lookup[0].merge_mode = "replace"; // gueltig; axes[1..2] bleiben leer = replace-Default
 
     fs::path const                        reg = make_registry_dir();
     tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
     for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
     EXPECT_TRUE(vr.ok);
     EXPECT_EQ(vr.axis_merge_checked, 1u); // nur die EINE gesetzte Achse
+
+    // Deferred-Gate: dasselbe Profil mit "merge" faellt mit dem Materialisierungs-Hinweis (kein
+    // UNGUELTIGER-Merge-Modus-Text -- das Token ist bekannt, nur nicht materialisiert).
+    ep->axes_default_lookup[0].merge_mode     = "merge";
+    tlz::ExperimentValidationResult const vr2 = tlz::validate_experiment_profile(*ep, reg);
+    EXPECT_FALSE(vr2.ok);
+    EXPECT_TRUE(any_contains(vr2.errors, "nicht materialisiert"));
+    EXPECT_FALSE(any_contains(vr2.errors, "UNGUELTIGER Merge-Modus"));
+    EXPECT_EQ(vr2.axis_merge_checked, 1u);
 
     std::error_code ec;
     fs::remove_all(reg, ec);
@@ -705,7 +717,7 @@ TEST(ExperimentParser, ValidA9MeasurementSubAxesAreAccepted) {
 }
 
 // (a9c) ein Bogus run_methodology-Wert (profiling) ist ein HARTER Fehler ({debug,measure,release,compare}).
-TEST(ExperimentParser, BogusRunMethodologyIsError) {
+TEST(ExperimentParser, BogusWorkModeIsError) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
     ep->run_methodology = {"measure", "profiling"}; // ausserhalb {debug,measure,release,compare} (Lane D)
@@ -726,11 +738,11 @@ TEST(ExperimentParser, BogusRunMethodologyIsError) {
 //       (§61-STUFEN) gilt UNVERAENDERT auch fuer compare.
 //       NICHT bewiesen und NICHT behauptet: ein modus-SPEZIFISCHER Ablauf. compare baut heute release-gleich
 //       {Release, misst NICHT, parallel}; der Vollzug (Replay-Vergleich) ist das Nach-Trigger-Paket D2.
-TEST(ExperimentParser, CompareIsFourthRunMethodologyRegistryMode) {
-    static_assert(mm::kRunMethodologyCount == 4, "Lane D: COMPARE ist der 4. Registry-Modus (Anzahl-Anker).");
-    static_assert(mm::run_methodology_info(mm::RunMethodology::Compare).id == std::string_view{"compare"},
+TEST(ExperimentParser, CompareIsFourthWorkModeRegistryMode) {
+    static_assert(mm::kWorkModeCount == 4, "Lane D: COMPARE ist der 4. Registry-Modus (Anzahl-Anker).");
+    static_assert(mm::work_mode_info(mm::WorkMode::Compare).id == std::string_view{"compare"},
                   "Lane D: das id-Token des 4. Modus ist \"compare\" (Namen-Anker).");
-    static_assert(mm::run_methodology_info(mm::RunMethodology::Compare).cmake_build_type == std::string_view{"Release"},
+    static_assert(mm::work_mode_info(mm::WorkMode::Compare).cmake_build_type == std::string_view{"Release"},
                   "Lane D/Q-5: compare baut Release (Etikett-Stand; Vollzug D2).");
 
     // (ii) PARSE aus echtem XML -- das Token kommt durch den Parser, nicht aus einem Feld-Literal.

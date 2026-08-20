@@ -112,7 +112,8 @@ int main(int argc, char** argv) {
         << "# EINGEFROREN. view.size() ist emergent (StaticBinaryView, lazy) -- KEINE Zahl hartkodiert. Regeneration "
            "NUR\n"
         << "# ueber gen_golden_fullpilot (tools/gen_golden_fullpilot) im koordinierten ABI-Fenster. Die 320-Grundlage\n"
-        << "# bleibt additiv in golden_fullpilot_320_binary_ids.txt (+ _abi4/_abi5/_abi6-Historie), messdaten-erhaltend.\n";
+        << "# bleibt additiv in golden_fullpilot_320_binary_ids.txt (+ _abi4/_abi5/_abi6-Historie), "
+           "messdaten-erhaltend.\n";
     for (std::size_t i = 0; i < view.size(); ++i) out << view[i].binary_id << "\n";
 
     std::cout << "gen_golden_fullpilot: " << view.size() << " ids -> " << argv[1] << "\n";

@@ -103,27 +103,27 @@
   <!-- Alle Frameworks/Stufen 1x: 7 Lebewesen x 3 Merge-Stufen = 21 SOTA-Reihen (wie m3_golden_coverage;
        deckt zugleich die 9 Pool-Store-Familien = der #9-Messpfad ueber die Gattungs-Konfiguratoren). -->
   <sota_series_set>
-    <sota_series id="A" lebewesen="prt_art"  merge="Stufe1_CeOnly"/>
-    <sota_series id="A" lebewesen="art"      merge="Stufe1_CeOnly"/>
-    <sota_series id="A" lebewesen="hot"      merge="Stufe1_CeOnly"/>
-    <sota_series id="A" lebewesen="masstree" merge="Stufe1_CeOnly"/>
-    <sota_series id="A" lebewesen="surf"     merge="Stufe1_CeOnly"/>
-    <sota_series id="A" lebewesen="start"    merge="Stufe1_CeOnly"/>
-    <sota_series id="A" lebewesen="wormhole" merge="Stufe1_CeOnly"/>
-    <sota_series id="A" lebewesen="prt_art"  merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="A" lebewesen="art"      merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="A" lebewesen="hot"      merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="A" lebewesen="masstree" merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="A" lebewesen="surf"     merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="A" lebewesen="start"    merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="A" lebewesen="wormhole" merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="B" lebewesen="prt_art"  merge="Stufe3_FullJoin"/>
-    <sota_series id="B" lebewesen="art"      merge="Stufe3_FullJoin"/>
-    <sota_series id="B" lebewesen="hot"      merge="Stufe3_FullJoin"/>
-    <sota_series id="B" lebewesen="masstree" merge="Stufe3_FullJoin"/>
-    <sota_series id="B" lebewesen="surf"     merge="Stufe3_FullJoin"/>
-    <sota_series id="B" lebewesen="start"    merge="Stufe3_FullJoin"/>
-    <sota_series id="B" lebewesen="wormhole" merge="Stufe3_FullJoin"/>
+    <sota_series id="A" lebewesen="prt_art"  merge="Verbund1_CeOnly"/>
+    <sota_series id="A" lebewesen="art"      merge="Verbund1_CeOnly"/>
+    <sota_series id="A" lebewesen="hot"      merge="Verbund1_CeOnly"/>
+    <sota_series id="A" lebewesen="masstree" merge="Verbund1_CeOnly"/>
+    <sota_series id="A" lebewesen="surf"     merge="Verbund1_CeOnly"/>
+    <sota_series id="A" lebewesen="start"    merge="Verbund1_CeOnly"/>
+    <sota_series id="A" lebewesen="wormhole" merge="Verbund1_CeOnly"/>
+    <sota_series id="A" lebewesen="prt_art"  merge="Verbund2_Replace"/>
+    <sota_series id="A" lebewesen="art"      merge="Verbund2_Replace"/>
+    <sota_series id="A" lebewesen="hot"      merge="Verbund2_Replace"/>
+    <sota_series id="A" lebewesen="masstree" merge="Verbund2_Replace"/>
+    <sota_series id="A" lebewesen="surf"     merge="Verbund2_Replace"/>
+    <sota_series id="A" lebewesen="start"    merge="Verbund2_Replace"/>
+    <sota_series id="A" lebewesen="wormhole" merge="Verbund2_Replace"/>
+    <sota_series id="B" lebewesen="prt_art"  merge="Verbund3_Union"/>
+    <sota_series id="B" lebewesen="art"      merge="Verbund3_Union"/>
+    <sota_series id="B" lebewesen="hot"      merge="Verbund3_Union"/>
+    <sota_series id="B" lebewesen="masstree" merge="Verbund3_Union"/>
+    <sota_series id="B" lebewesen="surf"     merge="Verbund3_Union"/>
+    <sota_series id="B" lebewesen="start"    merge="Verbund3_Union"/>
+    <sota_series id="B" lebewesen="wormhole" merge="Verbund3_Union"/>
   </sota_series_set>
 
   <!-- Sweep-MECHANIK 1x beruehren, aber klein: 2 Werte (Cache-klein + ein >LLC-Wert fuer den
@@ -150,7 +150,7 @@
   <run_options cap="1" platform="linux-x86_64" build_version="m3_smoke_coverage" resume="true"/>
 
   <modes>
-    <mode name="m3_smoke_base" merge="Stufe1_CeOnly"
+    <mode name="m3_smoke_base" merge="Verbund1_CeOnly"
           active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization value_handle index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2 persistence_target"/>
   </modes>
 
@@ -165,11 +165,15 @@
        binary_id-NEUTRAL. Parse + validate gegen die constexpr-Mess-Registries, aber der Plan-Director konsumiert
        measurement_tooling NICHT (measurement_combos_of(categories) => 1 Voll-Konfig [all]) -> Option dump-plan (ohne fuehrenden Doppelstrich notiert) byte-
        identisch; der N>1-Fan-out gehoert S5/P-MESSTOOL. Ids-Single-Source = die Mess-Registries. run_methodology:
-       debug (§61-STUFEN/(j2): der Smoke IST der Debug-Modus - Debug-Build, Verdrahtungs-Check "DASS es laeuft"; das
+       build (A-05/V-12, 18.08.2026: der work_mode debug ist ausgebaut - er war der einzige, der MASS UND DABEI
+       PARALLEL LIEF. Der Smoke braucht davon nur die eine Haelfte, das Bauen; der Verdrahtungs-Check "DASS es
+       laeuft" wandert auf das Debug-CLI-Flag der Planer-Shell (Slot S-8/W2, mit eigenem
+       End-zu-Ende-Test; bis dahin deckt der state-direkte Zugang in test_experiment_plan_director die
+       (j3)-Mechanik). Alt-Text der debug-Zeile:
        parallele Debug-MESSEN ist §16.2-M1/Task #45, heute 1-Thread); measurement_framework: ycsb (honest-1);
        writeback_methods: csv (die maschinen-lesbare Roh-Wahrheit); measurement_tooling: wallclock (konservativ). -->
   <run_methodology>
-    <method value="debug"/>
+    <method value="build"/>
   </run_methodology>
   <measurement_framework name="ycsb"/>
   <writeback_methods>

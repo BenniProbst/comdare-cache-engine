@@ -97,11 +97,11 @@ konform „kein Runtime-Switch"):
 
 | Stufe | Target | Merge | Semantik |
 |-------|--------|-------|----------|
-| 1 | `comdare_perms_ce` | `StufeOneAxis<Default>` = Default | CE-only, keine Prüfling-Beteiligung |
-| 2 | `comdare_perms_pa` | `StufeTwoAxis` = `std::conditional_t<has_pruefling, PrueflingVariants, Default>` | ERSETZT-mit-Fallback pro Achse |
-| 3 | `comdare_perms_full_join` | `StufeThreeAxis` = `mp_unique<mp_append<Default, PrueflingVariants...>>` | Union non-redundant |
+| 1 | `comdare_perms_ce` | `Verbund1Axis<Default>` = Default | CE-only, keine Prüfling-Beteiligung |
+| 2 | `comdare_perms_pa` | `Verbund2Axis` = `std::conditional_t<has_pruefling, PrueflingVariants, Default>` | ERSETZT-mit-Fallback pro Achse |
+| 3 | `comdare_perms_full_join` | `Verbund3Axis` = `mp_unique<mp_append<Default, PrueflingVariants...>>` | Union non-redundant |
 
-Dispatch via `MergeAxis<MergeStrategy S, ...>` — `S` ist **Non-Type-Template-Parameter** (kein
+Dispatch via `MergeAxis<PrueflingVerbundStrategy S, ...>` — `S` ist **Non-Type-Template-Parameter** (kein
 Runtime-Switch). Genus-Constraint (`assert_pruefling_slot_genus<Slot>`) verhindert Cross-Genus-Joins
 zur Compile-Time (`search_algorithm_permutation_engine.hpp`).
 

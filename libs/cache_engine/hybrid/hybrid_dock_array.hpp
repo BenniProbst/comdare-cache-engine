@@ -62,6 +62,15 @@
 #include <variant>
 #include <vector>
 
+// G3/A-03: der RT-Stempel-Cache traegt einen ZEIGER auf den Anatomy-Stempel-POD des eingesteckten
+// Tier-Moduls. Vorwaertsdeklaration statt Include: fuer das Zeiger-Feld und die Bind-/Lese-API
+// genuegt der unvollstaendige Typ; die Feld-LESER (die RT<=CT-Invariante in
+// hybrid_stempel_kette.hpp) inkludieren die volle Deklaration selbst. Include-Richtung
+// hybrid/ -> abi/ ist die dokumentiert erlaubte (hybrid_module_abi_v1.hpp, Kopf).
+namespace comdare::cache_engine::abi {
+struct AnatomyVersionLines;
+} // namespace comdare::cache_engine::abi
+
 namespace comdare::cache_engine::hybrid {
 
 // ------------------------------------------------------------------------------------------
@@ -102,6 +111,16 @@ struct DockSlot {
     HybridDockVariant         dock;
     DockContractDescriptor    desc{};
     anatomy::IObservableTier* antrieb = nullptr; ///< Cache der Bindung -- der Op-Pfad liest DIESEN
+    // G3/A-03 (KON47-02): der RT-STEMPEL-CACHE. "caching der vollen Stempel der Tier-Binaries an
+    // den Pruefdocks zum init des Hybrids" -- der POD des geladenen Tier-Moduls IST der volle
+    // Stempel in ABI-Form; der Slot cacht die SICHT darauf, keine Kopie. Dieselbe
+    // Lebensdauer-Doktrin wie antrieb: der Zeiger zeigt ins Modul, detach raeumt ihn MIT
+    // (destroy-vor-dlclose), und es gibt keinen zweiten Schreiber neben stempel_binden.
+    // stufen_id ist der CT-Key der Zelle (Layer*Nodes+Node, Synthese-Matrix) -- sie reist mit dem
+    // Stempel, weil die RT<=CT-Invariante beide braucht: OHNE Key liesse sich der Cache keiner
+    // Zelle der CT-Map zuordnen. Nur gueltig bei stempel != nullptr (0 ist ein echter Key).
+    abi::AnatomyVersionLines const* stempel   = nullptr;
+    std::size_t                     stufen_id = 0;
 };
 
 // ------------------------------------------------------------------------------------------
@@ -201,21 +220,18 @@ public:
     /// der variant-Alternativen (Paragraf-49-KORREKTUR: "per Abstract-Factory-Methode gelesen und
     /// verarbeitet"). Deshalb steht hier keine eigene Fallunterscheidung ueber Vertraege; sie waere
     /// die zweite Stelle, an der Vertrag zu Typ wird, und die beiden liefen auseinander.
-    /// Die Deklaration steht in hybrid_dock_factory.hpp; die Definition unten ist bewusst
-    /// out-of-line, damit diese Datei nicht von der Factory abhaengt und die Factory nicht von ihr.
-    /// A2.5-FUND F-9, NICHT BEHOBEN -- und hier ist der Grund, damit niemand ihn nochmal anlaeuft:
-    /// attach ist nur DEKLARIERT; die Definition steht in hybrid_dock_factory.hpp (bewusst -- die
-    /// Factory ist der einzige Konstruktions-Ort). Wer nur dieses Array inkludiert und attach
-    /// ruft, laeuft am LINKER auf, nicht am Compiler.
-    /// ZWEI ANLAEUFE, BEIDE AM OBJEKT GESCHEITERT (17.08.2026): ein Sichtbarkeits-Sentinel per
-    /// Template-Spezialisierung -- einmal als Klassen-Methode, einmal als freie Funktion -- quittiert
-    /// der Compiler mit "specialization of ... after instantiation": der Primaerfall ist bereits
-    /// instanziiert, bevor die Factory ihn spezialisieren kann. Das ist keine Nachlaessigkeit,
-    /// sondern die Sprachsemantik: eine Abfrage, die IM ERSTEN Header steht, kann keine Antwort
+    /// A2.5-FUND F-9 -- BEHOBEN (G4/L21, 2026-08-19) ueber den Register-Weg "gemeinsamer dritter
+    /// Header": die Definition lebt in hybrid_dock_attach.hpp und reist ueber den End-Include am
+    /// Fuss DIESER Datei mit -- wer nur dieses Array inkludiert, LINKT attach (Deckungstest:
+    /// test_hy_a1_attach_nur_array_include.cpp). Vorher war attach hier nur deklariert, die
+    /// Definition stand in der Factory, und der Verstoss fiel erst am LINKER.
+    /// DIE LEHRE AUS ZWEI GESCHEITERTEN ANLAEUFEN BLEIBT STEHEN (17.08.2026, damit niemand sie
+    /// nochmal anlaeuft): ein Sichtbarkeits-Sentinel per Template-Spezialisierung -- einmal als
+    /// Klassen-Methode, einmal als freie Funktion -- quittiert der Compiler mit "specialization
+    /// of ... after instantiation": der Primaerfall ist bereits instanziiert, bevor die Factory
+    /// ihn spezialisieren kann. Eine Abfrage, die IM ERSTEN Header steht, kann keine Antwort
     /// erzwingen, die erst der ZWEITE gibt.
-    /// WAS STATTDESSEN TRAEGT (offener Posten, HY-A2): die attach-Definition in einen gemeinsamen
-    /// dritten Header ziehen, den beide inkludieren. Das loest den Split auf, ohne die
-    /// "Factory ist einziger Konstruktions-Ort"-Zusage zu beruehren -- sie ist eine Aussage
+    /// Die "Factory ist einziger Konstruktions-Ort"-Zusage ist unberuehrt -- sie ist eine Aussage
     /// darueber, WER baut, nicht darueber, in welcher Datei die Zeile steht.
     [[nodiscard]] int attach(DockContractDescriptor const& desc) noexcept;
 
@@ -226,11 +242,44 @@ public:
         if (slot >= speicher_.size() || !speicher_[slot].has_value()) return hybrid_status_slot_leer;
         // Erst die Bindung loesen (im Dock UND im Cache), dann den Slot raeumen. Die Reihenfolge
         // ist die kleine Schwester der destroy-vor-dlclose-Ordnung: ein halb geraeumter Slot mit
-        // lebendem Zeiger ist genau der Zustand, den es nie geben darf.
+        // lebendem Zeiger ist genau der Zustand, den es nie geben darf. G3/A-03: der Stempel-Cache
+        // ist derselbe Fall -- ein POD-Zeiger in ein gleich entladenes Modul darf den Slot nicht
+        // ueberleben; detach ist der EINE Voll-Raeumer beider Caches.
         std::visit([](auto& d) noexcept { d.antrieb_binden(nullptr); }, speicher_[slot]->dock);
-        speicher_[slot]->antrieb = nullptr;
+        speicher_[slot]->antrieb   = nullptr;
+        speicher_[slot]->stempel   = nullptr;
+        speicher_[slot]->stufen_id = 0;
         speicher_[slot].reset();
         return hybrid_status_ok;
+    }
+
+    /// G3/A-03 (KON47-02): DER ZWEITE ASPEKT DES UMSCHALTPUNKTS -- der Stempel-Cache. Beim Init des
+    /// Hybrids mit den Tier-Binary-Modulen wird der VOLLE Stempel des eingesteckten Tiers (sein
+    /// AnatomyVersionLines-POD, beschafft vom Aufrufer ueber das Stempel-ABI-Symbol) am Dock
+    /// gecacht -- "auch von der CEB ueber die Flaeche 2 zur Laufzeit abfragbar" (Owner 12.08.).
+    ///
+    /// GETRENNT von antrieb_binden, nicht hineingemergt: die beiden Aspekte haben verschiedene
+    /// Besitzer (Cross-Cast beim Antrieb, Stempel-Symbol beim POD) und verschiedene Zeiger-Ziele.
+    /// Die Naht bleibt damit "genau eine Funktion breit" JE ASPEKT; ob beide vollzogen sind, wacht
+    /// nicht diese Funktion, sondern die RT<=CT-Invariante (hybrid_stempel_kette.hpp) -- sie meldet
+    /// den Halb-Zustand als hybrid_status_rt_bindung_unvollstaendig.
+    ///
+    /// nullptr heisst GELOEST (symmetrisch zu antrieb_binden(nullptr)); stufen_id wird dabei
+    /// mitgeraeumt, denn ein Key ohne Stempel waere eine halbe Wahrheit im Slot.
+    [[nodiscard]] int stempel_binden(std::size_t slot, std::size_t stufen_id,
+                                     abi::AnatomyVersionLines const* stempel) noexcept {
+        if (slot >= speicher_.size() || !speicher_[slot].has_value()) return hybrid_status_slot_leer;
+        speicher_[slot]->stempel   = stempel;
+        speicher_[slot]->stufen_id = stempel == nullptr ? 0 : stufen_id;
+        return hybrid_status_ok;
+    }
+
+    /// G3/A-03: die FLAECHE-2-LESUNG des Caches (V-04R: "bei Abfrage ueber die Flaeche wird das
+    /// durchgereicht"). Ein Zeiger-Read wie antrieb_von -- nullptr fuer leere, ungueltige oder
+    /// stempel-ungebundene Slots, nie UB.
+    [[nodiscard]] abi::AnatomyVersionLines const* stempel_von(std::size_t slot) const noexcept {
+        if (slot >= speicher_.size() || !speicher_[slot].has_value()) return nullptr;
+        return speicher_[slot]->stempel;
     }
 
     /// DER UMSCHALTPUNKT: hier laeuft der einzige visit des Lebenszyklus (neben attach/detach).
@@ -289,3 +338,20 @@ static_assert(RuntimeDockArrayPolicy::kapazitaet == kHybridNodeObergrenzeDefault
               "Wer hier eine eigene Zahl setzt, holt den 8-gegen-32-Widerspruch zurueck.");
 
 } // namespace comdare::cache_engine::hybrid
+
+// ============================================================================================
+// F-9-SCHLIESSUNG (G4/L21): die attach-Definition reist mit diesem Header MIT
+// ============================================================================================
+// attach ist oben nur DEKLARIERT (der Konstruktions-Ort bleibt die Factory). Damit ein Nutzer,
+// der NUR dieses Array inkludiert, nicht mehr am Linker auflaeuft (A2.5-Fund F-9), zieht dieser
+// End-Include die Factory und -- an DEREN Ende -- den gemeinsamen dritten Header
+// hybrid_dock_attach.hpp mit der Definition nach.
+// WARUM DIE FACTORY UND NICHT DIREKT DER ATTACH-HEADER: expandierte attach direkt am Ende DIESER
+// Datei, dann braeche der Einstieg "Nutzer inkludiert die Factory zuerst" -- deren Array-Include
+// laeuft VOR ihrer Klassendefinition, und der attach-Header saehe die Factory nicht (pragma-once
+// expandiert genau einmal, am ERSTEN Auftreten). Ueber die Factory expandiert die Definition an
+// einem Punkt, an dem IMMER beide Voraussetzungen stehen: DockArray (diese Datei ist dort zu
+// Ende) und HybridDockFactory (der Include steht hinter der Klasse). Impl-Header-Muster wie
+// libstdc++ basic_string.h/.tcc -- der Rueckverweis der Factory auf dieses Array ist ueber die
+// pragma-once-Marke wirkungslos.
+#include "hybrid_dock_factory.hpp"

@@ -265,8 +265,8 @@ inline constexpr MachineCoreCpuId kUndeclaredCore{};
 /// nicht unbemerkt beide Zeilen auf dieselbe Identitaet zusammenfallen laesst.
 inline constexpr std::array<DeclaredMachine, 2> kDeclaredMachines{{
     {"amd_zen5_avx512", "ddr5_2x32", Prod1Zen5Signature::machine_id(), kProd1Zen5Core, Prod1Zen5Signature::signature()},
-    {"intel_avx2", "ddr5_2x32", Prod2RaptorLakeSignature::machine_id(), kProd2AlderLakeCore,
-     Prod2RaptorLakeSignature::signature(), 4800, 0, DeclarationOrigin::EingefrorenesDmi, "dmidecode 2026-07"},
+    {"intel_avx2", "ddr5_2x32", Prod2AlderLakeSignature::machine_id(), kProd2AlderLakeCore,
+     Prod2AlderLakeSignature::signature(), 4800, 0, DeclarationOrigin::EingefrorenesDmi, "dmidecode 2026-07"},
 }};
 
 /// Stufe 2: exakter EIGENSCHAFTS-Match (§70.6 -- ausdruecklich NICHT ueber den Namen). Zwei formal
@@ -442,7 +442,7 @@ static_assert(
     "Eigenschafts-Tupel muessen paarweise verschieden sein (sonst mehrdeutige Aufloesung).");
 // Jede Zeile zeigt auf eine der drei echten CT-Signaturen (Namens-Drift bricht hier).
 static_assert(kDeclaredMachines[0].machine_id == std::string_view{"prod1_zen5"});
-static_assert(kDeclaredMachines[1].machine_id == std::string_view{"prod2_raptor_lake"});
+static_assert(kDeclaredMachines[1].machine_id == std::string_view{"prod2_alder_lake"});
 // -- P3: die A2-Notiz (DeclarationOrigin) -- Drift-Wachen in beide Richtungen (RF-3-Muster) --
 static_assert(kDeclarationOriginCount == static_cast<std::size_t>(DeclarationOrigin::EingefrorenesSpd) + 1);
 static_assert(declaration_origin_token(static_cast<DeclarationOrigin>(kDeclarationOriginCount)) ==

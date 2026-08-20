@@ -112,7 +112,7 @@ TEST(AP13ThreadPinning, NeutralityGuardsStayIntact) {
     std::vector<std::string>                     workloads{"ap9"};
 
     auto const full_csv = b::serialize_measurements_csv(rows, ids, workloads);
-    EXPECT_EQ(count_cols(first_line(full_csv)), 25u);
+    EXPECT_EQ(count_cols(first_line(full_csv)), 32u); // NP-23: 25 + 7 PMC-Quell-Flags (#15-Bruch)
 
     auto const pipeline_csv = b::serialize_measurements_pipeline16_csv(rows, ids, workloads);
     EXPECT_EQ(count_cols(first_line(pipeline_csv)), 16u);

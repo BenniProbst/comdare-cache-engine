@@ -49,19 +49,20 @@ render_adhoc_module_source_shaped(int idx, std::string_view shape_fq, std::strin
     // eine aktivierte Shaped-Zelle das fail-closed-Pruefgate als deklaration_leer (KON44-01-Klasse).
     // Default {} = byte-identisch zur bisherigen Emission (Pfad ist heute default-off).
     if (!organ_stamp.empty()) {
+        // S-6a: dieselbe gedrehte Argument-Folge wie im Schwester-Emitter (dort begruendet).
         if (measurement_stamp.empty()) {
             src += "COMDARE_ANATOMY_VERSION_STAMP(\"";
-            src += organ_stamp;
-            src += "\", \"";
             src += system_stamp;
+            src += "\", \"";
+            src += organ_stamp;
             src += "\")\n";
         } else {
             src += "COMDARE_ANATOMY_VERSION_STAMP_M(\"";
-            src += organ_stamp;
+            src += measurement_stamp;
             src += "\", \"";
             src += system_stamp;
             src += "\", \"";
-            src += measurement_stamp;
+            src += organ_stamp;
             src += "\")\n";
         }
     }

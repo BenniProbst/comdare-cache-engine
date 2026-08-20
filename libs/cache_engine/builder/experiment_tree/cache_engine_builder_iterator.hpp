@@ -282,7 +282,7 @@ struct LazyRunConfig {
     std::size_t     chunk_part_size = 0;
     // #45 (§16.2-M1/§61-MODI, paralleler Mess-Loop): die Zahl paralleler MESS-Worker (ueber die Mess-Zellen). 0/1 =>
     // STRIKT sequentiell (1-Thread-Mess-Vollzug, §38.b) => verhaltens-/byte-identisch zum Ist (Measure/Release/Default,
-    // golden-neutral). >1 => NUR im Debug-Modus (RunMethodology::Debug, single_thread==false) gesetzt: parallelisiert
+    // golden-neutral). >1 => NUR im Debug-Modus (WorkMode::Build, single_thread==false) gesetzt: parallelisiert
     // ueber die Zellen, Ergebnisse in KANONISCHER builds-Reihenfolge gemerged (CSV strukturell identisch; MESSWERTE ohne
     // Garantie -- §61 "DASS es funktioniert"). Der Host/Entry belegt es aus der Methodik + COMDARE_MEASURE_PARALLEL.
     // KLAR GETRENNT vom Bau-Pool (build_parallelism/COMDARE_BUILD_PARALLEL = KOMPILATIONS-Worker).

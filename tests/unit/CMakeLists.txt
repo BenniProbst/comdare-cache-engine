@@ -353,6 +353,10 @@ comdare_add_test(test_rcu
 comdare_add_test(test_rcu_concurrency
     SOURCES test_rcu_concurrency.cpp
     LIBRARIES comdare::rcu)
+# A2.5/G4 M-2: die FenceNahtStruktur-Wache liest rcu.hpp selbst (Quelltext-Praedikat ueber die
+# Naht-Form, Muster der hy_a1-Zonen-Wache) -- der Pfad kommt wie dort per Definition herein.
+target_compile_definitions(test_rcu_concurrency PRIVATE
+    "COMDARE_RCU_HEADER_PFAD=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/reclamation/rcu_reclaim/rcu.hpp\"")
 
 # Aufgabe #105 (2026-05-13): eigene SDSL-Lite-Portierung (BitVector + LOUDS)
 comdare_add_test(test_succinct
@@ -2193,6 +2197,73 @@ target_include_directories(test_hy_a1_heuristik_adapter_gattung PRIVATE
 # COMDARE_HY_QUELLVERZEICHNIS speist die Zonen-Wache: sie liest die hybrid/-Quelldateien und belegt,
 # dass std::variant< dort an GENAU EINER Stelle steht (Bauplan HY-A1, "Scope ausdruecklich
 # hybrid/-lokal" -- die system-weite Fassung des Satzes trifft heute nicht zu).
+# HY-A2 (F8-MINIMAL-DoD, 18.08.2026) -- der Reroute-Roundtrip: EIN Standard-Dock, ZWEI plain-Tier-
+# Ziele, gewuerfeltes Token durch das Dock und literal zurueck. Dazu die Delegations-Probe (der Proxy
+# fuehrt KEINEN eigenen Lebenszyklus) und die B4-Paare beider Ebenen im selben Lauf.
+comdare_add_test(test_hy_f8_reroute
+    SOURCES test_hy_f8_reroute.cpp)
+target_link_libraries(test_hy_f8_reroute PRIVATE comdare::ce_hybrid comdare::anatomy_module_loader)
+target_include_directories(test_hy_f8_reroute PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+# Die SECHS ABI-Pflicht-Symbole werden am GELADENEN Modul geprueft, nicht am Symbolnamen: der Loader
+# ruft alle sechs der Reihe nach auf und erreicht status_ok nur, wenn jedes liefert. Die Pfade kommen
+# als Generator-Ausdruck herein -- ein fest verdrahteter Pfad waere beim ersten Preset-Wechsel falsch,
+# und zwar STILL (Datei nicht da -> Ladefehler, der wie ein ABI-Fehler aussieht).
+target_compile_definitions(test_hy_f8_reroute PRIVATE
+    COMDARE_HY_MODUL_SEARCHALGORITHM="$<TARGET_FILE:hybrid_reroute_searchalgorithm>"
+    COMDARE_HY_MODUL_SET="$<TARGET_FILE:hybrid_reroute_set>")
+add_dependencies(test_hy_f8_reroute hybrid_reroute_searchalgorithm hybrid_reroute_set)
+# R1 (18.08.2026) -- WARUM DIESES TARGET SEINE SYMBOLE EXPORTIEREN MUSS. Der Test castet das ueber dlopen
+# geladene Objekt per dynamic_cast auf HybridBinaryProxy<...>, eine FINAL-Klasse. clang >= 17 nimmt per
+# -fassume-unique-vtables (Default AN) an, dass es je Prozess GENAU EINE vtable je Typ gibt, und ersetzt
+# den dynamic_cast auf einen final-Typ ab -O2 durch einen direkten vtable-ZEIGERVERGLEICH. Genau diese
+# Annahme war hier falsch: Test-Executable und .so trugen je eine EIGENE Kopie der vtable, weil ein
+# Executable seine Symbole ohne ENABLE_EXPORTS nicht in die dynamische Symboltabelle stellt -- der
+# dynamische Linker konnte also nicht deduplizieren. Ergebnis: der Zeigervergleich traf die falsche
+# Kopie, der Cast lieferte nullptr, und zwar NUR unter clang und NUR ab -O2 (gcc kennt die Optimierung
+# nicht, -O0 fuehrt sie nicht aus). Am Objekt gemessen (RTTI-Sonde, 4 Kombinationen): der Fehler haengt
+# am KONSUMIERENDEN Compiler, nicht am .so-Compiler; type_info::operator== und dynamic_cast<void*>
+# waren in allen vier Faellen intakt.
+# DIE GEWAEHLTE HEILUNG MACHT DIE ANNAHME WAHR, statt sie abzuschalten: mit ENABLE_EXPORTS (auf ELF
+# -rdynamic) bindet die .so ihre vtable-/typeinfo-Referenz an die Definition IM EXECUTABLE -- es gibt
+# wieder GENAU EINE, und clangs Vergleich trifft. Gegenprobe gemessen: typeinfo-Adresse lokal == live.
+# WARUM NICHT -fno-assume-unique-vtables (ehrlich verworfen): das haette eine korrekte Optimierung
+# abgeschaltet, um eine Voraussetzung zu kaschieren, die WIR verletzen -- und jeder kuenftige Konsument
+# haette das Flag mitschleppen muessen, ohne dass irgendwo steht, warum.
+# WER SONST NOCH BETROFFEN WAERE: nur ein dynamic_cast auf eine FINAL-Klasse ueber die dlopen-Grenze.
+# Alle anderen dynamic_cast-Stellen im Haus zielen auf INTERFACES (IObservableTier, IDriveableTier, ...),
+# die nicht final sind -- dort greift die Optimierung nicht. Am HEAD gegengeprueft: 0 weitere Stellen.
+set_target_properties(test_hy_f8_reroute PROPERTIES ENABLE_EXPORTS ON)
+
+# Q2/V-06 + KON101-02 (18.08.2026) -- der IDENTITAETS-RIEGEL ueber ALLE Fixture-Klassen. Er haengt an
+# denselben .so wie die uebrigen Loader-Tests; die Pfade kommen als Generator-Ausdruck herein, damit ein
+# Preset-Wechsel nicht STILL auf eine nicht existierende Datei zeigt (dann saehe ein Ladefehler wie ein
+# ABI-Fehler aus). Kein ENABLE_EXPORTS noetig: dieser Test castet nirgends auf einen konkreten Typ, er
+# fragt ausschliesslich ueber das Interface -- genau der Weg, den das ABI vorsieht.
+comdare_add_test(test_q2_identitaets_riegel
+    SOURCES test_q2_identitaets_riegel.cpp)
+target_link_libraries(test_q2_identitaets_riegel PRIVATE comdare::anatomy_module_loader)
+target_compile_definitions(test_q2_identitaets_riegel PRIVATE
+    COMDARE_Q2_MODUL_SET="$<TARGET_FILE:perm_set_d9>"
+    COMDARE_Q2_MODUL_SEQUENCE="$<TARGET_FILE:perm_sequence_d10>"
+    COMDARE_Q2_MODUL_VIEW="$<TARGET_FILE:perm_view_d11>"
+    COMDARE_Q2_MODUL_ADAPTER="$<TARGET_FILE:perm_adapter_d12>"
+    COMDARE_Q2_MODUL_HYBRID_SEARCH="$<TARGET_FILE:hybrid_reroute_searchalgorithm>"
+    COMDARE_Q2_MODUL_HYBRID_SET="$<TARGET_FILE:hybrid_reroute_set>"
+    COMDARE_Q2_MODUL_ALT_MAJOR7="$<TARGET_FILE:perm_alt_major7>"
+    COMDARE_Q2_MODUL_MAJOR7_NEUE_MAGIC="$<TARGET_FILE:perm_major7_neue_magic>"
+    # Review #15 Fix 1 + Fix 3: die vier Negativ-Fixtures des Riegels (Registrierung = T-7-Pflicht).
+    COMDARE_Q2_MODUL_LUEGNER="$<TARGET_FILE:perm_q2_luegner>"
+    COMDARE_Q2_MODUL_OHNE_GATTUNG="$<TARGET_FILE:perm_q2_ohne_gattung>"
+    COMDARE_Q2_MODUL_OHNE_GENUS="$<TARGET_FILE:perm_q2_ohne_genus>"
+    COMDARE_Q2_MODUL_ALT_MAGIC_OHNE_SYMBOLE="$<TARGET_FILE:perm_alt_magic_ohne_symbole>"
+    # A-11/golden-102: die Negativ-Fixture der Stempel-Pflicht (T-1: exakter Status 13 literal).
+    COMDARE_Q2_MODUL_A11_OHNE_STEMPEL="$<TARGET_FILE:perm_a11_ohne_stempel>")
+add_dependencies(test_q2_identitaets_riegel
+    perm_set_d9 perm_sequence_d10 perm_view_d11 perm_adapter_d12 perm_alt_major7 perm_major7_neue_magic
+    perm_q2_luegner perm_q2_ohne_gattung perm_q2_ohne_genus perm_alt_magic_ohne_symbole
+    perm_a11_ohne_stempel
+    hybrid_reroute_searchalgorithm hybrid_reroute_set)
+
 comdare_add_test(test_hy_a1_dock_contract
     SOURCES test_hy_a1_dock_contract.cpp)
 # F-10: Include-Wurzeln kommen ab jetzt aus comdare::ce_hybrid statt handgefuehrt.
@@ -2200,6 +2271,15 @@ target_link_libraries(test_hy_a1_dock_contract PRIVATE comdare::ce_hybrid)
 target_include_directories(test_hy_a1_dock_contract PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_compile_definitions(test_hy_a1_dock_contract PRIVATE
     "COMDARE_HY_QUELLVERZEICHNIS=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/hybrid\"")
+
+# G4/L21 (A2.5-Fund F-9) -- die LINK-PROBE des attach-Splits: attach muss mit dem Array-Header
+# ALLEIN linkbar sein (Definition reist seit dem F-9-Fix ueber array -> factory -> attach-Header
+# mit). EIGENES Binary, kein Fall in test_hy_a1_dock_contract: dessen TU inkludiert die Factory,
+# der Linker faende die attach-Instanziierung dort und die Probe waere falsch-gruen (T-7).
+comdare_add_test(test_hy_a1_attach_nur_array_include
+    SOURCES test_hy_a1_attach_nur_array_include.cpp)
+target_link_libraries(test_hy_a1_attach_nur_array_include PRIVATE comdare::ce_hybrid)
+target_include_directories(test_hy_a1_attach_nur_array_include PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 
 # HY-A3 -- der Parser der <hybrid_tier>-Sektion: der ZWEIWEIG-Schalter (XOR je Kette) und der
 # XML-Override des Dock-Deckels (KON42-01: constexpr-Default im Planer, XML ueberschreibt).
@@ -2213,6 +2293,16 @@ comdare_add_test(test_hy_a3_hybrid_config_parser
 # F-10: Include-Wurzeln aus comdare::ce_hybrid.
 target_link_libraries(test_hy_a3_hybrid_config_parser PRIVATE comdare::ce_hybrid)
 target_include_directories(test_hy_a3_hybrid_config_parser PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+
+# G3/A-03 (KON45-01(6) + KON47-02) -- die RT-Seite der SHA256-Verkettung: RT-Stempel-Cache am
+# Dock (stempel_binden/stempel_von), die EINE Lesung der Komposit-Zeile (komposit_map_wert_bei)
+# als Laufzeit-Gegenprobe und die Invariante RT <= CT mit ihren drei benannten Verstoessen
+# (Codes 13-15). Dieselbe Machart wie die HY-A1/A3-Tests: comdare::ce_hybrid traegt die
+# Include-Wurzeln, die Achsen-Generate kommen fuer anatomy_fingerprint.hpp dazu.
+comdare_add_test(test_hy_a2_stempel_kette
+    SOURCES test_hy_a2_stempel_kette.cpp)
+target_link_libraries(test_hy_a2_stempel_kette PRIVATE comdare::ce_hybrid)
+target_include_directories(test_hy_a2_stempel_kette PRIVATE ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 
 # HY-A1 (Dock-Schicht) -- VIERTE Negativ-Compile-Fixture, nach dem in C1 benannten Muster (a)-(d).
 # Gegenstand: die Vertrags-Registry. Bauplan-Auflage HY-A1 woertlich: "ein Vertrag-Token
@@ -3573,6 +3663,35 @@ add_test(NAME test_f3_lager_key_provider_iterator COMMAND test_f3_lager_key_prov
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_f3_lager_key_provider_iterator)
 set_tests_properties(test_f3_lager_key_provider_iterator PROPERTIES LABELS "bestandslog;bau_filter;standalone")
 
+# F2-5 Posten 1 (Designplan par.2/K2, Abnahme par.4-W1): LG-SkipCallback==0 -- der SKIP-Zweitlauf
+# gegen gueltigen Bestand ruft den Mess-Callback (LazyRunConfig::measurement_sink) exakt 0-mal;
+# Gegeneingang: fehlender/ungueltiger Bestand betritt die Mess-Kette je Zelle real (T-4). Nenner N
+# stammt aus den Achsen-Literalen des Tests (T-3). Include-/Define-/Link-Satz wie
+# test_f3_lager_key_provider_iterator (derselbe Host-Treiber-Header, echter run_lazy-Aufruf); die
+# Quellen-Wache (Abschnitt S im Test) erhaelt die Iterator-Quelle per compile definition -- Muster
+# COMDARE_T15_ITERATOR_QUELLE (Zwischenvariable haelt die Zeile unter 120 Spalten).
+add_executable(test_lg_skip_callback_null "test_lg_skip_callback_null.cpp")
+target_compile_features(test_lg_skip_callback_null PRIVATE cxx_std_23)
+target_include_directories(test_lg_skip_callback_null PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_lg_skip_callback_null PRIVATE Boost::mp11
+    comdare::anatomy_module_loader comdare::workload_driver)
+comdare_set_platform_defines(test_lg_skip_callback_null)
+set(_lgskip_tree "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/experiment_tree")
+target_compile_definitions(test_lg_skip_callback_null PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_LG_SKIPCB_ITERATOR_QUELLE=\"${_lgskip_tree}/cache_engine_builder_iterator.hpp\"")
+unset(_lgskip_tree)
+add_test(NAME test_lg_skip_callback_null COMMAND test_lg_skip_callback_null)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lg_skip_callback_null)
+set_tests_properties(test_lg_skip_callback_null PROPERTIES LABELS "f2-5;lagerhaltung;skip;standalone")
+
 # LAG-P2 (2026-08-09) -- das MESSWERT-GENUS des Lagers. Schwester-Ziel zu test_f3_lager_key_provider_
 # iterator: dort der reale bestand_key_of (Binary-Genus), hier der reale mess_bestand_key_of
 # (measurement-Genus) samt Rueckschrieb und dem Owner-SKIP vom 08.08.2026. Braucht zusaetzlich
@@ -3770,6 +3889,22 @@ target_include_directories(test_axis_kind_wire_totalitaet PRIVATE
 target_compile_definitions(test_axis_kind_wire_totalitaet PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_axis_kind_wire_totalitaet PROPERTIES LABELS "contract;welle5;dock;warnungs-review")
+
+# A2.5-Fix-Strecke 2 / G1 (V-01R, KON101-02; #15-Bruch): Kategorien-Zuordnung des AxisKind-Dachs.
+# Beweist den Dreh in die Kategorien-Ordnung MESS, SYSTEM, ORGAN (Owner 17.08.: "definitiv mit
+# drehen") + die CT-Zuordnung Unter-Achse -> Haupt-Achse -> Kategorie an LEBENDEN Traegern und
+# traegt die schichtuebergreifende NP-01-Konsultations-Wache gegen abi::kSystemAxisOrder (die im
+# topics-Dach nicht leben kann, Layer-Schnitt). Wire-/golden-neutral: reine CT-Wachen + RT-Nenner.
+comdare_add_test(test_axis_kind_kategorien_zuordnung
+    SOURCES test_axis_kind_kategorien_zuordnung.cpp)
+target_include_directories(test_axis_kind_kategorien_zuordnung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_compile_definitions(test_axis_kind_kategorien_zuordnung PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_axis_kind_kategorien_zuordnung PROPERTIES LABELS "contract;welle5;dock")
 
 # W5-C TEIL 2 (builder-Leaf progress_delta.hpp) - Delta-Rekonstruktion gegen die reale StaticBinaryView (done 1x).
 add_executable(test_progress_delta "test_progress_delta.cpp")
@@ -3984,7 +4119,7 @@ target_compile_definitions(test_experiment_parser PRIVATE
 set_tests_properties(test_experiment_parser PROPERTIES LABELS "contract;profiles;e4;incd")
 
 # KERN #48-S4 (2026-07-22) -- ctest-Gate der Minimal-Parser-/Validator-Naht der vier neuen comdare_experiment-v2-
-# Elemente (machines / axis@pruefling / merge=fulljoin / storage). ADDITIV: eigene Fixture
+# Elemente (machines / axis@pruefling / merge=union / storage). ADDITIV: eigene Fixture
 # experiment_kern_seam_fixture.xml (Weg a 2026-08-17: frueher gleichnamig mit der kanonischen super-Instanz
 # experiment_golden_kern.xml) + eigenes Source-File; beruehrt KEINEN bestehenden Parser-/Projection-/
 # Director-Pin. Fixture wird NUR GELESEN.
@@ -4106,7 +4241,7 @@ comdare_attach_generated_catalog(test_experiment_plan_director)
 set_tests_properties(test_experiment_plan_director PROPERTIES LABELS "contract;profiles;e4;planner")
 
 # M-CE-10 (Voll-Review 2026-07-13; per-Host-Auffaecherung 2026-07-14) — ctest-Gate der
-# Stufe2_PrueflingReplace-Materialisierung im sota_catalog. KORREKTUR F23 (2026-07-16): die fruehere
+# Verbund2_Replace-Materialisierung im sota_catalog. KORREKTUR F23 (2026-07-16): die fruehere
 # Beschreibung ("St2 = EINE Binary/HOT-Pilot, Dedup zu 1 Pass, h2_lebewesen == 'hot', 14 gezaehlt") war die
 # VOR-M-CE-10-Semantik — der Test asserted seit der per-Host-Auffaecherung das Gegenteil. Beweist (Wortlaut
 # test_sota_st2_dedup.cpp-Kopf): (1) PER-HOST-DISTINKT — mehrere St2-Deklarationen mit verschiedenen
@@ -4248,13 +4383,54 @@ set(_src_perm_set_defekt_d13       genus_module_set_defekt.cpp)
 #   perm_major7_neue_magic HEUTIGE Magic + Version (Host-Major - 1) -- Isolierungs-Probe (Schloss 2).
 set(_src_perm_alt_major7           genus_module_alt_major7.cpp)
 set(_src_perm_major7_neue_magic    genus_module_major7_neue_magic.cpp)
+# Review #15 Fix 1 + Fix 3 (A2.5, 18.08.2026) -- die VIER Negativ-Fixtures des Q2/V-06-Riegels. Sie
+# haengen sich an DIESELBE Schleife wie alle anderen Modul-Quellen (kein zweiter Bau-Weg) und treiben
+# die drei neuen Statuscodes plus die Loader-Reihenfolge durch den ECHTEN dlopen-Ladeweg:
+#   perm_q2_luegner              Symbol behauptet Sequence, Factory liefert Set -> identity_mismatch (11);
+#                                traegt zusaetzlich die destroy-vor-dlclose-Zaehler-Sonden.
+#   perm_q2_ohne_gattung         comdare_anatomy_gattung fehlt -> gattung_symbol_missing (9).
+#   perm_q2_ohne_genus           comdare_anatomy_genus fehlt -> genus_symbol_missing (10).
+#   perm_alt_magic_ohne_symbole  Alt-Magic .A7. + NUR die vier alten Symbole -> magic_mismatch (4);
+#                                pinnt die Reihenfolge "Identitaets-Symbole erst NACH Magic/Version".
+set(_src_perm_q2_luegner             genus_module_q2_luegner.cpp)
+set(_src_perm_q2_ohne_gattung        genus_module_q2_ohne_gattung.cpp)
+set(_src_perm_q2_ohne_genus          genus_module_q2_ohne_genus.cpp)
+set(_src_perm_alt_magic_ohne_symbole genus_module_alt_magic_ohne_symbole.cpp)
+# A-11/golden-102 (19.08.2026) -- die Negativ-Fixture der STEMPEL-PFLICHT: vollstaendig gueltiges Modul
+# OHNE COMDARE_ANATOMY_VERSION_STAMP -> der Loader weist es mit status 13 (version_lines_symbol_missing)
+# ab. T-1 woertlich: "DLL ohne Stempel-Symbol wird abgewiesen" (echter dlopen-Weg, exakter Status).
+set(_src_perm_a11_ohne_stempel       genus_module_a11_ohne_stempel.cpp)
+# HY-A2 (2026-08-18) -- die beiden HYBRID-Modulquellen. Sie haengen sich an DIESELBE Schleife wie die
+# plain-Tier-Module, und das ist die Aussage: eine Hybrid-.so wird nicht anders gebaut, nicht anders
+# benannt und nicht anders geladen als ein plain Tier. Eine Sonder-Registrierung waere ein zweiter
+# Bau-Weg fuer dieselbe Sache -- und haette zugleich behauptet, die Gattung brauche eine Sonderrolle
+# im Bau, die sie nach dem ABI-Vertrag gerade NICHT hat.
+#   hybrid_reroute_searchalgorithm  Reroute-Ziel SearchAlgorithm (Gattung Map).
+#   hybrid_reroute_set              Reroute-Ziel Set (Container-Gattung) -- belegt die ZWEITE
+#                                   Ziel-Deklaration als baubar, nicht bloss als Text.
+set(_src_hybrid_reroute_searchalgorithm hybrid_tier_module.cpp)
+set(_src_hybrid_reroute_set             hybrid_tier_module_set.cpp)
 foreach(_dll IN ITEMS perm_set_d9 perm_sequence_d10 perm_view_d11 perm_buildvariant_avx512 perm_buildvariant_avx2
-                      perm_adapter_d12 perm_set_defekt_d13 perm_alt_major7 perm_major7_neue_magic)
+                      perm_adapter_d12 perm_set_defekt_d13 perm_alt_major7 perm_major7_neue_magic
+                      perm_q2_luegner perm_q2_ohne_gattung perm_q2_ohne_genus perm_alt_magic_ohne_symbole
+                      perm_a11_ohne_stempel
+                      hybrid_reroute_searchalgorithm hybrid_reroute_set)
     add_library(${_dll} SHARED "${_src_${_dll}}")
     target_include_directories(${_dll} PRIVATE
         "${PROJECT_SOURCE_DIR}/libs/cache_engine"
         "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
-        "${PROJECT_SOURCE_DIR}/libs/common")
+        # G3/A-03: anatomy_fingerprint.hpp zieht seit E-A/B-6 <sha256/ctsha.hpp> aus der
+        # src-Wurzel; die Hybrid-Fixtures erreichen ihn ueber die Stempel-Kette des Proxys.
+        # Die Wurzel gilt fuer ALLE DLLs dieses foreach -- eine Sonderliste nur fuer die zwei
+        # hybrid_reroute_* waere der zweite Bau-Weg, den der Block-Kommentar oben verbietet.
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        # A-11/golden-102: der Stempel-Makro-Traeger (anatomy_module_abi_v1.hpp) zieht ueber
+        # abi_adapter die Organ-Achsen samt CMake-GENERIERTER flags.hpp -- dieselben Dirs wie bei
+        # jedem anderen Stempel-Konsumenten (test_d2 usw.), fuer ALLE DLLs dieses foreach (kein
+        # zweiter Bau-Weg).
+        "${PROJECT_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
     target_compile_features(${_dll} PRIVATE cxx_std_23)
     target_compile_definitions(${_dll} PRIVATE COMDARE_ANATOMY_MODULE_BUILD=1)
     set_target_properties(${_dll} PROPERTIES
@@ -5192,8 +5368,10 @@ target_link_libraries(test_d2_mess_konsistenz_gate PRIVATE gtest gtest_main Boos
 comdare_set_platform_defines(test_d2_mess_konsistenz_gate)
 target_compile_definitions(test_d2_mess_konsistenz_gate PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1
-    "COMDARE_R5G_ADHOC_DLL_DIR=\"${_r5g_adhoc_dir}\"")
-add_dependencies(test_d2_mess_konsistenz_gate comdare_r5g_adhoc_perm)
+    "COMDARE_R5G_ADHOC_DLL_DIR=\"${_r5g_adhoc_dir}\""
+    # A-11/golden-102: die Loader-Haelfte des dlopen-Bisses -- stempellose .so faellt am Loader (13).
+    COMDARE_D2_A11_OHNE_STEMPEL_SO="$<TARGET_FILE:perm_a11_ohne_stempel>")
+add_dependencies(test_d2_mess_konsistenz_gate comdare_r5g_adhoc_perm perm_a11_ohne_stempel)
 add_test(NAME test_d2_mess_konsistenz_gate COMMAND test_d2_mess_konsistenz_gate)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_d2_mess_konsistenz_gate)
 set_tests_properties(test_d2_mess_konsistenz_gate PROPERTIES LABELS "m;d2;stempel;pruefdock;fehlerklassen")
@@ -5366,6 +5544,35 @@ comdare_attach_generated_catalog(test_w2_combo_ct_stamp)
 add_test(NAME test_w2_combo_ct_stamp COMMAND test_w2_combo_ct_stamp)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_w2_combo_ct_stamp)
 set_tests_properties(test_w2_combo_ct_stamp PROPERTIES LABELS "w2;stempel;fehlerklassen")
+
+# B3 (19.08.2026, KON37-01/KON34-04): der CT-ZWEIG-BEWEIS des wallclock-Erbes -- die EINZIGE TU im
+# Baum mit einer w-LOSEN spezifischen Bestellung ("[macro]"). Nur hier ist der Erb-Anschluss von
+# resolve_live_measurement_combo_legend beobachtbar: W2 ("[wallclock]") und die B2-Gegen-TU
+# ("[wallclock,macro]") nennen w selbst, ihr Erbe ist ein No-op. Include-Satz wie test_w2 (die
+# Stempel-Naht wohnt in lazy_adhoc_source_gen.hpp); die TU-Defines tragen exakt den Satz, den
+# mess_achsen_defines fuer die GEERBTE Bestellung emittiert (Konsistenz-Doktrin der B2-Gegen-TU).
+# Eigene Binary => kein ODR-Konflikt zwischen den CT-Auspraegungen der inline-Funktionen.
+add_executable(test_b3_wallclock_erbe_ct
+    "test_b3_wallclock_erbe_ct.cpp")
+target_compile_features(test_b3_wallclock_erbe_ct PRIVATE cxx_std_23)
+target_include_directories(test_b3_wallclock_erbe_ct PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_b3_wallclock_erbe_ct PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_b3_wallclock_erbe_ct)
+target_compile_definitions(test_b3_wallclock_erbe_ct PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_CE_ENABLE_SEGMENT_TIMING=0
+    COMDARE_EXPERIMENT_MODE_ON=1 COMDARE_MEASUREMENT_TOOLING_WALLCLOCK=1 COMDARE_MEASUREMENT_TOOLING_MACRO=1
+    "COMDARE_MEASUREMENT_COMBO_CT=\"[macro]\"")
+comdare_attach_generated_catalog(test_b3_wallclock_erbe_ct)
+add_test(NAME test_b3_wallclock_erbe_ct COMMAND test_b3_wallclock_erbe_ct)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_b3_wallclock_erbe_ct)
+set_tests_properties(test_b3_wallclock_erbe_ct PROPERTIES LABELS "b3;messachse;stempel;fehlerklassen")
 
 # M-1/D-1 BISS (06.08.2026): die Mess-Achse WIRKT auf die Tier-Defines. Prueft die reine Abbildung
 # profile_facade/mess_achsen_naht.hpp mess_achsen_defines() -- die EINE Funktion, aus der
@@ -6601,6 +6808,20 @@ target_include_directories(test_a9s4_skip_manifest PRIVATE
 target_link_libraries(test_a9s4_skip_manifest PRIVATE comdare::lager_ablage)
 set_tests_properties(test_a9s4_skip_manifest PROPERTIES
     LABELS "a9;mess_report;skip;manifest")
+
+# F2-5 Posten 2 (Designplan par.2/K5, NIE-fallen-Klasse "Messdaten nie loeschen"; GOAL VI.4):
+# LG-XlsxAlt -- neue Binary-Version schreibt ADDITIV daneben; die Alt-Datei bleibt ueber den VOLLEN
+# Inhalt byte-identisch (Vernichtungs-Negativprobe, die test_a9s4_skip_manifest:113 mit Groesse+mtime
+# nicht traegt). Gegeneingang T-4: gleiche Version = SKIP je Skip-Doktrin. Include-/Link-Satz wie
+# test_a9s4_skip_manifest (dieselbe Werkzeug-Naht, dieselbe Factory-ODR-Pflicht).
+comdare_add_test(test_lg_xlsx_alt_nie_vernichten
+    SOURCES test_lg_xlsx_alt_nie_vernichten.cpp)
+target_include_directories(test_lg_xlsx_alt_nie_vernichten PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder")
+target_link_libraries(test_lg_xlsx_alt_nie_vernichten PRIVATE comdare::lager_ablage)
+set_tests_properties(test_lg_xlsx_alt_nie_vernichten PROPERTIES
+    LABELS "f2-5;mess_report;skip;nie_vernichten")
 # A9-S5 (2026-08-09) -- die NAHT: Format-Entscheidung + Feld-Adapter + die Mappe neben der offiziellen
 # CSV (profile_facade/ergebnis_mappe_naht.hpp). Bis hierher hatte der xlsx-Writer NULL Produktions-
 # Aufrufer; dieser Test ist der erste, der die beiden geschuldeten Zusicherungen prueft (leeres

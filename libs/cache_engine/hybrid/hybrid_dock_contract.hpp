@@ -98,12 +98,31 @@ inline constexpr int hybrid_status_max_docks_fehlt = 10; ///< enabled="true" ohn
 // aufloest (fehlt != falsch), und sie schickt den Anwender an die falsche Stelle: er sucht nach
 // einem Tippfehler, wo eine Zeile fehlt.
 inline constexpr int hybrid_status_genus_fehlt = 11; ///< <hybrid_tier> ohne genus-Attribut
+// A2.5-Fix 4 (Review #15) -- die BINDUNGS-Paarung am Proxy. ziel_binden dokumentiert "nullptr in
+// BEIDEN heisst geloest"; ein GEMISCHTES Paar (einer null, einer nicht) ist keiner der beiden
+// Zustaende und liesse Antrieb und Ziel auf VERSCHIEDENE Objekte auseinanderlaufen. Eigener Code,
+// nicht slot_leer/kein_zielfaehiges_genus: der Fehler liegt in der PAARUNG der Argumente, nicht im
+// Slot und nicht im Genus. (Der Genus-Verstoss desselben Fixes traegt den bestehenden Code 3.)
+inline constexpr int hybrid_status_bindung_inkonsistent = 12; ///< ziel_binden: antrieb/basis gemischt null
+// G3/A-03 (KON45-01(6) + KON47-02) -- die RT<=CT-INVARIANTE der Stempel-Kette. Drei Codes, drei
+// verschiedene Fehler des Anwenders, drei verschiedene Stellen:
+//   (13) die BINDUNG ist halb -- Antrieb ohne gecachten Stempel oder Stempel ohne Antrieb. Das ist
+//        der Zustand zwischen den beiden Bind-Aufrufen des Init; die Invariante wird am ENDE des
+//        Init gerufen, dort ist er ein Fehler (KON47-02: Caching gehoert ZUM Init, nicht danach).
+//   (14) die belegte Zelle steht NICHT in der CT-Map -- die Laufzeit belegt ein Dock, das die
+//        compile-time Identitaet nicht kennt. Deckt auch stufen_id ueber dem Key-Deckel ab: ein
+//        solcher Key KANN in keiner grammatischen Map stehen.
+//   (15) Key vorhanden, aber der Wert differiert -- am Dock steckt ein ANDERES Tier als das, dessen
+//        Name-Hash in der CT-Map eingefroren ist (auch: POD ohne gesetzten Namen, name_len == 0).
+inline constexpr int hybrid_status_rt_bindung_unvollstaendig = 13; ///< Antrieb XOR Stempel-Cache am Slot
+inline constexpr int hybrid_status_rt_ct_key_fehlt           = 14; ///< belegte stufen_id nicht in der CT-Map
+inline constexpr int hybrid_status_rt_ct_wert_differiert     = 15; ///< Tier-Name-Hash != CT-Map-Wert
 
 /// Die EINZELQUELLE aller Status-Codes. Wer einen anhaengt, traegt ihn HIER ein -- die
 /// Namens-Totalitaets-Wache unten faengt sonst den Vergessenen. Handgefuehrte Listen IM TEST sind
 /// genau die Bauart, an der die alten Vollstaendigkeits-Wachen gescheitert sind
 /// (nachgemessen, heuristik_adapter_klassifikation.hpp:20-30).
-inline constexpr std::array<int, 12> kAlleHybridStatus{hybrid_status_ok,
+inline constexpr std::array<int, 16> kAlleHybridStatus{hybrid_status_ok,
                                                        hybrid_status_unbekannter_vertrag,
                                                        hybrid_status_contract_ohne_dock_typ,
                                                        hybrid_status_kein_zielfaehiges_genus,
@@ -114,7 +133,11 @@ inline constexpr std::array<int, 12> kAlleHybridStatus{hybrid_status_ok,
                                                        hybrid_status_max_docks_ungueltig,
                                                        hybrid_status_mehr_docks_als_deckel,
                                                        hybrid_status_max_docks_fehlt,
-                                                       hybrid_status_genus_fehlt};
+                                                       hybrid_status_genus_fehlt,
+                                                       hybrid_status_bindung_inkonsistent,
+                                                       hybrid_status_rt_bindung_unvollstaendig,
+                                                       hybrid_status_rt_ct_key_fehlt,
+                                                       hybrid_status_rt_ct_wert_differiert};
 
 [[nodiscard]] constexpr std::string_view hybrid_status_name(int s) noexcept {
     switch (s) {
@@ -130,6 +153,10 @@ inline constexpr std::array<int, 12> kAlleHybridStatus{hybrid_status_ok,
         case hybrid_status_mehr_docks_als_deckel: return "mehr_docks_als_deckel";
         case hybrid_status_max_docks_fehlt: return "max_docks_fehlt";
         case hybrid_status_genus_fehlt: return "genus_fehlt";
+        case hybrid_status_bindung_inkonsistent: return "bindung_inkonsistent";
+        case hybrid_status_rt_bindung_unvollstaendig: return "rt_bindung_unvollstaendig";
+        case hybrid_status_rt_ct_key_fehlt: return "rt_ct_key_fehlt";
+        case hybrid_status_rt_ct_wert_differiert: return "rt_ct_wert_differiert";
         default: return "unknown";
     }
 }

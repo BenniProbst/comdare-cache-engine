@@ -40,39 +40,74 @@
 # nicht die Commit-Granularitaet -- er erzwingt Floor-Datei und Registrierung
 # im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
-# -- NACHZUG 2026-08-19 (g2-Harmonisierung vor Landung: Merge development 20c111c4 in bau/g2-semantik) --
+# -- NACHZUG 2026-08-19 (A2.5/G5 B3 WALLCLOCK-ERBE, EINE NEUE REGISTRIERUNG) --
+# 507/503/501 loest 506/502/500 ab. Der Zuwachs ist +1 in JEDER Klasse und stammt
+# vollstaendig aus dem B3-Posten (Schalter-Hoheits-Umzug zur CEB, KON37-01/KON34-04):
+#     test_b3_wallclock_erbe_ct   (add_test -- die EINZIGE TU im Baum mit w-LOSER
+#                                  spezifischer CT-Bestellung "[macro]"; beweist den
+#                                  Erb-Anschluss des CT-Zweigs von
+#                                  resolve_live_measurement_combo_legend)
+# GEMESSEN, NICHT GERECHNET (KON58-13): alle drei Sprossen an DIESEM Baum EINMAL LIVE
+# erhoben, nicht aus der 506 fortgeschrieben. Zaehlbasis war die Schlusszeile
+# "Total Tests: N"; jede Namensliste hat die Gegenprobe Listenlaenge == Total bestanden
+# (507/507, 503/503, 501/501). Die MESS-FALLE der rechtsbuendigen ctest-Nummern hat im
+# ersten Zug real gebissen (408 von 507 gematcht) und ist mit 'Test *#' geschlossen.
+# ZWEI-SEITIGE GEGENPROBE am Objekt, LC_ALL=C comm in BEIDE Richtungen:
+#     avx512f -> avx2  verliert exakt die dokumentierten VIER
+#                      (test_ap5_simd_extension_coherence, test_buildvariant_dll_real,
+#                       test_simd_add_u64_carry_avx512, test_simd_field_sum_dispatch_avx512)
+#     avx2    -> basis verliert exakt die ZWEI
+#                      (test_simd_add_u64_carry_avx2, test_simd_field_sum_dispatch_avx2)
+#     beide Gegenrichtungen LEER -- kein verstecktes -1/+2.
+# test_b3_wallclock_erbe_ct steht in ALLEN DREI Namensmengen je genau 1x und in KEINER
+# comm-Verlustliste, ist also weder ISA- noch Pruefling-gegatet -> +1 auf allen drei
+# Sprossen; die Sprossenabstaende -4 und -2 bleiben unveraendert.
+# MESSHOST prod1, GCC, Ninja, 2026-08-19. Bau-Baum build/gcc-release in der CI-FORM MIT
+# Pruefling (COMDARE_CE_PRUEFLINGE:STRING=<repo>/tests/pruefling_fixture, LITERAL aus der
+# CMakeCache.txt DESSELBEN Baums; ebenso COMDARE_HOST_RUNS_AVX2:INTERNAL=1 und
+# COMDARE_HOST_RUNS_AVX512F:INTERNAL=1 -- die Klasse ist gemessen, nicht angenommen).
+# Beide Klassen per cmake erzwungen (-DCOMDARE_HOST_RUNS_AVX512F=0 -> 503; zusaetzlich
+# -DCOMDARE_HOST_RUNS_AVX2=0 -> 501), danach 'cmake -U' auf BEIDE Variablen:
+# Wiederherstellung BYTE-GLEICH (cmp der sortierten Namenslisten ohne Ausgabe, Total
+# wieder 507, beide Cache-Schalter wieder INTERNAL=1).
+#
+# -- NACHZUG 2026-08-17 (SERIELLE WELLEN-LANDUNG A2.1a, VIER STRAENGE, EINE NEUE REGISTRIERUNG) --
+# -- NACHZUG 2026-08-18 (HY-A2 REROUTE-PROXY, EINE NEUE REGISTRIERUNG) --------
 # 502/498/496 loest 501/497/495 ab. Der Zuwachs ist +1 in JEDER Klasse und stammt
-# vollstaendig aus g2: test_g2_semantik_duplikatverbot (comdare_add_test, UNBEDINGT
-# registriert -- keine AVX-Klausel, kein Pruefling-Gate; Header-only-Flaeche, eigener
-# Block am Tail von tests/unit/CMakeLists.txt). Der Name steht in ALLEN DREI
-# Klassen-Namensmengen (avx512f/avx2/basis je 1x) und in KEINER comm-Verlustliste.
-# GEMESSEN, NICHT GERECHNET: am Kombistand (Merge b5bc5cac + Lock-Regen 1c5d201d)
-# EINMAL LIVE erhoben, nicht aus Strang-Deltas addiert. MESSHOST prod1, GCC 15.3.0,
-# Ninja, 2026-08-19. Bau-Baum build-covguard KALT angelegt (rm -rf) und in der
-# CI-FORM MIT PRUEFLING konfiguriert (CC=gcc-15 CXX=g++-15 configure.sh
-# --with-generator=Ninja --enable-build-tests --build-dir=build-covguard
-# -DCOMDARE_CE_PRUEFLINGE="$PWD/tests/pruefling_fixture"), J-1-Muster (erst die fuenf
-# Werkzeuge comdare_anatomy_codegen_cli, comdare_adhoc_emitter_cli,
-# comdare_axis_registry_gen, comdare_system_axis_registry_gen,
-# comdare_measurement_axis_registry_gen, dann RE-KONFIGURIERT). Registrierungs-
-# Protokoll dieses Baums: 6 von 6 bedingten Bloecken AKTIV. Schalter LITERAL aus der
-# CMakeCache.txt DESSELBEN Baums: COMDARE_HOST_RUNS_AVX2:INTERNAL=1,
-# COMDARE_HOST_RUNS_AVX512F:INTERNAL=1, COMDARE_CE_PRUEFLINGE:STRING=
-# <repo>/tests/pruefling_fixture -- die Klasse ist gemessen, nicht angenommen, und
-# die WERTE SIND DIE PRUEFLING-FORM (ZAHLEN-FALLE unten beachtet: NICHT gegen die
-# pruefling-lose Form halten). MESS-FALLE beachtet: Zaehlbasis war die Schlusszeile
-# 'Total Tests: N', jede Namensliste hat die Gegenprobe Listenlaenge == Total
-# bestanden (502/502, 498/498, 496/496); der erste Extraktions-Ausdruck ist an der
-# rechtsbuendigen ctest-Nummern-Falle GERISSEN (403 von 502) und wurde korrigiert --
-# die Gegenprobe hat genau das gefangen. Beide Klassen per cmake erzwungen, danach
-# 'cmake -U' auf BEIDE Variablen: Wiederherstellung BYTE-GLEICH (cmp ohne Ausgabe,
-# Total wieder 502). LC_ALL=C comm in BEIDE Richtungen: avx512f->avx2 verliert exakt
-# die dokumentierten VIER, avx2->basis die ZWEI, beide Gegenrichtungen LEER.
-#     avx512f (gemessen, prod1, ctest 'Total Tests')                       -> 502
+# vollstaendig aus dem HY-A2-Strang:
+#     test_hy_f8_reroute   (comdare_add_test -- F8-Minimal-DoD: EIN Standard-Dock,
+#                           ZWEI plain-Tier-Ziele, Roundtrip-Koeder, plus der
+#                           dlopen-Beleg der vier ABI-Pflicht-Symbole an zwei
+#                           Hybrid-.so)
+# GEMESSEN, NICHT GERECHNET (KON58-13 / Landungs-Doktrin "nie Deltas addieren"):
+# alle drei Sprossen sind an DIESEM Baum EINMAL LIVE erhoben, nicht aus der 501 fort-
+# geschrieben. Zaehlbasis war die Schlusszeile "Total Tests: N", jede Namensliste hat
+# die Gegenprobe Listenlaenge == Total bestanden (502/502, 498/498, 496/496).
+# ZWEI-SEITIGE GEGENPROBE am Objekt, LC_ALL=C comm in BEIDE Richtungen:
+#     avx512f -> avx2  verliert exakt die dokumentierten VIER
+#                      (test_ap5_simd_extension_coherence, test_buildvariant_dll_real,
+#                       test_simd_add_u64_carry_avx512, test_simd_field_sum_dispatch_avx512)
+#     avx2    -> basis verliert exakt die ZWEI
+#                      (test_simd_add_u64_carry_avx2, test_simd_field_sum_dispatch_avx2)
+#     beide Gegenrichtungen LEER -- kein verstecktes -1/+2.
+# test_hy_f8_reroute steht in ALLEN DREI Namensmengen je genau 1x und in KEINER
+# comm-Verlustliste, ist also weder ISA- noch Pruefling-gegatet -> +1 auf allen drei
+# Sprossen; die Sprossenabstaende -4 und -2 bleiben unveraendert.
+# ZWEI NEUE SHARED-TARGETS OHNE ctest-WIRKUNG, ausdruecklich benannt, damit niemand sie
+# spaeter fuer eine fehlende Registrierung haelt: hybrid_reroute_searchalgorithm und
+# hybrid_reroute_set sind .so-Bauziele (add_library SHARED), keine add_test-Eintraege --
+# sie werden VON test_hy_f8_reroute geladen und zaehlen deshalb nicht eigenstaendig.
+# MESSHOST prod1, GCC, Ninja, 2026-08-18. Bau-Baum build/gcc-release in der CI-FORM MIT
+# Pruefling (-DCOMDARE_CE_PRUEFLINGE=<repo>/tests/pruefling_fixture), J-1-Muster (erst die
+# fuenf comdare_-Werkzeuge, dann RE-KONFIGURIERT). Schalter LITERAL aus der CMakeCache.txt
+# DESSELBEN Baums: COMDARE_HOST_RUNS_AVX2:INTERNAL=1, COMDARE_HOST_RUNS_AVX512F:INTERNAL=1,
+# COMDARE_CE_PRUEFLINGE:STRING=<repo>/tests/pruefling_fixture -- die Klasse ist gemessen,
+# nicht angenommen. Beide Klassen per cmake erzwungen, danach 'cmake -U' auf BEIDE:
+# Wiederherstellung BYTE-GLEICH (cmp ohne Ausgabe, Total wieder 502).
+#     avx512f (gemessen, prod1, ctest "Total Tests")                       -> 503
 #     cmake -DCOMDARE_HOST_RUNS_AVX512F=0                                  -> 498
 #     cmake -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0       -> 496
 #
-# -- NACHZUG 2026-08-17 (SERIELLE WELLEN-LANDUNG A2.1a, VIER STRAENGE, EINE NEUE REGISTRIERUNG) --
 # -- NACHZUG 2026-08-18 frueh (Welle-2-Landung xorf+f3v+a11) ------------------
 # 501/497/495 loest 500/496/494 ab. Der Zuwachs ist +1 in JEDER Klasse und stammt
 # vollstaendig aus f3v: test_flaeche3_deckung_ceb_aus_tier_an (UNBEDINGT registriert,
@@ -610,8 +645,62 @@
 #
 # FORMAT: '#'-Kommentare und Leerzeilen sind erlaubt. Wertzeilen haben die Form
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
+#
+# NACHZUG 18.08.2026 (Q2/V-06/KON101-02, Bump-Bruch #15): 502/498/496 -> 503/499/497.
+# ANLASS: EINE neue ctest-Registrierung, test_q2_identitaets_riegel (der Identitaets-Riegel ueber
+# den echten dlopen-Ladeweg). Sie ist UNBEDINGT -- kein ISA-Gate, kein opt-in-Label --, also
+# bewegt sie alle drei Sprossen um dieselbe 1.
+# WIE GEMESSEN, NICHT GERECHNET: die avx512f-Sprosse ist die Klasse dieser Maschine (prod1) und
+# wurde LIVE abgelesen -- gcc-release, voller Bau ueber --target comdare_tests, ctest-Schlusszeile
+# literal "100% tests passed, 0 tests failed out of 503". Die beiden anderen Sprossen sind auf
+# dieser Klasse nicht messbar (andere Host-Klasse); fuer sie gilt die im Kopf festgehaltene
+# +1-Regel unbedingter Tests, wie beim 500er-Nachzug c3478a9c. Kein Delta-Addieren ueber mehrere
+# Aenderungen hinweg: dies ist EINE Registrierung in EINEM Zug.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
+#
+# NACHZUG 19.08.2026 (A2.5-Fixstrecke-2 G4, Bump-Bruch #15): 503/499/497 -> 506/502/500.
+# KONTO, je Name (alle drei UNBEDINGT registriert -- comdare_add_test auf oberster Ebene, kein
+# ISA-Gate, kein opt-in-Label -- also je +1 auf allen drei Sprossen):
+#   test_hy_a2_stempel_kette            (G3/A-03, Commit 06bcbba3)  -- NACHHOLUNG: die
+#     Registrierung kam OHNE den hier pflichtigen Floor-Nachzug im selben Change (#39-Verstoss,
+#     in G4 als Verzug festgestellt und hier benannt ausgeglichen, nicht still addiert).
+#   test_axis_kind_kategorien_zuordnung (V-01R,  Commit e34666fa)  -- NACHHOLUNG, derselbe Fall.
+#   test_hy_a1_attach_nur_array_include (G4/L21, DIESER Change)    -- die F-9-Link-Probe.
+# WIE GEMESSEN, NICHT GERECHNET: avx512f ist die Klasse dieser Maschine (prod1) und wurde LIVE
+# abgelesen -- gcc-release, voller Bau (all + comdare_tests), ctest-Schlusszeile literal
+# "100% tests passed, 0 tests failed out of 506". Fuer avx2/basis gilt die im Kopf festgehaltene
+# +1-Regel unbedingter Tests je Registrierung (drei Registrierungen -> +3), wie beim 500er- und
+# 503er-Nachzug. Die Drei-in-einem-Zug-Form ist dem Verzug geschuldet und AUSDRUECKLICH als
+# solcher dokumentiert: zwei der drei Zeilen gehoeren zu bereits gelandeten Commits dieses
+# Branches, ihr Nachzug war faellig und fehlte.
 
-avx512f 502
-avx2 498
-basis 496
+# NACHZUG 20.08.2026 (F2-5 Posten 1, Band A): 507/503/501 -> 508/504/502. KONTO, EIN Name in
+# EINEM Zug (Registrierung und Floor-Zeile im SELBEN Commit, #39-Doktrin):
+#   test_lg_skip_callback_null (LG-SkipCallback==0: SKIP-Zweitlauf ruft den Mess-Callback 0-mal;
+#     DIESER Change) -- UNBEDINGT registriert (add_test auf oberster Ebene, kein ISA-Gate, kein
+#     opt-in-Label) => +1 auf allen drei Sprossen (die im Kopf festgehaltene +1-Regel).
+# WIE GEMESSEN, NICHT GERECHNET: avx512f ist die Klasse dieser Maschine (prod1) und wurde LIVE
+# abgelesen -- gcc-release, inkrementeller Bau, 'ctest -N'-Schlusszeile literal
+# "Total Tests: 508". Fuer avx2/basis gilt die +1-Regel wie beim 500er-, 503er- und 506er-Nachzug.
+#
+# NACHZUG 20.08.2026 (F2-5 Posten 2, Band A): 508/504/502 -> 509/505/503. KONTO, EIN Name in
+# EINEM Zug (Registrierung und Floor-Zeile im SELBEN Commit, #39-Doktrin):
+#   test_lg_xlsx_alt_nie_vernichten (LG-XlsxAlt "nie vernichten": Versions-Wechsel schreibt additiv,
+#     Alt-Datei vollbyte-identisch; DIESER Change) -- UNBEDINGT registriert (comdare_add_test auf
+#     oberster Ebene, kein ISA-Gate, kein opt-in-Label) => +1 auf allen drei Sprossen.
+# WIE GEMESSEN, NICHT GERECHNET: avx512f ist die Klasse dieser Maschine (prod1) und wurde LIVE
+# abgelesen -- gcc-release, inkrementeller Bau, 'ctest -N'-Schlusszeile literal
+# "Total Tests: 509". Fuer avx2/basis gilt dieselbe +1-Regel unbedingter Tests.
+
+# =============================================================================
+# NACHZUG 20.08.2026 (L1-LANDUNG #15-Bruch in development, Merge-Stand): 510/506/504
+# loest 509/505/503 ab. Der Zuwachs ist +1 in JEDER Klasse und stammt aus der
+# g2-Landung ba33b9ac (1 neuer Test der dev-Seite), am MERGE-Stand LIVE gemessen
+# (A2.1b: geteilte Zaehlwerke EINMAL live, nie je Strang addiert):
+# WIE GEMESSEN, NICHT GERECHNET: avx512f ist die Klasse dieser Maschine (prod1) und wurde LIVE
+# erhoben: frischer build-l1 (Frisch-Configure MIT -DCOMDARE_CE_PRUEFLINGE, J-1 SIEBEN Werkzeuge,
+# RECONFIGURE, all, comdare_tests, RECONFIGURE2), dann "Total Tests: 510". Fuer avx2/basis gilt
+# dieselbe +1-Regel unbedingter Tests.
+avx512f 510
+avx2 506
+basis 504

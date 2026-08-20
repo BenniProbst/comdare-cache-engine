@@ -82,7 +82,7 @@ fs::path write_temp_profile(std::string const& datasets_block, std::string const
   <base_tiers><tier id="hot" profile_ref="../sota/hot.profile.xml" paper_ref="P02"/></base_tiers>
   <permute_axes><axis ref="search_algo"><value>k_ary</value></axis></permute_axes>
 )" << datasets_block
-        << series_block << R"(  <modes><mode name="ce_only" merge="Stufe1_CeOnly" active_axes="search_algo"/></modes>
+        << series_block << R"(  <modes><mode name="ce_only" merge="Verbund1_CeOnly" active_axes="search_algo"/></modes>
   <static_axes from="base_tier"/>
 </comdare_thesis_profile>
 )";
@@ -233,7 +233,7 @@ TEST(WdkDatasetsFairness, ValidateExampleOkAndErrorCases) {
 
     // Fehlerfall fairness: nur common_denominator|native (oder weglassen) ist erlaubt.
     auto const bad_fair =
-        parse_temp("", "  <sota_series_set><sota_series id=\"A\" lebewesen=\"hot\" merge=\"Stufe1_CeOnly\" "
+        parse_temp("", "  <sota_series_set><sota_series id=\"A\" lebewesen=\"hot\" merge=\"Verbund1_CeOnly\" "
                        "fairness=\"fastest\"/></sota_series_set>\n");
     ASSERT_TRUE(bad_fair.has_value());
     tlz::ProfileValidationResult const vf = tlz::validate_profile(*bad_fair, registry);

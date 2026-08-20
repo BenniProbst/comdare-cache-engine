@@ -89,19 +89,17 @@ static_assert(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512{f.vl}
                                         m::Prod1Zen5Signature::signature()));
 // prod2 (AVX-512 fused-off) traegt kein avx512f -- dieselbe Version faellt.
 static_assert(!m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512{f}"),
-                                         m::Prod2RaptorLakeSignature::signature()));
+                                         m::Prod2AlderLakeSignature::signature()));
 // Token ohne cpuinfo-Feld (c, p, e, die Basen) sind zulassungs-neutral: Struktur, keine Faehigkeit.
-static_assert(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c{p.e}"),
-                                        m::Prod2RaptorLakeSignature::signature()));
-static_assert(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512"),
-                                        m::Prod2RaptorLakeSignature::signature()));
+static_assert(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c{p.e}"), m::Prod2AlderLakeSignature::signature()));
+static_assert(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512"), m::Prod2AlderLakeSignature::signature()));
 static_assert(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.m64"), m::Prod1Zen5Signature::signature()));
 // Der vnni-Doppelgaenger ueber die TABELLE, nie ueber String-Heuristik: x256{vnni} -> avx_vnni
 // (prod2 traegt es), x512{vnni} -> avx512_vnni (prod2 traegt es NICHT).
 static_assert(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x256{vnni}"),
-                                        m::Prod2RaptorLakeSignature::signature()));
+                                        m::Prod2AlderLakeSignature::signature()));
 static_assert(!m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512{vnni}"),
-                                         m::Prod2RaptorLakeSignature::signature()));
+                                         m::Prod2AlderLakeSignature::signature()));
 // Katalog-Token mit LEERER cpuinfo-Id einer Faehigkeits-Sorte ("ueber den heutigen Erhebungsweg nicht
 // signaturfaehig", kFlagGrammarCatalog x256-Block): ein Signatur-Match kann NIE eintreten -> false,
 // fail-closed -- nicht neutral (neutral ist nur Struktur ohne Compiler-Schalter).
@@ -186,7 +184,7 @@ static_assert(m::render_algo_semver(m::parse_algo_semver("1.0.0.c.x512{vl}")).vi
 // Die drei deklarierten Signaturen sind voraussetzungs-geschlossen (prod1 traegt avx512f UND alle
 // Subsets explizit; prod2/odroid tragen keine x512-Subsets).
 static_assert(m::signatur_ist_voraussetzungs_geschlossen(m::Prod1Zen5Signature::signature()));
-static_assert(m::signatur_ist_voraussetzungs_geschlossen(m::Prod2RaptorLakeSignature::signature()));
+static_assert(m::signatur_ist_voraussetzungs_geschlossen(m::Prod2AlderLakeSignature::signature()));
 static_assert(m::signatur_ist_voraussetzungs_geschlossen(m::OdroidGracemontSignature::signature()));
 // Die deklarierte WERKZEUG-GRENZE ist BENANNT, nicht verschluckt: genau ZWEI Ketten (vaes->aes,
 // vpclmulqdq->pclmulqdq) nennen ein Flag, das der 23er-Signatur-Katalog nicht fuehrt. Ein additiver
@@ -220,11 +218,11 @@ TEST(S3OrdnungRelation, SignaturBrueckeLaeuftUeberDieTabelle) {
     EXPECT_TRUE(
         m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512{f.vl}"), m::Prod1Zen5Signature::signature()));
     EXPECT_FALSE(
-        m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512{f}"), m::Prod2RaptorLakeSignature::signature()));
-    EXPECT_TRUE(m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x256{vnni}"),
-                                          m::Prod2RaptorLakeSignature::signature()));
+        m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512{f}"), m::Prod2AlderLakeSignature::signature()));
+    EXPECT_TRUE(
+        m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x256{vnni}"), m::Prod2AlderLakeSignature::signature()));
     EXPECT_FALSE(
-        m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512{vnni}"), m::Prod2RaptorLakeSignature::signature()))
+        m::flag_menge_in_signatur(m::parse_algo_semver("1.0.0.c.x512{vnni}"), m::Prod2AlderLakeSignature::signature()))
         << "avx512_vnni entsteht aus der Tabelle -- eine String-Heuristik haette avx_vnni getroffen.";
 }
 
@@ -253,7 +251,7 @@ TEST(S3OrdnungRelation, DerBestandBleibtGruen) {
 
 TEST(S3OrdnungRelation, GeschlossenheitsWacheDeckt) {
     EXPECT_TRUE(m::signatur_ist_voraussetzungs_geschlossen(m::Prod1Zen5Signature::signature()));
-    EXPECT_TRUE(m::signatur_ist_voraussetzungs_geschlossen(m::Prod2RaptorLakeSignature::signature()));
+    EXPECT_TRUE(m::signatur_ist_voraussetzungs_geschlossen(m::Prod2AlderLakeSignature::signature()));
     EXPECT_TRUE(m::signatur_ist_voraussetzungs_geschlossen(m::OdroidGracemontSignature::signature()));
     EXPECT_FALSE(m::signatur_ist_voraussetzungs_geschlossen(kUnvollstaendigeSignatur))
         << "avx512vl ohne avx512f MUSS als unvollstaendige Deklaration auffallen.";

@@ -654,7 +654,7 @@ Organen (Achsen). Die 3 Join-Muster (§8.9) sind die mengentheoretischen Operati
 **(4) Die Regel der abstrakt-leeren Achse — der „Lebewesen-Klassen-Prototyp".** Ein Prüfling liefert NUR für EINIGE
 Achsen eigene Algorithmen. Für jede Achse, die er NICHT belegt (Slot **abstrakt leer**, `has_pruefling == false`),
 gilt: er **reust ALLE CE-Algorithmen dieser Achse als Default** und der Generator **permutiert sie voll aus**.
-Type-Mechanik (`pruefling_merge.hpp`): `StufeTwoAxis<DefaultList, EmptyPrueflingSlot> == DefaultList`
+Type-Mechanik (`pruefling_merge.hpp`): `Verbund2Axis<DefaultList, EmptyPrueflingSlot> == DefaultList`
 (volle CE-Liste). Damit ist der Stufe-2-Raum des Prüfling-Prototyps:
 
 ```
@@ -670,7 +670,7 @@ Achsen den Raum.
 
 **Beleg (Compile-Time, IST-verifiziert).** `prt_art/tests/unit/test_prt_art_pruefling_registration.cpp`,
 `F5_DreigliedrigkeitPermutationSpace`:
-- `.StufeTwoEmptyAxesReuseAllCeAlgorithms` — `static_assert(StufeTwoAxis<…,EmptyPrueflingSlot> == DefaultList)`
+- `.StufeTwoEmptyAxesReuseAllCeAlgorithms` — `static_assert(Verbund2Axis<…,EmptyPrueflingSlot> == DefaultList)`
   (Type-Beleg) **+** `PermutationEngine::count() == ∏_leer |A_j|  > 1` (Raum-Beleg über 2 leere + 2 belegte Achsen).
 - `.ThreeStufenProduceDistinctBinarySetSizes` — Stufe 1 = `∏ A_i`, Stufe 2 (belegt-Teilsicht) = 1,
   Stufe 3 = `∏ (|A_i|+1)` (full-join `A ⋈ B`).

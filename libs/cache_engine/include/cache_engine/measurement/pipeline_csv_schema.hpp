@@ -70,16 +70,35 @@ inline constexpr std::array<std::string_view, 16> kPipeline16Spalten{"permutatio
 /// pmc_available", tatsaechlich sind es NEUN Namen (6 Observer + pmc_available + branch_misses +
 /// throughput_ops_per_sec). Der Nenner stand also falsch im Kommentar und richtig im Code. Genau
 /// deshalb steht er ab hier als Konstante, die der Compiler zaehlt, und nicht als Prosa.
-inline constexpr std::array<std::string_view, 9> kPipelineVollZusatzSpalten{
-    "search_insert",         "search_lookup", "search_hit",    "search_miss",           "search_erase",
-    "search_peak_occupancy", "pmc_available", "branch_misses", "throughput_ops_per_sec"};
+/// NP-23 (#15-Bruch, 19.08.2026): +7 PMC-Quell-Flag-Spalten am ENDE (Positionen 25..31) -- BEZIFFERT
+/// als SIEBEN, eine je im POD transportiertem PMC-Zaehler (6 HW-Counter + branch_misses; die 5/6 der
+/// OV-S13-3-Skizze sind durch den B-5-Quell-Vollausbau ueberholt, Begruendung am POD). Die 25er-
+/// Altsicht bleibt ein echtes PRAEFIX -- positionsabhaengige Alt-Leser der ersten 25 Spalten brechen
+/// nicht. NP-24-BAUPUNKT: measurement_from_workload_result(PmcCounters) x serialize_measurements_csv
+/// x DIESE Liste x schema_freeze.hpp (selber Commit).
+inline constexpr std::array<std::string_view, 16> kPipelineVollZusatzSpalten{"search_insert",
+                                                                             "search_lookup",
+                                                                             "search_hit",
+                                                                             "search_miss",
+                                                                             "search_erase",
+                                                                             "search_peak_occupancy",
+                                                                             "pmc_available",
+                                                                             "branch_misses",
+                                                                             "throughput_ops_per_sec",
+                                                                             "cache_misses_l1_source_available",
+                                                                             "cache_misses_l2_source_available",
+                                                                             "cache_misses_l3_source_available",
+                                                                             "dtlb_misses_source_available",
+                                                                             "coherence_invalidations_source_available",
+                                                                             "energy_micro_joules_source_available",
+                                                                             "branch_misses_source_available"};
 
 /// Die NENNER, vom Compiler gezaehlt statt behauptet.
 inline constexpr std::size_t kPipeline16SpaltenZahl   = kPipeline16Spalten.size();
 inline constexpr std::size_t kPipelineVollSpaltenZahl = kPipeline16Spalten.size() + kPipelineVollZusatzSpalten.size();
 
 static_assert(kPipeline16SpaltenZahl == 16, "Die Pipeline-Sicht ist per Vertrag 16-spaltig (Stufe 04/05).");
-static_assert(kPipelineVollSpaltenZahl == 25, "Volle Sicht == 16 Pipeline-Spalten + 9 Zusatzspalten.");
+static_assert(kPipelineVollSpaltenZahl == 32, "Volle Sicht == 16 Pipeline + 9 Zusatz + 7 NP-23-Quell-Flags.");
 
 /// Die volle Spaltenliste, ABGELEITET statt abgeschrieben: Praefix sind exakt die 16, danach die 9.
 /// Damit kann die volle Sicht per Konstruktion nicht von der Pipeline-Sicht abdriften.

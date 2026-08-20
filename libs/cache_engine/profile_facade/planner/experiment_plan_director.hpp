@@ -58,7 +58,7 @@
 // planer_driven_build.hpp -> batch_planner.hpp); die Wache haengt aber NICHT an einer fremden
 // Include-Kette, die ein spaeterer Umbau still kappen koennte -- sie zieht ihre Operanden selbst.
 #include <builder/bestandslog/planer_driven_build.hpp> // LAG-P4: bestandslog::kBuildSliceGrain (+ kGnBatchSlice)
-#include <cache_engine/measurement/run_methodology_registry.hpp> // S5-P1: RunMethodology-Registry (Build-Semantik-Single-Source)
+#include <cache_engine/measurement/run_methodology_registry.hpp> // S5-P1: WorkMode-Registry (Single-Source)
 #include "planner/pmc_host_probe.hpp" // 10.08.2026: die LAUFZEIT-Erkennung der PMC-Hardwareform dieses Hosts
 
 #include "xml_config_parser/xml_config_parser.hpp" // cx::ExperimentProfile / cx::ThesisProfile (explizit)
@@ -122,8 +122,9 @@ struct PlanMeasurementCombo {
 ///     measurement_on     0 Leser
 ///     single_thread      0 Leser
 /// Die beiden letzten werden GESCHRIEBEN UND NIE GELESEN. Sie bleiben trotzdem stehen und sind ausdruecklich NICHT
-/// zurueckgebaut: sie sind der benannte S6-Konsum (der per-Methodik-Fanout {debug,measure,release} zu N
-/// Mess-Strecken). Ein stiller Rueckbau von etwas Gemeintem waere teurer als ein totes Feld. Was NICHT bleibt, ist
+/// zurueckgebaut: sie sind der benannte S6-Konsum (der per-Methodik-Fanout {build,measure,compare,release} zu N
+/// Mess-Strecken; A-05/V-12: debug ausgebaut). Ein stiller Rueckbau von etwas Gemeintem waere teurer als ein totes
+/// Feld. Was NICHT bleibt, ist
 /// die Behauptung, sie wuerden gelesen -- die stand bis zum 07.08.2026 hier und liess ein Phantom wie eine
 /// Verdrahtung aussehen.
 ///
@@ -136,8 +137,8 @@ struct PlanMeasurementCombo {
 /// (test_experiment_plan_director: PlanBuildSemanticSpiegeltDieRegistryZeileFuerJedenModus).
 struct PlanBuildSemantic {
     std::string cmake_build_type = "Release"; // CMAKE_BUILD_TYPE des Tier-Baus/Mess-Baus (measure => "Release")
-    bool        measurement_on   = true;      // misst das Profil (measure/debug: true; release/compare: false)
-                                              // -- 0 Leser, reserviert fuer den S6-Fanout (s.o.)
+    bool        measurement_on   = true;      // misst das Profil (measure: true; build/compare/release: false;
+                                              // A-05/V-12: debug ausgebaut) -- 0 Leser, S6-Fanout-Reserve (s.o.)
     bool single_thread = true; // 1-Thread-deterministischer Mess-Vollzug (Section 38.b) -- 0 Leser, S6 (s.o.)
 };
 
@@ -211,7 +212,7 @@ struct PlanStep {
     std::size_t index = 0; // 0-basierter Schritt-Index INNERHALB der aktuellen Perm
     std::string kind;      // "thesis_sweep_pass" | "experiment_phase_pass"
     std::string label;     // thesis: Sweep-Achse ("" = Basis-Pass) ; experiment: Phasen-Name
-    std::string merge;     // experiment: MergeStrategy ; thesis: "-"
+    std::string merge;     // experiment: PrueflingVerbundStrategy ; thesis: "-"
     std::string
         binary_id;      // experiment: view_binary_id ; thesis: "-" (Basis-binary_ids entstehen erst in der Selektion)
     std::string series; // experiment: Reihe A/B ; thesis: "-"
@@ -2284,15 +2285,18 @@ private:
     // waehlt fuer die Mess-Strecke die measure-Methodik (run_methodology_registry-Single-Source: Release / misst /
     // 1-Thread-deterministisch, §38.b); cmake_build_type/single_thread stammen IMMER aus dieser Zeile => tier:build
     // byte-identisch zum Vor-S5-Verhalten (Default-Release). measurement_on spiegelt, ob das Profil ueberhaupt misst
-    // (leer ODER measure/debug deklariert => ja; NUR release/compare => nein, reiner Referenz-Durchsatz).
+    // (leer ODER measure deklariert => ja; build/compare/release => nein, Bau- bzw. Referenz-Laeufe;
+    // A-05/V-12: debug ist ausgebaut).
     // ES WIRD HEUTE VON NIEMANDEM GELESEN: hier stand bis zum 07.08.2026 der Satz "Das Feld wird gelesen" -- er war
     // falsch (0 Leser, nachgezaehlt ueber alle header_.build_semantic-Zugriffe, s. Struct-Doku). Der Konsument ist
-    // der per-Methodik-Fanout {debug,measure,release} zu N Mess-Strecken, und der ist S6.
+    // der per-Methodik-Fanout {build,measure,compare,release} zu N Mess-Strecken, und der ist S6.
     [[nodiscard]] static PlanBuildSemantic
     build_semantic_of_run_methodology(std::vector<std::string> const& run_methodology) {
         // §61-STUFEN/(j2): GENAU EIN aktiver Modus je Profil (validate erzwingt exactly-one, j1). Die Build-Semantik
-        // kommt aus DIESEM Modus -- Debug={Debug,misst,parallel}, Measure={Release,misst,1-Thread}, Release={Release,
-        // misst NICHT}. NICHT mehr fix measure (Vor-(j2)-Lesart). Leer => Default measure (Release, 1-Thread). Die
+        // kommt aus DIESEM Modus -- 4er-Welt (A-05/V-12): Build={Release,misst NICHT,parallel},
+        // Measure={Release,misst,1-Thread}, Compare/Release={Release,misst NICHT,parallel}; der fruehere
+        // Debug={Debug,misst,parallel} ist ausgebaut. NICHT mehr fix measure (Vor-(j2)-Lesart). Leer => Default
+        // measure (Release, 1-Thread). Die
         // Methodik-Quelle ist das PROFIL, NICHT die Env (COMDARE_MEASURE_PROFILE bleibt NUR der rules-Auto-Run-Trigger).
         // R5: >1 ist ein Kontraktbruch (validate gated ihn VOR dem Bau) -- HART statt still front(), damit ein
         // 2-Modi-Profil nie zufaellig eine Modus-Semantik waehlt (symmetrisch zu run_methodology_for_ids).
@@ -2305,7 +2309,7 @@ private:
         // bis heute eine ZWEITE, eigene Suchschleife, die ein unbekanntes Token STILL auf measure warf -- ein
         // Tippfehler im Profil emittierte damit eine vollstaendige Mess-Strecke, die niemand angefordert hat.
         // Die >1-Wache bleibt HIER (eigene, den Planer nennende Meldung); die Registry wiederholt sie nur.
-        cm::RunMethodologyInfo const& m = cm::run_methodology_for_ids(run_methodology);
+        cm::WorkModeInfo const& m = cm::run_methodology_for_ids(run_methodology);
         return PlanBuildSemantic{std::string(m.cmake_build_type), m.measurement_on, m.single_thread};
     }
 

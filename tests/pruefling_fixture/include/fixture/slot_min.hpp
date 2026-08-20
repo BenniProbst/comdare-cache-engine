@@ -16,7 +16,7 @@
 //   Pruefling-Inhalts. Wer den Inhalt will, laedt den echten Pruefling (S9).
 //
 // WARUM TAG-TYPEN STATT ECHTER CE-STRATEGIEN: die Naht pruefen heisst
-// PrueflingSlotConcept, StufeTwoAxis und StufeThreeAxis instanziieren. Dafuer
+// PrueflingSlotConcept, Verbund2Axis und Verbund3Axis instanziieren. Dafuer
 // zaehlt ausschliesslich die Listen-Algebra ueber mp11. Echte Strategie-Basen
 // zoegen ihre eigenen CRTP-Ctor-Wachen (algo_version, Fehlerklassen) herein und
 // wuerden das Fixture an Zusicherungen binden, die mit dem Plugin-Weg nichts zu
@@ -57,7 +57,7 @@ struct SlotMin {
 };
 
 // Der Gegeneingang (T-4): derselbe Slot-Bau, aber has_pruefling = false.
-// Er belegt, dass StufeTwoAxis dann auf die CE-Default-Liste zurueckfaellt --
+// Er belegt, dass Verbund2Axis dann auf die CE-Default-Liste zurueckfaellt --
 // eine Zusicherung ohne Eingang, bei dem sie NICHT gilt, ist keine.
 struct SlotLeer {
     using PrueflingVariants             = mp::mp_list<FixtureNeu>;

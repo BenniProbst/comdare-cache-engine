@@ -20,7 +20,9 @@
 // EHRLICHE LUECKEN (NUR reflektieren was im Code existiert, sonst TODO -- §32-F1/F7):
 //   - repetition: eine reine setting_label-DynDim OHNE CT-Anker (kein Feld/keine Methode) -> TODO, nicht
 //     emittiert (waere ein handgeschriebenes Phantom).
-//   - 3 Mess-Modi Debug/Mess/Release: existieren NICHT als Typen -> TODO, nicht emittiert.
+//   - work_mode: SEIT 18.08.2026 EMITTIERT (A-05/V-12). Der alte Eintrag hier lautete "3 Mess-Modi
+//     Debug/Mess/Release existieren NICHT als Typen -> TODO"; mit dem work_mode-Umbau existiert
+//     kWorkModeRegistry als constexpr-Single-Source, und es sind VIER Modi ohne Debug.
 //   - Regime-/Kategorie-Ordinal statt Label: MeasurementRegime hat keine string-Label-Single-Source ->
 //     Ordinal reflektiert (0=TimeObserver, 1=PmcCounter laut system_axis.hpp).
 //
@@ -34,6 +36,7 @@
 #include <anatomy/resource_controllable_tier.hpp> // ComdareResourceControlV1 + kResourceControlVersion
 #include <cache_engine/measurement/load_framework_measurement_axis.hpp> // workload-Unter-Achsen-Label (Single-Source)
 #include <cache_engine/measurement/measurement_axis_registry.hpp> // kMeasurementAxisRegistry + for_each + axis_info
+#include <cache_engine/measurement/run_methodology_registry.hpp>  // A-05/V-12: kWorkModeRegistry (work_mode-DynDim)
 #include <cache_engine/measurement/system_axis.hpp>               // 3 Kollektoren + MeasurementRegime + regime_of
 
 #include <cstddef>
@@ -85,6 +88,12 @@ template <class W>
 std::vector<std::string> g_names;
 void                     note_name(std::string_view n) { g_names.emplace_back(n); }
 
+// A-05/V-12: die Zaehlwerke der Schluss-Meldung. Sie werden BEIM Emittieren hochgezaehlt, damit die
+// Meldung den Output beschreibt und nicht eine Erinnerung daran (die Literale 3/6 standen falsch da,
+// sobald eine Dimension dazukam).
+std::size_t g_collector_count = 0;
+std::size_t g_dyn_dim_count   = 0;
+
 // Emittiert einen Kollektor-Baustein (WallClock/ObserverSnapshot/Pmc): FQ-Typ + Regime-Ordinal + die je
 // Kollektor zugeordneten Kategorien (aus do_categories(), auf axis_info(cat).name abgebildet).
 template <class Collector>
@@ -92,6 +101,7 @@ void emit_collector(std::ofstream& f) {
     std::string const type = fq_type<Collector>();
     std::string const name = short_name(type);
     note_name(name);
+    ++g_collector_count;
     f << "    <baustein name=\"" << xml_escape(name) << "\" wrapper=\"" << xml_escape(name) << "\" type=\""
       << xml_escape(type) << "\" enabled=\"true\" regime_ordinal=\"" << static_cast<std::uint32_t>(Collector::regime())
       << "\">\n";
@@ -194,6 +204,7 @@ int main(int argc, char** argv) {
     {
         std::string_view const wl = meas::YcsbLoadFrameworkAxis::sub_axis_label();
         note_name(wl);
+        ++g_dyn_dim_count;
         f << "    <dim id=\"" << xml_escape(wl)
           << "\" stage=\"runtime\" source=\"measurement:load_framework\" value_type=\"token\"/>\n";
     }
@@ -203,14 +214,40 @@ int main(int argc, char** argv) {
                                        std::string_view{"pool_budget_bytes"}, std::string_view{"batch_size"},
                                        std::string_view{"inline_threshold_bytes"}}) {
         note_name(dim);
+        ++g_dyn_dim_count;
         f << "    <dim id=\"" << xml_escape(dim) << "\" stage=\"runtime\" source=\"resource_control_pod\""
           << " value_type=\"uint\"/>\n";
     }
     f << "    <!-- TODO(W2-B): repetition ist eine reine setting_label-DynDim OHNE CT-Anker -> nicht emittiert\n";
     f << "         (kein handgeschriebenes Phantom). Erst mit einer constexpr-Namens-Single-Source reflektierbar. "
          "-->\n";
-    f << "    <!-- TODO(W2-B, §32-F1/F7): die 3 Mess-Modi Debug/Mess/Release existieren NICHT als Typen ->\n";
-    f << "         nicht emittiert; erst nach ihrer Typisierung als Mess-Unter-Achse reflektierbar. -->\n";
+    // A-05/V-12 (18.08.2026) -- DER TODO IST EINGELOEST, NICHT WEGGESTRICHEN.
+    //
+    // Er lautete: "die 3 Mess-Modi Debug/Mess/Release existieren NICHT als Typen -> nicht emittiert;
+    // erst nach ihrer Typisierung als Mess-Unter-Achse reflektierbar." Genau diese Typisierung ist mit
+    // dem work_mode-Umbau entstanden: kWorkModeRegistry IST die constexpr-Namens-Single-Source, die der
+    // TODO verlangt hat. Die Bedingung ist erfuellt, also wird emittiert.
+    //
+    // ZWEI KORREKTUREN GEGENUEBER DEM TODO-TEXT, beide am Objekt: es sind VIER Modi, nicht drei
+    // (build/measure/compare/release), und "Debug" ist keiner davon mehr -- er war der einzige, der MASS
+    // UND DABEI PARALLEL LIEF, und ist mit V-12 ausgebaut. Die Zeile spiegelt die Registry, nicht den
+    // alten Wunsch: die ids kommen aus kWorkModeRegistry, damit sie bei der naechsten Bewegung des Enums
+    // NICHT still veralten koennen (dieselbe Doktrin wie beim workload-Label oben).
+    f << "    <!-- work_mode (A-05/V-12): die Run-Methodik-UNTER-Achse. Single-Source ist kWorkModeRegistry\n";
+    f << "         (run_methodology_registry.hpp); Index == WorkMode-Wert, static_assert-gesichert. Der\n";
+    f << "         frueher hier stehende TODO ist damit eingeloest - die Typisierung, auf die er wartete,\n";
+    f << "         existiert. Reine Reflexion: kein handgeschriebener Wert, keine zweite Wissensquelle. -->\n";
+    {
+        note_name(std::string_view{"work_mode"});
+        ++g_dyn_dim_count;
+        f << "    <dim id=\"work_mode\" stage=\"plan\" source=\"measurement:run_methodology\" value_type=\"token\"";
+        f << " allowed=\"";
+        for (std::size_t i = 0; i < meas::kWorkModeCount; ++i) {
+            if (i > 0) f << ",";
+            f << xml_escape(meas::kWorkModeRegistry[i].id);
+        }
+        f << "\"/>\n";
+    }
     f << "  </dynamic_dims>\n";
 
     f << "</comdare_axis_registry>\n";
@@ -227,7 +264,12 @@ int main(int argc, char** argv) {
         return 4;
     }
 
-    std::cout << "measurement_axis_registry_gen: 16 Kategorien + 3 Kollektoren + 6 dyn. Dimensionen -> " << out_path
+    // A-05/V-12 (18.08.2026): die drei Zahlen waren hier LITERAL ("16 ... 3 ... 6 dyn."). Beim Anbau der
+    // work_mode-DynDim stand die 6 sofort falsch da (es sind 7) -- eine Meldung, die den eigenen Output
+    // falsch beschreibt, ist schlimmer als keine. Sie kommen jetzt aus denselben Quellen wie die Emission:
+    // die Kategorie-Zahl aus der Registry-Konstante, die beiden anderen GEZAEHLT beim Emittieren.
+    std::cout << "measurement_axis_registry_gen: " << meas::kMeasurementAxisCount << " Kategorien + "
+              << g_collector_count << " Kollektoren + " << g_dyn_dim_count << " dyn. Dimensionen -> " << out_path
               << "\n";
     return 0;
 }

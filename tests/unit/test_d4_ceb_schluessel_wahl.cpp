@@ -68,7 +68,7 @@ struct LegendeUndSchluessel {
 /// vermutlich "repariert", indem man die Aussage entschaerft.
 [[nodiscard]] std::string runtime_ceb_key(std::string const& mess) {
     auto const glieder = cabi::anatomy_fingerprint_glieder(
-        cabi::OrganZeile{""}, cabi::SystemZeile{""}, cabi::MessZeile{mess},
+        cabi::MessZeile{mess}, cabi::SystemZeile{""}, cabi::OrganZeile{""},
         cabi::ToolchainGlied{cabi::kToolchainStampGlied}, cabi::BvsetGlied{cabi::kBuildVariantSetSignatureGlied},
         cabi::OverlayHash{""});
     std::string const pre =
@@ -191,9 +191,21 @@ TEST(D4CebSchluesselWahl, VollmengeIstByteStabilZumVorD4Stand) {
     // Provenienz; die Suche nach einem Vergleich auf dem Feld liefert 0 Treffer in libs/, apps/ und
     // tests/). Alt-Bestandslog-Zeilen behalten ihren alten Schluessel und werden von niemandem
     // gegengerechnet. Der Alt-Bestand wird nicht ENTWERTET, er wird nur nicht mehr fortgeschrieben.
-    constexpr std::string_view kFormat4Vollmenge =
-        "9f8802514f7a5e5ee4a4229844d83eaabf0b8860652691a2238819e346bcd48b223b297f057b7ea747cf6cac993cd7ad"
-        "a926af71de1fd9ea188e09176f5c4fe8";
+    // S-6a/KON45-01 (18.08.2026) -- DIESELBE WACHE, DAS NAECHSTE DEKLARIERTE BYTE-EREIGNIS. Der
+    // Format-Bump 4 -> 5 dreht die Kategorien-Ordnung der Glieder [1][2][3] auf MESS, SYSTEM, ORGAN und
+    // haengt ein zehntes Glied an; kCebFingerprintFor rechnet ueber anatomy_fingerprint_hex und wandert
+    // zwangslaeufig mit. Der neue Wert ist wieder aus dem literalen Testlauf uebernommen, nicht
+    // vorausberechnet. Die Tragbarkeit unten (null Lese-Stellen von ceb_key_sha512) gilt unveraendert.
+    //   HISTORIE: Format 4 (E-E/v2) 9f8802514f7a5e5e...6f5c4fe8
+    // B-9/golden-102 (19.08.2026, Owner-Deckung KON101-02 E-B(i)) -- DIESELBE WACHE, DAS NAECHSTE
+    // DEKLARIERTE BYTE-EREIGNIS. Der Format-Bump 5 -> 6 macht build_version IDENTITAETS-wirksam
+    // (Basis-Glied [10], anatomy_fingerprint.hpp); kCebFingerprintFor rechnet ueber
+    // anatomy_fingerprint_hex und wandert zwangslaeufig mit. Der neue Wert ist wieder aus dem
+    // literalen Testlauf uebernommen, nicht vorausberechnet (Abnahme-Lauf 19.08.2026,
+    // abnahme_ctest_master_vor_nachzug_ROT.log). Die Tragbarkeit unten gilt unveraendert.
+    //   HISTORIE: Format 5 (S-6a) 99786106cf0ac2ac...86053739
+    constexpr std::string_view kFormat6Vollmenge = "74bdbb69683b5ad5e765e9da2a9541a4276feb07570618f26e5dd3b257fffeff"
+                                                   "f477e840a386eb8dc60bb92dee884eafa7bdf4b957113e016b3c7a42a1b388fe";
 #if COMDARE_CEB_HAT_PMC_GLIED
     // I-PMC-2 (Owner 10.08.2026) -- DAS DEKLARIERTE BYTE-EREIGNIS, UND SEINE GENAUE REICHWEITE.
     //
@@ -205,14 +217,14 @@ TEST(D4CebSchluesselWahl, VollmengeIstByteStabilZumVorD4Stand) {
     // WELCHER BESTAND DAVON BETROFFEN IST: KEINER. Jeder heutige Bestandslog-Eintrag stammt von einer CEB
     // OHNE Vendor-Makro (das Makro existiert erst seit dem 10.08.2026), faellt also in den #else-Zweig und
     // behaelt den Anker unten Byte fuer Byte. Alt-Records werden NIE umgeschrieben (BU additiv).
-    EXPECT_NE((ceb::kCebFingerprintFor<ceb::CebComboLegend{"[all]"}>), kFormat4Vollmenge)
+    EXPECT_NE((ceb::kCebFingerprintFor<ceb::CebComboLegend{"[all]"}>), kFormat6Vollmenge)
         << "Die PMC-CEB traegt denselben Schluessel wie die PMC-lose -- dann waere die Permutation "
            "gebaut und unsichtbar (Owner 10.08.2026: 'was die Ergebnisse wiederum NICHT VERGLEICHBAR "
            "macht'). Genau diese Ununterscheidbarkeit soll das Glied beenden.";
     // Und die AUSSAGE zum Nicht-Gleich: es liegt am Glied, nicht an irgendetwas.
     EXPECT_NE(std::string{ceb::kCebMeasurementStampFor<ceb::CebComboLegend{"[all]"}>}.find("pmc="), std::string::npos);
 #else
-    EXPECT_EQ((ceb::kCebFingerprintFor<ceb::CebComboLegend{"[all]"}>), kFormat4Vollmenge)
+    EXPECT_EQ((ceb::kCebFingerprintFor<ceb::CebComboLegend{"[all]"}>), kFormat6Vollmenge)
         << "Der Vollmengen-Schluessel ist gewandert -- damit sind ALLE bestehenden Bestandslog-Eintraege "
            "entwertet. Das ist erlaubt, aber nur als deklariertes Byte-Ereignis mit Owner-Entscheid, nie "
            "als Nebenprodukt. I-PMC-2 (10.08.2026) beruehrt DIESEN Zweig ausdruecklich NICHT: das "

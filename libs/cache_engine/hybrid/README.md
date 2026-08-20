@@ -30,8 +30,12 @@
 > `std::variant<` darin an genau einer Stelle steht.
 >
 > **Weiterhin offen:** K1 (Lager-Identitaet), K2 (Loader-/Drive-Schichtung), K5
-> (Snapshot-Aggregations-Semantik) sowie die Owner-Frage E-6 (welche Registry "22->23" meint --
-> heute steht KEINE Achsen-Registry auf 22, der Eintrag ginge in die falsche Datei).
+> (Snapshot-Aggregations-Semantik). Die hier bis zum 18.08.2026 als offen gefuehrte Owner-Frage
+> E-6 (welche Registry "22->23" meint) ist per KON118 BEANTWORTET: die "22->23" war ein
+> PHANTOM-NENNER (es stand nie eine Achsen-Registry auf 22); der echte Registry-Anteil war
+> `kGenusBuildSlotCounts` 5->6, und der IST GEBAUT -- `genus_build_admission.hpp` traegt den
+> sechsten Eintrag (Reroute-Genus, Aritaet = Dock-Deckel aus der Hybrid-Bindung) samt
+> `static_assert kGenusBuildSlotCounts.size() == 6` *(Nachtrag A2.5/seg1-04)*.
 
 ## Stand 09.08.-13.08.2026 (Historie) -- Klassifikations-Fundament
 
@@ -131,8 +135,8 @@ Paket den Namen `hybrid` in `libs/cache_engine/` belegt.
   hier bis zum 08.08.2026 eine Zahl, die inzwischen gewandert ist; sie bleibt als Historie stehen:
   Stand 02.08.2026: "Major 7, `anatomy_module_abi_v1_decl.hpp:62`" -- ABI-HISTORIE gegen SHA 6b8eee0f
   Stand 04.08.2026: "Major 8, Magic `.A8.` = `0x434F4D444141382EULL`" -- ABI-HISTORIE gegen SHA 0f08fab5
-  **LEBENDER STAND seit NAHT-1 (09.08.2026, Mess-Naht am Genus-Interface): Major 9** -- Beleg `anatomy_module_abi_v1_decl.hpp:109`.
-  **Magic `.A9.`** (`0x434F4D444141392EULL`) -- Beleg `anatomy_module_abi_v1_decl.hpp:114`.
+  **LEBENDER STAND seit NAHT-1 (09.08.2026, Mess-Naht am Genus-Interface): Major 9** -- Beleg `anatomy_module_abi_v1_decl.hpp:110`.
+  **Magic `.A9.`** (`0x434F4D444141392EULL`) -- Beleg `anatomy_module_abi_v1_decl.hpp:115`.
 - Die Dock-Bestueckung ist Runtime-Konfiguration und gehoert in ein Sidecar-Manifest, NIE in die
   binary_id. Das Sidecar-Format wird erst NACH der A13-Stempel-Regression fixiert.
 - Offene Auflagen K1 (Lager-Identitaet der Hybrid-.so), K2 (Schichten-Entscheid Loader/Drive),
@@ -162,8 +166,8 @@ Stand 02.08.2026, unveraendert stehengelassen (jede Zeile gegen ihren SHA nachge
 Lebender Stand seit E-24 C8 (04.08.2026, ce `4f569051`):
 
 - Stand 04.08.2026: "Major 8, Magic `.A8.` = `0x434F4D444141382EULL`" -- ABI-HISTORIE gegen SHA 0f08fab5
-- **Major 9** -- Beleg `anatomy_module_abi_v1_decl.hpp:109`
-- **Magic `.A9.`** = `0x434F4D444141392EULL` -- Beleg `anatomy_module_abi_v1_decl.hpp:114`
+- **Major 9** -- Beleg `anatomy_module_abi_v1_decl.hpp:110`
+- **Magic `.A9.`** = `0x434F4D444141392EULL` -- Beleg `anatomy_module_abi_v1_decl.hpp:115`
 
 Die alten Zeilen-Anker sind nicht falsch geschrieben, sondern GEWANDERT: gegen SHA `6b8eee0f`
 -- den Stand, den Abschnitt 11 des Design-Dokuments selbst als seine Basis nennt -- zeigen `:62`

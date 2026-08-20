@@ -512,7 +512,7 @@ void help_for(std::string const& topic) {
     if (topic == "plan") {
         std::cout << "comdare-experiment-planner plan dump|ci|cmake [<profil>]\n"
                   << "  PLANER-Rolle (Stufe 1, 40.b): der deterministische ExperimentPlanDirector-Walk in drei\n"
-                  << "  Emissions-Kanaelen -- zwei Laeufe sind byte-gleich.\n"
+                  << "  Emissions-Kanaelen -- zwei Laeufe sind byte-gleich.\n" // (GEMESSEN 19.08.2026: cmp identisch)
                   << "    plan dump   Textplan nach stdout\n"
                   << "    plan ci     GitLab-Child-Pipeline-YAML: CEB-Jobs je Mess-Kombination\n"
                   << "    plan cmake  experiment_plan.cmake fuer den Bare-Metal-Bau\n"
@@ -640,7 +640,7 @@ int main(int argc, char* argv[]) {
     // WAS ES HEUTE TUT: es traegt sich ein und meldet sich. Die WIRKUNG (maximale Thread-Zahl in jeder
     // Factory, Jitter-Pruefer aus) haengt am work_mode-Umbau und am Drift-Gate-Paket T-15+D4 und wird
     // dort verdrahtet -- Ledger-Bauliste Punkte 9 und 10. Dieses Glied ist der VORBAU: es muss stehen,
-    // BEVOR Debug das RunMethodology-Enum verlaesst, sonst verliert der einzige debug-Token in XML
+    // BEVOR Debug das WorkMode-Enum verlaesst, sonst verliert der einzige debug-Token in XML
     // (m3_smoke_coverage.profile.xml) seinen Traeger ersatzlos.
     bool debug_flag = false;
     {

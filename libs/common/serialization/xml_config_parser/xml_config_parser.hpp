@@ -122,7 +122,7 @@ struct ThesisAxisSpec {              // eine permutierte (dynamische) Achse
 
 struct ThesisMode { // einer der 3 Permutationsmodi
     std::string              name;
-    std::string              merge;         // Stufe1_CeOnly / Stufe2_PrueflingReplace / Stufe3_FullJoin
+    std::string              merge;         // Verbund1_CeOnly / Verbund2_Replace / Verbund3_Union
     std::vector<std::string> active_axes;   // Achsen-Teilmenge dieses Modus
     std::string              pruefling;     // optional (Stufe 2/3)
     std::vector<std::string> replaces_axes; // optional (Stufe 2)
@@ -145,17 +145,17 @@ struct ThesisAxisSweep {
 
 // (c) <sota_series id="A|B|C" lebewesen=".." merge=".."/> — eine SOTA-/PRT-ART-Reihe (Stufe 1/2/3 = die 3
 //     Kompositionalen Joins). Ersetzt die fruehere sota_lebewesen_names/sota_series_ids (Strang A Inc 4 entfernt).
-//     `merge` nutzt die BESTEHENDEN ThesisMode-merge-Felder (Stufe1_CeOnly/Stufe2_PrueflingReplace/Stufe3_FullJoin).
+//     `merge` nutzt die BESTEHENDEN ThesisMode-merge-Felder (Verbund1_CeOnly/Verbund2_Replace/Verbund3_Union).
 struct ThesisSotaSeries {
     std::string id;        // "A" / "B" / "C"
     std::string lebewesen; // Lebewesen-/Tier-Name (prt_art/art/hot/masstree/surf/start/wormhole)
-    std::string merge;     // Stufe1_CeOnly / Stufe2_PrueflingReplace / Stufe3_FullJoin
+    std::string merge;     // Verbund1_CeOnly / Verbund2_Replace / Verbund3_Union
     // #171 (Text-Agent AP-X2/TODO-2, 2026-06-20): die Pruefling-Auspraegung "full" vs "abstract" (Doc 14
     // §18-§19 Pruefling-Slot-Pattern + cacheline-doc §0/§1.2 "Originalkonfiguration"). ADDITIV + OPTIONAL —
-    // leer = aus `merge` ABGELEITET (Stufe1_CeOnly == self-contained == "full"; Stufe2/Stufe3 == Teilmenge +
+    // leer = aus `merge` ABGELEITET (Verbund1_CeOnly == self-contained == "full"; Verbund2/Verbund3 == Teilmenge +
     // Host-Fallback == "abstract"). Ein explizites <sota_series pruefling_type=".."/> uebersteuert die
     // Ableitung (z.B. Forscher-eigene Reihe). Die Ableitung lebt in sota_catalog::derive_pruefling_type
-    // (Single-Source) — KEIN neues Selektions-Konzept, nur eine 1:1-Sicht auf die bestehende MergeStrategy.
+    // (Single-Source) -- KEIN neues Selektions-Konzept, nur eine 1:1-Sicht auf die bestehende PrueflingVerbundStrategy.
     std::string pruefling_type; // "" (ableiten) / "full" / "abstract"
     // GO-5 Fork 6 (Fairness-Modus, 2026-07-12, Dossier A.6 + Thesis §sec:fairness
     // kapitel/de/06_evaluation_methodology.tex:128-136): "Jeder Vergleich TRENNT einen gemeinsamen
@@ -352,7 +352,7 @@ struct ThesisProfile {
 // Schema: Code/test_data_xml/experiment_schema.xsd (INC-C), Golden-Instanz experiment_golden.xml.
 // LAYERING (Baseline in Stein): `common` referenziert NIE `cache_engine` — die ExperimentProfile-
 // Felder halten NAMEN als STRINGS (merge / registry / allowed_variants / categories). Die Enum-/
-// Registry-/MergeStrategy-Aufloesung + Gueltigkeits-Pruefung leben in der cache_engine-Schicht
+// Registry-/PrueflingVerbundStrategy-Aufloesung + Gueltigkeits-Pruefung leben in der cache_engine-Schicht
 // (profile_facade/validate_profile.hpp::validate_experiment_profile), exakt wie ThesisProfile.
 // ─────────────────────────────────────────────────────────────────────────────
 struct ExperimentMetadata {
@@ -414,7 +414,7 @@ struct ExperimentMachine {
 
 struct ExperimentPhase {
     std::string              name;      // <phase name=..>
-    std::string              merge;     // <phase merge=..> (MergeStrategy-Name als String)
+    std::string              merge;     // <phase merge=..> (PrueflingVerbundStrategy-Name als String)
     std::string              engine;    // <phase engine=..> (optional Einzel-EE)
     std::vector<std::string> engines;   // <phase engines=..> (optional Whitespace-Liste von EE-ids)
     std::string              pruefling; // <phase pruefling=..> (optional)
@@ -435,7 +435,7 @@ struct ExperimentAxisDefault {                 // <axes_default_lookup><axis ref
     // KERN-A (S4 Mess-Schema, 2026-07-20): per-Achse Merge-Modus fuer die Pruefling-Komposition. Leer=""=replace-
     // Default (heutiges Verhalten byte-identisch); "merge" = additiver Zusammenschluss statt Ersetzen (Fork 4). Die
     // Enum-Pruefung {replace,merge} lebt in validate_profile (cache_engine-Schicht), NICHT hier (Baseline-Layering).
-    std::string merge_mode; // <axis merge=..> (optional; ""=replace-Default | "merge" | "fulljoin")
+    std::string merge_mode; // <axis merge=..> (optional; ""=replace-Default | "merge" | "union")
     // KERN #48-S4 (Section 59-C/D, 2026-07-22): per-Achse Pruefling-Wahl. Von WELCHEM Pruefling die Achse stammt
     // (Engine-id/lebewesen-id oder self-Marker "CacheEngine"/"self"). Leer = Fallback auf die Phasen-Identitaet
     // (merge_plan.hpp profile_pruefling_identity). ADDITIV: leer = heutiges Verhalten byte-identisch. Die

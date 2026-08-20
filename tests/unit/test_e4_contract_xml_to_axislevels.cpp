@@ -101,7 +101,7 @@ fs::path write_negative_fixture() {
   </runtime_dynamic>
   <repetitions count="2" interpolate="false" overlay_in_chart="true"/>
   <modes>
-    <mode name="ce_only" merge="Stufe1_CeOnly" active_axes="search_algo cache_traversal value_handle"/>
+    <mode name="ce_only" merge="Verbund1_CeOnly" active_axes="search_algo cache_traversal value_handle"/>
   </modes>
   <static_axes from="base_tier"/>
 </comdare_thesis_profile>
@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
   <runtime_dynamic>
     <batch_size>1 abc</batch_size>
   </runtime_dynamic>
-  <modes><mode name="ce_only" merge="Stufe1_CeOnly" active_axes="search_algo"/></modes>
+  <modes><mode name="ce_only" merge="Verbund1_CeOnly" active_axes="search_algo"/></modes>
 </comdare_thesis_profile>
 )";
     }

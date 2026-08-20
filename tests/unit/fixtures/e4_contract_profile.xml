@@ -36,7 +36,7 @@
   <repetitions count="2" interpolate="false" overlay_in_chart="true"/>
 
   <modes>
-    <mode name="ce_only" merge="Stufe1_CeOnly" active_axes="search_algo cache_traversal value_handle"/>
+    <mode name="ce_only" merge="Verbund1_CeOnly" active_axes="search_algo cache_traversal value_handle"/>
   </modes>
   <static_axes from="base_tier"/>
 </comdare_thesis_profile>

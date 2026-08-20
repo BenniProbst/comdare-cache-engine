@@ -11,3 +11,9 @@
 #include <cache_engine/abi/view_module_abi_v1.hpp>
 
 COMDARE_DEFINE_VIEW_MODULE(int, int, int)
+
+// A-11/golden-102 (19.08.2026): STEMPEL-PFLICHT -- der Loader weist stempellose Module mit status 13
+// (version_lines_symbol_missing) ab; Emission ohne Stempel faellt. Diese Fixture traegt deshalb ihre
+// EIGENEN, ehrlichen Zeilen (2-arg-Form: KEINE Mess-Deklaration -- sie kompiliert kein Tooling ein).
+#include <cache_engine/abi/anatomy_module_abi_v1.hpp>
+COMDARE_ANATOMY_VERSION_STAMP("system_fixture=perm_view_d11@1.0.0.c", "fixture_kern=view_genus_dll@1.0.0.c")

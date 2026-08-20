@@ -29,3 +29,11 @@
 #include "@COMDARE_COMPOSITION_HEADER@"
 
 COMDARE_DEFINE_ANATOMY_MODULE(@COMDARE_COMPOSITION_TYPE@)
+
+// A-11/golden-102 (19.08.2026): STEMPEL-PFLICHT -- der Loader weist Module ohne
+// comdare_anatomy_version_lines mit status 13 (version_lines_symbol_missing) ab; Emission ohne
+// Stempel faellt. Dieser Codegen-Pfad traegt deshalb seine ehrlichen Fixture-Zeilen (2-arg-Form:
+// KEINE Mess-Deklaration -- das Template kompiliert kein Tooling ein; der Kern nennt den
+// Fingerprint-Tag dieser konfigurierten Composition).
+COMDARE_ANATOMY_VERSION_STAMP("system_fixture=anatomy_codegen_cmake@1.0.0.c",
+                              "fixture_kern=@COMDARE_COMPOSITION_FINGERPRINT@@1.0.0.c")

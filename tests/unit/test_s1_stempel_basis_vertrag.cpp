@@ -15,7 +15,7 @@
 //   A-P4  Byte-Orakel Planer: planner_version_stamp() == PlanerStempel::gesamt_stempel(), Praefix-Anker
 //         "planner@1.0.0.c isa=x86_64 os=" (VOR der Delegation eingefroren, T-5).
 //   A-P5  Byte-Orakel CEB: ceb_version_stamp() == CebStempel::gesamt_stempel(); sha-Laenge == 128
-//         (sha512_len-Doktrin, anatomy_module_abi_v1_decl.hpp:224-225).
+//         (sha512_len-Doktrin, anatomy_module_abi_v1_decl.hpp:232-233).
 //   A-P6  Dock-Nenner == 5; jedes Literal ist VersionsLiteral-Baustein.
 //   A-P7  g1-Block: vier gelabelte Zeilen, jede non-empty; Zeile 1 == planner_version_stamp()
 //         (transitiv == PlanerStempel-Kompositum).
@@ -447,7 +447,7 @@ TEST(S1StempelBasisVertrag, DockNennerIstFuenf) {
 // A-P7: der g1-Einordnungs-Block -- vier gelabelte Zeilen, jede non-empty, Zeile 1 == Planer-Rolle
 // ================================================================================================
 TEST(S1StempelBasisVertrag, G1BlockVierZeilenNonEmptyUndPlanerRolle) {
-    std::string const          block = pfg::g1_binary_version_block("+ext=avx2+cxx=gcc:15.3.0+opt=O3+ceb=9.1");
+    std::string const          block = pfg::g1_binary_version_block("+ext=avx2+cxx=gcc:15.3.0+opt=O3+ceb=9.2");
     std::array<std::string, 4> zeilen{};
     std::size_t                n     = 0;
     std::size_t                start = 0;

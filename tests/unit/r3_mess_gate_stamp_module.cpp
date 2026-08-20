@@ -57,4 +57,5 @@
     "target_isa=code@1.0.0.c;operating_system=code@1.0.0.c;external_utils=code@1.0.0.c;[simd=code@1.0.0.c]"
 #define COMDARE_R3_BISS_MEASURE_LIT "measurement_tooling=wallclock@1.0.0.c;[load_framework=ycsb@1.0.0.c]"
 
-COMDARE_ANATOMY_VERSION_STAMP_M(COMDARE_R3_BISS_ORGAN_LIT, COMDARE_R3_BISS_SYSTEM_LIT, COMDARE_R3_BISS_MEASURE_LIT)
+// S-6a: Argument-Folge MESS, SYSTEM, ORGAN.
+COMDARE_ANATOMY_VERSION_STAMP_M(COMDARE_R3_BISS_MEASURE_LIT, COMDARE_R3_BISS_SYSTEM_LIT, COMDARE_R3_BISS_ORGAN_LIT)

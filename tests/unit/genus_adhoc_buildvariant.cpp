@@ -43,3 +43,9 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(
     // STRUKT-R ORG-18: T17 persistence_target (18. Kompositions-Achse; die 3 Build-Achsen
     // PT/SE/HW stehen VORNE und sind davon unberuehrt).
     ::comdare::cache_engine::persistence_target::MemoryOnlyTarget)
+
+// A-11/golden-102 (19.08.2026): STEMPEL-PFLICHT -- der Loader weist stempellose Module mit status 13
+// (version_lines_symbol_missing) ab; Emission ohne Stempel faellt. Diese Fixture traegt deshalb ihre
+// EIGENEN, ehrlichen Zeilen (2-arg-Form: KEINE Mess-Deklaration -- sie kompiliert kein Tooling ein).
+COMDARE_ANATOMY_VERSION_STAMP("system_fixture=perm_adhoc_buildvariant@1.0.0.c",
+                              "fixture_kern=adhoc_buildvariant_avx512@1.0.0.c")

@@ -64,7 +64,7 @@
 
   <!-- (g) EIN Basis-Modus: alle 19 Slots aktiv in Pilot-Reihenfolge (Stufe-1 ce-only). -->
   <modes>
-    <mode name="pilot_base" merge="Stufe1_CeOnly"
+    <mode name="pilot_base" merge="Verbund1_CeOnly"
           active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization value_handle index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2 persistence_target"/>
   </modes>
 

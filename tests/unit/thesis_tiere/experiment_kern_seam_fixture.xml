@@ -6,7 +6,7 @@
      ueber die reine Struktur-Referenz hinaus. Traegt alle vier neuen #48-S4-Elemente:
        - <machines> mit Kern-Identitaets-Schluessel (cpu_fabrication + ram_pair; hostname_hint nur Hinweis)
        - <axes_default_lookup><axis pruefling=..> (engine-id / lebewesen-id / self-Marker)
-       - merge="fulljoin" (dritter Token, hier mit Phase-3-Bindung ueber <phase merge="Stufe3_FullJoin">)
+       - merge="union" (dritter Token, hier mit Phase-3-Bindung ueber <phase merge="Verbund3_Union">)
        - <output><storage backend=.. endpoint=..> (inert) -->
 <!-- UMBENANNT 2026-08-17 (Scheibe 6 / Weg a, AUDIT-VERDIKT 20260722 Befund C5): diese Datei hiess frueher
      experiment_golden_kern.xml und damit GLEICH wie die kanonische super-Instanz
@@ -24,7 +24,7 @@
        - lebewesen: 3 statt 7 Tiere. Minimalmenge, die phase@pruefling="prt_art" aufloesbar macht.
        - axis search_algo pruefling="ee_prt" statt "prt_art": uebt den ENGINE-id-Zweig
          (ParsesAxisPrueflingAndFulljoinToken)
-       - axis path_compression merge="fulljoin" statt "merge": der EINZIGE Positiv-Lauf des
+       - axis path_compression merge="union" statt "merge": der EINZIGE Positiv-Lauf des
          dritten merge-Tokens samt Phase-3-Bindung        (ParsesAxisPrueflingAndFulljoinToken)
        - dritte Achse mapping pruefling="self": uebt den self-Marker-Zweig
          (ParsesAxisPrueflingAndFulljoinToken)
@@ -64,15 +64,15 @@
   </lebewesen>
 
   <phases>
-    <phase name="Stufe1_CeOnly"           merge="Stufe1_CeOnly"           engine="ee_ce"/>
-    <phase name="Stufe2_PrueflingReplace" merge="Stufe2_PrueflingReplace" engine="ee_prt" pruefling="prt_art" id_namespace="merge_prt_v1"/>
-    <phase name="Stufe3_FullJoin"         merge="Stufe3_FullJoin"         engines="ee_ce ee_prt" pruefling="prt_art" id_namespace="join_prt_v1"/>
+    <phase name="Verbund1_CeOnly"           merge="Verbund1_CeOnly"           engine="ee_ce"/>
+    <phase name="Verbund2_Replace" merge="Verbund2_Replace" engine="ee_prt" pruefling="prt_art" id_namespace="merge_prt_v1"/>
+    <phase name="Verbund3_Union"         merge="Verbund3_Union"         engines="ee_ce ee_prt" pruefling="prt_art" id_namespace="join_prt_v1"/>
   </phases>
 
-  <!-- KERN #48-S4: per-Achse pruefling + fulljoin-Token (Phase-3-Bindung liegt oben vor). -->
+  <!-- KERN #48-S4: per-Achse pruefling + union-Token (Phase-3-Bindung liegt oben vor). -->
   <axes_default_lookup enabled="true">
     <axis ref="search_algo"      pruefling="ee_prt"  merge="replace"  allowed_variants="k_ary interpolation"/>
-    <axis ref="path_compression" pruefling="prt_art" merge="fulljoin"/>
+    <axis ref="path_compression" pruefling="prt_art" merge="union"/>
     <axis ref="mapping"          pruefling="self"    merge="merge"/>
   </axes_default_lookup>
 

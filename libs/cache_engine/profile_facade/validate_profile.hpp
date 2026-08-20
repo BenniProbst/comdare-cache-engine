@@ -49,6 +49,8 @@
 // AUSGABE: klare Meldung je Fehler; bool-Ergebnis (true = OK). Der Host mappt true→Exit 0 (+ Zusammenfassung),
 // false→Exit != 0. Pattern: Specification/Validator (read-only Gegen-Pruefung); C++23, header-only.
 
+#include "merge_plan.hpp" // A2.5-g5 (Fix 16): kExperimentAxisMergeModes (Single-Source der Merge-Modi)
+
 #include <builder/experiment_tree/experiment_tree.hpp>         // AxisLevel
 #include <builder/experiment_tree/profile_to_tree.hpp>         // AxisRegistry (axis-ref → Werteliste)
 #include <builder/experiment_tree/axis_path_serialization.hpp> // kCompositionAxisNames (die 19 Komposition-Achsen)
@@ -59,11 +61,11 @@
 #include <system_axes/external_utils_family_axis.hpp>  // GN-1: aktiver external_utils-Familien-Knoten
 #include <system_axes/compiler_atomic_sub_axis.hpp>    // S2/A2: kAllAtomic128Ids (Single-Source der atomic128-ids)
 #include <system_axes/target_isa_system_axis.hpp>      // S2/A2: kAllTargetIsaIds (Single-Source der target_isa-ids)
-#include <cache_engine/measurement/run_methodology_registry.hpp> // A9.1: kRunMethodologyRegistry (debug/measure/release)
+#include <cache_engine/measurement/run_methodology_registry.hpp> // A9.1: kWorkModeRegistry (debug/measure/release)
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // A9.1: kMeasurementFrameworkRegistry (ycsb)
 #include <cache_engine/measurement/writeback_method_registry.hpp> // A9.1: kWritebackMethodRegistry (csv/latex_table/comparison_metrics)
 #include <cache_engine/measurement/axis_error.hpp> // S3 P-RESOLVER: error_class_label(KonfigXmlParse) NUR lesend (Fehlerklassen-Etikett; KEIN Enum-/Count-Bump)
-#include <anatomy/pruefling_merge.hpp>             // MergeStrategy-Enum (INC-D: die 3 Kompositionalen Joins)
+#include <anatomy/pruefling_merge.hpp>             // PrueflingVerbundStrategy-Enum (INC-D: die 3 Kompositionalen Joins)
 #include "xml_config_parser/xml_config_parser.hpp" // ThesisProfile / ExperimentProfile
 #include "xml_config_parser/xml_reader.hpp"        // INC-D: common-DOM zum Lesen der Registry-XML (kein regex)
 
@@ -115,6 +117,13 @@ struct ProfileValidationResult {
 
 // ── GO-5 Fork 6 (Thesis §sec:fairness): die zwei erlaubten Fairness-Modi einer <sota_series>. ──
 inline constexpr char const* kFairnessModes[] = {"common_denominator", "native"};
+
+// -- V-11R (18.08.2026): VORWAERTS-Deklaration. Die <sota_series merge=..>-Wache steht weiter oben
+//    im Datei-Ablauf als die Namens-Naht (merge_strategy_name + kExperimentMergeStrategies), die
+//    ihre Single-Source ist. Bewusst KEINE zweite Namens-Liste hier: die Definition sitzt unten
+//    DIREKT an der Naht und leitet die Namen aus dem Enum ab (switch ohne default -> -Wswitch faengt
+//    jede Enum-Erweiterung), statt sie ein zweites Mal hinzuschreiben. --
+[[nodiscard]] bool is_bekannter_verbund_strategie_name(std::string const& name);
 
 // ── GO-5 Fork 1: die im Repo existenten DatasetLoaderRegistry-loader_ids (Quelle: die Selbst-
 //    Registrierungen in libs/common/measurement/dataset_loader/include/.../loaders/*.hpp —
@@ -303,6 +312,24 @@ inline void check_measurement_sub_axis(std::vector<std::string> const& tokens, R
                                    "weglassen (ungesetzt).");
             }
         }
+        // -- V-11R-KOEDER-BEFUND (18.08.2026, P7-ce): <sota_series merge=".."> war die EINZIGE
+        //    merge-tragende Stelle OHNE Enum-Wache. Beleg am Objekt: ein gewuerfelt zurueckgedrehter
+        //    Alt-Wert (merge="Stufe2_PrueflingReplace" in all_axes_golden.profile.xml:95) lief durch
+        //    ctest GRUEN durch -- der Koeder biss NICHT. Die Wirkung ist NICHT kosmetisch: ein
+        //    unbekannter Wert faellt in sota_catalog.hpp stufe_to_reihe() still auf den Reihen-Tag
+        //    "-" durch, und die Reihe verschwindet aus der Auswertung, ohne dass irgendwo etwas rot
+        //    wird. Genau diese Fehlerklasse (stehen gebliebener Alt-Wert) wird durch die
+        //    V-11R-Umbenennung erstmals real. Deshalb hier fail-loud statt still.
+        //    <phase merge=".."> hat seine Wache seit KERN-A (s.u., Abschnitt (3)); dies ist die
+        //    Schwester dazu.
+        if (!ss.merge.empty() && !is_bekannter_verbund_strategie_name(ss.merge)) {
+            r.ok = false;
+            r.errors.push_back("UNGUELTIGE Verbund-Strategie <sota_series id=\"" + ss.id + "\" lebewesen=\"" +
+                               ss.lebewesen + "\" merge=\"" + ss.merge +
+                               "\">: erlaubt sind Verbund1_CeOnly|Verbund2_Replace|Verbund3_Union "
+                               "(PrueflingVerbundStrategy, anatomy/pruefling_merge.hpp; V-11R 17.08.2026) "
+                               "oder weglassen (ungesetzt).");
+        }
         auto const [it, inserted] = fairness_by_pair.emplace(ss.lebewesen + "|" + ss.merge, ss.fairness);
         if (!inserted && it->second != ss.fairness) {
             r.warnings.push_back(
@@ -482,10 +509,11 @@ inline void check_measurement_sub_axis(std::vector<std::string> const& tokens, R
     //    constexpr-Registries (run_methodology/measurement_framework/writeback_method) — Single-Source im Code, kein
     //    hartkodiertes id-Literal. binary_id-NEUTRAL (Planer-delegiert). LEER = Skip (Zaehler 0 = byte-identisch:
     //    bestehende Profile ohne diese Elemente validieren unveraendert). measurement_framework ist EINZELN. ──
-    check_measurement_sub_axis(tp.run_methodology, ms::kRunMethodologyRegistry,
+    check_measurement_sub_axis(tp.run_methodology, ms::kWorkModeRegistry,
                                "<run_methodology><method value=", r.run_methodology_checked, r.ok, r.errors);
     // §61-STUFEN/(j1): GENAU EIN aktiver Modus je Profil/Call -- die Build-Semantik (build_semantic_of_run_methodology)
-    // ist damit eindeutig (debug ODER measure ODER release). >1 ist mehrdeutig; die A9-"sweepbar"-Auslegung ist per
+    // ist damit eindeutig (genau EINER von build/measure/compare/release; der fruehere debug ist per A-05/V-12
+    // ausgebaut). >1 ist mehrdeutig; die A9-"sweepbar"-Auslegung ist per
     // §61-STUFEN supersediert. LEER = Default measure (kein Fehler, byte-stabil zu Profilen ohne das Element).
     if (tp.run_methodology.size() > 1) {
         r.ok = false;
@@ -557,13 +585,14 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
 // INC-D (2026-07-14): validate_experiment_profile — das REIN-LESENDE Validat des comdare_experiment-
 // Profils (ExperimentProfile, common-Schicht) gegen die cache_engine-Wahrheiten. Muster = validate_profile
 // (Specification/Validator; read-only). Die common-Schicht traegt NUR Strings; DIESE cache_engine-Schicht
-// loest sie gegen die MergeStrategy-Enum + die Registry-XML + kAllMeasurementCategories auf (Baseline-
+// loest sie gegen die PrueflingVerbundStrategy-Enum + die Registry-XML + kAllMeasurementCategories auf (Baseline-
 // Layering: common referenziert NIE cache_engine).
 //
 // PRUEFUNGEN:
 //   (1) GENAU 2 <execution_engines><engine> (ee_ce + ee_prt).
 //   (2) mindestens 1 <phases><phase>.
-//   (3) jede phase.merge ∈ MergeStrategy-Enum (pruefling_merge.hpp: Stufe1_CeOnly/Stufe2_.../Stufe3_...).
+// (3) jede phase.merge  aus  PrueflingVerbundStrategy-Enum (pruefling_merge.hpp:
+// Verbund1_CeOnly/Verbund2_Replace/Verbund3_Union).
 //   (4) die je-engine referenzierten Registry-Dateien existieren (registry_dir/<registry>) UND sind als
 //       comdare_axis_registry lesbar (F28, WP-3 2026-07-16: unlesbar war vorher nur WARNUNG — eine korrupte
 //       Registry validierte 'ok' mit still uebersprungener (5)-Pruefung; jetzt HARTER Fehler). Zusaetzlich
@@ -587,7 +616,7 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
 //       fuehrt dieselbe Tabelle (02_messung_driver/op_type_filter.hpp kOpTypeTable) — ce darf super nicht
 //       inkludieren (Baseline-Layering), daher hier der XSD-Kontrakt als Single-Source zitiert.
 //  (11) KERN-A (S4 Mess-Schema, 2026-07-20): phases sind OPTIONAL — leer/fehlend = der Planer LEITET die 3
-//       Default-Stufen ab (Stufe1_CeOnly . je Pruefling Stufe2 . Stufe3_FullJoin). Ein pruefling/identity=
+//       Default-Stufen ab (Verbund1_CeOnly . je Pruefling Verbund2 . Verbund3_Union). Ein pruefling/identity=
 //       "CacheEngine"/"self" ist ein self-Marker (misst die CacheEngine SELBST, NICHT ∈ <lebewesen>-Zwang, Fork 3).
 //  (12) KERN-A: per-Achse <axes_default_lookup><axis merge=..> ∈ {replace,merge}, leer = replace-Default (Fork 4).
 //  (13) KERN-A: leere <measurement_categories> = alle 16 (Check (6) uebersprungen, kein Fehler). Das PASSIVE
@@ -614,19 +643,33 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
 
 namespace pm = ::comdare::cache_engine::anatomy::pruefling;
 
-// Die 3 gueltigen MergeStrategy-Enum-Werte (Single-Source = das Enum selbst).
-inline constexpr pm::MergeStrategy kExperimentMergeStrategies[] = {
-    pm::MergeStrategy::Stufe1_CeOnly, pm::MergeStrategy::Stufe2_PrueflingReplace, pm::MergeStrategy::Stufe3_FullJoin};
+// Die 3 gueltigen PrueflingVerbundStrategy-Enum-Werte (Single-Source = das Enum selbst).
+inline constexpr pm::PrueflingVerbundStrategy kExperimentMergeStrategies[] = {
+    pm::PrueflingVerbundStrategy::Verbund1_CeOnly, pm::PrueflingVerbundStrategy::Verbund2_Replace,
+    pm::PrueflingVerbundStrategy::Verbund3_Union};
 
 // merge_strategy_name — Enum -> kanonischer XML-String. switch OHNE default: -Wswitch faengt Enum-Drift
 // (eine 4. Stufe muss hier + im XSD nachgezogen werden), statt still eine gueltige Stufe zu verwerfen.
-[[nodiscard]] inline std::string_view merge_strategy_name(pm::MergeStrategy s) {
+[[nodiscard]] inline std::string_view merge_strategy_name(pm::PrueflingVerbundStrategy s) {
     switch (s) {
-        case pm::MergeStrategy::Stufe1_CeOnly: return "Stufe1_CeOnly";
-        case pm::MergeStrategy::Stufe2_PrueflingReplace: return "Stufe2_PrueflingReplace";
-        case pm::MergeStrategy::Stufe3_FullJoin: return "Stufe3_FullJoin";
+        case pm::PrueflingVerbundStrategy::Verbund1_CeOnly: return "Verbund1_CeOnly";
+        case pm::PrueflingVerbundStrategy::Verbund2_Replace: return "Verbund2_Replace";
+        case pm::PrueflingVerbundStrategy::Verbund3_Union: return "Verbund3_Union";
     }
     return "";
+}
+
+// is_bekannter_verbund_strategie_name -- die DEFINITION zur Vorwaerts-Deklaration oben (:126).
+// Sie leitet die erlaubten Namen aus kExperimentMergeStrategies + merge_strategy_name ab, haelt also
+// EINE Wahrheit: eine 4. Stufe wird durch das -Wswitch in merge_strategy_name erzwungen und ist hier
+// automatisch gueltig, ohne dass jemand eine zweite Liste pflegen muss.
+// GEGENSTAND: <sota_series merge=".."> (thesis_profile). <phase merge=".."> hat seine eigene Wache
+// weiter unten; beide befragen dieselbe Naht.
+[[nodiscard]] inline bool is_bekannter_verbund_strategie_name(std::string const& name) {
+    for (auto const s : kExperimentMergeStrategies) {
+        if (name == merge_strategy_name(s)) return true;
+    }
+    return false;
 }
 
 // ── Ergebnis-POD: bool + Fehler-/Warnungs-Liste (literal, fuer Host-Ausgabe + Tests). ──
@@ -656,13 +699,11 @@ struct ExperimentValidationResult {
     std::size_t writeback_methods_checked     = 0; // A9.1: gepruefte <writeback_methods><method> (0 = keine deklariert)
 };
 
-// ── KERN-A (S4 Mess-Schema, 2026-07-20) + KERN #48-S4 (Fork 4 dritter Token, 2026-07-22): die drei erlaubten
-//    per-Achse Merge-Modi. Leer=""=replace-Default (heutiges Verhalten byte-identisch); "merge" = additiver
-//    Zusammenschluss statt Ersetzen; "fulljoin" = die EXPLIZITE, Phase-3-gebundene Union (Verdikt V-a: Section-59-A
-//    trennt Stufe-2-Hybrid und Stufe-3-FullJoin woertlich). "fulljoin" ist NUR gueltig, wenn das Profil eine
-//    Phase-3-Bindung (eine <phase merge="Stufe3_FullJoin">) traegt -- dieser Bindungs-Check erfolgt unten. Single-
-//    Source der Token hier. ──
-inline constexpr char const* kExperimentAxisMergeModes[] = {"replace", "merge", "fulljoin"};
+// -- KERN-A (S4 Mess-Schema) Merge-Modi-Menge: kExperimentAxisMergeModes LEBT SEIT A2.5-g5 (Review #15,
+//    Fix 16) in merge_plan.hpp (dieses Header inkludiert merge_plan.hpp seitdem oben) -- der fail-closed-Kollektor
+//    merge_mode_to_strategy leitet seine Fehlermenge dort aus demselben Array ab, und die
+//    Include-Richtung ist validate -> merge_plan. Der "union"-Phase-3-Bindungs-Check bleibt HIER
+//    (Verdikt V-a, unten im axes_default_lookup-Block). --
 
 // ── KERN-A (S4): die anerkannten CacheEngine-self-Marker fuer <phase pruefling=..> / <phase identity=..> (Fork 3).
 //    Ein so markierter Pruefling misst die CacheEngine SELBST (nicht ein SOTA-Lebewesen) => NICHT dem
@@ -957,11 +998,12 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
 
     // ── (2) KERN-A (S4 Mess-Schema, 2026-07-20): phases sind jetzt OPTIONAL — die E11/Fork-C-Kardinalitaets-Gate
     //    ist durch die KERN-Beschreibung RESOLVED: leer/fehlend = der Planer LEITET die 3 Default-Stufen ab
-    //    (Stufe1_CeOnly . je Pruefling Stufe2 . Stufe3_FullJoin, experiment_plan_director). Explizite Phasen sind
-    //    der Override (byte-identisch zum Ist) und werden unten (3) gegen das MergeStrategy-Enum validiert. Ein
+    //    (Verbund1_CeOnly . je Pruefling Verbund2 . Verbund3_Union, experiment_plan_director). Explizite Phasen sind
+    // der Override (byte-identisch zum Ist) und werden unten (3) gegen das PrueflingVerbundStrategy-Enum validiert. Ein
     //    leeres <phases> ist damit KEIN Fehler mehr (vorher: mindestens 1 erzwungen). ──
 
-    // ── (3) jede phase.merge ∈ MergeStrategy-Enum. (8) F22: gesetztes pruefling ∈ <lebewesen>-tier-ids. ──
+    // -- (3) jede phase.merge  aus  PrueflingVerbundStrategy-Enum. (8) F22: gesetztes pruefling  aus
+    // <lebewesen>-tier-ids. --
     std::set<std::string> valid_merges;
     for (auto const s : kExperimentMergeStrategies) valid_merges.insert(std::string{merge_strategy_name(s)});
     std::set<std::string> const lebewesen_ids(ep.lebewesen.begin(), ep.lebewesen.end());
@@ -972,7 +1014,7 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
             std::vector<std::string> const vm(valid_merges.begin(), valid_merges.end());
             r.errors.push_back(
                 "UNGUELTIGE Merge-Strategie <phase name=\"" + ph.name + "\" merge=\"" + ph.merge +
-                "\">: kein MergeStrategy-Enum-Wert (pruefling_merge.hpp). Gueltig = " + preview_values(vm));
+                "\">: kein PrueflingVerbundStrategy-Enum-Wert (pruefling_merge.hpp). Gueltig = " + preview_values(vm));
         }
         // KERN-A (S4, Fork 3): ein CacheEngine-self-Marker ("CacheEngine"/"self") als pruefling misst die
         // CacheEngine SELBST (nicht ein SOTA-Lebewesen) => NICHT dem <lebewesen>-Zwang unterworfen. Ein sonstiger
@@ -996,7 +1038,7 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
         }
         // KERN #48-S5 (Section 59-C): id_namespace = der eigene id-Satz je Merge-Phase (3. Tier-Binary-Stempel).
         // Sinnvoll NUR auf einer Phase mit pruefling (der Stempel identifiziert die Merge-Kombination); ein
-        // id_namespace auf einer pruefling-losen Phase (z.B. Stufe1_CeOnly) ist folgenlos => WARNUNG (kein Fehler).
+        // id_namespace auf einer pruefling-losen Phase (z.B. Verbund1_CeOnly) ist folgenlos => WARNUNG (kein Fehler).
         // Konsum (Stempel-Materialisierung) = K6a/#37; hier nur die Wohlgeformtheit.
         if (!ph.id_namespace.empty()) {
             ++r.id_namespace_checked;
@@ -1093,15 +1135,15 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
 
     // ── KERN-A (S4, Fork 4): per-Achse Merge-Modus <axes_default_lookup><axis merge=..>. Leer=""=replace-Default
     //    (heutiges Verhalten byte-identisch); "merge" = additiver Zusammenschluss statt Ersetzen. HART gegen
-    //    {replace,merge} (Single-Source kExperimentAxisMergeModes) — ein Bogus-Modus wuerde sonst still auf replace
+    //    {replace,merge,union} (Single-Source kExperimentAxisMergeModes, merge_plan.hpp) -- ein Bogus-Modus wuerde
+    //    sonst still auf replace
     //    zurueckfallen. binary_id-neutral (die Kompositions-AKTIVIERUNG von "merge" ist golden-regen-/gate-gated;
     //    hier nur die Wohlgeformtheit). Rein enum-basiert => NICHT an registry_dir gebunden. ──
-    // KERN #48-S4: eine Phase-3-Bindung liegt vor, wenn das Profil eine <phase merge="Stufe3_FullJoin"> traegt.
-    // "fulljoin" als per-Achse-Merge-Modus ist NUR bei vorhandener Bindung gueltig (Verdikt V-a; sonst waere die
-    // Stufe-2-Hybrid-/Stufe-3-FullJoin-Trennung verletzt). Leere/abgeleitete Phasen (kein <phases>) => keine Bindung.
-    bool const has_full_join_phase = std::any_of(ep.phases.begin(), ep.phases.end(), [](cx::ExperimentPhase const& ph) {
-        return ph.merge == "Stufe3_FullJoin";
-    });
+    // KERN #48-S4: eine Phase-3-Bindung liegt vor, wenn das Profil eine <phase merge="Verbund3_Union"> traegt.
+    // "union" als per-Achse-Merge-Modus ist NUR bei vorhandener Bindung gueltig (Verdikt V-a; sonst waere die
+    // Verbund-2-Hybrid-/Verbund-3-Union-Trennung verletzt). Leere/abgeleitete Phasen (kein <phases>) => keine Bindung.
+    bool const has_verbund_union_phase = std::any_of(
+        ep.phases.begin(), ep.phases.end(), [](cx::ExperimentPhase const& ph) { return ph.merge == "Verbund3_Union"; });
     for (auto const& ax : ep.axes_default_lookup) {
         if (ax.merge_mode.empty()) continue; // leer = replace-Default (nichts zu pruefen)
         ++r.axis_merge_checked;
@@ -1111,15 +1153,29 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
             r.ok = false;
             r.errors.push_back("UNGUELTIGER Merge-Modus <axes_default_lookup><axis ref=\"" + ax.ref + "\" merge=\"" +
                                ax.merge_mode +
-                               "\">: kein {replace,merge,fulljoin} (KERN Fork 4; leer = replace-Default).");
+                               "\">: kein {replace,merge,union} (KERN Fork 4; leer = replace-Default).");
         }
-        // KERN #48-S4 (Verdikt V-a): "fulljoin" verlangt eine Phase-3-Bindung (<phase merge="Stufe3_FullJoin">).
-        if (ax.merge_mode == "fulljoin" && !has_full_join_phase) {
+        // A2.5-g5 (Review #15, Fix 15 / D-F4b), analog V-a: "merge" ist bis zur Materialisierung von
+        // Verbund2_Hybrid GESPERRT. Das PrueflingVerbundStrategy-Enum traegt den Wert nicht
+        // (MATERIALISIERUNG DEFERRED, merge_plan.hpp) -- eine durchgelassene "merge"-Direktive am
+        // slot-hinterlegten Paar fiele erst im NACHGELAGERTEN Bau des emittierten .cpp mit kryptischem
+        // Namensfehler (fail-late). Der Validator ist die FRUEHESTE Stelle der Kette, darum faellt sie
+        // hier. Beim Materialisieren (Enum-Wert + MergeImpl-Spezialisierung) faellt dieses Gate im
+        // SELBEN Zug (Wachen-Rueckbau gehoert zum Materialisierungs-Commit).
+        if (ax.merge_mode == "merge") {
+            r.ok = false;
+            r.errors.push_back("NICHT MATERIALISIERTER Merge-Modus <axes_default_lookup><axis ref=\"" + ax.ref +
+                               "\" merge=\"merge\">: Verbund2_Hybrid ist nicht materialisiert (kein "
+                               "PrueflingVerbundStrategy-Enum-Wert; Materialisierung deferred, merge_plan.hpp) -- bis "
+                               "dahin replace/union verwenden.");
+        }
+        // KERN #48-S4 (Verdikt V-a): "union" verlangt eine Phase-3-Bindung (<phase merge="Verbund3_Union">).
+        if (ax.merge_mode == "union" && !has_verbund_union_phase) {
             r.ok = false;
             r.errors.push_back(
                 "UNGUELTIGE Phase-Bindung <axes_default_lookup><axis ref=\"" + ax.ref +
-                "\" merge=\"fulljoin\">: 'fulljoin' ist NUR in Phase-3-Bindung gueltig, aber das Profil traegt keine "
-                "<phase merge=\"Stufe3_FullJoin\"> (Section-59-A: Stufe-2-Hybrid != Stufe-3-FullJoin).");
+                "\" merge=\"union\">: 'union' ist NUR in Phase-3-Bindung gueltig, aber das Profil traegt keine "
+                "<phase merge=\"Verbund3_Union\"> (Section-59-A: Verbund-2-Hybrid != Verbund-3-Union).");
         }
     }
 
@@ -1313,7 +1369,7 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
     //    constexpr-Registries (run_methodology/measurement_framework/writeback_method) — deckungsgleich zum Thesis-
     //    Kanal (dieselben check_measurement_sub_axis-Naht + Meldungen). Single-Source im Code, binary_id-NEUTRAL
     //    (Planer-delegiert). LEER = Skip (Zaehler 0 = byte-identisch). measurement_framework ist EINZELN. ──
-    check_measurement_sub_axis(ep.run_methodology, ms::kRunMethodologyRegistry,
+    check_measurement_sub_axis(ep.run_methodology, ms::kWorkModeRegistry,
                                "<run_methodology><method value=", r.run_methodology_checked, r.ok, r.errors);
     // §61-STUFEN/(j1): GENAU EIN aktiver Modus je Profil/Call (s. thesis-Zweig).
     if (ep.run_methodology.size() > 1) {

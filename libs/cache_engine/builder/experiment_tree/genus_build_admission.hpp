@@ -47,6 +47,11 @@
 
 #include "genus_binding_traits.hpp" // GenusBindingTraits<G> (READ-ONLY, TABU) + GenusBound<G> + cea
 
+// HY-A3 (E-6/KON118): die CT-Slot-Zahl des Reroute-Genus kommt aus der Hybrid-Bindung selbst,
+// nicht aus einer Zahl an dieser Stelle. Die Kante builder/ -> hybrid/ ist die ERLAUBTE Richtung
+// (die Schicht-Wache lint_layer_includes.sh verbietet nur die Gegenrichtung).
+#include "hybrid/hybrid_binary_proxy.hpp" // hybrid::kRerouteGenusCtSlotCount
+
 #include <cache_engine/measurement/axis_error.hpp> // CompilerCompilerErrorClass / BuildCellStatus / Etiketten
 
 #include <array>
@@ -60,18 +65,32 @@ namespace comdare::cache_engine::builder::experiment {
 namespace cem = ::comdare::cache_engine::measurement;
 
 /// kGenusBuildSlotCounts -- die Slot-Zahl je Ebene-2-Gattung, COMPILE-TIME aus der Bau-Bindung gezogen.
-/// Index == Enum-Wert (SearchAlgorithm=0 .. View=4). Handgepflegte Zahlen stuenden hier falsch: sie
+/// Index == Enum-Wert (SearchAlgorithm=0 .. View=4, FunctionInterfaceReroute=5). Handgepflegte
+/// Zahlen stuenden hier falsch: sie
 /// wuerden beim naechsten Slot-Umbau still auseinanderlaufen, und genau das faengt der Cross-Pin unten.
-inline constexpr std::array<std::size_t, 5> kGenusBuildSlotCounts = {
+/// HY-A3 (E-6/KON118, 18.08.2026): SECHSTER Eintrag -- der Reroute-Genus. Er zaehlt KEINE
+/// Kompositions-Slots (er hat keine Komposition), sondern DOCKS: seine Bau-Aritaet ist der
+/// Dock-Programm-Deckel (32, KON28-03). Die Zahl kommt aus der Hybrid-Bindung
+/// (hybrid::kRerouteGenusCtSlotCount) und nicht von Hand -- dieselbe Begruendung wie fuer die
+/// fuenf darueber. RT <= CT: eine konkrete Hybrid-Binary bestueckt weniger, nie mehr.
+///
+/// WAS DAS NICHT HEISST: der Reroute-Genus wird dadurch NICHT ABI-sichtbar. Die Dock-Registry
+/// bleibt bei FUENF (register_all_genus_docks), genus() liefert weiter das geerbte Ziel-Genus.
+/// Diese Tabelle beantwortet die BAU-Frage ("darf gebaut werden, mit welcher Aritaet"), nicht die
+/// Lade-Frage.
+inline constexpr std::array<std::size_t, 6> kGenusBuildSlotCounts = {
     GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm>::slot_count,
     GenusBindingTraits<cea::AnatomyGenus::Set>::slot_count,
     GenusBindingTraits<cea::AnatomyGenus::Sequence>::slot_count,
     GenusBindingTraits<cea::AnatomyGenus::Adapter>::slot_count,
     GenusBindingTraits<cea::AnatomyGenus::View>::slot_count,
+    ::comdare::cache_engine::hybrid::kRerouteGenusCtSlotCount,
 };
 
-/// genus_is_build_bound(g) -- traegt die Gattung in DIESEM Bau eine Bau-Bindung? Am Ist: alle FUENF
-/// Ebene-2-Gattungen ja (GenusBound<G> ist fuer alle fuenf erfuellt, genus_binding_traits.hpp:165-171).
+/// genus_is_build_bound(g) -- traegt die Gattung in DIESEM Bau eine Bau-Bindung? Am Ist: alle SECHS
+/// Tabellen-Eintraege ja -- die fuenf ABI-sichtbaren Genera ueber GenusBound<G>
+/// (genus_binding_traits.hpp:165-171), der Reroute-Genus ueber die Hybrid-Bindung
+/// (hybrid::kRerouteGenusCtSlotCount > 0, HY-A3).
 /// Die Funktion ist damit fuer jeden GUELTIGEN Enum-Wert wahr -- sie ist die Wache gegen den UNGUELTIGEN:
 /// eine Gattungs-Kennung, die aus einer XML-/Planer-Quelle stammt, ist ein int, kein Beweis.
 [[nodiscard]] constexpr bool genus_is_build_bound(cea::AnatomyGenus g) noexcept {
@@ -168,7 +187,14 @@ struct GenusBuildVerdict {
 // ---------------------------------------------------------------------------------------------------
 // CROSS-PINS: die Laufzeit-Tabelle IST die compile-time-Bindung (sie kann nicht daneben laufen).
 // ---------------------------------------------------------------------------------------------------
-static_assert(kGenusBuildSlotCounts.size() == 5, "Ebene 2 hat fuenf Tier-Unterklassen (anatomy_base.hpp:78-84).");
+static_assert(kGenusBuildSlotCounts.size() == 6, "Ebene 2: fuenf ABI-sichtbare Tier-Unterklassen + ein Reroute-Genus "
+                                                 "(anatomy_base.hpp:135-169).");
+static_assert(genus_build_slot_count(cea::AnatomyGenus::FunctionInterfaceReroute) ==
+                  ::comdare::cache_engine::hybrid::kRerouteGenusCtSlotCount,
+              "HY-A3: die Bau-Aritaet des Reroute-Genus IST der Dock-Deckel der Hybrid-Bindung.");
+static_assert(genus_is_build_bound(cea::AnatomyGenus::FunctionInterfaceReroute),
+              "HY-A3: der Reroute-Genus ist BAU-gebunden -- die Schleifen laufen ab hier ueber "
+              "Index 5. Das ist die BAU-Aussage; ABI-sichtbar wird er dadurch nicht.");
 static_assert(genus_build_slot_count(cea::AnatomyGenus::SearchAlgorithm) ==
               GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm>::slot_count);
 static_assert(genus_build_slot_count(cea::AnatomyGenus::Set) == GenusBindingTraits<cea::AnatomyGenus::Set>::slot_count);
@@ -194,12 +220,30 @@ static_assert(admit_gattung_build_path(cea::AnatomyGattung::Graph) ==
                   cem::CompilerCompilerErrorClass::GattungsBindungFehlt,
               "Graph hat am Ist keine Tier-Unterklasse (Q5, nach Abgabe) -- ein Bau-Wunsch darauf ist ein "
               "DEKLARIERTER D1-Zustand, kein stilles Nichts.");
+// Review #15 Fix 22: der VIERTE Ebene-1-Zustand, mit HY-A3 neu entstanden und bis hier ungepinnt --
+// die HeuristikAdapter-Gattung ist ueber den Reroute-Genus BAU-gebunden (sechster Tabellen-Eintrag).
+static_assert(!admit_gattung_build_path(cea::AnatomyGattung::HeuristikAdapter).has_value(),
+              "HY-A3: HeuristikAdapter ist BAU-gebunden (kGenusBuildSlotCounts[5] == Dock-Deckel > 0). "
+              "Bricht das hier, ist der sechste Tabellen-Eintrag verloren gegangen -- die BAU-Aussage; "
+              "ABI-sichtbar wird die Gattung dadurch nicht.");
 
 // Die Aritaets-Aussage je Gattung -- gegen die echte Slot-Zahl, nicht gegen eine Zahl im Test.
 static_assert(!admit_genus_slot_arity(cea::AnatomyGenus::Set, genus_build_slot_count(cea::AnatomyGenus::Set)));
 static_assert(admit_genus_slot_arity(cea::AnatomyGenus::Set, genus_build_slot_count(cea::AnatomyGenus::Sequence)) ==
                   cem::CompilerCompilerErrorClass::GattungsSlotAritaet,
               "Ein Sequence-Achsensatz an der Set-Gattung ist ein Aritaets-Fehler, kein Bindungs-Fehler.");
+// Review #15 Fix 22: die Aritaets-Pins des Reroute-Genus -- die Bau-Aritaet IST der Dock-Deckel
+// (n == 32 zugelassen), und schon n == 31 ist ein Aritaets-Fehler, kein Bindungs-Fehler: das Gate
+// verlangt EXAKT den Slot-Satz. ("RT <= CT" im Tabellen-Kommentar oben betrifft die BESTUECKUNG
+// einer konkreten Hybrid-Binary zur Laufzeit, nicht die hier gepruefte Bau-Aritaet.)
+static_assert(!admit_genus_slot_arity(cea::AnatomyGenus::FunctionInterfaceReroute,
+                                      ::comdare::cache_engine::hybrid::kRerouteGenusCtSlotCount)
+                   .has_value(),
+              "HY-A3: n == 32 (Dock-Deckel, KON28-03) ist die zugelassene Reroute-Bau-Aritaet.");
+static_assert(admit_genus_slot_arity(cea::AnatomyGenus::FunctionInterfaceReroute,
+                                     ::comdare::cache_engine::hybrid::kRerouteGenusCtSlotCount - 1) ==
+                  cem::CompilerCompilerErrorClass::GattungsSlotAritaet,
+              "HY-A3: n == 31 am Reroute-Genus ist ein Aritaets-Fehler, kein Bindungs-Fehler.");
 static_assert(genus_build_verdict(cea::AnatomyGenus::Set, 0).build_status == cem::BuildCellStatus::NichtGebaut);
 static_assert(genus_build_cell(genus_build_verdict(cea::AnatomyGenus::Set, 0)) == std::string_view{"nicht_gebaut"});
 static_assert(genus_build_verdict(cea::AnatomyGenus::Set, genus_build_slot_count(cea::AnatomyGenus::Set))

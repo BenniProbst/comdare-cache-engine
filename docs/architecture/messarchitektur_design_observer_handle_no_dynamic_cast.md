@@ -91,7 +91,7 @@ Nach der einmaligen Resolution treibt der Hot-Loop nur Virtual-Calls auf der gec
 ## 3. Disjunktheit konkret
 
 ### 3.1 PFLICHT-Anatomy-ABI (immer exportiert, funktional, vtable-stabil)
-4 `extern "C"`-Symbole (`anatomy_module_abi_v1_decl.hpp:58-76`) · `IAnatomyBase` genus/composition_name/paper_id/organ_count (`anatomy_base.hpp:117-126`) · Lifecycle (`abi_adapter.hpp:97-112`) · Gattungs-Ops `tier_insert/lookup/erase/clear/size` (`observable_tier.hpp:87-99`) · Funktional-Tests (verify_matches_std_map).
+4 `extern "C"`-Symbole (`anatomy_module_abi_v1_decl.hpp:59-77`) · `IAnatomyBase` genus/composition_name/paper_id/organ_count (`anatomy_base.hpp:117-126`) · Lifecycle (`abi_adapter.hpp:97-112`) · Gattungs-Ops `tier_insert/lookup/erase/clear/size` (`observable_tier.hpp:87-99`) · Funktional-Tests (verify_matches_std_map).
 
 > **Entwurfs-Schärfung [Empfehlung]:** Die Gattungs-Ops stehen heute physisch in `IObservableTier` zusammen mit `tier_observe`. Für „**vollkommen disjunkt**" (User): `IObservableTier` splitten in
 > - **`IDrivableTier`** (NEU, Pflicht): `tier_insert/lookup/erase/clear/size` — funktionaler Gattungs-Antrieb.
@@ -125,7 +125,7 @@ Nach der einmaligen Resolution treibt der Hot-Loop nur Virtual-Calls auf der gec
 
 **B. Strukturelle Änderungen zur wörtlichen Vision (reiten auf dem ohnehin geplanten ABI-Major-Bump mit):**
 - **B1 (Disjunktheit):** `IObservableTier` → `IDrivableTier` (Ops, Pflicht) + `IObservableTier` (nur `tier_observe`). Dateien: NEU `anatomy/drivable_tier.hpp`; `observable_tier.hpp:80-106` (Ops raus, von `IDrivableTier` erben); `abi_adapter.hpp:76-77,223-249`; `search_algorithm_dock.hpp:42`; `tier_observe_trace_abi.hpp:82`; `anatomy_module_abi_v1_decl.hpp:18-19`.
-- **B2 (Capability-Bit):** `comdare_anatomy_capabilities()` 5. Symbol. Dateien: `anatomy_module_abi_v1_decl.hpp:58-76`; `anatomy_module_abi_v1.hpp` (Makro/Default-Impl je `#ifdef`); `anatomy_module_loader.{cpp:64-67,122-135;hpp}` (Pfn-Typedef + Handle-Feld `uint64 capabilities`).
+- **B2 (Capability-Bit):** `comdare_anatomy_capabilities()` 5. Symbol. Dateien: `anatomy_module_abi_v1_decl.hpp:59-77`; `anatomy_module_abi_v1.hpp` (Makro/Default-Impl je `#ifdef`); `anatomy_module_loader.{cpp:64-67,122-135;hpp}` (Pfn-Typedef + Handle-Feld `uint64 capabilities`).
 - **(I1-Kern, unverändert):** EIN autoritativer Mess-POD `…SnapshotV2` (volle Spalten + HW-Counter, feste uint64-Slots je Achse) + `kTierObserverSnapshotVersion`→2 + `COMDARE_ANATOMY_ABI_MAJOR`→2 → alle DLLs neu. B1+B2 reiten auf DIESEM einen Major-Bump mit.
 
 **C. Funktionale Lücke (eigene User-Anforderung „ohne Messmodus"):**

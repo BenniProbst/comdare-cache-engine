@@ -225,8 +225,7 @@ int main(int argc, char** argv) {
     // STRUKT-R ORG-18: 18. Organ-Haupt-Achse auf Kompositions-Slot T17 (Q-10/Q-10b OWNER-BESTAETIGT
     // 26.07.2026: T-Anhang hinter queuing_q2, GoldenK=1 -- nur memory_only
     // im 320er-Snapshot; unter Q-1 FALL B ohnehin erzwungen, und reflect_axis klemmt per min(GoldenK,kSize)).
-    axes.push_back(
-        make_axis<ex::axes26::T26_persistence_target, 1>("T17", "persistence_target", "composition"));
+    axes.push_back(make_axis<ex::axes26::T26_persistence_target, 1>("T17", "persistence_target", "composition"));
 
     // -- Optional: Build/Shape-/System-Achsen (NICHT im serialize-Pfad; golden_wired stets false). --
     if (with_extra) {

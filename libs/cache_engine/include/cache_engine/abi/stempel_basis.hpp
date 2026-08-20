@@ -30,7 +30,7 @@
 //
 // BAUSTEIN-EBENE (P1.4): die fuenf KON6-03-Bestands-Strukturen sind positional-init-Aggregate bzw.
 // NTTP-Traeger -- eine leere Basisklasse fraesse den ERSTEN positionellen Initialisierer (die Pins
-// anatomy_module_abi_v1_decl.hpp:191/:254/:261 und die Feld-Ordnungs-Wache toolchain_stamp_glied.hpp:
+// anatomy_module_abi_v1_decl.hpp:192/:254/:261 und die Feld-Ordnungs-Wache toolchain_stamp_glied.hpp:
 // 300-311 stuenden auf dem Spiel). Die Anbindung laeuft deshalb OHNE Basisklassen-Einbau ueber das
 // Trait ist_stempel_baustein<T> mit Rollen-Tag; die Pins und Wachen bleiben byte-unberuehrt.
 

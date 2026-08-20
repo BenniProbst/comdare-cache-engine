@@ -492,6 +492,19 @@ inline void require_define_arg_transportfaehig(std::string_view define_name, std
     return out;
 }
 
+/// Spiegel fuer das build_version-Basis-Glied [10] (B-9/golden-102). Der Wert ist die BASIS der
+/// build_version dieses Laufs (args.build_version) -- NIE der suffigierte perm-String: die
+/// Suffix-Segmente sind via Glied [5]/[6] bereits Identitaet, eine Doppel-Tragung waere eine zweite
+/// Wahrheit. LEERE Wertform => LEERES Argument => kein Define => Identitaet (wie die Nachbarn).
+[[nodiscard]] inline std::string build_version_glied_define_arg(std::string_view werte) {
+    if (werte.empty()) return {};
+    require_define_arg_transportfaehig("COMDARE_BUILD_VERSION_GLIED", werte);
+    std::string out = "-DCOMDARE_BUILD_VERSION_GLIED=\\\"";
+    out += werte;
+    out += "\\\"";
+    return out;
+}
+
 // -- WACHEN --------------------------------------------------------------------------------------------
 // Die bvset-Signatur MUSS die Format-Wache der injizierten Glieder bestehen, bevor sie in ein Define geht:
 // sonst braeche der Tier-Bau erst tief im consteval-Fingerprint (oder, schlimmer, das Preimage waere

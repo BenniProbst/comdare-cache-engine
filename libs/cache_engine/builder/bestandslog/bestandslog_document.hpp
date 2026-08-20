@@ -20,9 +20,10 @@
 // ('&' zuerst, sonst Doppel-Encode) und deckungsgleich mit den beiden bestehenden Encodern.
 //
 // ZELL-KOORDINATEN (§62-NACHTRAG-4, syntax_version 2): der SHA512-Fingerprint traegt die per-ZELLE
-// gewaehlte ISA/Optimierung NICHT -- er ist die Anatomie-Digest der Preimage-Glieder (O-2/C-2 Format 3:
-// Format-Kennung, organ, system, measurement, Sub-Achsen-Werteset, Toolchain, bvset, overlay --
-// abi::anatomy_fingerprint_glieder). Zwei Bauten
+// gewaehlte ISA/Optimierung NICHT -- er ist die Anatomie-Digest der Preimage-Glieder (S-6a/KON45-01
+// Format 5: Format-Kennung, measurement, system, organ, Sub-Achsen-Werteset, Toolchain, bvset, overlay,
+// mess-gates, komposit -- abi::anatomy_fingerprint_glieder). [Bis 18.08.2026 stand hier die
+// Format-3-Aufzaehlung mit ACHT Gliedern und der alten Zeilen-Ordnung organ-vor-system.] Zwei Bauten
 // DERSELBEN Permutation unter avx2 bzw. avx512 haetten also denselben key_sha512 und wuerden im Lager
 // FALSCH dedupliziert (der zweite Bau gaelte als Treffer, obwohl die Bytes andere sind). Deshalb traegt
 // jeder Eintrag die drei Zell-Koordinaten combo/opt/simd als EIGENE Felder; die Eindeutigkeit laeuft
