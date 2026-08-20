@@ -391,7 +391,7 @@ struct TierWerteNameAlsPraefix : TierWerte {
 };
 static_assert(!abi::stempel_name_vertrag<abi::TierStempel<TierWerteNameAlsPraefix>>(),
               "F2-3/E-A: ein Name, der fingerprint[0:64] ist, MUSS am Ungleichheits-Vertrag scheitern "
-              "('EIGENER Hash, KEIN fingerprint[0:64]', Ledger :27981-27986)");
+              "('EIGENER Hash, KEIN fingerprint[0:64]', Ledger-Nachtrag 07.08.2026/E-A-Auflage)");
 
 } // namespace erbin_bestand
 

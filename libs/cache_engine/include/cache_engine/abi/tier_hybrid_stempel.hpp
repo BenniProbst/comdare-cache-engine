@@ -22,7 +22,7 @@
 //
 // DER name()-VERTRAG (E-A + V-05R "Ja, integrieren", KON101): DER NAME ist der EIGENE SHA-256 (64
 // lowercase hex) ueber DASSELBE Preimage, das den SHA-512-Fingerprint speist -- ausdruecklich NICHT
-// dessen erste 64 hex ("EIGENER Hash, KEIN fingerprint[0:64]", Ledger :27981-27986; die Quell-Wache
+// dessen erste 64 hex ("EIGENER Hash, KEIN fingerprint[0:64]", Ledger-Nachtrag 07.08.2026/E-A-Auflage; die Quell-Wache
 // dazu ist die Ungleichheits-Wache in abi/anatomy_fingerprint.hpp, der POD-Traeger ist
 // name_line/name_len in AnatomyVersionLines, Layout 7). Hier steht die ERBIN-SEITE dieses Vertrags:
 // stempel_name_vertrag<Erbin>() prueft 64-lowercase-hex UND die Praefix-UNGLEICHHEIT am Wert-Paar der
@@ -213,7 +213,7 @@ struct HybridStempel
     return true;
 }
 
-/// "EIGENER Hash, KEIN fingerprint[0:64]" (Ledger :27981-27986): der Name darf NIE das
+/// "EIGENER Hash, KEIN fingerprint[0:64]" (Ledger-Nachtrag 07.08.2026, E-A-Kommentar-Auflage): der Name darf NIE das
 /// 64-Zeichen-Praefix des SHA-512-Fingerprints sein. Traegt die Erbin keinen 128-hex-Fingerprint
 /// (BewusstLeer-Klasse), gibt es kein Praefix, mit dem er kollidieren koennte -- dann ist die
 /// Praefix-Frage gegenstandslos (true), und die Fingerprint-Pflicht selbst prueft die Matrix.
