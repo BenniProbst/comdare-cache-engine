@@ -235,7 +235,7 @@ int main(int argc, char** argv) {
     // NICHT still veralten koennen (dieselbe Doktrin wie beim workload-Label oben).
     f << "    <!-- work_mode (A-05/V-12): die Run-Methodik-UNTER-Achse. Single-Source ist kWorkModeRegistry\n";
     f << "         (run_methodology_registry.hpp); Index == WorkMode-Wert, static_assert-gesichert. Der\n";
-    f << "         frueher hier stehende TODO ist damit eingeloest -- die Typisierung, auf die er wartete,\n";
+    f << "         frueher hier stehende TODO ist damit eingeloest - die Typisierung, auf die er wartete,\n";
     f << "         existiert. Reine Reflexion: kein handgeschriebener Wert, keine zweite Wissensquelle. -->\n";
     {
         note_name(std::string_view{"work_mode"});

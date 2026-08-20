@@ -5,7 +5,7 @@
      SOTA-Lebewesen × 4 N). Identisch zu m3v2_study.profile.xml in der BASIS-320-Deklaration (gleiche
      binary_ids = golden, kein Drift), ABER:
        * <sota_series_set> auf 3 Pilot-Reihen GEKAPPT: A/prt_art + A/art (Verbund1_CeOnly) + A/prt_art
-         (Verbund2_Replace) -- #178: Verbund1  +  Verbund2 -> Reihe A (kein id="C"; Reihe C build-uebergreifend).
+         (Verbund2_Replace) - #178: Verbund1  +  Verbund2 -> Reihe A (kein id="C"; Reihe C build-uebergreifend).
        • <working_set_sweep> = EIN N (16384) → 1 aeussere N-Iteration (bezahlbar).
        • cap klein (das Harness uebersteuert mit -MaxBinaries).
      Die <axis_sweeps>-Deklaration bleibt voll (der Sweep-Pilot waehlt via @<achse> einen Eintrag). -->

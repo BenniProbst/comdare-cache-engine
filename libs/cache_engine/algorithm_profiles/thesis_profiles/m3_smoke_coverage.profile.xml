@@ -167,7 +167,7 @@
        identisch; der N>1-Fan-out gehoert S5/P-MESSTOOL. Ids-Single-Source = die Mess-Registries. run_methodology:
        build (A-05/V-12, 18.08.2026: der work_mode debug ist ausgebaut - er war der einzige, der MASS UND DABEI
        PARALLEL LIEF. Der Smoke braucht davon nur die eine Haelfte, das Bauen; der Verdrahtungs-Check "DASS es
-       laeuft" wandert auf das --debug-CLI-Flag der Planer-Shell (Slot S-8/W2, mit eigenem
+       laeuft" wandert auf das Debug-CLI-Flag der Planer-Shell (Slot S-8/W2, mit eigenem
        End-zu-Ende-Test; bis dahin deckt der state-direkte Zugang in test_experiment_plan_director die
        (j3)-Mechanik). Alt-Text der debug-Zeile:
        parallele Debug-MESSEN ist §16.2-M1/Task #45, heute 1-Thread); measurement_framework: ycsb (honest-1);

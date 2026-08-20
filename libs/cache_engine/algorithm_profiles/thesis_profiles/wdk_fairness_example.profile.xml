@@ -70,7 +70,7 @@
     <category name="THROUGHPUT"/>
   </measurement_categories>
 
-  <!-- GO-5 Fork 6: die Thesis-§sec:fairness-TRENNUNG je Vergleich -- derselbe Vergleich (hot, Verbund1)
+  <!-- GO-5 Fork 6: die Thesis-§sec:fairness-TRENNUNG je Vergleich - derselbe Vergleich (hot, Verbund1)
        einmal als Common-Denominator- und einmal als Native-Reihe; prt_art ohne fairness (ungesetzt = "-"). -->
   <sota_series_set>
     <sota_series id="A" lebewesen="prt_art" merge="Verbund1_CeOnly"/>
