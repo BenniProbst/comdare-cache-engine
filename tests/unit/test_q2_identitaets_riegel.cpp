@@ -39,15 +39,17 @@ namespace loader = comdare::cache_engine::builder::anatomy_loader;
 
 namespace {
 
+// L1-CI-FIX 16040: cppcheck (lint:static) wertet uninitMemberVarNoCtor unter --error-exitcode=2
+// als rot (Job 382489). Default-Init statt Suppression -- kFaelle unten belegt alle Spalten.
 struct Fall {
-    char const*       pfad;
+    char const*       pfad = nullptr;
     cea::AnatomyGenus erwartetes_genus;
     // Review #15 Fix 8: UNABHAENGIGE Erwartungs-Spalte statt Selbstvergleich. Der fruehere Check
     // verglich gattung_of(anatomie->genus()) mit gattung_of(f.erwartetes_genus) -- nach bestandenem
     // Genus-Check ist das gattung_of(x) == gattung_of(x), eine Tautologie, die JEDE Zuordnungstabelle
     // in gattung_of gruen liesse. Die Spalte bindet gattung_of an ein LITERAL je Fixture-Klasse.
     cea::AnatomyGattung erwartete_gattung;
-    char const*         etikett;
+    char const*         etikett = nullptr;
 };
 
 // Die Fixture-Klassen, jede einmal: plain-Tier ueber die vier Gattungs-Makros und Hybrid ueber
