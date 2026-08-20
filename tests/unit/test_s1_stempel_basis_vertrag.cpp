@@ -67,6 +67,7 @@
 #include <cache_engine/abi/anatomy_version_stamp.hpp> // KON8-03-Drift-Guard: system_stamp_line (Haus-Renderer)
 #include <cache_engine/abi/stempel_basis.hpp>
 #include <cache_engine/abi/system_cell_values.hpp>
+#include <cache_engine/abi/tier_hybrid_stempel.hpp> // F2-3: die Tier-/Hybrid-Erbinnen (S-5-Rest)
 #include <cache_engine/abi/toolchain_stamp_glied.hpp>
 #include <profile_facade/g1_binary_version_stamp.hpp>
 #include <profile_facade/planner/planner_version.hpp>
@@ -307,6 +308,104 @@ struct CebGesamtOhneMess : abi::StempelBasis<CebGesamtOhneMess, abi::StempelTrae
 static_assert(!abi::StempelVertrag<CebGesamtOhneMess, abi::StempelTraeger::Ceb>,
               "gesamt_stempel MUSS jede eigene nicht-leere Zeile als Teilstring enthalten "
               "(ordnungsneutral, S-6-Sperre bleibt gewahrt)");
+
+// ================================================================================================
+// F2-3 (S-5-ERBINNEN-REST, #15-Nachlande 20.08.2026): die ECHTEN Tier-/Hybrid-ERBINNEN
+// ================================================================================================
+// Bis F2-3 pruefte diese TU die Tier-/Hybrid-Flaeche NUR ueber die Test-lokalen Probe-Structs oben
+// (TierProbe/HybridProbe). Ab jetzt existieren die ERBINNEN-Klassen (abi/tier_hybrid_stempel.hpp):
+// abi::TierStempel<Provider> / abi::HybridStempel<Provider> nach dem P4/P5-Muster (PlanerStempel/
+// CebStempel), plus der name()-VERTRAG (E-A/V-05R: 64 lowercase hex, NIEMALS fingerprint[0:64]).
+// Die WERTE hier kommen aus den ECHTEN Haus-Primitiven (anatomy_fingerprint_hex/anatomy_name_hex/
+// stempel_kompositum) ueber wohlgeformten Zeilen -- die VERDRAHTUNG in die Makro-Naht
+// (COMDARE_ANATOMY_VERSION_STAMP_M) ist B-8b/B5 und faellt AUSDRUECKLICH nicht in F2-3.
+namespace erbin_bestand {
+
+/// Die REALEN Hash-Primitiven ueber den Probe-Zeilen: fingerprint (SHA-512, 128 hex) und NAME
+/// (SHA-256, 64 hex, EIGENER Hash -- anatomy_name_hex, dieselbe Primitive wie im Tier-Makro seit L1).
+inline constexpr auto kTierFp = abi::anatomy_fingerprint_hex(
+    abi::MessZeile{probe_mess_zeile()}, abi::SystemZeile{probe_system_zeile()}, abi::OrganZeile{probe_organ_zeile()});
+inline constexpr auto kTierNm = abi::anatomy_name_hex(
+    abi::MessZeile{probe_mess_zeile()}, abi::SystemZeile{probe_system_zeile()}, abi::OrganZeile{probe_organ_zeile()});
+
+constexpr std::array<string_view, 8> tier_bestand_teile() noexcept {
+    return {probe_mess_zeile(),
+            "\n",
+            probe_system_zeile(),
+            "\n",
+            probe_organ_zeile(),
+            "\nsha512=",
+            string_view{kTierFp.data(), 128},
+            string_view{kTierNm.data(), 64}};
+}
+inline constexpr auto kTierBestandKomp = abi::stempel_kompositum<&tier_bestand_teile>();
+
+/// Der Tier-Provider -- die Wert-Quelle der Erbin (B-8b zieht dieselbe Form spaeter in die Makro-Naht).
+struct TierWerte {
+    static constexpr string_view mess_zeile() noexcept { return probe_mess_zeile(); }
+    static constexpr string_view system_zeile() noexcept { return probe_system_zeile(); }
+    static constexpr string_view organ_zeile() noexcept { return probe_organ_zeile(); }
+    static constexpr string_view fingerprint_sha() noexcept { return {kTierFp.data(), 128}; }
+    static constexpr string_view name() noexcept { return {kTierNm.data(), 64}; }
+    static constexpr string_view gesamt_stempel() noexcept { return kTierBestandKomp.view(); }
+};
+
+/// Der Hybrid-Provider: dieselbe Flaeche + der angeschlossene()-RT-Hook (KON47-02; der Datenbestand
+/// ist der Dock-Init-Cache, hybrid_dock_array.hpp -- hier statisch langlebig wie dort).
+struct HybridWerte : TierWerte {
+    static constexpr std::array<string_view, 2>       kAngeschlossene{probe_organ_zeile(), probe_system_zeile()};
+    [[nodiscard]] static std::span<string_view const> angeschlossene() noexcept { return kAngeschlossene; }
+};
+
+using TierErbin   = abi::TierStempel<TierWerte>;
+using HybridErbin = abi::HybridStempel<HybridWerte>;
+
+/// DER ZWANG (S-1/P1.2, unveraendert): jede Erbin schliesst direkt unter ihrer Definition mit dem
+/// Vertrag -- hier an der Instanziierung, denn die Erbin ist eine Vorlage ueber dem Provider.
+static_assert(abi::StempelVertrag<TierErbin, abi::StempelTraeger::Tier>,
+              "F2-3: die Tier-ERBIN verletzt den Stempel-Vertrag des Traegers TIER");
+static_assert(abi::StempelVertrag<HybridErbin, abi::StempelTraeger::Hybrid>,
+              "F2-3: die Hybrid-ERBIN verletzt den Stempel-Vertrag des Traegers HYBRID");
+/// Der name()-VERTRAG (E-A/V-05R): 64 lowercase hex UND niemals das Fingerprint-Praefix.
+static_assert(abi::stempel_name_vertrag<TierErbin>(),
+              "F2-3/E-A: der Tier-Name verletzt den name()-Vertrag (64 hex, != fingerprint[0:64])");
+static_assert(abi::stempel_name_vertrag<HybridErbin>(),
+              "F2-3/E-A: der Hybrid-Name verletzt den name()-Vertrag (64 hex, != fingerprint[0:64])");
+
+// NEGATIV: ein Tier-Provider OHNE organ_zeile faellt am Vertrag (Pflicht-Zelle organ@Tier) --
+// die Erbin weicht nichts auf.
+struct TierWerteOhneOrgan {
+    static constexpr string_view mess_zeile() noexcept { return probe_mess_zeile(); }
+    static constexpr string_view system_zeile() noexcept { return probe_system_zeile(); }
+    static constexpr string_view fingerprint_sha() noexcept { return {kTierFp.data(), 128}; }
+    static constexpr string_view name() noexcept { return {kTierNm.data(), 64}; }
+    static constexpr string_view gesamt_stempel() noexcept { return kTierBestandKomp.view(); }
+};
+static_assert(!abi::StempelVertrag<abi::TierStempel<TierWerteOhneOrgan>, abi::StempelTraeger::Tier>,
+              "F2-3: ein Tier ohne organ_zeile MUSS abgelehnt werden (Matrix-Pflicht)");
+
+// NEGATIV (E-A-Ungleichheits-Klasse, Bauplan-B-6-Koeder als DAUER-Negativprobe): ein Provider,
+// dessen name() das Fingerprint-Praefix ist, besteht den name()-Vertrag NICHT.
+struct TierWerteNameAlsPraefix : TierWerte {
+    static constexpr string_view name() noexcept { return {kTierFp.data(), 64}; } // fingerprint[0:64]!
+};
+static_assert(!abi::stempel_name_vertrag<abi::TierStempel<TierWerteNameAlsPraefix>>(),
+              "F2-3/E-A: ein Name, der fingerprint[0:64] ist, MUSS am Ungleichheits-Vertrag scheitern "
+              "('EIGENER Hash, KEIN fingerprint[0:64]', Ledger :27981-27986)");
+
+} // namespace erbin_bestand
+
+TEST(S1StempelBasisVertrag, F23TierHybridErbinnenTragenDieVertragsflaeche) {
+    // Laufzeit-Spiegel der consteval-Beweise oben (sichtbare Deckung im ctest-Protokoll).
+    EXPECT_EQ(erbin_bestand::TierErbin::fingerprint_sha().size(), 128u);
+    EXPECT_EQ(erbin_bestand::TierErbin::name().size(), 64u);
+    EXPECT_NE(std::string{erbin_bestand::TierErbin::name()},
+              std::string{erbin_bestand::TierErbin::fingerprint_sha().substr(0, 64)});
+    erbin_bestand::HybridErbin const h{};
+    EXPECT_EQ(h.angeschlossene().size(), 2u);
+    EXPECT_EQ(erbin_bestand::HybridErbin::kTraeger, abi::StempelTraeger::Hybrid);
+    EXPECT_EQ(erbin_bestand::TierErbin::kTraeger, abi::StempelTraeger::Tier);
+}
 
 // ================================================================================================
 // A-P2/P3: GENAU 10 gebundene Baustein-Typen (fremdquellige Liste) + der Nicht-Baustein
