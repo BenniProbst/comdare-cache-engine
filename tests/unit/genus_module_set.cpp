@@ -15,6 +15,8 @@
 #include <anatomy/set_default_organ.hpp>
 
 // Bau-INC-2d: isa raus → 13 Slots (SortedArrayKeySet + 12 int-Slots).
+// cppcheck kennt die COMDARE-Codegen-Emitter-Makros nicht (Definition via Include-Kette, kein -I im Lint-Lauf).
+// cppcheck-suppress unknownMacro
 COMDARE_DEFINE_SET_MODULE(::comdare::cache_engine::anatomy::SortedArrayKeySet, int, int, int, int, int, int, int, int,
                           int, int, int, int)
 

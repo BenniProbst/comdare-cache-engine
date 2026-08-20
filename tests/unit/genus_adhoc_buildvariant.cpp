@@ -16,6 +16,8 @@
 #include <organ_axes/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
 #include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
+// cppcheck kennt die COMDARE-Codegen-Emitter-Makros nicht (Definition via Include-Kette, kein -I im Lint-Lauf).
+// cppcheck-suppress unknownMacro
 COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(
     // ── die 3 Build-Achsen ZUERST (named PT, SE, HW) ──
     ::comdare::cache_engine::nodes::axis_01_page_type::DenseBytePageType,

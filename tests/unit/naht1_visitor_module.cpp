@@ -55,6 +55,8 @@
 // STRUKT-R ORG-18: 18. Organ-Slot (der Umbrella zieht die Registry, der Baustein-Header explizit).
 #include <organ_axes/persistence_target/axis_persistence_target_memory_only.hpp>
 
+// cppcheck kennt die COMDARE-Codegen-Emitter-Makros nicht (Definition via Include-Kette, kein -I im Lint-Lauf).
+// cppcheck-suppress unknownMacro
 COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(
     ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256SearchAlgo,
     ::comdare::cache_engine::traversal::axis_03b_cache_traversal::LinearFanout,

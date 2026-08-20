@@ -294,10 +294,12 @@ TEST(HyF8Reroute, CtSperreUnterscheidetNoch) {
 // der sechs Symbolnamen wirklich EINE Ladestrecke ergibt. Derselbe Loader, der die plain-Tier-.so
 // laedt, nimmt hier eine Hybrid-.so -- ohne Fallunterscheidung, ohne Gattungs-Wissen vorab.
 TEST(HyF8Reroute, SechsAbiPflichtSymboleAmGeladenenModul) {
+    // L1-CI-FIX 16040: cppcheck (lint:static) wertet uninitMemberVarNoCtor unter --error-exitcode=2
+    // als rot (Job 382489). Default-Init statt Suppression -- die Tabelle unten belegt alle Spalten.
     struct Fall {
-        char const*       pfad;
+        char const*       pfad = nullptr;
         cea::AnatomyGenus erwartetes_ziel_genus;
-        char const*       etikett;
+        char const*       etikett = nullptr;
     };
     Fall const faelle[] = {
         {COMDARE_HY_MODUL_SEARCHALGORITHM, cea::AnatomyGenus::SearchAlgorithm, "hybrid_reroute_searchalgorithm"},
