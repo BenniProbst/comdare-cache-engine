@@ -4433,6 +4433,18 @@ foreach(_dll IN ITEMS perm_set_d9 perm_sequence_d10 perm_view_d11 perm_buildvari
         ${COMDARE_ALL_AXIS_GENERATED_DIRS})
     target_compile_features(${_dll} PRIVATE cxx_std_23)
     target_compile_definitions(${_dll} PRIVATE COMDARE_ANATOMY_MODULE_BUILD=1)
+    # L1-CI-FIX 16040 (test:unit Job 382497, prod2/kalter Bau): der A-11-Stempel-Nachzug (f144b212)
+    # zieht ueber anatomy_module_abi_v1.hpp -> abi_adapter die Organ-Achsen in diese TUs. Daraus
+    # folgen ZWEI Bau-Voraussetzungen, die prod1 (System-boost, warmes build/) beide verdeckte:
+    #   (1) legacy_original_code_strategy_concept.hpp braucht <boost/mp11.hpp> -- dokumentierter
+    #       Weg boost_mp11_setup.cmake (vendored Include-Pfad, kein System-boost-Zwang);
+    #   (2) die is_original-Codegen-Header entstehen erst zur BUILD-Zeit -- Kante wie bei den
+    #       naht1-/r3-Schwestern ueber die Consumer-Registry (die Wurzel-CMakeLists zieht sie an
+    #       comdare_paper_codegen_all nach; KEINE Test-Targets, die COMDARE_TEST_TARGETS-Schleife
+    #       der Wurzel erreicht diese DLLs nicht).
+    # Fuer ALLE DLLs dieses foreach (kein zweiter Bau-Weg, s. Block-Kommentar oben).
+    target_link_libraries(${_dll} PRIVATE Boost::mp11)
+    set_property(GLOBAL APPEND PROPERTY COMDARE_PAPER_CODEGEN_CONSUMER_TARGETS ${_dll})
     set_target_properties(${_dll} PROPERTIES
         POSITION_INDEPENDENT_CODE                ON
         RUNTIME_OUTPUT_DIRECTORY                 "${_goalv6_dll_dir}"
