@@ -701,6 +701,17 @@
 # erhoben: frischer build-l1 (Frisch-Configure MIT -DCOMDARE_CE_PRUEFLINGE, J-1 SIEBEN Werkzeuge,
 # RECONFIGURE, all, comdare_tests, RECONFIGURE2), dann "Total Tests: 510". Fuer avx2/basis gilt
 # dieselbe +1-Regel unbedingter Tests.
-avx512f 510
-avx2 506
-basis 504
+# NACHZUG 20.08.2026 (N-1/F2-8, #15-Nachlandeschritt): 511/507/505 loest 510/506/504 ab.
+# KONTO, EIN Name in EINEM Zug (Registrierung und Floor-Zeile im SELBEN Commit, #39-Doktrin):
+#   test_s6c_kategorien_ordnung_zwei_welten (S-6c/S-21 Kategorien-Ordnungs-Wache: ZWEI-WELTEN-
+#     Auflage -- Aussen MESS,SYSTEM,ORGAN / Lager-Messdaten MESS->SYSTEM->ORGAN / Lager-Binaries
+#     SYSTEM->ORGAN->MESS (D-12), NIE-EINE-FOLGE-Beweis, R-A..R-F benennbar; DIESER Change) --
+#     UNBEDINGT registriert (comdare_add_test auf oberster Ebene, kein ISA-Gate, kein opt-in-
+#     Label) => +1 auf allen drei Sprossen (die im Kopf festgehaltene +1-Regel).
+# WIE GEMESSEN, NICHT GERECHNET: avx512f ist die Klasse dieser Maschine (prod1) und wurde LIVE
+# abgelesen -- gcc-release, voller Bau (all + comdare_tests + RECONFIGURE2, Frisch-Configure MIT
+# -DCOMDARE_CE_PRUEFLINGE), 'ctest -N'-Schlusszeile literal "Total Tests: 511". Fuer avx2/basis
+# gilt dieselbe +1-Regel unbedingter Tests wie beim 508er-, 509er- und 510er-Nachzug.
+avx512f 511
+avx2 507
+basis 505

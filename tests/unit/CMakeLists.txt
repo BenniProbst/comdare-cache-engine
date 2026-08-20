@@ -7535,3 +7535,28 @@ target_compile_definitions(test_g2_semantik_duplikatverbot PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
 set_tests_properties(test_g2_semantik_duplikatverbot PROPERTIES
     LABELS "g2;semantik;duplikatverbot;wachen;koeder")
+
+# =============================================================================
+# S-6c/S-21 KATEGORIEN-ORDNUNGS-WACHE (N-1, #15-Nachlande 2026-08-20): die
+# ZWEI-WELTEN-AUFLAGE als eigener Block am DATEIENDE (Kollisionsschutz gegen
+# die Bloecke anderer Straenge; Namenskonvention test_s6c_*).
+#
+# test_s6c_kategorien_ordnung_zwei_welten: DREI fremdquellige Kategorien-
+# Abschriften (Aussen MESS,SYSTEM,ORGAN [KON21-03] -- Lager-Messdaten
+# MESS->SYSTEM->ORGAN [A9-Doc 6.1] -- Lager-Binaries SYSTEM->ORGAN->MESS
+# [D-12]), jede Welt gegen IHRE Quelle (POD-Offsets/Preimage-Glieder bzw. die
+# Kaskaden-Ausgabe der Realm-Policies), NIE-EINE-FOLGE-Beweis, Fehlerklassen
+# R-A..R-F benennbar (par.68a-Register). Include-/Link-Satz wie
+# test_lb0_lager_pfad_grammatik (der Baum-Writer zieht die 18 Organ-Achsen und
+# die bindende System-Ordnung -> Boost::mp11); dazu die abi-Preimage-Quelle.
+comdare_add_test(test_s6c_kategorien_ordnung_zwei_welten
+    SOURCES test_s6c_kategorien_ordnung_zwei_welten.cpp)
+target_include_directories(test_s6c_kategorien_ordnung_zwei_welten PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_s6c_kategorien_ordnung_zwei_welten PRIVATE Boost::mp11)
+set_tests_properties(test_s6c_kategorien_ordnung_zwei_welten PROPERTIES
+    LABELS "s6c;s21;kategorien;ordnung;zwei-welten;wachen;koeder")
