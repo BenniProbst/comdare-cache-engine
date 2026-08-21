@@ -44,3 +44,10 @@ endif()
 # comdare_paper_codegen_all. Als Consumer registrieren, damit die Root-CMakeLists (Z.1453+) die
 # add_dependencies(<target> comdare_paper_codegen_all) setzt (offizieller Mechanismus, wie die adhoc-Targets).
 set_property(GLOBAL APPEND PROPERTY COMDARE_PAPER_CODEGEN_CONSUMER_TARGETS comdare_axis_registry_gen)
+
+# =============================================================================
+# B16/K12 (bau/w1-luecken, 2026-08-21) -- B16-WARN-DECKUNG: -Wall-Familie fuer die
+# Nicht-Test-Targets dieser Datei (Welle tools). Bis heute wirkte
+# COMDARE_set_default_warnings NUR ueber cmake/gtest_setup.cmake (Test-Executables);
+# Produktions-TUs bauten ohne -Wall. Anhang ANS DATEIENDE (Kollisionsschutz).
+COMDARE_set_default_warnings(comdare_axis_registry_gen)

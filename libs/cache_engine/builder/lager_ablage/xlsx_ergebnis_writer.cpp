@@ -216,7 +216,9 @@ public:
         info.zeile(std::vector<std::string>{"sysinfo", "kernel", feld(sysinfo_.kernel)});
         info.zeile(std::vector<std::string>{"sysinfo", "build", feld(sysinfo_.build)});
         info.zeile(std::vector<std::string>{"sysinfo", "identity_verdict", feld(sysinfo_.identity_verdict)});
-        for (auto const& e : haupt_) info.zeile(std::vector<std::string>{"hauptachse", e.achse, e.wert});
+        // XL-L4 (B08): konkurrierend belegte Achse -> EIN "n/a"-Ausweis (ergebnis_mappe.hpp, geteilt).
+        for (auto const& e : hauptachsen_konkurrenz_ausweis(haupt_))
+            info.zeile(std::vector<std::string>{"hauptachse", e.achse, e.wert});
         for (auto const& e : konstanten_) info.zeile(std::vector<std::string>{"konstante", e.achse, e.wert});
         for (std::size_t i = 0; i < labels_.size(); ++i)
             info.zeile(std::vector<std::string>{"sheet_legende", labels_[i],

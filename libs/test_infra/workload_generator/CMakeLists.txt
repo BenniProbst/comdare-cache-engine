@@ -9,3 +9,8 @@ target_include_directories(comdare_workload_generator PUBLIC
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
 )
 target_compile_features(comdare_workload_generator PUBLIC cxx_std_23)
+
+# =============================================================================
+# B16/K12 (bau/w1-luecken, 2026-08-21) -- B16-WARN-DECKUNG (Nachzug: dieses
+# Verzeichnis lag ausserhalb des Wellen-Globs; TU-Zaehlung fand die Luecke).
+COMDARE_set_default_warnings(comdare_workload_generator)

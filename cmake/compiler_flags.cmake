@@ -18,15 +18,20 @@ function(COMDARE_set_default_warnings target)
             NOMINMAX
             WIN32_LEAN_AND_MEAN)
     elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+        # B16/K12 (2026-08-21): die C++-ONLY-Kategorien sind per COMPILE_LANGUAGE:CXX gegatet.
+        # Bis B16 traf diese Funktion nur reine C++-Test-Executables und das Gate war unnoetig;
+        # mit der Produktions-Deckung erreichte sie erstmals ein Target mit einer C-TU und gcc
+        # meldete je C-Objekt 6 cc1-Warnungen ("not valid for C"). Fuer reine C++-Targets ist
+        # der Ausdruck verhaltensgleich (gleiche Flags, gleiche Haerte).
         target_compile_options(${target} PRIVATE
             -Wall
             -Wextra
             -Wpedantic
             -Wshadow
-            -Wnon-virtual-dtor
+            $<$<COMPILE_LANGUAGE:CXX>:-Wnon-virtual-dtor>
             -Wcast-align
-            -Wold-style-cast
-            -Woverloaded-virtual
+            $<$<COMPILE_LANGUAGE:CXX>:-Wold-style-cast>
+            $<$<COMPILE_LANGUAGE:CXX>:-Woverloaded-virtual>
             -Wmissing-declarations
             # S1 NULL-KOSTEN-RATSCHE: zu Fehlern werden NUR Kategorien, die am
             # Objekt nachweislich treffer-frei sind. Gemessen am Vollbau ueber
@@ -49,10 +54,10 @@ function(COMDARE_set_default_warnings target)
             # und eine Haertung waere keine Zusicherung, sondern nur Dekoration.
             # Bewertbar wird sie erst auf einer Architektur mit echten
             # Ausrichtungs-Anforderungen.
-            -Werror=non-virtual-dtor
-            -Werror=overloaded-virtual
+            $<$<COMPILE_LANGUAGE:CXX>:-Werror=non-virtual-dtor>
+            $<$<COMPILE_LANGUAGE:CXX>:-Werror=overloaded-virtual>
             -Werror=pedantic
-            -Werror=old-style-cast
+            $<$<COMPILE_LANGUAGE:CXX>:-Werror=old-style-cast>
             $<$<CONFIG:Debug>:-O0 -g3>
             $<$<CONFIG:Release>:-O3>
             $<$<CONFIG:RelWithDebInfo>:-O2 -g>)

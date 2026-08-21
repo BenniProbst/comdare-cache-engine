@@ -214,7 +214,9 @@ TEST(S3OrdnungFreigabe, Alle9OrganKlassenBleibenNotApplicableAufBeidenDialekten)
         meas::reset_active_machine_declaration_for_test();
         std::ostringstream log;
         (void)pf::belege_aktive_maschinen_deklaration(mc.hostname_hint, machines, log);
-        ASSERT_EQ(meas::kSimdOrganRequirement.size(), 9u) << "T-6: ALLE 9 Organ-Klassen, nicht ein Beispiel.";
+        // B03 (2026-08-21): Nenner 9 -> 18 (alle Kompositions-Achsen; vorher fehlten 10 und der
+        // Geist "scoring" stand drin -- test_simd_organ_achsen_deckung pinnt die Namen positionsweise).
+        ASSERT_EQ(meas::kSimdOrganRequirement.size(), 18u) << "T-6: ALLE 18 Organ-Klassen, nicht ein Beispiel.";
         for (auto const& organ : meas::kSimdOrganRequirement) {
             EXPECT_TRUE(organ.required.empty()) << organ.organ_class;
             for (auto const d : kDialekte)

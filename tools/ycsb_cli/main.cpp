@@ -149,7 +149,8 @@ inline constexpr std::uint32_t kBinaryVersion = 1u;
     return out.good() ? 0 : 10;
 }
 
-[[nodiscard]] std::string_view op_kind_name(wg::OperationKind k) noexcept {
+// B16/K12: -Wmissing-declarations der neu gedeckten TU -- interne Helfer sind static.
+[[nodiscard]] static std::string_view op_kind_name(wg::OperationKind k) noexcept {
     switch (k) {
         case wg::OperationKind::Read: return "read";
         case wg::OperationKind::Update: return "update";

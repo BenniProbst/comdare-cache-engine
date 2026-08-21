@@ -18,3 +18,14 @@ set_target_properties(comdare_hdr_histogram_wrapper PROPERTIES LINKER_LANGUAGE C
 # hier gefuehrte Marker "is_original" (= unmodifiziertes Upstream) war daher unzutreffend.
 # Der Vendor-Inhalt bleibt per Vendoring-Doktrin unangetastet; nur die Provenienz-Angabe
 # wird hier ehrlich gemacht.
+
+# =============================================================================
+# B16/K12 (bau/w1-luecken, 2026-08-21) -- B16-WARN-DECKUNG: -Wall-Familie fuer die
+# Nicht-Test-Targets dieser Datei (Welle libs). Bis heute wirkte
+# COMDARE_set_default_warnings NUR ueber cmake/gtest_setup.cmake (Test-Executables);
+# Produktions-TUs bauten ohne -Wall. Anhang ANS DATEIENDE (Kollisionsschutz).
+# AUSNAHME (B16, begruendet statt still): comdare_hdr_histogram_wrapper kompiliert die
+# VENDOR-C-Quelle vendor/hdr_histogram.c -- fremder Code bekommt unsere Warnflags nicht
+# (dasselbe Prinzip, nach dem ext/ von der Deckung ausgenommen ist). Der ce-eigene
+# Wrapper-Anteil ist header-only und wird ueber seine Konsumenten-TUs gedeckt.
+# KEIN COMDARE_set_default_warnings auf diesem Target.

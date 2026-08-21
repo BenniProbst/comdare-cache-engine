@@ -118,6 +118,9 @@ Merkmale und Pakete:
   --enable-NAME           setzt -DCOMDARE_NAME=ON   (NAME: Bindestriche werden
   --disable-NAME          setzt -DCOMDARE_NAME=OFF   zu Unterstrichen, Grossschrift)
                           Beispiel: --disable-build-tests -> -DCOMDARE_BUILD_TESTS=OFF
+  --enable-NAME=WERT      Autoconf-Konvention (B15): yes -> ON, no -> OFF,
+  --disable-NAME=WERT     jeder andere WERT reist woertlich durch
+                          Beispiel: --enable-x=no -> -DCOMDARE_X=OFF
   --with-cmake=PFAD       zu verwendendes cmake                    [cmake]
   --with-generator=NAME   CMake-Generator, z.B. Ninja              [CMake-Vorgabe]
   --with-build-type=TYP   Release | Debug | RelWithDebInfo | ...   [Release]
@@ -168,6 +171,20 @@ while [ $# -gt 0 ]; do
         --srcdir=*)         srcdir=${1#*=} ;;
         --build-dir=*)      builddir=${1#*=} ;;
 
+        # B15/##12-Rest (2026-08-21) -- die Autoconf-Konvention: --enable-FEATURE=no ist
+        # --disable-FEATURE (und spiegelbildlich); jeder andere Wert reist woertlich als
+        # -DCOMDARE_NAME=WERT durch. Vorher lief der Wertteil in den NAMEN ("--enable-x=no"
+        # ergab -DCOMDARE_X=NO=ON -- tr behandelt '=' nicht). Die Wert-Zweige stehen VOR den
+        # stumpfen Formen (case matcht in Reihenfolge; die Alt-Formen bleiben byte-identisch).
+        --enable-*=*|--disable-*=*)
+            _rohname=${1#--enable-}; [ "$_rohname" = "$1" ] && _rohname=${1#--disable-}
+            _wert=${_rohname#*=}
+            _feature=${_rohname%%=*}
+            case "$_wert" in
+                yes) schalter_abbilden "$_feature" ON ;;
+                no)  schalter_abbilden "$_feature" OFF ;;
+                *)   schalter_abbilden "$_feature" "$_wert" ;;
+            esac ;;
         --enable-*)         schalter_abbilden "${1#--enable-}" ON ;;
         --disable-*)        schalter_abbilden "${1#--disable-}" OFF ;;
 

@@ -291,11 +291,14 @@
 ///       der Anfangsstand ("es ist die erste Version, die er traegt, nicht die erste, die er hat",
 ///       :56-57), nicht die Zusage, dass sie gleich bleiben. Ohne diesen Verweis wuerde der Eintrag
 ///       einen Befund als Ordnung festschreiben.
-///       OFFEN, damit die Abgrenzung nicht spaeter still kippt: der 06.08.-Stempel-Plan sieht eine
-///       GENUS-Version als CT-Komposition aus Organ-/System-/Mess-Gliedern vor -- die LEISTUNGS-Version
-///       eines Genus. Sie ist NICHT gebaut. Die fuenf Literale hier bleiben davon unberuehrt, weil sie
-///       die VERTRAGS-Version des Docks sind; eine gebaute Komposition waere eine Ergaenzung, kein
-///       Ersatz. Diese Klasse beschreibt den IST-Stand, nicht den Plan.
+///       GEBAUT (K02/F2-7a, 2026-08-21; bis dahin stand hier OFFEN): die GENUS-Version als
+///       CT-Komposition aus Mess-/System-/Organ-Gliedern -- die LEISTUNGS-Version eines Genus
+///       (KON2-06, Owner 10.08.2026) -- lebt in builder/pruef_dock/genus_leistungs_version.hpp,
+///       CT-bewiesen in test_genus_ct_komposition.cpp (static_assert-Golden + Partition beide
+///       Richtungen). Die fuenf Literale hier bleiben davon unberuehrt, weil sie die
+///       VERTRAGS-Version des Docks sind; die gebaute Komposition ist die angekuendigte
+///       Ergaenzung, kein Ersatz -- sie hat KEINEN Stempel-/Preimage-/golden-Anschluss (ein
+///       Anschluss waere ein eigenes deklariertes Byte-Ereignis).
 ///       Erhebung: der generische Wachen-grep oben faengt sie (pruef_dock_version.hpp).
 ///   (j) O-2/C-2 + NB/CX-3 (05.-07.08.2026; als KLASSE nachgetragen 10.08.2026, P14): die
 ///       TOOLCHAIN-ACHSEN-CODE-VERSIONEN. abi/toolchain_stamp_glied.hpp fuehrt kToolchainAxisVersions
@@ -817,7 +820,10 @@ struct RenderedAlgoSemVer {
 /// FLAG-GRAMMATIK v2: da das 'v'-Praefix entfallen ist, ist diese Funktion fuer wohlgeformte Eingaben die
 /// IDENTITAET auf der Zeichenfolge -- das ist keine Redundanz, sondern der Beweis, dass rohe und gerenderte
 /// Form zusammengefallen sind (Roundtrip-Batterie unten).
-[[nodiscard]] inline std::string algo_semver_string(std::string_view algo_version) {
+/// K02/F2-7a (2026-08-21): constexpr statt inline (verhaltensneutral; constexpr impliziert inline) --
+/// die Genus-Leistungs-Komposition (builder/pruef_dock/genus_leistungs_version.hpp) wertet DENSELBEN
+/// Renderer compile time aus, statt einen zweiten aufzubauen (Drift-Verbot dieses Headers).
+[[nodiscard]] constexpr std::string algo_semver_string(std::string_view algo_version) {
     return std::string{render_algo_semver(parse_algo_semver(algo_version)).view()};
 }
 
