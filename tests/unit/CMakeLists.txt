@@ -7574,3 +7574,62 @@ target_include_directories(test_s6c_kategorien_ordnung_zwei_welten PRIVATE
 target_link_libraries(test_s6c_kategorien_ordnung_zwei_welten PRIVATE Boost::mp11)
 set_tests_properties(test_s6c_kategorien_ordnung_zwei_welten PROPERTIES
     LABELS "s6c;s21;kategorien;ordnung;zwei-welten;wachen;koeder")
+
+# =============================================================================
+# S-8-KOPF (T-NEU-6 Teil 1, 2026-08-20): CONTRACT-TESTS der Traeger-Stufe-1-
+# Neubauten als eigener Block am DATEIENDE (Kollisionsschutz; Konvention
+# test_s8*). Zwei TUs:
+#
+# test_s8kopf_planner_kopf: B-01-Naht-Schablone (3 Klassen hinauf, Negativ-
+# proben compile-hart) + B-14 sechs Steuerdocks (Nenner FREMD: 3! per
+# std::next_permutation, Instrument-Abschrift des Owner-KERNs 09.08.) +
+# Traeger-Raketen-Geruest (Tiefe 3, erst Tier dann Hybrid, KEINE YAML by
+# construction) + #22(ii)-Debug-Neutralitaet AN der dump-plan-Naht (Plan-Text
+# byte-invariant unter COMDARE_DEBUG_FREIGABE). Die TU zieht den Monolith-
+# Director (profile_facade) UND die neue <traeger/planner/...>-Wurzel
+# (comdare_planner) => Include-/Link-/Define-Satz deckungsgleich zu
+# test_experiment_plan_director (gleicher Director-Include-Baum) plus
+# comdare_planner.
+comdare_add_test(test_s8kopf_planner_kopf
+    SOURCES test_s8kopf_planner_kopf.cpp
+    LIBRARIES comdare_builder_xml_config_parser comdare_planner)
+comdare_prepare_thesis_object_dir(test_s8kopf_planner_kopf)
+target_include_directories(test_s8kopf_planner_kopf PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_s8kopf_planner_kopf PRIVATE Boost::mp11)
+target_compile_definitions(test_s8kopf_planner_kopf PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_PLANNER_THESIS_ALL_AXES=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/all_axes_golden.profile.xml\""
+    "COMDARE_EXPERIMENT_GOLDEN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_golden.xml\""
+    "COMDARE_CE_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/cache_engine_axis_registry.xml\""
+    "COMDARE_SYSTEM_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement/system_axis_registry.xml\""
+    "COMDARE_MEASUREMENT_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement/measurement_axis_registry.xml\"")
+# Gleiche Bau-Graph-Kante wie test_experiment_plan_director (P1689-Scan vs.
+# Generator-Custom-Command, s. Kommentar dort): der Director-Include-Baum zieht
+# generated_source_catalog.hpp.
+comdare_attach_generated_catalog(test_s8kopf_planner_kopf)
+set_tests_properties(test_s8kopf_planner_kopf PROPERTIES
+    LABELS "s8;contract;planner;traeger;naht;steuerdock;rakete;debug-neutralitaet")
+
+# test_s8_traeger_grenzwache: DESIGN #29 Par. 4.4 -- die Grenz-Wache zieht MIT
+# dem ersten S-8-Commit ein. Quelltext-Scanner als Google-Test (Muster
+# test_vs_taxonomie_klassen_grep): (a) keine Include-Kante Stufe N->N+1 in
+# libs/traeger/, (b) jede traeger->builder-Kante traegt den Marker
+# TRAEGER-BRUECKE(#88). Koeder beidseitig im Test (Wegwerf-Baum, Posten-69-
+# Namenskonvention via COMDARE_TEST_TMP_BUILD_TAG, verzeichnisweit definiert).
+# std-only + gtest => kein Link-Bedarf ueber gtest hinaus; der Pruef-Baum
+# kommt als Define.
+comdare_add_test(test_s8_traeger_grenzwache
+    SOURCES test_s8_traeger_grenzwache.cpp)
+target_compile_definitions(test_s8_traeger_grenzwache PRIVATE
+    "COMDARE_TRAEGER_WURZEL=\"${PROJECT_SOURCE_DIR}/libs/traeger\"")
+set_tests_properties(test_s8_traeger_grenzwache PROPERTIES
+    LABELS "s8;traeger;grenzwache;wachen;koeder")

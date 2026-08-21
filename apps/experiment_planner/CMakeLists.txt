@@ -26,8 +26,14 @@ target_include_directories(comdare_experiment_planner PRIVATE
 
 # Die PUBLIC-Include-Wurzel des Fassaden-Targets (libs/cache_engine) liefert <profile_facade/...> und
 # <builder/artifact_transport/artifact_cache.hpp>.
+# S-8-Kopf/R-01 (T-NEU-6, 2026-08-20): zusaetzlich das Traeger-Stufe-1-Ziel comdare_planner
+# (<traeger/planner/...>, DESIGN #29) -- die R-01-Schnitt-VORBEREITUNG: neue Planer-Substanz
+# (B-01-Naht/B-14-Docks/Raketen-Geruest) waechst traeger-seitig an; der VOLLZUG (Fassaden-Substanz
+# wandert, dieses Link ersetzt comdare::profile_run_facade) ist W7/#88 und dort deklariert
+# (libs/traeger/planner/CMakeLists.txt).
 target_link_libraries(comdare_experiment_planner PRIVATE
-    comdare::profile_run_facade)
+    comdare::profile_run_facade
+    comdare_planner)
 
 # Default-Profil + validate-Registry-Pfade (Spiegel super Code/02_messung_driver/CMakeLists.txt:27-37).
 # Die ce-Seite ist PROJECT_SOURCE_DIR-relativ -> im super-Sub-Build zeigen die Pfade auf dieselben Dateien.
