@@ -91,8 +91,17 @@
   <!-- KF #24 (2026-08-14): xlsx EXPLIZIT deklariert (Muster: m3v2_study.profile.xml <writeback_methods>).
        Owner-B4 13.08. "Es gibt keine CSV ohne xlsx und xlsx ist Standard" (KON60-05: xlsx=STAMM,
        csv=KIND, Erzeugungs-Doktrin). Verhaltensneutral: LEER/FEHLEND ergab bereits xlsx (Owner-KERN
-       26.07., profile_facade). ADDITIV gehalten; S-13/#18 darf ersetzen. -->
+       26.07., profile_facade). ADDITIV gehalten; S-13/#18 darf ersetzen.
+       S13-02 (2026-08-21, Design 4.1 Folgewirkung 1; Leser-Erhebung am super-Objekt): csv EXPLIZIT
+       dazu. Seit dem Ziel-Filter entstuende fuer ein Nur-xlsx-Profil KEINE measurements.csv mehr;
+       dieses Profil IST aber der Smoke-Planer-Pfad (super .gitlab-ci.yml COMDARE_GOLDEN_N_PROFILE bei
+       COMDARE_MEASURE_PROFILE=smoke), und die super-Wachen LESEN die measurements.csv per find
+       (ci/mess_ausbeute_wache.sh:196, ci/lauf_marker.sh:344, ci/frische_wache.sh:156). Design-Regel:
+       "ergibt sich ein Leser, bekommt das Profil einen expliziten csv-Block, statt den Default zu
+       drehen." base_pilot/wdk_fairness_example haben KEINE csv-Leser (erhoben 20.08.) und bleiben
+       Nur-xlsx. -->
   <writeback_methods>
+    <method value="csv"/>
     <method value="xlsx"/>
   </writeback_methods>
 </comdare_thesis_profile>

@@ -773,30 +773,43 @@ struct RunProfileResult {
     }
 
     // ── EINE CSV; Header GENAU EINMAL; darunter Basis-Pass + SOTA-Paesse (alle N). ──
-    // M11 (G5-Audit w289llo0o): Stream-Fehlerpruefung. Liess der open() scheitern (Pfad nicht
-    // schreibbar / Platte voll), waere die CSV stillschweigend leer geblieben → exit_code haette
-    // faelschlich Erfolg gemeldet. Open-Erfolg jetzt hart geprueft; Schreib-/Flush-Fehler fliessen
-    // unten (csv.good() nach flush) in den exit_code ein.
-    std::ofstream csv{a.out_csv.string(), std::ios::trunc};
-    if (!csv) {
-        std::cout << "RUN_PROFILE FEHLER: CSV nicht oeffenbar → " << a.out_csv.string() << "\n";
+    // M11 (G5-Audit w289llo0o) LEBT WEITER, nur die Traeger-Stelle wanderte (S13-01): Open-Fehler
+    // der VERLANGTEN csv brechen hart ab (projektion_oeffnen unten), Schreib-/Flush-/Close-Fehler
+    // fliessen ueber projektion_ok()/persistenz_ok in den exit_code ein -- eine still abgeschnittene
+    // oder leere CSV kann weiterhin keinen Erfolg melden.
+    // -- S13-01/-02 (#18/D-1, KON32-01; Schwesterstelle zu experiment_run_entry.hpp -- T-6: derselbe
+    // Schnitt an BEIDEN Naehten): DIE MAPPE IST DER STAMM, die offizielle CSV ihr KIND. Der rohe
+    // Parallel-Strom (std::ofstream csv{a.out_csv, trunc} + csv<< in emit) ist ENTFERNT -- eine Zeile
+    // erreicht a.out_csv NUR noch als PROJEKTION, NACHDEM der Stamm sie angenommen hat (Owner 09.08.
+    // 16:31, D-2(2)). <writeback_methods> steuert allein die PERSISTENZ: csv -> Projektion +
+    // __S001-Kind; xlsx -> Stamm auf Platte; LEER/FEHLEND => xlsx (Owner-KERN 26.07.); die Mappe im
+    // RAM entsteht IMMER. Fail-fast wie frueher beim CSV-Open (M11-Muster): ohne Stamm bzw. ohne
+    // herstellbare VERLANGTE csv faellt der Lauf, BEVOR gemessen wird.
+    // I/O: im Mess-Fenster nimmt der Stamm Zeilen nur ENTGEGEN; sein Datei-Schreibvorgang liegt in
+    // schliessen() unten (Contention-Doktrin, Design-Dossier V-A9-4). Projektion und __S001-Kind
+    // streamen wie der fruehere rohe Strom waehrend des Laufs -- dieselbe I/O-Lage wie zuvor.
+    ::comdare::cache_engine::lager_naht::MappenNaht mappe;
+    mappe.oeffnen(a.out_csv, tp.writeback_methods);
+    if (!mappe.scharf()) {
+        std::cout << "RUN_PROFILE FEHLER: die Ergebnis-Mappe (Stamm) entstand nicht -- " << mappe.diagnose() << "\n";
         res.exit_code = 1;
         return res;
     }
-    csv << ex::lazy_csv_header();
-
-    // -- A9-S5 (2026-08-09): DIESELBEN Zeilen ZUSAETZLICH in eine Ergebnis-Mappe. -----------------
-    // ADDITIV: der rohe CSV-Strom oben bleibt unangetastet -- golden bleibt byte-identisch. Die Mappe
-    // entsteht NEBEN a.out_csv, ihr Name folgt der bestandslog-Grammatik. Das Format kommt aus
-    // <writeback_methods>; LEER/FEHLEND => xlsx (Owner-KERN 26.07.). Bis heute hatte der seit A9-S3
-    // fertige xlsx-Writer NULL Produktions-Aufrufer -- das hier ist der erste. csv UND xlsx zugleich
-    // sind seit dem Owner-Entscheid 09.08. gueltig -- dann nennt ziele() BEIDE Ausgaben DERSELBEN Mappe.
-    // I/O: im Mess-Fenster werden Zeilen nur ENTGEGENGENOMMEN; geschrieben wird erst in schliessen()
-    // unten, neben csv.flush() (Contention-Doktrin, Design-Dossier V-A9-4).
-    ::comdare::cache_engine::lager_naht::MappenNaht mappe;
-    mappe.oeffnen(a.out_csv, tp.writeback_methods);
+    if (!mappe.projektion_oeffnen(a.out_csv)) {
+        std::cout << "RUN_PROFILE FEHLER: offizielle CSV nicht herstellbar -- " << mappe.diagnose() << " → "
+                  << a.out_csv.string() << "\n";
+        res.exit_code = 1;
+        return res;
+    }
     mappe.kopf_aus_csv(ex::lazy_csv_header());
     std::cout << "  [MAPPE] " << mappe.diagnose() << (mappe.scharf() ? "  ziele=" + mappe.ziele() : "") << "\n";
+
+    // S13-03(a) (KON32-01 "nur per Binary xlsx"): der per-Binary-Mappen-Sink -- lauf-konstant, geht
+    // je Pass in cfg.per_binary_mappe (Iterator ruft ihn an der per-Binary-Synchron-Naht). Derselbe
+    // hostname wie das Aggregat; result.csv+stamp bleiben Iterator-Sache (Resume-Vertrag, ausserhalb
+    // des Filters -- Satz (b) am Sink selbst).
+    auto const per_binary_mappe_sink = ::comdare::cache_engine::lager_naht::mach_per_binary_mappe_sink(
+        tp.writeback_methods, ::comdare::cache_engine::measurement::live_hostname());
 
     // Gemeinsame Lauf-Config-Vorlage (je Pass kopiert + getaggt). 1 DLL = 1 TU bleibt.
     // #171 (2026-06-20): make_cfg traegt zusaetzlich pruefling_type (full/abstract/-). Basis/Sweep uebergeben
@@ -935,6 +948,7 @@ struct RunProfileResult {
         cfg.cache_push                = a.cache_push;     // Storage #51: bis zur per-Binary-Naht (No-Op-Default)
         cfg.cache_pull       = a.cache_pull;       // S2 (#46a): BATCH-Warm-Cache-Hydrierung VOR dem Bau (No-Op-Default)
         cfg.measurement_sink = a.measurement_sink; // Storage #51: result.csv -> measure-drop (No-Op-Default)
+        cfg.per_binary_mappe = per_binary_mappe_sink; // S13-03(a): je Binary EINE Ergebnis-Mappe (KON32-01)
         // G4b-1 (#46b I1): die letzte Schicht der Bestandslog-Naht -- ab hier liest der Iterator. Erst
         // bestandslog_active (:927-929) entscheidet: alle vier Traeger belegt UND doc_key nicht leer. bestand_
         // fingerprint_fn (oben, das SCHREIBEN des Sidecars) und bestand_key_of (hier, das LESEN) sind die beiden
@@ -1001,16 +1015,15 @@ struct RunProfileResult {
     };
 
     auto emit = [&](ex::LazyRunResult const& r, std::size_t* row_sink) {
-        csv << r.resumed_csv_rows;
         // #165-B (P-MD8, 2026-06-20): den statistischen Ausreißer-Flag VOR der Emission je Pass befüllen. Lokale,
         // mutierbare Kopie der frisch gemessenen Zeilen (LazyRunResult bleibt unberührt); annotate_quality_flags
         // setzt nur das additive quality_flag-Feld (0/1) je (binary_id, profile_name)-Gruppe — gate-frei, keine
         // bestehende Spalte/kein Messwert berührt. resumed_csv_rows (Alt-Zeilen) bleiben unangetastet (Datenerhaltung).
         std::vector<ex::LazyMeasuredRow> rows = r.csv_rows;
         ex::annotate_quality_flags(rows);
-        for (auto const& row : rows) csv << ex::format_csv_row(row);
-        // A9-S5: DIESELBEN Zeilen in die Mappe -- aus derselben In-Memory-Quelle wie die rohe CSV
-        // (Richtung xlsx -> csv, es wird NIE eine fertige CSV-Datei zurueckgelesen).
+        // S13-01: NUR NOCH in die Mappe -- aus der In-Memory-Quelle, nie aus einer Datei (Richtung
+        // xlsx -> csv). Die offizielle CSV entsteht als Projektion IN der Naht, je Zeile NACH der
+        // Stamm-Annahme (D-2(2): eine Zeile erreicht die csv NUR, wenn der Stamm sie angenommen hat).
         mappe.blob_aus_csv(r.resumed_csv_rows);
         for (auto const& row : rows) mappe.zeile_aus_csv(ex::format_csv_row(row));
         *row_sink += count_lines(r.resumed_csv_rows) + rows.size();
@@ -1447,20 +1460,20 @@ struct RunProfileResult {
         }
     }
 
-    csv.flush();
-    // M11 (G5-Audit w289llo0o): nach dem Flush das Stream-Ergebnis pruefen. Ein waehrend des
-    // Schreibens/Flushens aufgetretener Fehler (Platte voll, IO-Fehler) setzt failbit/badbit und
-    // wuerde sonst eine still abgeschnittene CSV als Erfolg ausgeben.
-    bool const csv_ok = csv.good();
+    // S13-01: die STAMM-GESUNDHEIT wird VOR dem Schliessen gelesen (danach ist das Objekt frei).
+    // stamm_ok = der Stamm nahm bis zuletzt an UND keine Zeile wurde verworfen -- die Vorbedingung
+    // jeder gueltigen Persistenz (D-2(2): bricht die xlsx-Erzeugung, ist auch die csv ungueltig).
+    bool const stamm_ok = mappe.scharf() && mappe.verworfen() == 0;
 
-    // -- A9-S5: die Mappe schliessen. HIER liegt ihr einziger Datei-Schreibvorgang -- nach der
-    // Mess-Schleife, nicht darin. info_blatt() vertraegt ueberwiegend leere Felder ("n/a statt Null"):
-    // hostname ist per live_hostname() erreichbar, machine_id/cpu_fabrication/ram_pair/
-    // identity_verdict stammen aus der XML-Systemachsen-Deklaration und liegen in RunProfileArgs
-    // NICHT vor -- sie bleiben leer und werden von der Mappe als "n/a" gerendert, nicht erfunden.
-    // BEWUSST NICHT exit-wirksam in diesem Schritt: die Mappe steht additiv neben der offiziellen CSV,
-    // ein Mappen-Fehler darf einen sonst gueltigen Mess-Lauf nicht rot faerben. Verdeckt ist der Zweig
-    // deshalb nicht -- mappe_ok und der Grund stehen in der Zeile unten.
+    // -- S13-01/-02: die Mappe schliessen. HIER liegt der Datei-Schreibvorgang der GEWAEHLTEN
+    // Persistenzen -- nach der Mess-Schleife, nicht darin. info_blatt() vertraegt ueberwiegend leere
+    // Felder ("n/a statt Null"): hostname ist per live_hostname() erreichbar, machine_id/
+    // cpu_fabrication/ram_pair/identity_verdict stammen aus der XML-Systemachsen-Deklaration und
+    // liegen in RunProfileArgs NICHT vor -- sie bleiben leer und werden von der Mappe als "n/a"
+    // gerendert, nicht erfunden.
+    // SEIT DEM UMBAU EXIT-WIRKSAM (die alte Fassung sagte hier "BEWUSST NICHT exit-wirksam" -- das
+    // galt fuer die ADDITIVE Aera): die Mappe steht nicht mehr neben der offiziellen CSV, sie IST
+    // der einzige Ausgabe-Weg; ein Mappen-Fehler heisst verlorene Persistenz und faerbt den Lauf rot.
     // DER BESTAND IM SPEICHER, VOR dem Schliessen gelesen: danach ist das Mappen-Objekt freigegeben
     // und die Aussage waere nicht mehr zu haben. Das ist die Zeile, die einen csv-only-Lauf belegt --
     // sie sagt, wieviele Blaetter und Zeilen die xlsx-Erzeugung wirklich getragen hat, GEGEN die Zahl
@@ -1477,6 +1490,14 @@ struct RunProfileResult {
               << " (angenommen/angeboten) verworfen=" << mappe.verworfen()
               << " feld_abweichungen=" << mappe.feld_abweichungen() << "/" << mappe.kopf_spalten()
               << " (Abweichungen/Kopfspalten) " << mappe.diagnose() << "\n";
+
+    // csv_ok = die offizielle CSV wurde VERLANGT (wahl().csv) UND steht vollstaendig auf der Platte.
+    // Bei einem Nur-xlsx-Profil ist sie NICHT verlangt -> csv_ok=0 UND kein measurements.csv-Sink;
+    // der Lauf-Erfolg haengt dann allein an persistenz_ok (die super-Wachen-Leser der csv_ok=-Zelle
+    // fahren auf Profilen MIT csv-Deklaration -- smoke/golden tragen sie seit S13-02).
+    bool const csv_gewaehlt  = mappe.wahl().csv;
+    bool const csv_ok        = csv_gewaehlt && mappe.projektion_ok();
+    bool const persistenz_ok = stamm_ok && mappe_ok;
 
     // D3-7b (2026-08-10, KOMMENTAR GEHEILT 2026-08-11): DER MODUS GEHOERT IN DIE BILANZ-ZEILE, weil nur
     // DIESE Funktion ihn sicher weiss. Ein Modus, den der Aufrufer danebenlegt, waere eine Behauptung
@@ -1519,11 +1540,13 @@ struct RunProfileResult {
               << " (basis_ids=" << res.basis_binary_ids << " sota_ids=" << res.sota_binary_ids << ")"
               << " measured=" << res.any_measured << " resumed=" << res.any_resumed
               << " provisioned=" << res.any_provisioned << lauf_modus_zusatz(a.provision_only, a.pruef_only)
-              << " csv_ok=" << (csv_ok ? "1" : "0") << " → " << a.out_csv.string() << "\n";
+              << " csv_ok=" << (csv_ok ? "1" : "0") << " persistenz_ok=" << (persistenz_ok ? "1" : "0") << " → "
+              << a.out_csv.string() << "\n";
 
-    // Storage #51 (Ebene C, whole-run + datierter Baum): die EINE offizielle CSV NACH dem verifizierten Flush additiv
-    // an die measure-drop-Senke. No-Op-Default (leere measurement_sink) => byte-neutral. Nur bei csv_ok (keine abgeschn.
-    // CSV spiegeln). SYNCHRON (alle Paesse fertig) — kein async/detached.
+    // Storage #51 (Ebene C, whole-run + datierter Baum): die EINE offizielle CSV NACH dem verifizierten
+    // Schliessen additiv an die measure-drop-Senke. No-Op-Default (leere measurement_sink) => byte-neutral.
+    // Nur wenn sie VERLANGT war und liegt (S13-02: ein Nur-xlsx-Lauf hat keine measurements.csv zu
+    // spiegeln). SYNCHRON (alle Paesse fertig) — kein async/detached.
     if (csv_ok && a.measurement_sink) a.measurement_sink(a.out_csv, "measurements.csv");
 
     // Exit 0 = mind. 1 (Binary x Setting) real gemessen ODER resumiert (Voll-Resume = gueltiger Lauf)
@@ -1544,7 +1567,10 @@ struct RunProfileResult {
         res.exit_code = (res.any_pruef_ok > 0 && res.any_pruef_failed == 0) ? 0 : 1;
         return res;
     }
-    res.exit_code = (((res.any_measured > 0 || res.any_resumed > 0) || provision_ok) && csv_ok) ? 0 : 1;
+    // S13-01: csv_ok ist durch persistenz_ok ersetzt -- Exit 0 verlangt, dass ALLE GEWAEHLTEN
+    // Persistenzen (Projektion, __S001-Kind, xlsx-Stamm -- je nach <writeback_methods>) fehlerfrei
+    // stehen UND der Stamm nichts verworfen hat (M11-Nachfolger; Fehler im Stamm => Exit != 0).
+    res.exit_code = (((res.any_measured > 0 || res.any_resumed > 0) || provision_ok) && persistenz_ok) ? 0 : 1;
     return res;
 }
 
