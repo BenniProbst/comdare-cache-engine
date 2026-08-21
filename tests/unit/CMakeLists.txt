@@ -7574,3 +7574,25 @@ target_include_directories(test_s6c_kategorien_ordnung_zwei_welten PRIVATE
 target_link_libraries(test_s6c_kategorien_ordnung_zwei_welten PRIVATE Boost::mp11)
 set_tests_properties(test_s6c_kategorien_ordnung_zwei_welten PROPERTIES
     LABELS "s6c;s21;kategorien;ordnung;zwei-welten;wachen;koeder")
+
+# =============================================================================
+# W2 SOFORTSTAFFEL-2 STRANG trigger-fixzellen (E-7 R-12 + E-8 R-13, 2026-08-21):
+# eigener Block am DATEIENDE (Kollisionsschutz gegen die Bloecke anderer Straenge).
+#
+# test_e07_gate_kriterien: der E-07-Gate-Pruefer (profile_facade/e07_gate_kriterien.hpp,
+# Dossier-Kriterien K1-K5+N1-N3, fail-closed, Nenner literal in der Ausgabe, Koeder
+# beidseitig). Header-only-Pruefling, nur stdlib -> kein Zusatz-Link.
+comdare_add_test(test_e07_gate_kriterien
+    SOURCES test_e07_gate_kriterien.cpp)
+target_include_directories(test_e07_gate_kriterien PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+set_tests_properties(test_e07_gate_kriterien PROPERTIES
+    LABELS "e07;gate;kriterien;b10;wachen;koeder")
+
+# test_e8_bytes_in_use_peak_demo: bytes_in_use_peak im Demo-Treiber WAHR (r3 C5) --
+# Link-/Include-Satz wie test_workload_and_experiment (derselbe Pruefling-Verbund).
+comdare_add_test(test_e8_bytes_in_use_peak_demo
+    SOURCES test_e8_bytes_in_use_peak_demo.cpp
+    LIBRARIES comdare::cache_engine_concepts comdare::workload_generator comdare::experiment)
+set_tests_properties(test_e8_bytes_in_use_peak_demo PROPERTIES
+    LABELS "e8;r13;bytes-in-use-peak;messwahrheit;koeder")

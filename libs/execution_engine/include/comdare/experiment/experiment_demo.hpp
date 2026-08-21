@@ -11,6 +11,7 @@
 #include <cache_engine/abi/module_abi_v1.hpp>
 #include <cache_engine/allocators/concepts/i_allocation_strategy.hpp>
 
+#include <algorithm>
 #include <cstdint>
 #include <span>
 #include <string>
@@ -35,7 +36,15 @@ run_single_experiment(std::string const& permutation_id, std::uint64_t fingerpri
     auto       handle       = runner.begin_measurement("experiment");
     auto const start_cycles = std::chrono::steady_clock::now();
 
-    std::uint64_t ops_executed = 0;
+    // W2 R-13 (r3 C5, 2026-08-21) -- bytes_in_use_peak WAHR erheben statt luegen: der Treiber
+    // fuehrt jeden raw_allocate/raw_deallocate SELBST aus, also ist der wahre Peak der in
+    // Benutzung befindlichen Nutzlast-Bytes exakt das Maximum des eigenen live-Zaehlers ueber
+    // den Op-Strom (jede Nutzlast ist value_size_bytes gross). AllocationStatistics traegt kein
+    // Peak-Feld -- die fruehere Befuellung mit stats.total_bytes_allocated war eine KUMULATIVE
+    // Summe unter Peak-Etikett (nach jeder Freigabe eine Ueberschaetzung), keine Messgroesse.
+    std::uint64_t live_bytes_in_use = 0;
+    std::uint64_t peak_bytes_in_use = 0;
+    std::uint64_t ops_executed      = 0;
     for (auto const& op : ops) {
         switch (op.op) {
             case workload_generator::OperationKind::Insert:
@@ -45,6 +54,8 @@ run_single_experiment(std::string const& permutation_id, std::uint64_t fingerpri
                 if (p) {
                     allocations.push_back(p);
                     runner.record_event(handle, benchmark_suite::EventKind::Allocation, value_size_bytes);
+                    live_bytes_in_use += value_size_bytes;
+                    peak_bytes_in_use = std::max(peak_bytes_in_use, live_bytes_in_use);
                 }
                 break;
             }
@@ -54,6 +65,7 @@ run_single_experiment(std::string const& permutation_id, std::uint64_t fingerpri
                     allocations.pop_back();
                     strategy.raw_deallocate(p, value_size_bytes, 16);
                     runner.record_event(handle, benchmark_suite::EventKind::Deallocation, value_size_bytes);
+                    live_bytes_in_use -= value_size_bytes;
                 }
                 break;
             case workload_generator::OperationKind::Read:
@@ -76,7 +88,7 @@ run_single_experiment(std::string const& permutation_id, std::uint64_t fingerpri
     result.record.op_count               = ops_executed;
     result.record.total_cycles           = static_cast<std::uint64_t>(ns_taken);
     result.record.bytes_allocated        = stats.total_bytes_allocated;
-    result.record.bytes_in_use_peak      = stats.total_bytes_allocated;
+    result.record.bytes_in_use_peak      = peak_bytes_in_use; // WAHRER Peak (live-Maximum, s. Zaehler oben)
     result.record.external_fragmentation = stats.external_fragmentation;
     result.record.internal_fragmentation = stats.internal_fragmentation;
     result.succeeded                     = true;
