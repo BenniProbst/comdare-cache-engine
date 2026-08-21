@@ -712,6 +712,39 @@
 # abgelesen -- gcc-release, voller Bau (all + comdare_tests + RECONFIGURE2, Frisch-Configure MIT
 # -DCOMDARE_CE_PRUEFLINGE), 'ctest -N'-Schlusszeile literal "Total Tests: 511". Fuer avx2/basis
 # gilt dieselbe +1-Regel unbedingter Tests wie beim 508er-, 509er- und 510er-Nachzug.
-avx512f 511
-avx2 507
-basis 505
+# NACHZUG 21.08.2026 (W1-LUECKEN-LANDUNG B01-B16, Merge ee8abb86): 523/519/517 loest
+# 511/507/505 ab. KONTO, ZWOELF Namen in EINEM Push-Change (#39-Doktrin: Registrierung im
+# W1L-Baustrang bau/w1-luecken=3149c8a2, dieser Nachzug im SELBEN Push-Bereich; der volle
+# Lande-Gates-Lauf meldete das Fehlen als GATE-[5/6]-ROT, DIESER Change schliesst es):
+#   test_genus_ct_komposition (B02) . test_simd_organ_achsen_deckung (B03) .
+#   test_vl3_debug_stdout_bytegleich (B04) . test_lg_host_binder (B05) .
+#   test_lg_e2e_xlsx_facade (B06) . test_pk_klemm_json (B07) .
+#   test_xl_l4_na_konkurrenz (B08) . test_lg_load_wache_genus_kontrast (B09a) .
+#   test_lg_idempotenz_beide_wdh (B09b) . test_registry_gen_out_pflicht (B12) .
+#   test_ci_coverage_guard_strikt (B13) . test_configure_enable_gnu (B15)
+# ALLE ZWOELF UNBEDINGT registriert (7x comdare_add_test + 5x add_test auf oberster Ebene;
+# Zugangs-Diff 66de5c09..ee8abb86 traegt 0 Treffer auf COMDARE_HOST_RUNS/COMDARE_CE_PRUEFLINGE)
+# => +12 auf allen drei Sprossen; die Sprossenabstaende -4 und -2 bleiben unveraendert.
+# WIE GEMESSEN, NICHT GERECHNET, ALLE DREI SPROSSEN LIVE an DIESEM Baum: frischer build-l1
+# (gcc-release-Form, Frisch-Configure MIT -DCOMDARE_CE_PRUEFLINGE, J-1 SIEBEN Werkzeuge,
+# RECONFIGURE, all, comdare_tests, RECONFIGURE2), 'ctest -N'-Schlusszeile literal
+# "Total Tests: 523"; avx2/basis per cmake erzwungen (-DCOMDARE_HOST_RUNS_AVX512F=0 -> 519;
+# zusaetzlich -DCOMDARE_HOST_RUNS_AVX2=0 -> 517); jede Namensliste mit Gegenprobe
+# Listenlaenge == Total (523/523, 519/519, 517/517).
+# ZWEI-SEITIGE GEGENPROBE am Objekt, LC_ALL=C comm in BEIDE Richtungen:
+#     avx512f -> avx2  verliert exakt die dokumentierten VIER
+#                      (test_ap5_simd_extension_coherence, test_buildvariant_dll_real,
+#                       test_simd_add_u64_carry_avx512, test_simd_field_sum_dispatch_avx512)
+#     avx2    -> basis verliert exakt die ZWEI
+#                      (test_simd_add_u64_carry_avx2, test_simd_field_sum_dispatch_avx2)
+#     beide Gegenrichtungen LEER -- kein verstecktes -N/+M; KEIN 12er-Name in einer
+#     Verlustliste (je genau 12 in allen drei Namensmengen).
+# Danach 'cmake -U' auf BEIDE Variablen: Wiederherstellung BYTE-GLEICH (Total wieder 523,
+# sortierte Namensliste cmp ohne Ausgabe, beide Cache-Schalter wieder INTERNAL=1).
+# PRUEFLING-GEGENPROBE: Namensmenge MIT Pruefling minus J-0b-Baum (build/gcc-release, 522)
+# == exakt test_pruefling_fixture_ladung, Gegenrichtung LEER.
+# MESSHOST prod1, GCC 15.3.0, Ninja, 2026-08-21. Messlogs:
+# /home/comdare/backups-workflow/20260821-w1l-landung/floor-messung.log (+ floor-logs/).
+avx512f 523
+avx2 519
+basis 517
