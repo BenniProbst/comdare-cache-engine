@@ -39,3 +39,9 @@ target_link_libraries(comdare_ce_pruef_dock INTERFACE
     comdare::anatomy_module_loader
     comdare::ce_anatomy_drive
     Boost::mp11)
+
+# =============================================================================
+# B16/K12 (bau/w1-luecken, 2026-08-21) -- B16-WARN-DECKUNG: -Wall-Familie fuer die
+# Nicht-Test-Targets dieser Datei (Welle libs). Bis heute wirkte
+# COMDARE_set_default_warnings NUR ueber cmake/gtest_setup.cmake (Test-Executables);
+# Produktions-TUs bauten ohne -Wall. Anhang ANS DATEIENDE (Kollisionsschutz).

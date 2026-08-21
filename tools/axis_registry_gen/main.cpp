@@ -185,7 +185,12 @@ template <class List, std::size_t GoldenK>
 } // namespace
 
 int main(int argc, char** argv) {
-    std::string out_path   = "cache_engine_axis_registry.xml";
+    // B12/F7 (2026-08-21): --out ist PFLICHT. Der fruehere CWD-Default ("cache_engine_axis_registry.xml")
+    // war die Ursache der F7-Root-Duplikate: jeder Aufruf ohne --out legte die Datei still im
+    // Arbeitsverzeichnis an. Aufrufer-Beleg vor dem Umbau: der einzige maschinelle Aufrufer
+    // (tests/unit/registry_roundtrip.cmake) uebergibt --out explizit; die produktiven XMLs sind
+    // eingecheckt. Fail-loud statt stiller Schreibung -- dieselbe Klasse in allen drei Generatoren.
+    std::string out_path   = {};
     bool        with_extra = false;
     for (int i = 1; i < argc; ++i) {
         std::string_view const a = argv[i];
@@ -261,6 +266,12 @@ int main(int argc, char** argv) {
                 return 5;
             }
         }
+    }
+    if (out_path.empty()) {
+        std::cerr << "axis_registry_gen: FEHLER -- --out <file> ist PFLICHT (kein CWD-Default; "
+                     "B12/F7: stille Arbeitsverzeichnis-Schreibungen sind abgeschafft).\n"
+                     "  usage: axis_registry_gen --out <file> [--with-extra-axes]\n";
+        return 2;
     }
 
     std::ofstream f{out_path, std::ios::binary};

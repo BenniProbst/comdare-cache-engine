@@ -507,6 +507,7 @@ private:
 
 struct OrganDetail {
     static constexpr std::string_view kName = "organ";
+    static_assert(!kName.empty()); // B16: Vertrags-Pin (schliesst clang -Wunused-const-variable)
 
     /// Ergebnis des Literal-Scans einer Datei: alle Literale in Text-Reihenfolge + die
     /// Praeprozessor-Diagnose (G6b).
@@ -865,6 +866,7 @@ struct OrganDetail {
 struct SystemDetail {
     static constexpr std::string_view kName = "system";
     static constexpr std::string_view kHome = "libs/cache_engine/system_axes";
+    static_assert(!kHome.empty()); // B16: Vertrags-Pin (schliesst clang -Wunused-const-variable)
     /// ZWEIPHASIG: volle Hardware-Wache je Literal (EIN Katalog, EIN Parser).
     [[nodiscard]] static bool literal_zulaessig(std::string const& literal) {
         return meas::ce_owned_version_is_wellformed(literal);
@@ -874,6 +876,7 @@ struct SystemDetail {
 struct MessDetail {
     static constexpr std::string_view kName = "mess";
     static constexpr std::string_view kHome = "libs/cache_engine/mess_axes";
+    static_assert(!kHome.empty()); // B16: Vertrags-Pin (schliesst clang -Wunused-const-variable)
     /// DREIPHASIG: heute NUR Parsebarkeit ueber den EINEN Parser (Leerstelle s. Block-Kopf);
     /// der G-1-Bau ersetzt diesen Rumpf durch mess_version_is_wellformed (Stufe C).
     [[nodiscard]] static bool literal_zulaessig(std::string const& literal) {

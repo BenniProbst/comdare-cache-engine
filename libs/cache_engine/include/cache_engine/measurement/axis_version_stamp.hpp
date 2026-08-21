@@ -38,7 +38,8 @@ struct AxisVersionEntry {
 /// FLAG-GRAMMATIK v2 -- DIE FORM-WACHE DER EINTRAEGE, als constexpr-PRAEDIKAT statt als Nebenbedingung.
 ///
 /// WOZU SIE DA IST (Owner-Direktive 07.08.2026: der Bestand SOLL brechen, aber LAUT): der Renderer unten
-/// ist Laufzeit und schluckt jede Zeichenfolge -- eine Fehlform faellt in algo_semver_string auf "0.0.0"
+/// prueft selbst nicht und schluckt jede Zeichenfolge (seit K02/F2-7a constexpr-faehig, an der
+/// Prueflosigkeit aendert das nichts) -- eine Fehlform faellt in algo_semver_string auf "0.0.0"
 /// und reist als "Version unbekannt" weiter. Genau das ist die Alias-Identitaet, gegen die die
 /// B11-Wachen eine Ebene tiefer gebaut sind: zwei ROH verschiedene Literale mit demselben Stempel-Segment.
 /// AM OBJEKT GEMESSEN (Bissprobe 07.08.2026, vor dieser Wache): eine Composition mit dem ALT-Literal
@@ -69,7 +70,10 @@ struct AxisVersionEntry {
 /// die Eintraege noch TYPEN sind (organ_stamp_line<Comp>, system_stamp_line) -- nur dort kann sie
 /// compile-time brechen. Hier waere sie ein Laufzeit-Zweig und damit genau die stille Degradierung, die
 /// sie verhindern soll.
-[[nodiscard]] inline std::string build_axis_version_stamp_line(std::span<AxisVersionEntry const> entries) {
+/// K02/F2-7a (2026-08-21): constexpr statt inline (verhaltensneutral) -- die Genus-Leistungs-
+/// Komposition wertet diese EINE Grammatik-Funktion compile time aus; ein zweiter CT-Renderer waere
+/// exakt die Drift-Quelle, gegen die der Kommentar oben argumentiert. Prueflos bleibt sie trotzdem.
+[[nodiscard]] constexpr std::string build_axis_version_stamp_line(std::span<AxisVersionEntry const> entries) {
     std::string out;
     for (AxisVersionEntry const& e : entries) {
         if (!out.empty()) out += ';';

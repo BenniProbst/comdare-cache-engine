@@ -136,6 +136,40 @@ struct MaschinenSysinfo {
     return s.empty() ? std::string_view{"n/a"} : s;
 }
 
+/// XL-L4 (B08, 2026-08-21) -- der KONKURRENZ-Ausweis der Haupt-Achsen-Belegung. Traegt dieselbe
+/// Achse mehrfach ABWEICHENDE Werte (zwei Quellen/Laeufe belegen dieselbe Kennzahl verschieden),
+/// ist die Belegung NICHT BESTIMMBAR: statt einer der konkurrierenden Zahlen (still falsch) oder
+/// zweier widerspruechlicher Zeilen (unentscheidbar) traegt die Achse EINE Zeile mit dem
+/// honest-empty-Token "n/a" (Section-16.2-M4-Konvention; Token-Treue: "n/a" parst nie als Zahl
+/// und landet im Text-Zweig beider Backends). IDENTISCHE Wiederholungen sind KEINE Konkurrenz
+/// und bleiben byte-unveraendert -- ebenso jede konkurrenzfreie Belegung (die Golden-Ausgaben
+/// bestehender Laeufe aendern sich nicht; Beweis: test_xl_l4_na_konkurrenz Normalfall-Byte-Probe).
+/// Geteilt zwischen CSV- und xlsx-Backend wie n_a_wenn_leer (EINE Konvention, kein Fork).
+[[nodiscard]] inline HauptAchsenBelegung hauptachsen_konkurrenz_ausweis(HauptAchsenBelegung const& haupt) {
+    HauptAchsenBelegung out;
+    out.reserve(haupt.size());
+    for (auto const& e : haupt) {
+        bool konkurriert = false;
+        for (auto const& f : haupt)
+            if (f.achse == e.achse && f.wert != e.wert) {
+                konkurriert = true;
+                break;
+            }
+        if (!konkurriert) {
+            out.push_back(e); // konkurrenzfrei (auch identische Wiederholung): unveraendert
+            continue;
+        }
+        bool schon_ausgewiesen = false;
+        for (auto const& o : out)
+            if (o.achse == e.achse && o.wert == "n/a") {
+                schon_ausgewiesen = true; // genau EIN Ausweis je konkurrierender Achse
+                break;
+            }
+        if (!schon_ausgewiesen) out.push_back(AchsenEintrag{e.achse, "n/a"});
+    }
+    return out;
+}
+
 // =================================================================================================
 // 2B. FASSUNG 3 (Owner-Entscheid 08.08., additiv): compare/Macro/Micro-Blattsorte
 // =================================================================================================
@@ -546,7 +580,9 @@ public:
             info << "sysinfo;kernel;" << feld(sysinfo_.kernel) << '\n';
             info << "sysinfo;build;" << feld(sysinfo_.build) << '\n';
             info << "sysinfo;identity_verdict;" << feld(sysinfo_.identity_verdict) << '\n';
-            for (auto const& e : haupt_) info << "hauptachse;" << e.achse << ';' << e.wert << '\n';
+            // XL-L4 (B08): konkurrierend belegte Achse -> EIN "n/a"-Ausweis (s. Helfer-Kopf).
+            for (auto const& e : hauptachsen_konkurrenz_ausweis(haupt_))
+                info << "hauptachse;" << e.achse << ';' << e.wert << '\n';
             for (auto const& e : konstanten_) info << "konstante;" << e.achse << ';' << e.wert << '\n';
             for (std::size_t i = 0; i < labels_.size(); ++i)
                 info << "sheet_legende;" << labels_[i] << ';' << schluessel_[i].mess_unter << '|'

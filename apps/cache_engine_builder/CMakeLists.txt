@@ -51,3 +51,10 @@ if(COMDARE_BUILD_BUILDER)
     target_compile_definitions(cache_engine_builder PRIVATE COMDARE_WRITER_BACKEND_WINRING)
   endif()
 endif()
+
+# =============================================================================
+# B16/K12 (bau/w1-luecken, 2026-08-21) -- B16-WARN-DECKUNG: -Wall-Familie fuer die
+# Nicht-Test-Targets dieser Datei (Welle apps). Bis heute wirkte
+# COMDARE_set_default_warnings NUR ueber cmake/gtest_setup.cmake (Test-Executables);
+# Produktions-TUs bauten ohne -Wall. Anhang ANS DATEIENDE (Kollisionsschutz).
+COMDARE_set_default_warnings(cache_engine_builder)

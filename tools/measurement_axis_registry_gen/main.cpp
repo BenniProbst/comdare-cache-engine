@@ -115,7 +115,12 @@ void emit_collector(std::ofstream& f) {
 } // namespace
 
 int main(int argc, char** argv) {
-    std::string out_path = "measurement_axis_registry.xml";
+    // B12/F7 (2026-08-21): --out ist PFLICHT. Der fruehere CWD-Default ("measurement_axis_registry.xml")
+    // war die Ursache der F7-Root-Duplikate: jeder Aufruf ohne --out legte die Datei still im
+    // Arbeitsverzeichnis an. Aufrufer-Beleg vor dem Umbau: der einzige maschinelle Aufrufer
+    // (tests/unit/registry_roundtrip.cmake) uebergibt --out explizit; die produktiven XMLs sind
+    // eingecheckt. Fail-loud statt stiller Schreibung -- dieselbe Klasse in allen drei Generatoren.
+    std::string out_path = {};
     for (int i = 1; i < argc; ++i) {
         std::string_view const a = argv[i];
         if (a == "--out" && i + 1 < argc) {
@@ -127,6 +132,12 @@ int main(int argc, char** argv) {
             std::cerr << "measurement_axis_registry_gen: unbekanntes Argument '" << a << "'\n";
             return 2;
         }
+    }
+    if (out_path.empty()) {
+        std::cerr << "measurement_axis_registry_gen: FEHLER -- --out <file> ist PFLICHT (kein CWD-Default; "
+                     "B12/F7: stille Arbeitsverzeichnis-Schreibungen sind abgeschafft).\n"
+                     "  usage: measurement_axis_registry_gen --out <file>\n";
+        return 2;
     }
 
     std::ofstream f{out_path, std::ios::binary};

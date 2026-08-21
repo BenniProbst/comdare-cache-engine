@@ -75,3 +75,10 @@ endif()
 if(TARGET comdare_paper_codegen_all)
     add_dependencies(comdare_catalog_codegen_cli comdare_paper_codegen_all)
 endif()
+
+# =============================================================================
+# B16/K12 (bau/w1-luecken, 2026-08-21) -- B16-WARN-DECKUNG: -Wall-Familie fuer die
+# Nicht-Test-Targets dieser Datei (Welle apps). Bis heute wirkte
+# COMDARE_set_default_warnings NUR ueber cmake/gtest_setup.cmake (Test-Executables);
+# Produktions-TUs bauten ohne -Wall. Anhang ANS DATEIENDE (Kollisionsschutz).
+COMDARE_set_default_warnings(comdare_catalog_codegen_cli)

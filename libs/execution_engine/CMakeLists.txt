@@ -15,3 +15,8 @@ target_link_libraries(comdare_experiment PUBLIC
     comdare::benchmark_suite
 )
 target_compile_features(comdare_experiment PUBLIC cxx_std_23)
+
+# =============================================================================
+# B16/K12 (bau/w1-luecken, 2026-08-21) -- B16-WARN-DECKUNG (Nachzug: dieses
+# Verzeichnis lag ausserhalb des Wellen-Globs; TU-Zaehlung fand die Luecke).
+COMDARE_set_default_warnings(comdare_experiment)

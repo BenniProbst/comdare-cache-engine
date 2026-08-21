@@ -240,3 +240,10 @@ if(_facade_perm_extra_cflags)
     target_compile_definitions(comdare_profile_run_facade PRIVATE
         "COMDARE_FACADE_PERM_EXTRA_CFLAGS=\"${_facade_perm_extra_expr}\"")
 endif()
+
+# =============================================================================
+# B16/K12 (bau/w1-luecken, 2026-08-21) -- B16-WARN-DECKUNG: -Wall-Familie fuer die
+# Nicht-Test-Targets dieser Datei (Welle libs). Bis heute wirkte
+# COMDARE_set_default_warnings NUR ueber cmake/gtest_setup.cmake (Test-Executables);
+# Produktions-TUs bauten ohne -Wall. Anhang ANS DATEIENDE (Kollisionsschutz).
+COMDARE_set_default_warnings(comdare_profile_run_facade)

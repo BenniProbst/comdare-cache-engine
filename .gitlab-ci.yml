@@ -570,7 +570,16 @@ test:coverage-guard:
     #   * HOST-PROBE: die Cache-Zeilen des test:unit-Baums (reist im selben Testing/-
     #     Artefakt wie die Inventur). Damit vergleicht die Wache KLASSEN, nicht blind
     #     Mengen -- auf Mischklassen-Runnern erklaert die Klassenleiter die Differenz.
-    - COMDARE_FREMD_INVENTUR=build/Testing/ctest_unit_inventar.txt
+    # B13/Z07 (2026-08-21, Mini-Diff -- #106 fasst diese Datei spaeter breit an): STRIKT=1 AM
+    # AUFRUF (nicht als Job-Variable, Begruendung oben gilt fort -- der Selbsttest darunter
+    # braucht den ungesetzten Fall). H2-Befund: Lande-Laeufe fuhren WEICH; ein declared:-Gate
+    # ohne gesetzte Variable wurde als ANNAHME gezaehlt statt als Fehler. Die Matrix ist
+    # vollstaendig deklariert (einziges declared:-Gate = COMDARE_PMC_LANES, global :66) --
+    # unter STRIKT=1 bleibt die Wache damit gruen und faellt erst, wenn jemand eine
+    # Deklaration entfernt. Biss-Beweis: test_ci_coverage_guard_strikt (Exit-2-Klasse
+    # exklusiv dem Streng-Befund).
+    - COMDARE_WACHE_STRIKT=1
+      COMDARE_FREMD_INVENTUR=build/Testing/ctest_unit_inventar.txt
       COMDARE_FREMD_SOLL_DELTA_BLOECKE=pruefling_slots_v1
       COMDARE_FREMD_HOST_PROBE=build/Testing/ctest_unit_host_probe.txt
       sh scripts/ci_test_coverage_guard.sh build-covguard

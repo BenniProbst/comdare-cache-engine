@@ -72,7 +72,9 @@ TEST(MSimdFeatureFlagCatalog, Avx512FusedOffMachinesKeep256AndCompanionsButNoAvx
 }
 
 TEST(MSimdFeatureFlagCatalog, OrganSensibilityMatrixMatchesReferenceDocSection5) {
-    EXPECT_EQ(m::kSimdOrganSensibility.size(), 9u);
+    // B03 (2026-08-21): Nenner 9 -> 18 (Referenzdoc-Abschnitt-5-Zuordnungen unveraendert; die 10
+    // nachgezogenen Achsen tragen die LEERE Menge, der Geist "scoring" ist raus).
+    EXPECT_EQ(m::kSimdOrganSensibility.size(), 18u);
     EXPECT_TRUE(m::organ_sensibility_within_catalog());
     // solide Zuordnungen (Referenzdoc Abschnitt 5):
     EXPECT_TRUE(m::is_flag_meaningful_for("filter", "avx512_vpopcntdq"));

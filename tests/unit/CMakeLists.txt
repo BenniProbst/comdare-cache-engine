@@ -7574,3 +7574,196 @@ target_include_directories(test_s6c_kategorien_ordnung_zwei_welten PRIVATE
 target_link_libraries(test_s6c_kategorien_ordnung_zwei_welten PRIVATE Boost::mp11)
 set_tests_properties(test_s6c_kategorien_ordnung_zwei_welten PROPERTIES
     LABELS "s6c;s21;kategorien;ordnung;zwei-welten;wachen;koeder")
+
+# =============================================================================
+# W1-LUECKEN-STRANG (bau/w1-luecken, 2026-08-21): Registrierungen ANS DATEIENDE
+# (Harmonisierungs-Flaeche, je Posten ein Block -- BAULISTE B02..B09).
+#
+# B02 K02/F2-7a test_genus_ct_komposition: GENUS-LEISTUNGS-Version als CT-
+# Komposition (KON2-06/07); Include-Satz wie test_lb0 (builder-Wurzel fuer
+# pruef_dock/ + bestandslog/-Drift-Wache; der Baum-Writer zieht Boost::mp11).
+comdare_add_test(test_genus_ct_komposition
+    SOURCES test_genus_ct_komposition.cpp)
+target_include_directories(test_genus_ct_komposition PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_genus_ct_komposition PRIVATE Boost::mp11)
+set_tests_properties(test_genus_ct_komposition PROPERTIES
+    LABELS "genus;leistungs-version;ct-komposition;stempel;wachen")
+
+# B03 K06/#44-Rest test_simd_organ_achsen_deckung: 18/18-Nenner-Wache der
+# SIMD-Organ-Tabellen gegen kCompositionAxisNames (Positions-Pin; die Wache
+# lebt am VERBRAUCH, weil measurement die builder-Registry nicht sehen darf).
+comdare_add_test(test_simd_organ_achsen_deckung
+    SOURCES test_simd_organ_achsen_deckung.cpp)
+target_include_directories(test_simd_organ_achsen_deckung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+set_tests_properties(test_simd_organ_achsen_deckung PROPERTIES
+    LABELS "simd;organ;achsen-deckung;nenner;wachen")
+
+# B04 K07/VL-3-Rest test_vl3_debug_stdout_bytegleich: der stdout-BYTEVERGLEICH
+# mit/ohne --debug am echten Kommando (Prozess-Ebene; die PLAN-Ebene deckt
+# s8kopf-#22(ii)). Muster test_vl3_debug_flag_sperre (dieselbe Shell, derselbe
+# Gegenstand), aber gtest-getragen mit eigenem main (Binary+Profil als argv).
+add_executable(test_vl3_debug_stdout_bytegleich "test_vl3_debug_stdout_bytegleich.cpp")
+COMDARE_set_cpp23(test_vl3_debug_stdout_bytegleich)
+COMDARE_set_default_warnings(test_vl3_debug_stdout_bytegleich)
+COMDARE_set_platform_defines(test_vl3_debug_stdout_bytegleich)
+target_link_libraries(test_vl3_debug_stdout_bytegleich PRIVATE gtest)
+add_test(NAME test_vl3_debug_stdout_bytegleich COMMAND test_vl3_debug_stdout_bytegleich
+    "$<TARGET_FILE:comdare_experiment_planner>"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/m3v2_study.profile.xml")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_vl3_debug_stdout_bytegleich)
+add_dependencies(test_vl3_debug_stdout_bytegleich comdare_experiment_planner)
+set_tests_properties(test_vl3_debug_stdout_bytegleich PROPERTIES
+    LABELS "vl3;planer;cli;debug;bytegleich;prozessprobe;standalone" TIMEOUT 120)
+
+# B05 K01/F2-5 test_lg_host_binder: die Bindungs-Semantik des Lager-Host-
+# Binders (S-3c-Naht), alle 3 Felder einzeln mit Negativprobe + Nenner-
+# Rueckrichtung. Include-/Link-Satz wie test_s3_ordnung_freigabe (gleiche Naht).
+comdare_add_test(test_lg_host_binder
+    SOURCES test_lg_host_binder.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+target_include_directories(test_lg_host_binder PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade")
+set_tests_properties(test_lg_host_binder PROPERTIES
+    LABELS "lg;lager;host-binder;s3c;drei-felder;wachen")
+
+# B06 K01/F2-5 test_lg_e2e_xlsx_facade: Ende-zu-Ende run_profile -> xlsx-
+# Ergebnis-Mappe ("xlsx IST DIE AUSGABE"). Include-/Link-/Define-Satz wie
+# test_t2a_f4_facade_plan_durchreichung (derselbe Facade-Eintritt; lager_ablage
+# wegen ODR-Nutzung der Mappe im Entry-Header).
+comdare_add_test(test_lg_e2e_xlsx_facade
+    SOURCES test_lg_e2e_xlsx_facade.cpp
+    LIBRARIES Boost::mp11 comdare::anatomy_module_loader comdare::workload_driver
+        comdare_builder_xml_config_parser comdare::lager_ablage)
+target_include_directories(test_lg_e2e_xlsx_facade PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_compile_definitions(test_lg_e2e_xlsx_facade PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_LG_E2E_PROFIL=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/planner_thesis_min.profile.xml\"")
+comdare_attach_generated_catalog(test_lg_e2e_xlsx_facade)
+set_tests_properties(test_lg_e2e_xlsx_facade PROPERTIES
+    LABELS "lg;lager;xlsx;e2e;facade;mappe" TIMEOUT 120)
+
+# B07 K01/F2-5 test_pk_klemm_json: die Perzentil-KLEMM-Pfade des D5-1-Kanons
+# im JSON-Trace, 9/9-Spalten-Nenner (kLatenzFelder, Reihenfolge ist Vertrag).
+# Include-Satz wie test_d54_trace_schema (dieselbe Schema-Flaeche).
+comdare_add_test(test_pk_klemm_json
+    SOURCES test_pk_klemm_json.cpp)
+target_include_directories(test_pk_klemm_json PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+set_tests_properties(test_pk_klemm_json PROPERTIES
+    LABELS "pk;perzentil;klemme;json;trace;kanon;wachen")
+
+# B08 K01/F2-5 test_xl_l4_na_konkurrenz: konkurrierend belegte Haupt-Achse ->
+# honest-n/a-Ausweis im INFO-Blatt statt widerspruechlicher Zahlen. Include-/
+# Link-Satz wie test_a9s3_ergebnis_mappe_csv (dieselbe lager_ablage-Flaeche).
+comdare_add_test(test_xl_l4_na_konkurrenz
+    SOURCES test_xl_l4_na_konkurrenz.cpp)
+target_include_directories(test_xl_l4_na_konkurrenz PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder")
+target_link_libraries(test_xl_l4_na_konkurrenz PRIVATE comdare::lager_ablage)
+set_tests_properties(test_xl_l4_na_konkurrenz PROPERTIES
+    LABELS "xl;l4;na-konkurrenz;lager;info-blatt;wachen")
+
+# B09(a) K01 test_lg_load_wache_genus_kontrast: die Lade-Wache mit BEIDEN
+# Genera + Fremd-Genus-Kontrast beide Richtungen, je x Wiederholungslauf
+# (main-Stil + Include-/Link-Satz wie die e24_c10-Schleife; Module als argv).
+add_executable(test_lg_load_wache_genus_kontrast "test_lg_load_wache_genus_kontrast.cpp")
+target_compile_features(test_lg_load_wache_genus_kontrast PRIVATE cxx_std_23)
+target_include_directories(test_lg_load_wache_genus_kontrast PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_lg_load_wache_genus_kontrast PRIVATE Boost::mp11 comdare::anatomy_module_loader)
+comdare_set_platform_defines(test_lg_load_wache_genus_kontrast)
+add_dependencies(test_lg_load_wache_genus_kontrast perm_set_d9 perm_sequence_d10)
+add_test(NAME test_lg_load_wache_genus_kontrast COMMAND test_lg_load_wache_genus_kontrast
+    "--set=$<TARGET_FILE:perm_set_d9>" "--sequence=$<TARGET_FILE:perm_sequence_d10>")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lg_load_wache_genus_kontrast)
+set_tests_properties(test_lg_load_wache_genus_kontrast PROPERTIES
+    LABELS "lg;lager;load-wache;genus-kontrast;wachen" TIMEOUT 120)
+
+# B09(b) K01 test_lg_idempotenz_beide_wdh: die 6. Matrix-Zelle
+# [beide Formate x Wiederholungslauf] auf der Render-Ebene (Muster a9s4).
+comdare_add_test(test_lg_idempotenz_beide_wdh
+    SOURCES test_lg_idempotenz_beide_wdh.cpp)
+target_include_directories(test_lg_idempotenz_beide_wdh PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder")
+target_link_libraries(test_lg_idempotenz_beide_wdh PRIVATE comdare::lager_ablage)
+set_tests_properties(test_lg_idempotenz_beide_wdh PROPERTIES
+    LABELS "lg;lager;idempotenz;beide-formate;wdh;wachen")
+
+# B12 Z04/F7 test_registry_gen_out_pflicht: --out ist Pflicht-Argument aller
+# drei Registry-Generatoren (fail-loud statt stiller CWD-Schreibung); die
+# Tools reisen als argv (TARGET_FILE), eigenes gtest-main.
+add_executable(test_registry_gen_out_pflicht "test_registry_gen_out_pflicht.cpp")
+COMDARE_set_cpp23(test_registry_gen_out_pflicht)
+COMDARE_set_default_warnings(test_registry_gen_out_pflicht)
+COMDARE_set_platform_defines(test_registry_gen_out_pflicht)
+target_link_libraries(test_registry_gen_out_pflicht PRIVATE gtest)
+add_dependencies(test_registry_gen_out_pflicht comdare_axis_registry_gen
+    comdare_system_axis_registry_gen comdare_measurement_axis_registry_gen)
+add_test(NAME test_registry_gen_out_pflicht COMMAND test_registry_gen_out_pflicht
+    "$<TARGET_FILE:comdare_axis_registry_gen>"
+    "$<TARGET_FILE:comdare_system_axis_registry_gen>"
+    "$<TARGET_FILE:comdare_measurement_axis_registry_gen>")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_registry_gen_out_pflicht)
+set_tests_properties(test_registry_gen_out_pflicht PROPERTIES
+    LABELS "registry;generator;out-pflicht;f7;wachen" TIMEOUT 120)
+
+# B13 Z07 test_ci_coverage_guard_strikt: die STRIKT-Mechanik der Abdeckungs-
+# Wache (Exit-2-Klasse exklusiv dem Streng-Befund), differenziell gegen den
+# LIVE-Baum (ctest -N-faehig; kein rc==0-Pin auf den Baum-Zustand).
+add_executable(test_ci_coverage_guard_strikt "test_ci_coverage_guard_strikt.cpp")
+COMDARE_set_cpp23(test_ci_coverage_guard_strikt)
+COMDARE_set_default_warnings(test_ci_coverage_guard_strikt)
+COMDARE_set_platform_defines(test_ci_coverage_guard_strikt)
+target_link_libraries(test_ci_coverage_guard_strikt PRIVATE gtest)
+add_test(NAME test_ci_coverage_guard_strikt COMMAND test_ci_coverage_guard_strikt
+    "${PROJECT_SOURCE_DIR}/scripts/ci_test_coverage_guard.sh"
+    "${PROJECT_BINARY_DIR}")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_ci_coverage_guard_strikt)
+set_tests_properties(test_ci_coverage_guard_strikt PROPERTIES
+    LABELS "ci;coverage-guard;strikt;wachen" TIMEOUT 300)
+
+# B15 Z21/##12-Rest test_configure_enable_gnu: die Autoconf-Konvention
+# --enable-FEATURE=no == --disable-FEATURE im configure.sh-Vorbau
+# (Prozessprobe via --with-cmake=/bin/echo, hermetische Temp-CWDs).
+add_executable(test_configure_enable_gnu "test_configure_enable_gnu.cpp")
+COMDARE_set_cpp23(test_configure_enable_gnu)
+COMDARE_set_default_warnings(test_configure_enable_gnu)
+COMDARE_set_platform_defines(test_configure_enable_gnu)
+target_link_libraries(test_configure_enable_gnu PRIVATE gtest)
+add_test(NAME test_configure_enable_gnu COMMAND test_configure_enable_gnu
+    "${PROJECT_SOURCE_DIR}/configure.sh")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_configure_enable_gnu)
+set_tests_properties(test_configure_enable_gnu PROPERTIES
+    LABELS "configure;gnu;enable-disable;wachen" TIMEOUT 120)
