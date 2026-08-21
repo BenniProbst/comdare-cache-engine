@@ -26,7 +26,8 @@
 // Es wird NIE behauptet, dass auf jedem Runner counter!=0 gilt -- das ist HW-/Policy-abhaengig (prod-Runner).
 // Geprueft wird die Implikation "available => mind. ein Counter befuellt" und "Bau erwartet PMC => Zugriff".
 
-#include "pmc_source_factory.hpp" // make_pmc_source / IPmcSource / PmcCounters
+#include "pmc_source_factory.hpp"   // make_pmc_source / IPmcSource / PmcCounters
+#include "pmc_startup_pruefung.hpp" // #83 C-1(c): Gegeneingang -- der Skip nennt, was der Host gekonnt haette
 
 #include <cstddef>
 #include <cstdint>
@@ -166,6 +167,15 @@ int main() {
         }
         // EHRLICHER Skip (Flag NICHT einkompiliert): es gibt gar keine PMC-Quelle -- make_pmc_source() liefert
         // die NullPmcSource. Kein Crash, kein erfundener Wert; die Source meldete korrekt "nicht verfuegbar".
+        //
+        // #83 (C-1(c), Owner-GO KON103 17.08.): DER SKIP SPRICHT. Bis #83 war er wortkarg -- ob dieser Host
+        // PMC gekonnt HAETTE, stand nirgends. Der Gegeneingang stellt genau diese Frage (derselbe Koeder wie
+        // die Planer-Probe) und warnt auf stderr, wenn PMC VORHANDEN, ABER NICHT VERWENDET ist. Der Exit
+        // bleibt 0: im test:unit-Kontext (Default-Bau, Flag OFF) ist Nicht-Einbau kein Fehler (Bau-Seite
+        // soft, KON28-02) -- die Kette erreicht diesen Pfad seit #83 ohnehin nicht mehr (der emittierte
+        // Preflight scheitert bei flagloser Emission VOR den Smokes, experiment_plan_director.hpp).
+        auto const startup = bld::pmc_startup_pruefe_und_melde(kPmcExpected, delta.available);
+        std::cout << "pmc_startup_lage            = " << std::string(bld::pmc_startup_label(startup.lage)) << "\n";
         std::cout << "SMOKE_SKIP (no PMC access - honest available=0, COMDARE_ENABLE_PMC nicht einkompiliert)\n";
         return 0;
     }

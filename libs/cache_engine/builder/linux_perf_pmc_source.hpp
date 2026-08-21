@@ -6,15 +6,19 @@
 // `NullPmcSource`-0 befuellt. KEINE Aenderung an POD/Pipeline/PDF/CSV-Schema (pmc_source.hpp:6-9) --
 // cache_engine_builder_iterator.hpp lazy_csv_header/format_csv_row bleiben UNVERAENDERT.
 //
-// WAS SIE REAL LIEFERT (B5/M-2-KORREKTUR 2026-08-06, erweitert M-3a 2026-08-07): der Kopf sagte frueher
-// "+6 HW-Counter (... best-effort L2/coherence, RAPL-energy)". Das war die aeltere, zu optimistische Fassung
-// und widersprach dem eigenen Code weiter unten. TATSAECHLICH GEOEFFNET werden VIER generische Counter --
-// cache_misses_l1 (L1D/READ/MISS), cache_misses_l3 (LAST-LEVEL/READ/MISS, ehrlich LL), dtlb_misses
-// (DTLB/READ/MISS) und seit M-3a branch_misses -- plus energy_micro_joules als best-effort RAPL-Snapshot
-// (root-/Zonen-abhaengig). cache_misses_l2 und coherence_invalidations bleiben AUCH MIT dem Flag 0: dafuer
-// gibt es keinen portablen generischen Counter, und ein RAW-Rateversuch ist bewusst unterblieben
-// (Feld-Mapping + Konstruktor unten sagen es woertlich). Diese honest-0-Spalten sind im Anhang als solche
-// zu fuehren, nicht als gemessen.
+// WAS SIE REAL LIEFERT (B5/M-2-KORREKTUR 2026-08-06, erweitert M-3a 2026-08-07 und #82/I-PMC-3
+// 2026-08-21): der Kopf sagte frueher "+6 HW-Counter (... best-effort L2/coherence, RAPL-energy)". Das war
+// die aeltere, zu optimistische Fassung und widersprach dem eigenen Code weiter unten. GEOEFFNET werden
+// VIER generische Counter -- cache_misses_l1 (L1D/READ/MISS), cache_misses_l3 (LAST-LEVEL/READ/MISS,
+// ehrlich LL), dtlb_misses (DTLB/READ/MISS) und seit M-3a branch_misses -- plus energy_micro_joules als
+// best-effort RAPL-Snapshot (root-/Zonen-abhaengig). SEIT #82 (Owner-GO KON103 17.08., "volles Programm")
+// kommen cache_misses_l2 und coherence_invalidations ueber PERF_TYPE_RAW dazu -- aber NUR auf Modellen,
+// deren Kodierung im Katalog (measurement/pmc_raw_event_katalog.hpp) am Objekt KREUZGEPROBT ist (heute:
+// Zen 5 / family 26; Kodierungen + Kreuzprobe stehen dort im Kopf). Ein Modell ohne Katalog-Eintrag
+// oeffnet nichts Rohes, die zwei Felder lesen dann ehrlich "n/a" (per-Feld-Flag) -- ein RAW-Rateversuch
+// bleibt verboten (Kernel-Falle: unbekannte Kodierungen werden nicht abgewiesen, sie zaehlen etwas
+// anderes). Der Anhang fuehrt die Zen-5-SEMANTIK der beiden Spalten (Demand-L2-Miss IC+DC; Demand-Fills
+// aus fremdem CCX-Cache) -- die Offenlegung steht am Katalog.
 //
 // M-3a (2026-08-07) -- branch_misses ist NICHT mehr honest-0: der Satz "branch_misses wird von KEINER
 // PMC-Quelle befuellt" stand hier bis zu diesem Paket und ist damit ueberholt. Der Zaehler liegt als
@@ -97,9 +101,11 @@
 
 #if defined(COMDARE_ENABLE_PMC) && defined(__linux__)
 
-#include <cache_engine/measurement/pmc_counter_outcome.hpp> // B-5: PmcCounterOutcome + errno-Klassifikation
-#include <cache_engine/measurement/pmc_event_set.hpp>       // 10.08.2026: DIE EINE Event-Liste (Probe + Quelle)
-#include <cache_engine/measurement/pmc_source.hpp> // measurement::IPmcSource / PmcCounters (nach A2-Neben Stufe 1)
+#include <cache_engine/measurement/pmc_counter_outcome.hpp>   // B-5: PmcCounterOutcome + errno-Klassifikation
+#include <cache_engine/measurement/pmc_event_set.hpp>         // 10.08.2026: DIE EINE Event-Liste (Probe + Quelle)
+#include <cache_engine/measurement/pmc_raw_event_katalog.hpp> // #82 I-PMC-3: RAW-Belegung je Modell (L2/coh)
+#include <cache_engine/measurement/pmc_source.hpp>     // measurement::IPmcSource / PmcCounters (nach A2-Neben Stufe 1)
+#include <cache_engine/platform_probe/cpuid_probe.hpp> // #82: Vendor+Family DIESES Hosts (Katalog-Schluessel)
 
 // Kernel-/POSIX-Header NUR hier (innerhalb des Guards) — sonst würde ein Nicht-Linux-Build sie anfordern.
 #include <linux/perf_event.h> // struct perf_event_attr, PERF_* Konstanten
@@ -436,8 +442,10 @@ inline bool read_rapl_max_range_uj(std::uint64_t& out_uj) noexcept {
 ///   cache_misses_l3         <- PERF_COUNT_HW_CACHE_LL  / OP_READ / RESULT_MISS   (Last-Level; ehrlich LL)
 ///   dtlb_misses             <- PERF_COUNT_HW_CACHE_DTLB/ OP_READ / RESULT_MISS   (portabel)
 ///   branch_misses           <- PERF_TYPE_HARDWARE / PERF_COUNT_HW_BRANCH_MISSES  (M-3a; andere type-Klasse!)
-///   cache_misses_l2         <- KEIN portabler generischer Counter → bleibt 0 (kein RAW-Rateversuch)
-///   coherence_invalidations <- KEIN portabler generischer Counter → bleibt 0 (kein RAW-Rateversuch)
+///   cache_misses_l2         <- #82: PERF_TYPE_RAW aus dem Modell-Katalog (Zen 5: 0x964, kreuzgeprobt);
+///                              Modell ohne Katalog-Eintrag -> NICHT geoeffnet, Feld "n/a" (kein Rateversuch)
+///   coherence_invalidations <- #82: PERF_TYPE_RAW aus dem Modell-Katalog (Zen 5: 0x1443, Demand-Fills aus
+///                              fremdem CCX-Cache); ohne Eintrag -> "n/a" (kein Rateversuch)
 ///   energy_micro_joules     <- best-effort RAPL (powercap energy_uj, Delta) → 0 ohne Zone/Leserecht
 class LinuxPerfPmcSource final : public measurement::IPmcSource {
 public:
@@ -494,9 +502,33 @@ public:
         branch_oc_ = oeffne_generisch_(c_branch_, cme::kPmcEvents[cme::kPmcEventIndexBranch].type,
                                        cme::kPmcEvents[cme::kPmcEventIndexBranch].config,
                                        cme::kPmcEvents[cme::kPmcEventIndexBranch].name.data(), branch_domaene_);
-        // L2 + coherence_invalidations: KEIN portabler generischer Counter → bewusst NICHT geöffnet, Feld 0.
+        // ==========================================================================================
+        // #82 (I-PMC-3, Owner-GO KON103 17.08.2026): L2 + coherence ueber PERF_TYPE_RAW, MODELL-GEBUNDEN.
+        // Bis #82 stand hier "bewusst NICHT geoeffnet, Feld 0" -- richtig, solange die einzige Alternative
+        // ein RAW-Rateversuch war. Jetzt gibt es den KATALOG (measurement/pmc_raw_event_katalog.hpp):
+        // (cpuid-Vendor, Family) -> am Objekt kreuzgeprobte Kodierungen (heute Zen 5; Beweis im
+        // Katalog-Kopf). Ein Modell ohne Eintrag oeffnet weiterhin NICHTS Rohes -- die Felder lesen dann
+        // "n/a" ueber ihre per-Feld-Flags (EventNichtVorhanden), nie eine geratene Zahl.
+        // KEINE Domaenen-Kette fuer RAW: der PMU-Typ-Praefix-Mechanismus oben uebersetzt GENERISCHE
+        // Kodierungen je Domaene; eine ROHE Kodierung ist dagegen selbst schon PMU-spezifisch, und der
+        // Katalog traegt heute ausschliesslich uniforme Maschinen (Zen 5). Ein Hybrid-Modell bekaeme
+        // seinen eigenen Katalog-Eintrag samt Domaenen-Entscheid -- nicht diese Kette geschenkt.
+        // Beide Zaehler sind PER-TASK Core-Events (pid=0, cpu=-1, exclude_kernel) -- dieselbe
+        // Semantik-Klasse wie l1d/dtlb/branch, im Gegensatz zum system-weiten amd_l3-Uncore oben.
+        {
+            ::comdare::cache_engine::platform_probe::CpuidProbeResults const cpu =
+                ::comdare::cache_engine::platform_probe::probe_cpuid();
+            raw_belegung_ = cme::pmc_raw_belegung_fuer(cpu.vendor, cpu.cpu_family);
+            if (raw_belegung_.vorhanden) {
+                l2_oc_ = c_l2_.open(raw_belegung_.l2.type, raw_belegung_.l2.config, raw_belegung_.l2.name.data());
+                coherence_oc_ = c_coherence_.open(raw_belegung_.coherence.type, raw_belegung_.coherence.config,
+                                                  raw_belegung_.coherence.name.data());
+            }
+            // Kein Katalog-Eintrag: l2_oc_/coherence_oc_ bleiben EventNichtVorhanden ("dieses Modell hat
+            // keine gepruefte Kodierung") -- dieselbe Zell-Folge (n/a) wie ein generisch fehlendes Event.
+        }
         // RAPL: best-effort sysfs-Snapshot; Verfügbarkeit erst bei begin() (Lesbarkeit kann variieren).
-        ready_ = l1d_offen_() || ll_offen_() || dtlb_offen_() || branch_offen_();
+        ready_ = l1d_offen_() || ll_offen_() || dtlb_offen_() || branch_offen_() || l2_offen_() || coherence_offen_();
         // Sichtbarkeit der Domaenen-Wahl: nur, wenn wirklich eine Nicht-Standard-Domaene gefahren wurde.
         // Auf uniformen Maschinen bleibt die Ausgabe damit exakt so still wie vorher (kein Log-Rauschen
         // in der gesamten bestehenden Flotte); auf Hybrid sagt sie, WO gezaehlt wurde.
@@ -534,6 +566,15 @@ public:
             c_l3_uncore_.reset();
             c_l3_uncore_.enable();
         }
+        // #82: die zwei RAW-Zaehler laufen im selben Fenster wie die generischen.
+        if (l2_offen_()) {
+            c_l2_.reset();
+            c_l2_.enable();
+        }
+        if (coherence_offen_()) {
+            c_coherence_.reset();
+            c_coherence_.enable();
+        }
         // RAPL: monotoner Akkumulator → Start-Snapshot für Delta.
         rapl_have_start_ = detail_linux_perf::read_rapl_uj(rapl_start_uj_);
 #if defined(COMDARE_ENABLE_PAPI)
@@ -557,6 +598,8 @@ public:
         if (dtlb_offen_()) c_dtlb_.disable();
         if (branch_offen_()) c_branch_.disable();
         if (l3_uncore_offen_()) c_l3_uncore_.disable();
+        if (l2_offen_()) c_l2_.disable();
+        if (coherence_offen_()) c_coherence_.disable();
 
         // B-5 (2026-08-08) -- DIE FLAGS SIND JETZT EINE LESE-AUSSAGE, NICHT NUR EINE OEFFNUNGS-AUSSAGE.
         // Der Vorgaenger-Kommentar sagte hier woertlich, ein spaeter leerer read() (Multiplexing-Verdraengung,
@@ -615,6 +658,31 @@ public:
                 branch_oc_ = measurement::PmcCounterOutcome::NichtGelesen;
             }
         }
+        // #82: die zwei RAW-Zaehler -- PER-TASK Prueflings-Werte, deshalb zaehlen sie (anders als der
+        // system-weite Uncore unten) fuer `any`: eine Zeile, in der NUR sie geliefert haben, IST eine
+        // Messung. Dieselbe Lese-Ehrlichkeit wie ueberall: leerer read() -> NichtGelesen -> "failed".
+        if (l2_offen_()) {
+            std::uint64_t const v = c_l2_.read_scaled(ok, scaled);
+            if (ok) {
+                c.cache_misses_l2                  = v;
+                c.cache_misses_l2_source_available = true;
+                any                                = true;
+                if (scaled) scaled_ = true;
+            } else {
+                l2_oc_ = measurement::PmcCounterOutcome::NichtGelesen;
+            }
+        }
+        if (coherence_offen_()) {
+            std::uint64_t const v = c_coherence_.read_scaled(ok, scaled);
+            if (ok) {
+                c.coherence_invalidations                  = v;
+                c.coherence_invalidations_source_available = true;
+                any                                        = true;
+                if (scaled) scaled_ = true;
+            } else {
+                coherence_oc_ = measurement::PmcCounterOutcome::NichtGelesen;
+            }
+        }
         // B-5 Runde 2: der amd_l3-Uncore-Wert. EIGENE Groesse, EIGENE Spalte -- er geht bewusst NICHT
         // nach cache_misses_l3 (per-Task), weil er system-weit je CCX zaehlt. `any` wird von ihm NICHT
         // gesetzt: er ist kein Prueflings-Wert und darf allein keine Zeile zur Messung erklaeren.
@@ -651,7 +719,8 @@ public:
             // coherence bereits nicht mehr zeigen.
             c.energy_micro_joules_source_available = true;
         }
-        // L2 + coherence_invalidations bleiben EHRLICH 0 (kein portabler generischer Counter).
+        // L2 + coherence_invalidations: seit #82 modell-gebunden real (Block oben); ohne Katalog-Eintrag
+        // bleiben ihre Flags false und die Zellen lesen "n/a" -- nie eine stille 0, nie ein Rateversuch.
         c.available = any; // true sobald >=1 Counter echt geliefert hat.
         return c;
     }
@@ -676,6 +745,8 @@ private:
     detail_linux_perf::PerfCounter c_dtlb_{};      ///< dTLB read miss
     detail_linux_perf::PerfCounter c_branch_{};    ///< Branch miss (M-3a, PERF_TYPE_HARDWARE)
     detail_linux_perf::PerfCounter c_l3_uncore_{}; ///< B-5 R2: amd_l3-Uncore, SYSTEM-WEIT je CCX
+    detail_linux_perf::PerfCounter c_l2_{};        ///< #82: L2 demand miss, PERF_TYPE_RAW aus dem Modell-Katalog
+    detail_linux_perf::PerfCounter c_coherence_{}; ///< #82: Fills aus fremdem CCX-Cache, PERF_TYPE_RAW (Katalog)
     // B-5: die vier bool-Flags sind KLASSEN geworden. Value-Initialisierung liefert Offen (== 0), deshalb
     // wird jedes Feld im Konstruktor unbedingt aus dem open()-Ergebnis gesetzt -- ein nicht gesetztes Feld
     // stuende sonst still auf "geoeffnet". pmc_outcome_hat_wert() ist die Single-Source der Frage
@@ -688,6 +759,12 @@ private:
     /// scheiterte -- sonst bleibt es EventNichtVorhanden ("nicht gefragt, weil nicht noetig").
     /// Es fuellt bewusst KEINEN Wert (s. Kopf), sondern schaerft die BEGRUENDUNG im Log.
     measurement::PmcCounterOutcome l3_pmu_oc_ = measurement::PmcCounterOutcome::EventNichtVorhanden;
+    /// #82: die RAW-Belegung DIESES Hosts (Katalog-Antwort) und die zwei Oeffnungs-Klassen. Default
+    /// EventNichtVorhanden = "dieses Modell hat keine gepruefte Kodierung" -- die Zellen lesen dann "n/a";
+    /// nur ein Katalog-Treffer setzt sie im Konstruktor aus dem echten open()-Ergebnis.
+    measurement::PmcRawBelegung    raw_belegung_{};
+    measurement::PmcCounterOutcome l2_oc_        = measurement::PmcCounterOutcome::EventNichtVorhanden;
+    measurement::PmcCounterOutcome coherence_oc_ = measurement::PmcCounterOutcome::EventNichtVorhanden;
     /// Auf WELCHER Core-PMU-Domaene der jeweilige Zaehler wirklich geoeffnet hat. Auf uniformen
     /// Maschinen durchgaengig "generisch"; auf Hybrid der sysfs-Name (cpu_core/cpu_atom). Zeigt an,
     /// WO gezaehlt wurde -- eine Zahl von einer Hybrid-Maschine bleibt damit nie anonym.
@@ -701,6 +778,8 @@ private:
     [[nodiscard]] bool dtlb_offen_() const noexcept { return measurement::pmc_outcome_hat_wert(dtlb_oc_); }
     [[nodiscard]] bool branch_offen_() const noexcept { return measurement::pmc_outcome_hat_wert(branch_oc_); }
     [[nodiscard]] bool l3_uncore_offen_() const noexcept { return measurement::pmc_outcome_hat_wert(l3_pmu_oc_); }
+    [[nodiscard]] bool l2_offen_() const noexcept { return measurement::pmc_outcome_hat_wert(l2_oc_); }
+    [[nodiscard]] bool coherence_offen_() const noexcept { return measurement::pmc_outcome_hat_wert(coherence_oc_); }
 
     /// Wurde irgendein Zaehler auf einer anderen als der generischen Domaene geoeffnet? Genau dann ist
     /// die Maschine hybrid (oder verhaelt sich so), und genau dann lohnt die Log-Zeile.

@@ -50,6 +50,7 @@
 #include "../bestandslog/planer_driven_build.hpp" // #46b I1b: Planer-getriebener Slice-Bau (opt-in, SlicePlanner/Queue)
 #include "../bestandslog/eta_kalibrierung.hpp"    // A5/F5: laufende Kalibrierung (Schwelle, Median, Re-Kalibrierung)
 #include "../bestandslog/reservation_lifecycle.hpp" // #46b I1b: Reservierungs-Lifecycle je Slice (pro-forma/Kalib/Done)
+#include "../pmc_startup_pruefung.hpp"              // #83 C-1(c): CEB-Gegeneingang am Lauf-Host (Warn-Drei-Wege)
 #include "progress_delta.hpp" // Welle 5 (E-W5-2): ProgressDelta / ProgressSinkFn / Delta-Logik (builder-Sibling-Leaf, §38 hinauf)
 #include "progress_heartbeat.hpp" // S1 (§62-B Log-Flush): geflushtes Mess-Fortschritts-Testat je Zelle (Befund 6h-stumm)
 #include "slice_marker.hpp"       // E-04-P1: Marker-Familie v2 (die EINE Renderer-Quelle des Live-Fortschritts-Kanals)
@@ -1012,15 +1013,23 @@ inline void lazy_row_mess_ausstattung_uebernehmen(LazyMeasuredRow& row, LazyRunC
     // via PERF_TYPE_HW_CACHE/LL auf AMD Zen5, ENOENT) ODER die ohne Zugriffsrecht fehlschlaegt (RAPL-Energy,
     // root-only seit Linux 5.10), rendert die EINE D2-Taxonomie SourceUnavailable/"n/a" (axis_error.hpp)
     // statt einer erfundenen 0. Eine Zahl, die die Quelle wirklich geliefert hat -- auch eine ECHTE 0 --
-    // bleibt unveraendert eine Zahl (kein Token verdeckt einen realen Nullbefund). Gilt NUR wenn die Zeile
-    // ueberhaupt `pmc.available` ist; die PMC-off-Zeile (NullPmcSource) behaelt ihre bestehende 0-Konvention
-    // unveraendert (kein Verhaltenswechsel im Default-Build, in dem praktisch die gesamte Test-/Golden-Flotte
-    // laeuft).
+    // bleibt unveraendert eine Zahl (kein Token verdeckt einen realen Nullbefund).
+    //
+    // #83 (C-1(c), Owner-GO KON103 17.08.2026): DAS available-GATE IST GEFALLEN. Bis #83 galt die
+    // Ehrlichkeit "NUR wenn die Zeile ueberhaupt pmc.available ist"; die PMC-off-Zeile (NullPmcSource)
+    // behielt eine "0-Konvention" -- acht Zellen lasen "0", byte-gleich zu acht echten Nullmessungen.
+    // Genau das ist die stille 0 des Teil-Laufs, und der Owner hat die Empfehlung woertlich angenommen:
+    // "die ERGEBNIS-Seite wird hart (die Zeile traegt den Zaehler oder einen ehrlichen Status-Token,
+    // nie eine stille 0) [...] ein Messlauf ohne PMC-Zaehler ist nicht als vollstaendig buchbar, aber
+    // er ist als ausdruecklich gekennzeichneter Teil-Lauf buchbar." Die Kennzeichnung ist zweifach:
+    // pmc_available bleibt 0 (Zeilen-Aussage, Spalte unveraendert) UND jede nicht erhobene Zelle traegt
+    // den n/a-Token statt einer Zahl. Eine ECHTE 0 einer OFFENEN Quelle bleibt weiterhin "0" -- die
+    // Unterscheidung ist das per-Feld-Flag, nicht der Zahlenwert. (Pin-Umschrieb: test_a8s3 W10.)
     std::string_view const pmc_na    = cem::sample_status_token(cem::SampleStatus::SourceUnavailable);
     auto                   pmc_zelle = [&](std::uint64_t value, bool source_available) {
         if (!zell_ersatz.empty()) {
             out += zell_ersatz;
-        } else if (row.pmc.available && !source_available) {
+        } else if (!source_available) {
             out += pmc_na;
         } else {
             out += std::to_string(value);
@@ -3198,6 +3207,18 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // Outcomes in INDEX-Ordnung (results[j]) -> deterministisch unabhaengig von der Ausfuehrungsreihenfolge.
     // S1 (§62-B Log-Flush, Befund 6h-stumm): geflushtes Mess-Fortschritts-Testat je fertiger Zelle (zeit-gated,
     // thread-sicher -- im Debug-Pool feuert genau EIN Worker je Intervall). Rein auf std::cerr -> golden/CSV-NEUTRAL.
+    // #83 (C-1(c), Owner-GO KON103 17.08.2026): der CEB-GEGENEINGANG am LAUF-Host, EINMAL je Mess-Lauf
+    // und VOR der ersten Zelle. Die Planer-Probe beweist die Lage nur fuer den PLANER-Host; hier laeuft
+    // die Messung. Drei Wege (KON106-04): einkompiliert+live -> still; einkompiliert ohne Zugriff ->
+    // [PMC-WARN] Teil-Lauf; NICHT einkompiliert, aber der Host-Koeder beisst -> [PMC-WARN] "PMC
+    // vorhanden, aber nicht verwendet" (der Owner-Fall). Die Wegwerf-Quelle unten kostet einmalig das
+    // Oeffnen/Schliessen der Zaehler-fds (RAII) -- sie stellt der realen Quelle dieselbe Frage, die
+    // jeder Mess-Worker gleich darauf selbst beantwortet, nur EINMAL und VOR dem Fenster, damit die
+    // Warnung im Log VOR den Messzeilen steht und nicht hinter Stunden von Fortschritts-Testaten.
+    {
+        std::unique_ptr<measurement::IPmcSource> const startup_quelle = make_pmc_source();
+        (void)pmc_startup_pruefe_und_melde(kPmcQuelleEinkompiliert, startup_quelle->available());
+    }
     ProgressHeartbeat        measure_hb{"mess-zelle", builds.size()};
     std::size_t              observed_max_concurrency = 0;
     std::vector<CellOutcome> outcomes                 = collect_ordered<CellOutcome>(

@@ -70,19 +70,10 @@
 #include <string>
 #include <string_view>
 
+#include <cache_engine/measurement/pmc_event_biss.hpp>      // #83: der EINE Probe-Kern (Koeder + Biss)
 #include <cache_engine/measurement/pmc_event_set.hpp>       // DIE EINE Event-Liste
 #include <cache_engine/measurement/pmc_vendor_registry.hpp> // die ZWEI Hardware-Komponenten
 #include <cache_engine/platform_probe/cpuid_probe.hpp>      // probe_cpuid().vendor
-
-#if defined(__linux__)
-#include <linux/perf_event.h>
-#include <sys/ioctl.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-
-#include <cstring>
-#include <vector>
-#endif
 
 namespace comdare::cache_engine::planner {
 
@@ -158,38 +149,13 @@ struct PmcHostBefund {
 
 namespace detail_pmc_probe {
 
-/// Der KOEDER. Ein Pointer-Chase ueber einen Puffer weit jenseits jeder L1-Groesse, mit grosser Schrittweite,
-/// damit L1D-Read-Misses, Last-Level-Misses UND DTLB-Misses real anfallen. Die Kette ist eine Permutation
-/// (jeder Slot genau einmal), also nicht vom Prefetcher vorherzusehen, und der Rueckgabewert wird vom
-/// Aufrufer verbraucht -- sonst optimierte der Compiler den ganzen Koeder weg und der Zaehler saehe nichts.
-/// KEIN Zufall aus /dev/urandom: die Kette muss REPRODUZIERBAR beissen, sonst wackelt die Erkennung.
+/// #83: NUR NOCH EINE WEITERLEITUNG. Der Koeder stand bis #83 hier woertlich; seit dem CEB-Gegeneingang
+/// (builder/pmc_startup_pruefung.hpp) braucht ihn eine zweite Seite, und builder/ darf diese Datei nicht
+/// inkludieren (Include-Richtung im Haus: profile_facade -> builder, nie zurueck). Der Kern liegt deshalb
+/// in measurement/pmc_event_biss.hpp -- dieselbe Bauform wie detail_linux_perf::cache_cfg: die Struktur
+/// bleibt, die Substanz kommt von der EINEN Stelle (ABSCHRIFT SCHLAEGT LOESCHUNG).
 [[nodiscard]] inline std::uint64_t koeder_pointer_chase() noexcept {
-#if defined(__linux__)
-    // 64 MiB: groesser als jeder heutige L2 und groesser als der L3-Anteil eines Kerns -- der Chase faellt
-    // damit bis in den Hauptspeicher durch. 4096 Byte Schrittweite trifft je Sprung eine neue Seite und
-    // erzeugt so auch DTLB-Misses.
-    constexpr std::size_t    kBytes  = 64u * 1024u * 1024u;
-    constexpr std::size_t    kStride = 4096u;
-    constexpr std::size_t    kSlots  = kBytes / kStride;
-    std::vector<std::size_t> kette(kSlots, 0);
-    // Ein einfacher, deterministischer Zyklus ueber alle Slots: Schrittweite teilerfremd zu kSlots.
-    constexpr std::size_t kSchritt = 4099u; // Primzahl, teilerfremd zu kSlots (2^14)
-    std::size_t           pos      = 0;
-    for (std::size_t i = 0; i < kSlots; ++i) {
-        std::size_t const next = (pos + kSchritt) % kSlots;
-        kette[pos]             = next;
-        pos                    = next;
-    }
-    std::uint64_t summe = 0;
-    std::size_t   p     = 0;
-    for (std::size_t i = 0; i < kSlots * 4; ++i) {
-        p = kette[p];
-        summe += p;
-    }
-    return summe;
-#else
-    return 0;
-#endif
+    return ::comdare::cache_engine::measurement::pmc_koeder_pointer_chase();
 }
 
 } // namespace detail_pmc_probe
@@ -203,33 +169,10 @@ struct RealePmcHostStrategie {
 
     /// Oeffnet EIN Event self-monitoring, laesst den Koeder laufen, liest zurueck. true nur, wenn der
     /// Zaehler geoeffnet hat UND danach einen Wert > 0 traegt (K13: der Koeder MUSS beissen).
+    /// #83: Weiterleitung auf den EINEN Probe-Kern (measurement/pmc_event_biss.hpp) -- der
+    /// CEB-Gegeneingang beisst seither BEWEISBAR mit demselben Koeder wie diese Planer-Probe.
     [[nodiscard]] static bool event_beisst(::comdare::cache_engine::measurement::PmcEventSpec const& ev) noexcept {
-#if defined(__linux__)
-        struct ::perf_event_attr attr;
-        std::memset(&attr, 0, sizeof(attr)); // Muellbits in Reserve-Feldern => EINVAL; immer memset
-        attr.size           = sizeof(attr);
-        attr.type           = ev.type;
-        attr.config         = ev.config;
-        attr.disabled       = 1;
-        attr.exclude_kernel = 1;
-        attr.exclude_hv     = 1;
-        long const fd       = ::syscall(__NR_perf_event_open, &attr, /*pid=*/0, /*cpu=*/-1, /*group_fd=*/-1,
-                                        /*flags=*/0UL);
-        if (fd < 0) return false;
-        int const f = static_cast<int>(fd);
-        (void)::ioctl(f, PERF_EVENT_IOC_RESET, 0);
-        (void)::ioctl(f, PERF_EVENT_IOC_ENABLE, 0);
-        std::uint64_t const koeder = detail_pmc_probe::koeder_pointer_chase();
-        (void)::ioctl(f, PERF_EVENT_IOC_DISABLE, 0);
-        std::uint64_t wert = 0;
-        bool const    ok   = ::read(f, &wert, sizeof(wert)) == static_cast<::ssize_t>(sizeof(wert));
-        (void)::close(f);
-        // koeder wird verbraucht, damit der Pointer-Chase nicht wegoptimiert wird (er ist der ganze Punkt).
-        return ok && wert > 0 && koeder != 0xFFFFFFFFFFFFFFFFULL;
-#else
-        (void)ev;
-        return false;
-#endif
+        return ::comdare::cache_engine::measurement::pmc_event_beisst(ev);
     }
 };
 

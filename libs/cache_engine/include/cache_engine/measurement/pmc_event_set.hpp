@@ -10,6 +10,13 @@
 // konsultieren ihn (ABSCHRIFT SCHLAEGT LOESCHUNG: die Quelle behaelt ihre Struktur, sie liest nur ihre
 // Konstanten von hier).
 //
+// ABGRENZUNG SEIT #82 (I-PMC-3, 2026-08-21): diese Liste traegt die ENTSCHEIDUNGS-Events -- die, an denen
+// die Planer-Probe die Lage (PMC einbauen ja/nein) festmacht. Die MODELL-GEBUNDENEN RAW-Events fuer
+// L2/coherence stehen daneben in pmc_raw_event_katalog.hpp: sie sind eine additive Erweiterung UNTER dem
+// bereits entschiedenen Flag, mit eigener per-Feld-Ehrlichkeit zur Laufzeit, und gehen NICHT in die
+// Lage-Entscheidung ein (ein Host, dessen Modell keinen Katalog-Eintrag hat, misst weiter alles
+// Generische). Der Satz oben ("GENAU die Events") gilt woertlich fuer DIESE Liste.
+//
 // WARUM ER NICHT UNTER COMDARE_ENABLE_PMC STEHT: die Probe wird IMMER uebersetzt. Sie ist der Grund, aus
 // dem das Makro spaeter gesetzt oder nicht gesetzt wird -- stuende sie unter dem Makro, koennte sie ihre
 // eigene Voraussetzung nie erzeugen (die Henne-Ei-Falle der bisherigen Lage, in der der Planer das Flag

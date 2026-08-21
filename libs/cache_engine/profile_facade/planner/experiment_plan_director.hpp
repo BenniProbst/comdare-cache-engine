@@ -1685,17 +1685,42 @@ private:
         // unter if(UNIX AND NOT APPLE) und existiert auf den Linux-Lanes daher immer. Unter `set -e` bricht ein
         // Exit != 0 den Batch ehrlich ab -- HART in BEIDEN Profilen, auch smoke (§66-N2 "beide hart").
         s += "      echo \"== [PMC-PREFLIGHT] lane=" + host + " ts=$(date -u +%FT%TZ) ==\"\n";
-        s += "      cmake --build build --target m3v2_pmc_smoke linux_perf_pmc_smoke\n";
-        // W0b-3 (2026-08-08), per T-6 gefundene Schwesterstelle DERSELBEN Klasse (ein Marker behauptet mehr,
-        // als er weiss): `ctest -L pmc` gibt bei NULL passenden Tests rc=0 aus ("No tests were found!!!", am
-        // Objekt gemessen) -- `set -e` greift also nicht, und die Zeile darunter meldet ungeruehrt pmc=ok.
-        // Ein Preflight, der nichts gefunden hat, ist damit von einem bestandenen nicht zu unterscheiden.
-        // Das ist keine graue Theorie: Commit 7dc372c7 fand am selben Tag Registrierungen, die es lautlos
-        // NICHT in die ctest-Inventur geschafft hatten. Traefe das die beiden pmc-Ziele, liefe eine
-        // mehrtaegige Messung mit kaputtem perf_event_open durch -- genau der Fall, den dieser Preflight
-        // verhindern soll. --no-tests=error macht den Leerlauf zum Fehler (rc=8).
-        s += "      ctest --test-dir build -L pmc --no-tests=error --output-on-failure\n";
-        s += "      echo \"[PMC-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " pmc=ok\"\n";
+        // ==========================================================================================
+        // #83 PMC-FAIL-LOUD (C-1(b), Owner-GO KON103 17.08.2026): DER PREFLIGHT SCHEITERT STATT ZU
+        // SKIPPEN. Bis #83 war das pmc=ok-Testat unten UNBEDINGT -- auch bei einem Unbrauchbar-Befund,
+        // dessen Emission gar kein -DCOMDARE_ENABLE_PMC traegt. Beide Smokes skippen dann ehrlich
+        // (Exit 0, "nicht einkompiliert IST kein Fehler" im test:unit-Kontext), `ctest -L pmc` faellt
+        // gruen, und ein Lauf OHNE jede PMC-Quelle testiert pmc=ok: die stille Null auf Testat-Ebene.
+        // Owner verbatim: "Stille nullen gibt es bei Messung nicht, wir hatten fail loud ueber die
+        // letzten 10 wochen explore geplant." Die Verzweigung liegt in der EMISSION (der Planer KENNT
+        // den Befund; ein Laufzeit-Test im Batch wuesste ihn nur indirekt): Unbrauchbar => FEHLER-Testat
+        // + exit 1, BEVOR irgendeine Messung startet. Die CI-Zelle traegt failed, der Job faellt HART
+        // rot -- KEIN allow_failure (Doktrin 06.07.: ZELLE=Warnung, JOB=rot gibt es hier nicht; ein
+        // Mess-Batch ohne Quelle ist keine Warnung). Die BAU-Seite bleibt soft (KON28-02: der Treiber
+        // oben ist zu diesem Zeitpunkt bereits gebaut) -- nur das MESSEN ohne Quelle ist der Fehler.
+        // Der Teil-Lauf-Fall (Quelle einkompiliert, Zaehler zur Laufzeit nicht lieferbar) ist NICHT
+        // dieser Zweig: ihn behandeln die Smokes selbst (M-2/B3 SMOKE_FAIL) bzw. die Ergebnis-Seite
+        // (Token statt stiller 0, cache_engine_builder_iterator.hpp pmc_zelle).
+        // ==========================================================================================
+        if (header_.pmc_befund.lage == PmcLage::Unbrauchbar) {
+            s += "      echo \"[PMC-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host +
+                 " pmc=FEHLER grund=pmc_quelle_nicht_gebaut (Befund unbrauchbar -> Emission ohne "
+                 "-DCOMDARE_ENABLE_PMC; ein Mess-Batch ohne PMC-Quelle scheitert statt zu skippen, "
+                 "KON103 C-1(b))\"\n";
+            s += "      exit 1\n";
+        } else {
+            s += "      cmake --build build --target m3v2_pmc_smoke linux_perf_pmc_smoke\n";
+            // W0b-3 (2026-08-08), per T-6 gefundene Schwesterstelle DERSELBEN Klasse (ein Marker behauptet mehr,
+            // als er weiss): `ctest -L pmc` gibt bei NULL passenden Tests rc=0 aus ("No tests were found!!!", am
+            // Objekt gemessen) -- `set -e` greift also nicht, und die Zeile darunter meldet ungeruehrt pmc=ok.
+            // Ein Preflight, der nichts gefunden hat, ist damit von einem bestandenen nicht zu unterscheiden.
+            // Das ist keine graue Theorie: Commit 7dc372c7 fand am selben Tag Registrierungen, die es lautlos
+            // NICHT in die ctest-Inventur geschafft hatten. Traefe das die beiden pmc-Ziele, liefe eine
+            // mehrtaegige Messung mit kaputtem perf_event_open durch -- genau der Fall, den dieser Preflight
+            // verhindern soll. --no-tests=error macht den Leerlauf zum Fehler (rc=8).
+            s += "      ctest --test-dir build -L pmc --no-tests=error --output-on-failure\n";
+            s += "      echo \"[PMC-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " pmc=ok\"\n";
+        }
         // Mess-Fenster = das VOLLE [0:COMDARE_GN_TOTAL) der Zelle (BYTE-GLEICH zur Vor-S4-Emission). Einmal je Batch.
         s +=
             "      export COMDARE_GOLDEN_N_RANGE=\"0:${COMDARE_GN_TOTAL:-16}\"   # volles Zell-Fenster (Voll-Messlauf: "

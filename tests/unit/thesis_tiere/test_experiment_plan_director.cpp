@@ -1222,13 +1222,37 @@ TEST(TierCiYamlBuilder, KeinAllowFailureInEmittierterJobYamlBeideStufenUndZellEb
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
 
-    planner::ExperimentPlanDirector const director;
-    planner::TierCiYamlBuilder            tb; // Stufe 2: die Batch-Jobs (Bau + Mess) je Host-Lane
-    planner::CiYamlBuilder                cb; // Stufe 1: die CEB-Jobs (build/emit/trigger)
+    // #83 (C-1(b)): der Nenner dieses Tests (der ctest-Preflight je Mess-Batch) existiert seit #83 nur
+    // noch in der BRAUCHBAREN Emission -- die flaglose emittiert stattdessen das FEHLER-Testat + exit 1.
+    // Der Test prueft deshalb die Normalstrecke mit einem brauchbaren Befund und haelt die
+    // Unbrauchbar-Emission ZUSAETZLICH gegen dieselbe Doktrin (unten): auch der Scheiter-Pfad kennt
+    // kein allow_failure -- er faellt ueber exit 1 hart rot, exakt die Owner-Linie dieses Tests.
+    planner::ExperimentPlanDirector director;
+    {
+        planner::PmcHostBefund amd_befund; // (befund_mit steht erst weiter unten im File -- inline gebaut)
+        amd_befund.lage           = planner::PmcLage::Amd;
+        amd_befund.probe_gefahren = true;
+        amd_befund.cpuid_vendor   = "AuthenticAMD";
+        director.set_pmc_befund(amd_befund);
+    }
+    planner::TierCiYamlBuilder tb; // Stufe 2: die Batch-Jobs (Bau + Mess) je Host-Lane
+    planner::CiYamlBuilder     cb; // Stufe 1: die CEB-Jobs (build/emit/trigger)
     director.construct(*tp, tb);
     director.construct(*tp, cb);
     std::string const& stufe2 = tb.text();
     std::string const& stufe1 = cb.text();
+
+    {
+        // Default-konstruierter Director = Default-Befund = Unbrauchbar (fail-closed) -- exakt der
+        // Zustand, den dieser Test bis #83 unwissentlich prueft hat.
+        planner::ExperimentPlanDirector const director_ohne;
+        planner::TierCiYamlBuilder            tb_ohne;
+        director_ohne.construct(*tp, tb_ohne);
+        EXPECT_EQ(count_occurrences(tb_ohne.text(), "allow_failure"), 0u)
+            << "#83/#278: auch die Unbrauchbar-Emission traegt KEIN allow_failure -- sie scheitert hart";
+        EXPECT_GT(count_occurrences(tb_ohne.text(), "pmc=FEHLER grund=pmc_quelle_nicht_gebaut"), 0u)
+            << "#83: der Scheiter-Pfad ist das FEHLER-Testat (Gegenprobe: die Suche greift auf diesem Text)";
+    }
 
     // GEGENPROBE VOR DEM NICHTFUND: dass die Suche auf GENAU diesen Texten ueberhaupt greift, wird an einem
     // Literal belegt, das in derselben Emission steht (sonst waere eine 0 nur eine stille Null).
@@ -2230,8 +2254,20 @@ TEST(TierCiYamlBuilder, BatchJobsCarryGnOutPersistenceFlags) {
 TEST(TierCiYamlBuilder, G4aStorageActivationPmcPreflightAndPruneAreEmittedInCorrectOrder) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
-    planner::ExperimentPlanDirector const director;
-    planner::TierCiYamlBuilder            tb; // die Batch-Jobs stehen in der STUFE-2-Tier-YAML, nicht in der Child-1
+    // #83 (C-1(b)): Gegenstand dieses Tests ist die REIHENFOLGE der Normalstrecke (Aktivierung ->
+    // Preflight -> Prune). Die Smoke-/ctest-Zeilen, an denen er sie festmacht, emittiert der Director
+    // seit #83 nur bei brauchbarem Befund (die flaglose Emission scheitert vorher am FEHLER-Testat,
+    // eigener Test PmcFailLoud). Der fruehere default-konstruierte Director trug den Default-Befund
+    // "Unbrauchbar" und prueft seither einen leeren Gegenstand -- deshalb hier ausdruecklich amd.
+    planner::ExperimentPlanDirector director;
+    {
+        planner::PmcHostBefund amd_befund; // (befund_mit steht erst weiter unten im File -- inline gebaut)
+        amd_befund.lage           = planner::PmcLage::Amd;
+        amd_befund.probe_gefahren = true;
+        amd_befund.cpuid_vendor   = "AuthenticAMD";
+        director.set_pmc_befund(amd_befund);
+    }
+    planner::TierCiYamlBuilder tb; // die Batch-Jobs stehen in der STUFE-2-Tier-YAML, nicht in der Child-1
     director.construct(*tp, tb);
     std::string const& yaml = tb.text();
 
@@ -3142,6 +3178,59 @@ TEST(PmcPflichtInvariante, FlagStehtVorDemBuildTypUndLaesstDieComboNachbarschaft
         << "PMC-Zusatz steht zwischen V32-Schalter und Build-Typ (Reihenfolge der beiden super-Mess-Jobs)";
     EXPECT_NE(s1.find("-DCMAKE_BUILD_TYPE=Release \"-DCOMDARE_MEASUREMENT_COMBO=[wallclock]\""), std::string::npos)
         << "die W2-Nachbarschaft (Build-Typ direkt gefolgt vom Combo-Define) bleibt unangetastet";
+}
+
+// =============================================================================
+// #83 PMC-FAIL-LOUD (C-1(b), Owner-GO KON103 17.08.2026) -- DER PREFLIGHT SCHEITERT STATT ZU SKIPPEN.
+// =============================================================================
+// OWNER-WORTLAUT (17.08.2026, verbatim): "C-1: (a) und (b) und (c) alle ja. [...] Stille nullen gibt es
+// bei Messung nicht, wir hatten fail loud ueber die letzten 10 wochen explore geplant."
+// DER DEFEKT IN EINEM SATZ: die emittierte Mess-Batch-Sequenz testierte "[PMC-TESTAT] ... pmc=ok"
+// UNBEDINGT -- auch wenn der Befund Unbrauchbar war und die Emission deshalb GAR KEIN
+// -DCOMDARE_ENABLE_PMC trug. Beide Smokes skippen dann ehrlich (Exit 0), `ctest -L pmc` wird gruen,
+// und ein Lauf OHNE jede PMC-Quelle traegt ein pmc=ok-Testat: die stille Null auf Testat-Ebene.
+// SEIT #83 verzweigt die EMISSION am Befund: Unbrauchbar => das Testat wird pmc=FEHLER
+// (grund=pmc_quelle_nicht_gebaut) und die Sequenz bricht mit exit 1 ab, BEVOR eine Messung startet --
+// die CI-Zelle traegt failed, der Job faellt HART rot (kein allow_failure). Die Bau-Seite bleibt soft
+// (der Treiber baut weiterhin, KON28-02); nur das MESSEN ohne Quelle ist der Fehler.
+TEST(PmcFailLoud, UnbrauchbarerBefundLaesstDenPreflightScheiternStattSkippen) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    // Fremder Nenner (T-3): erst die Gegenrichtung -- ein BRAUCHBARER Befund testiert weiter pmc=ok und
+    // traegt KEIN FEHLER-Testat. Ohne diese Haelfte koennte ein unbedingtes FEHLER-Testat den Test
+    // ebenso bestehen wie das richtige bedingte.
+    {
+        planner::ExperimentPlanDirector director;
+        director.set_pmc_befund(befund_mit(planner::PmcLage::Amd, "AuthenticAMD"));
+        planner::TierCiYamlBuilder tb;
+        director.construct(*tp, tb);
+        std::string const& s = tb.text();
+        ASSERT_NE(s.find("[PMC-PREFLIGHT]"), std::string::npos)
+            << "Vorbedingung: der Mess-Batch traegt den #37-Preflight (sonst prueft dieser Test nichts)";
+        EXPECT_NE(s.find("pmc=ok"), std::string::npos) << "brauchbarer Befund: das ok-Testat bleibt";
+        EXPECT_EQ(s.find("pmc=FEHLER"), std::string::npos)
+            << "brauchbarer Befund: KEIN FEHLER-Testat (das FEHLER-Testat ist bedingt, nicht unbedingt)";
+    }
+
+    // Die #83-Richtung: Unbrauchbar => FEHLER-Testat + exit 1 statt Smoke-Skip + pmc=ok.
+    planner::ExperimentPlanDirector director;
+    director.set_pmc_befund(befund_mit(planner::PmcLage::Unbrauchbar, "SomeOtherVendor"));
+    planner::TierCiYamlBuilder tb;
+    director.construct(*tp, tb);
+    std::string const& s = tb.text();
+    ASSERT_NE(s.find("[PMC-PREFLIGHT]"), std::string::npos)
+        << "auch die flaglose Emission traegt den Preflight-Block (er ist die Stelle, die scheitert)";
+    EXPECT_EQ(s.find("pmc=ok"), std::string::npos)
+        << "#83: eine flaglose Emission darf NIE ein pmc=ok testieren (die stille Null auf Testat-Ebene)";
+    EXPECT_NE(s.find("pmc=FEHLER grund=pmc_quelle_nicht_gebaut"), std::string::npos)
+        << "#83: das Testat nennt den Grund (KON103 C-1(b): 'PMC-Quelle nicht gebaut' ist FEHLER, kein Skip)";
+    // Der Abbruch muss NACH dem FEHLER-Testat im selben Skriptblock stehen -- ein Testat ohne exit 1
+    // waere eine Warnung, keine Scheiterung (Zelle failed, Job HART rot).
+    std::size_t const fehler_pos = s.find("pmc=FEHLER grund=pmc_quelle_nicht_gebaut");
+    std::size_t const exit_pos   = s.find("\n      exit 1\n", fehler_pos);
+    EXPECT_NE(exit_pos, std::string::npos)
+        << "#83: auf das FEHLER-Testat folgt exit 1 im selben Block (Preflight SCHEITERT statt skippt)";
 }
 
 // =============================================================================

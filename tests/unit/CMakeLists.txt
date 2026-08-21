@@ -7574,3 +7574,37 @@ target_include_directories(test_s6c_kategorien_ordnung_zwei_welten PRIVATE
 target_link_libraries(test_s6c_kategorien_ordnung_zwei_welten PRIVATE Boost::mp11)
 set_tests_properties(test_s6c_kategorien_ordnung_zwei_welten PROPERTIES
     LABELS "s6c;s21;kategorien;ordnung;zwei-welten;wachen;koeder")
+
+# =============================================================================
+# #83 PMC-FAIL-LOUD-PAKET (C-1(c), Owner-GO KON103 17.08.2026; Bau 2026-08-21):
+# der CEB-GEGENEINGANG am Lauf-Host -- eigener Block am DATEIENDE (Kollisions-
+# schutz gegen die Bloecke anderer Straenge; Namenskonvention test_pmc_*).
+#
+# test_pmc_startup_pruefung: die Drei-Wege-Unterscheidung KON106-04 (Fehler ->
+# Emission/PmcFailLoud; WARNUNG bei vorhanden-aber-ungenutzt; stiller Normal-
+# fall) mit Koeder-Strategien je Richtung. BEWUSST OHNE 'pmc'-Label -- dieselbe
+# Lehre wie test_b5_pmc_ehrlichkeit_alle_sieben (M-1/M-CE-25): die Fake-Wege
+# sind reine Logik, der Real-Weg pinnt nur die Invariante und FORDERT keine
+# PMU (ein fehlgeschlagenes perf_event_open ist dort die stille OhnePmc-Lage).
+# ctest -LE pmc ist ein REGEX-Filter: schon ein 'pmc'-SUBSTRING im Label wuerde
+# den Test aus test:unit werfen -- deshalb tragen die Labels den Begriff nicht.
+comdare_add_test(test_pmc_startup_pruefung
+    SOURCES test_pmc_startup_pruefung.cpp)
+target_include_directories(test_pmc_startup_pruefung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+set_tests_properties(test_pmc_startup_pruefung PROPERTIES
+    LABELS "fail_loud;startup_pruefung;gegeneingang;wachen;koeder")
+
+# =============================================================================
+# #82 I-PMC-2/3 (C-2, Owner-GO KON103 17.08.2026; Bau 2026-08-21): der modell-
+# gebundene RAW-Katalog (L2/coherence via PERF_TYPE_RAW) -- eigener Block am
+# DATEIENDE. Reine constexpr-Identitaet + FREMDE Nachrechnung der Kodierungen
+# (AMD-sysfs-Format-Layout) -- oeffnet KEINEN Counter, deshalb ebenfalls ohne
+# 'pmc'-Label (s. Block darueber; -LE pmc ist Regex).
+comdare_add_test(test_pmc_raw_event_katalog
+    SOURCES test_pmc_raw_event_katalog.cpp)
+target_include_directories(test_pmc_raw_event_katalog PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+set_tests_properties(test_pmc_raw_event_katalog PROPERTIES
+    LABELS "fail_loud;raw_katalog;kreuzprobe")

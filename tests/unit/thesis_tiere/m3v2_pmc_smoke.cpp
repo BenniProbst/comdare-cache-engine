@@ -6,7 +6,9 @@
 //       begin()/end() ⇒ PmcCounters{} (alle 0, available=false) — KEIN Mess-Overzeug, ehrliche 0.
 //   (2) lazy_csv_header() trägt die 7 NEUEN PMC-Spalten GANZ AM ENDE (nach quality_flag), header-getrieben.
 //   (3) format_csv_row() emittiert die PMC-Werte als LETZTE Spalten in identischer Reihenfolge → mit NullPmcSource
-//       erscheinen sie als 0/…/0/0 (pmc_available=0). Mit Intel-PCM=ON (Montag Linux+PMC) wären sie real.
+//       erscheinen sie seit #83 (C-1(c), KON103) als n/a-Tokens (pmc_available=0) -- die fruehere
+//       "0/.../0/0"-Konvention war die stille 0 des Teil-Laufs und ist gefallen (pmc_zelle,
+//       cache_engine_builder_iterator.hpp). Mit einkompilierter Quelle sind sie real (Zahl je geliefertem Feld).
 //
 // Der Pilot stellt EINE LazyMeasuredRow haendisch zusammen (wie der Iterator es aus PermResult taete: row.pmc = pr.pmc)
 // und befuellt row.pmc EXAKT ueber die EINE PMC-Quelle (begin()->[ECHTES Messfenster]->end()), genau wie
@@ -24,6 +26,7 @@
 
 #include "experiment_tree/cache_engine_builder_iterator.hpp" // lazy_csv_header / format_csv_row / LazyMeasuredRow
 #include "pmc_source_factory.hpp"                            // make_pmc_source / IPmcSource / PmcCounters
+#include "pmc_startup_pruefung.hpp" // #83 C-1(c): Gegeneingang -- der Skip nennt, was der Host gekonnt haette
 
 #include <cstdint>
 #include <iostream>
@@ -127,6 +130,14 @@ int main() {
         std::cout << "[PMC-FEHLER] COMDARE_ENABLE_PMC ist einkompiliert, die Quelle meldet aber available=0. "
                      "Ursache pruefen: perf_event_paranoid, CAP_PERFMON/Executor-Rechte, Container ohne perf. "
                      "F3-PFLICHT: was gemessen werden KANN, MUSS gemessen werden.\n";
+    // #83 (C-1(c), Owner-GO KON103 17.08.): DER SKIP SPRICHT. Im Nicht-einkompiliert-Fall fragt der
+    // Gegeneingang den Host (derselbe Koeder wie die Planer-Probe) und warnt auf stderr, wenn PMC
+    // VORHANDEN, ABER NICHT VERWENDET ist. Exit bleibt 0 (Bau-Seite soft, KON28-02; die dynamische
+    // Kette erreicht den flaglosen Fall seit #83 nicht mehr -- ihr Preflight scheitert vorher).
+    if (!kPmcExpected) {
+        auto const startup = bld::pmc_startup_pruefe_und_melde(kPmcExpected, delta.available);
+        std::cout << "pmc_startup_lage=" << std::string(bld::pmc_startup_label(startup.lage)) << "\n";
+    }
     std::cout << ((missing == 0 && pmc_seam_ok) ? "SMOKE_OK\n" : "SMOKE_FAIL\n");
     return (missing == 0 && pmc_seam_ok) ? 0 : 1;
 }
