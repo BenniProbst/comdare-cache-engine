@@ -49,7 +49,8 @@
 // AUSGABE: klare Meldung je Fehler; bool-Ergebnis (true = OK). Der Host mappt true→Exit 0 (+ Zusammenfassung),
 // false→Exit != 0. Pattern: Specification/Validator (read-only Gegen-Pruefung); C++23, header-only.
 
-#include "merge_plan.hpp" // A2.5-g5 (Fix 16): kExperimentAxisMergeModes (Single-Source der Merge-Modi)
+#include "merge_plan.hpp"               // A2.5-g5 (Fix 16): kExperimentAxisMergeModes (Single-Source der Merge-Modi)
+#include "paper_pruefling_registry.hpp" // P-H/#89: Paper->Pruefling-Uebersetzung (PV-4/R-4-Haerte, template-ref)
 
 #include <builder/experiment_tree/experiment_tree.hpp>         // AxisLevel
 #include <builder/experiment_tree/profile_to_tree.hpp>         // AxisRegistry (axis-ref → Werteliste)
@@ -581,6 +582,96 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
         os << "VALIDAT FEHLGESCHLAGEN: " << r.errors.size() << " Fehler — Profil NICHT baubar (Abbruch vor Bau).\n";
 }
 
+// -----------------------------------------------------------------------------
+// PV-4/Ledger-#44 (P-H/#89, 2026-08-21): profile_ref-DEREFERENZIERUNG der <base_tiers>.
+//
+// BEFUND (check-size-Bericht, Ledger; am Objekt gegengeprueft 20.08.): ThesisTier.profile_ref
+// wurde seit KF-1 GEPARST (xml_config_parser.cpp base_tiers.push_back), aber von KEINEM
+// Konsumenten DEREFERENZIERT (Ist = 0 Leser ausserhalb Parser+Parser-Test). Ein Fehlziel
+// (Tippfehler, geloeschte/umbenannte sota-Akte) fiel damit NIE auf.
+//
+// OWNER-R-4 (KON110-05/KON112-10, 17.08.): "Fehlziel von profile_ref = harter Planer-Fehler,
+// angezeigt als UNERFUELLBARES XML-ZIEL 'ERROR'" -- Anwendung der fail-loud-Doktrin (ERST
+// LAUTE FEHLER). Verdrahtung: validate_profile_facade (profile_run_facade.cpp) laeuft im
+// Run-Pfad VOR jedem Bau -> der harte Fehler ist ein PLANER-Abbruch, kein stiller Durchlauf.
+//
+// FEHLZIEL-DEFINITION (Design-Entscheid D4 des Strangs, Ergebnis-Datei p-h-89):
+//   (a) Ziel-Datei existiert nicht (relativ zum Profil-Verzeichnis aufgeloest);
+//   (b) Ziel ist kein comdare_algorithm_profile (parse_profile-id-Sentinel leer);
+//   (c) tier.paper_ref liegt im P-Nummern-Raum (P01..P33) und widerspricht dem paper_ref des
+//       Ziel-Profils (falsches Ziel). AUSSERHALB des P-Raums (z.B. "PRT" am prt_art-Tier, das
+//       als Host-Referenz auf art.profile.xml zeigt -- Bestand m3v2_study:26) gilt KEINE
+//       Gleichheits-Pflicht (Host-Referenz, dokumentiert; Bestand bleibt gruen).
+// LEERER profile_ref = kein deklariertes Ziel -> WARNUNG (nicht dereferenzierbar), kein Fehler.
+// -----------------------------------------------------------------------------
+
+// Das Owner-Verbatim-Literal der R-4-Anzeige (Single-Source; Tests + Facade-Ausgabe teilen es).
+inline constexpr char const* kUnerfuellbaresXmlZielError = "UNERFUELLBARES XML-ZIEL \"ERROR\"";
+
+struct BaseTierDereferenzErgebnis {
+    bool                     ok = true;
+    std::vector<std::string> errors;            // je Fehlziel eine Meldung mit kUnerfuellbaresXmlZielError-Praefix
+    std::vector<std::string> warnings;          // leerer profile_ref (kein deklariertes Ziel)
+    std::size_t              tiers_checked = 0; // alle <base_tier>-Eintraege
+    std::size_t              dereferenced  = 0; // real aufgeloeste + geparste Ziel-Profile
+};
+
+/// ist_p_nummern_paper_ref -- liegt der Wert im P-Nummern-Raum ("P" + Ziffern, z.B. "P01")?
+/// Nur DANN gilt die paper_ref-Gleichheits-Pflicht (c); "PRT" u.ae. sind Host-Referenzen.
+[[nodiscard]] inline bool ist_p_nummern_paper_ref(std::string const& s) {
+    if (s.size() < 2 || s.front() != 'P') return false;
+    for (std::size_t i = 1; i < s.size(); ++i)
+        if (s[i] < '0' || s[i] > '9') return false;
+    return true;
+}
+
+/// dereference_base_tier_profile_refs -- loest JEDEN <base_tier profile_ref> relativ zum
+/// Verzeichnis der Thesis-Profil-Datei auf, parst das Ziel (XmlConfigParser::parse_profile)
+/// und meldet Fehlziele HART (R-4-Literal). Rein-lesend; kein Bau, keine Messung.
+[[nodiscard]] inline BaseTierDereferenzErgebnis
+dereference_base_tier_profile_refs(cx::ThesisProfile const& tp, std::filesystem::path const& thesis_profile_path) {
+    BaseTierDereferenzErgebnis  r;
+    cx::XmlConfigParser const   parser;
+    std::filesystem::path const basis = thesis_profile_path.parent_path();
+    for (auto const& t : tp.base_tiers) {
+        ++r.tiers_checked;
+        if (t.profile_ref.empty()) {
+            r.warnings.push_back("base_tier id=\"" + t.id +
+                                 "\": kein profile_ref deklariert -- Ziel nicht dereferenzierbar "
+                                 "(PV-4: Paper-Tiere sollen auf ihre sota-Akte zeigen).");
+            continue;
+        }
+        std::filesystem::path ziel{t.profile_ref};
+        if (ziel.is_relative()) ziel = basis / ziel;
+        ziel = ziel.lexically_normal();
+        if (!std::filesystem::exists(ziel)) {
+            r.ok = false;
+            r.errors.push_back(std::string{kUnerfuellbaresXmlZielError} + ": <base_tier id=\"" + t.id +
+                               "\" profile_ref=\"" + t.profile_ref + "\"> -> Ziel-Datei existiert nicht (" +
+                               ziel.string() + "). Harter Planer-Fehler (R-4, KON112-10).");
+            continue;
+        }
+        auto const prof = parser.parse_profile(ziel);
+        if (prof.id.empty()) {
+            r.ok = false;
+            r.errors.push_back(std::string{kUnerfuellbaresXmlZielError} + ": <base_tier id=\"" + t.id +
+                               "\" profile_ref=\"" + t.profile_ref +
+                               "\"> -> Ziel ist kein comdare_algorithm_profile (id-Sentinel leer). "
+                               "Harter Planer-Fehler (R-4, KON112-10).");
+            continue;
+        }
+        ++r.dereferenced;
+        if (ist_p_nummern_paper_ref(t.paper_ref) && t.paper_ref != prof.paper_ref) {
+            r.ok = false;
+            r.errors.push_back(std::string{kUnerfuellbaresXmlZielError} + ": <base_tier id=\"" + t.id +
+                               "\" paper_ref=\"" + t.paper_ref + "\"> zeigt auf \"" + t.profile_ref +
+                               "\" mit paper_ref=\"" + prof.paper_ref +
+                               "\" -- falsches Ziel im P-Nummern-Raum. Harter Planer-Fehler (R-4).");
+        }
+    }
+    return r;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // INC-D (2026-07-14): validate_experiment_profile — das REIN-LESENDE Validat des comdare_experiment-
 // Profils (ExperimentProfile, common-Schicht) gegen die cache_engine-Wahrheiten. Muster = validate_profile
@@ -622,10 +713,14 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
 //  (13) KERN-A: leere <measurement_categories> = alle 16 (Check (6) uebersprungen, kein Fehler). Das PASSIVE
 //       <measurement_tooling> ist nur geparst+getragen (leer = Default [all]); seine Semantik/Validierung ist P-MESSTOOL.
 //  (14) KERN-A: <template ref=".." mode="full|.."> (Research-Gesamtalgorithmus-Load). mode="full" = der HEUTE
-//       funktionierende Pfad (Voll-Whitelist aller Achsen + axes_default_lookup restrict/extend). TOLERANT: ein
-//       ref auf ein benanntes Paper-Template-Profil ist eine SPAETERE Erweiterung (Registries fuehren die
-//       Paper-Templates noch NICHT) -> unbekannter ref = KEIN harter Fehler (faellt auf full zurueck). Abwesenheit
-//       = kein Template (byte-identisch). Hier daher KEINE harte Pruefung -- reine Provenienz/Weitergabe.
+//       funktionierende Pfad (Voll-Whitelist aller Achsen + axes_default_lookup restrict/extend).
+//       P-H/#89-HAERTUNG (2026-08-21, R-4/KON112-10): der alte tolerant-Fallback ("Registries fuehren die
+//       Paper-Templates noch NICHT" -> unbekannter ref faellt still auf full zurueck) war der #44/PV-4-ALTSTAND
+//       (U-8-(3)). Die Paper-Template-Registry EXISTIERT jetzt (paper_pruefling_registry.hpp, ref-Namensraum ==
+//       paper_ref P01..P33) -> ein NICHT-LEERER unbekannter ref ist ein HARTER Fehler mit dem R-4-Literal
+//       kUnerfuellbaresXmlZielError (fail-loud statt stiller full-Ersatz). Abwesenheit/leer = kein Template
+//       (byte-identisch tolerant, mode-getrieben). Der XSD-Kommentar (TemplateType) beschreibt noch den
+//       Altstand -- Nachfuehrung ist s13-Schema-Zug-Arbeit (Kollisions-Auflage #89, Bedarfsliste p-h-89).
 //  (15) A9.1 (S4-Delta B9, 2026-07-20): die drei PASSIVEN Mess-UNTER-Achsen (run_methodology in {debug,measure,
 //       release} / measurement_framework in {ycsb} / writeback_methods in {csv,latex_table,comparison_metrics,
 //       xlsx} -- xlsx seit ce 907b0433 (2026-08-08), s. writeback_method_registry.hpp:51. Die Pruefung selbst
@@ -994,6 +1089,18 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
                                    "<phase engine(s)>-Zuordnung).");
             }
         }
+    }
+
+    // -- (14) P-H/#89-HAERTUNG (R-4/KON112-10, 2026-08-21): nicht-leerer <template ref> muss ein registriertes
+    //    Paper-Template benennen (paper_pruefling_registry.hpp, Namensraum == paper_ref P01..P33). Der alte
+    //    stille full-Fallback war der #44/PV-4-Altstand; ein Fehlziel ist jetzt der HARTE R-4-Fehler. Leerer
+    //    ref bleibt byte-identisch tolerant (kein Template / rein mode-getrieben). --
+    if (!ep.templ.ref.empty() && !paper_template_known(ep.templ.ref)) {
+        r.ok = false;
+        r.errors.push_back(std::string{kUnerfuellbaresXmlZielError} + ": <template ref=\"" + ep.templ.ref +
+                           "\"> benennt KEIN registriertes Paper-Template (bekannt: P01..P33, "
+                           "paper_pruefling_registry.hpp). Harter Planer-Fehler (R-4, KON112-10) -- "
+                           "kein stiller full-Fallback mehr.");
     }
 
     // ── (2) KERN-A (S4 Mess-Schema, 2026-07-20): phases sind jetzt OPTIONAL — die E11/Fork-C-Kardinalitaets-Gate

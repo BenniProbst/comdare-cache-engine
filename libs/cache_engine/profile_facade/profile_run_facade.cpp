@@ -849,8 +849,20 @@ int validate_profile_facade(std::filesystem::path const& profile_path, std::ostr
 
     tlz::ProfileValidationResult const vr = tlz::validate_profile(*tp, registry, known_workload_ids);
     tlz::print_validation_report(vr, *tp, os);
+
+    // -- PV-4/Ledger-#44 (P-H/#89, 2026-08-21): profile_ref-DEREFERENZIERUNG der <base_tiers>. Ein
+    //    Fehlziel ist der HARTE Planer-Fehler R-4 (KON110-05/KON112-10: angezeigt als UNERFUELLBARES
+    //    XML-ZIEL "ERROR"); diese Fassade laeuft im Run-Pfad VOR jedem Bau -> fail-loud statt still.
+    //    Rein-lesend wie das uebrige Validat. --
+    tlz::BaseTierDereferenzErgebnis const dr = tlz::dereference_base_tier_profile_refs(*tp, profile_path);
+    if (dr.tiers_checked > 0)
+        os << "profile_ref-Dereferenzierung (PV-4): " << dr.dereferenced << " von " << dr.tiers_checked
+           << " base_tiers aufgeloest.\n";
+    for (auto const& w : dr.warnings) os << "  [HINWEIS] " << w << "\n";
+    for (auto const& e : dr.errors) os << "  [FEHLER]  " << e << "\n";
+
     os << "(--validate: rein-lesend — es wurde KEINE DLL gebaut und KEINE Messung durchgefuehrt.)\n";
-    return vr.ok ? 0 : 1;
+    return (vr.ok && dr.ok) ? 0 : 1;
 }
 
 int validate_experiment_profile_facade(std::filesystem::path const& profile_path,

@@ -529,18 +529,35 @@ TEST(ExperimentParser, TemplateModeFullWithoutRefIsAccepted) {
     fs::remove_all(reg, ec);
 }
 
-// (k3-tmpl-b) K3 — ein <template mode="full"> mit (noch) unbekanntem ref validiert TOLERANT (kein harter Fehler;
-//             die Paper-Template-Aufloesung ist post-v3, faellt auf full zurueck). mode="full" = heutiger Pfad.
-TEST(ExperimentParser, TemplateWithUnknownRefValidatesTolerant) {
+// (k3-tmpl-b) K3, HARMONISIERT P-H/#89 (R-4/KON112-10, 2026-08-21): die alte Fassung dieses Tests pinnte
+//             den tolerant-Fallback ("unbekannter ref faellt auf full zurueck") -- das war der #44/PV-4-
+//             ALTSTAND (U-8-(3): "Registries fuehren die Paper-Templates NOCH NICHT"). Die Paper-Template-
+//             Registry EXISTIERT jetzt (profile_facade/paper_pruefling_registry.hpp, ref-Namensraum ==
+//             paper_ref P01..P33); der Owner-Entscheid R-4 (17.08., PV-4) macht ein profile-/template-
+//             Fehlziel zum HARTEN Planer-Fehler mit der Anzeige UNERFUELLBARES XML-ZIEL "ERROR" --
+//             fail-loud statt stiller full-Ersatz. Der Test prueft jetzt GENAU das: unbekannter
+//             nicht-leerer ref = harter Fehler MIT dem R-4-Literal; ein REGISTRIERTER ref (P01) und der
+//             leere ref (Test daueber) bleiben fehlerfrei.
+TEST(ExperimentParser, TemplateWithUnknownRefIsHardR4Error) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
-    ep->templ.ref  = "some_future_paper_template"; // die Registries fuehren es NOCH NICHT
+    ep->templ.ref  = "some_future_paper_template"; // KEIN registriertes Paper-Template
     ep->templ.mode = "full";
 
     fs::path const                        reg = make_registry_dir();
     tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
-    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
-    EXPECT_TRUE(vr.ok) << "unbekannter template-ref = kein harter Fehler (post-v3, faellt auf full zurueck)";
+    EXPECT_FALSE(vr.ok) << "unbekannter nicht-leerer template-ref MUSS hart scheitern (R-4, KON112-10)";
+    bool literal_gefunden = false;
+    for (auto const& e : vr.errors)
+        if (e.find(tlz::kUnerfuellbaresXmlZielError) != std::string::npos) literal_gefunden = true;
+    EXPECT_TRUE(literal_gefunden) << "der R-4-Fehler muss das Owner-Literal UNERFUELLBARES XML-ZIEL "
+                                     "\"ERROR\" tragen";
+
+    // Gegeneingang: ein REGISTRIERTES Paper-Template (P01) erzeugt KEINEN Template-Fehler.
+    ep->templ.ref                             = "P01";
+    tlz::ExperimentValidationResult const vr2 = tlz::validate_experiment_profile(*ep, reg);
+    for (auto const& e : vr2.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr2.ok) << "registrierter template-ref P01 darf keinen Fehler ausloesen";
 
     std::error_code ec;
     fs::remove_all(reg, ec);
