@@ -7603,6 +7603,10 @@ target_include_directories(test_simd_organ_achsen_deckung PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/common")
+# Boost::mp11 explizit wie bei allen axis_path_serialization-Konsumenten: die
+# covguard-Klasse baut aus den Target-Interfaces und sah den Pfad sonst nicht
+# (CI 16069 Job 382833, 'boost' has not been declared).
+target_link_libraries(test_simd_organ_achsen_deckung PRIVATE Boost::mp11)
 set_tests_properties(test_simd_organ_achsen_deckung PROPERTIES
     LABELS "simd;organ;achsen-deckung;nenner;wachen")
 

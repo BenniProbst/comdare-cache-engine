@@ -21,4 +21,6 @@ endif()
 # COMDARE_set_default_warnings NUR ueber cmake/gtest_setup.cmake (Test-Executables);
 # Produktions-TUs bauten ohne -Wall. Anhang ANS DATEIENDE (Kollisionsschutz).
 COMDARE_set_default_warnings(comdare_ycsb_cli)
-COMDARE_set_default_warnings(comdare_ycsb_cli_lib)
+if(TARGET comdare_ycsb_cli_lib) # existiert nur unter COMDARE_BUILD_TESTS (CI 16069 Job 382841)
+    COMDARE_set_default_warnings(comdare_ycsb_cli_lib)
+endif()

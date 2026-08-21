@@ -24,6 +24,12 @@
 //
 // T-11c-MUTATIONSANKER: einen Tabellen-Namen mutieren (z.B. "node_type" -> "node_typ") bricht
 // (1) literal im static_assert.
+//
+// FORM-HINWEIS (CI 16069, Job 382820): die Positions-Pins leben in BENANNTEN
+// consteval-Funktionen statt in IIFE-Lambdas -- der cppcheck-2.21-Parser scheitert am
+// constexpr-Array-Zugriff innerhalb eines Lambdas in static_assert (syntaxError,
+// Minimalreproduktion 21.08.), waehrend er die Funktionsform vollstaendig analysiert;
+// gcc 15.3 und clang 22 uebersetzen beide Formen fehlerfrei.
 
 #include "experiment_tree/axis_path_serialization.hpp" // experiment::kCompositionAxisNames (18, Registry)
 
@@ -38,30 +44,30 @@
 namespace {
 
 namespace meas = ::comdare::cache_engine::measurement;
-namespace exp  = ::comdare::cache_engine::builder::experiment;
+using ::comdare::cache_engine::builder::experiment::kCompositionAxisNames;
 
 // (1) DECKUNG + KEINE GEISTER als EIN Positions-Pin je Tabelle, compile time:
-static_assert(meas::kSimdOrganRequirement.size() == exp::kCompositionAxisNames.size(),
+static_assert(meas::kSimdOrganRequirement.size() == kCompositionAxisNames.size(),
               "B03: kSimdOrganRequirement muss ALLE 18 Kompositions-Achsen fuehren -- ein kleinerer "
               "Nenner macht 'leer weil nichts deklariert' und 'leer weil nicht gefuehrt' ununterscheidbar.");
-static_assert(meas::kSimdOrganSensibility.size() == exp::kCompositionAxisNames.size(),
+static_assert(meas::kSimdOrganSensibility.size() == kCompositionAxisNames.size(),
               "B03: kSimdOrganSensibility muss ALLE 18 Kompositions-Achsen fuehren.");
-static_assert(
-    [] {
-        for (std::size_t i = 0; i < exp::kCompositionAxisNames.size(); ++i)
-            if (meas::kSimdOrganRequirement[i].organ_class != exp::kCompositionAxisNames[i]) return false;
-        return true;
-    }(),
-    "B03: kSimdOrganRequirement[i].organ_class != kCompositionAxisNames[i] -- Deckungs-/Geister-/"
-    "Reihenfolge-Drift (der Positions-Pin traegt alle drei Zusagen).");
-static_assert(
-    [] {
-        for (std::size_t i = 0; i < exp::kCompositionAxisNames.size(); ++i)
-            if (meas::kSimdOrganSensibility[i].organ_class != exp::kCompositionAxisNames[i]) return false;
-        return true;
-    }(),
-    "B03: kSimdOrganSensibility[i].organ_class != kCompositionAxisNames[i] -- Deckungs-/Geister-/"
-    "Reihenfolge-Drift.");
+consteval bool requirement_folgt_registry_position() {
+    for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i)
+        if (meas::kSimdOrganRequirement[i].organ_class != kCompositionAxisNames[i]) return false;
+    return true;
+}
+consteval bool sensibility_folgt_registry_position() {
+    for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i)
+        if (meas::kSimdOrganSensibility[i].organ_class != kCompositionAxisNames[i]) return false;
+    return true;
+}
+static_assert(requirement_folgt_registry_position(),
+              "B03: kSimdOrganRequirement[i].organ_class != kCompositionAxisNames[i] -- Deckungs-/Geister-/"
+              "Reihenfolge-Drift (der Positions-Pin traegt alle drei Zusagen).");
+static_assert(sensibility_folgt_registry_position(),
+              "B03: kSimdOrganSensibility[i].organ_class != kCompositionAxisNames[i] -- Deckungs-/Geister-/"
+              "Reihenfolge-Drift.");
 
 // (2) Das Gate bleibt inert -- dieselbe Zusicherung, die der Header selbst traegt, hier als
 // Verbrauchs-Wache benannt (Nenner-Fix, kein Verhaltens-Bau):
@@ -80,7 +86,7 @@ TEST(SimdOrganAchsenDeckung, ZehnNachgezogeneAchsenTragenLeereMengen) {
             << achse << ": sensibility muss leer sein (keine spekulative Zuordnung erfinden)";
     }
     // Nenner der Schleife selbst: 10 benannte + 8 vorbestandene = 18 (kein stiller Rest).
-    EXPECT_EQ(std::size(nachgezogen) + 8u, exp::kCompositionAxisNames.size());
+    EXPECT_EQ(std::size(nachgezogen) + 8u, kCompositionAxisNames.size());
 }
 
 TEST(SimdOrganAchsenDeckung, VorbestandeneZuordnungenSindUnveraendert) {
