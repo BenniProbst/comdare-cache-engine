@@ -1427,7 +1427,11 @@ TEST(TierCiYamlBuilder, PerBatchSliceArithmetic4096) {
     // Fenster-Schleife + Klemm-Arithmetik je Perm (4 Perms ueber die 2 Build-Batches).
     EXPECT_EQ(count_occurrences(yaml, "while [ \"$START\" -lt \"$TOTAL\" ]; do"), 4u) << "Scheiben-Schleife je Perm";
     EXPECT_EQ(count_occurrences(yaml, "COMDARE_GOLDEN_N_RANGE=\"${START}:${COUNT}\""), 4u) << "Inline-Range je Perm";
-    EXPECT_EQ(count_occurrences(yaml, "START=$(( START + COUNT ))"), 4u) << "Scheiben-Fortschritt je Perm";
+    // C-10/E-10 (21.08.2026): der Scheiben-Fortschritt steht seit der window_belongs_to-Verdrahtung ZWEIMAL
+    // je Perm -- einmal am Schleifenende (gebautes Fenster) und einmal im [FENSTER-FREMD]-Skip-Zweig
+    // (fremdes Fenster wird uebersprungen, der Zaehler muss trotzdem voranschreiten, sonst Endlosschleife).
+    EXPECT_EQ(count_occurrences(yaml, "START=$(( START + COUNT ))"), 8u)
+        << "Scheiben-Fortschritt je Perm (Bau-Pfad + [FENSTER-FREMD]-Pfad, C-10/E-10)";
     // TOTAL-Default je Build-Batch (2 Host-Lanes); Voll-Bau: COMDARE_GN_TOTAL=131072.
     EXPECT_EQ(count_occurrences(yaml, "TOTAL=\"${COMDARE_GN_TOTAL:-16}\""), 2u) << "Default 16 je Build-Batch";
     // NEGATIV: KEIN Env-Override des 4096er-Korns (§61-Verstoss verworfen) und KEIN Chunk-Konzept mehr.
@@ -4136,4 +4140,95 @@ TEST(CompilerPinInvariante, BareMetalSpiegelSagtDiePins) {
     EXPECT_NE(s2.text().find("clang-22-Zwilling (build-clang) ist Bau+Test-Gate je Stufe; Mess-Targets bleiben "
                              "single-compiler (N2)"),
               std::string::npos);
+}
+
+// (E-10/C-10, 21.08.2026) WindowBelongsTo-VERDRAHTUNG, Generator-Haelfte (Gen-2-Kampagnenbetrieb KON29-04):
+// die Bau-Fenster-Schleife traegt die Paritaets-Zuteilung des Bestandslogs. Topologie kommt aus
+// COMDARE_MACHINE_RANK/COMDARE_MACHINES (Default 0/1 = heutiges Verhalten: alle Fenster der Lane-Maschine);
+// rank >= maschinen ist FAIL-CLOSED (sonst baute die Maschine STILL nichts und der Batch endete gruen leer).
+// Der Mess-Batch traegt BEWUSST keine Fenster-Teilung ("Messung selbst nicht zweilanig" = W3-Vorstaffel).
+// Geprueft wird (a) die Emission literal, (b) die SEMANTIK-PARITAET der gespiegelten Shell-Formel gegen
+// bestandslog::window_belongs_to selbst (dieselbe Funktion, die BatchPlanner/plan_batch_slices nutzt) und
+// (c) die Partitions-Vollstaendigkeit (jedes Fenster gehoert GENAU einer Maschine).
+TEST(TierCiYamlBuilder, WindowBelongsToVerdrahtungGeneratorHaelfte) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    // (a) Topologie-Kopf je Build-Batch (2 Host-Lanes), Defaults 0/1 = heutiges Verhalten.
+    EXPECT_EQ(count_occurrences(yaml, "RANK=\"${COMDARE_MACHINE_RANK:-0}\"; MASCHINEN=\"${COMDARE_MACHINES:-1}\""), 2u)
+        << "je Build-Batch EIN Topologie-Kopf mit den inerten Defaults 0/1";
+    EXPECT_EQ(count_occurrences(yaml, "== [FENSTER-TOPOLOGIE] lane="), 2u)
+        << "die Topologie wird je Batch LAUT gesagt (rank/maschinen/Semantik-Quelle)";
+    // fail-closed: rank >= maschinen bricht VOR der ersten Perm ab -- kein stiller leerer Batch.
+    EXPECT_EQ(count_occurrences(yaml, "COMDARE_MACHINE_RANK=$RANK >= COMDARE_MACHINES=$MASCHINEN"), 2u)
+        << "je Build-Batch der harte rank>=maschinen-Abbruch (Abbruch statt leerem Gruen)";
+    // (b) der Paritaets-Guard je Perm-Fenster-Schleife (4 Perms) -- WOERTLICH die window_belongs_to-Formel.
+    EXPECT_EQ(count_occurrences(yaml, "FENSTER=$(( START / SLICE ))"), 4u) << "Fenster-Index im 4096er-Korn je Perm";
+    EXPECT_EQ(
+        count_occurrences(yaml, "if [ \"$MASCHINEN\" -gt 0 ] && [ $(( FENSTER % MASCHINEN )) -ne \"$RANK\" ]; then"),
+        4u)
+        << "je Perm der gespiegelte window_belongs_to-Guard ((w % n) != rank -> skip; n == 0 -> alle)";
+    EXPECT_EQ(count_occurrences(yaml, "[FENSTER-FREMD]"), 4u)
+        << "je Perm die laute Skip-Zeile (BEWUSST ohne TESTAT-Namen und ohne offen= -- zaehlt nie als gebaut)";
+    // Der Mess-Batch bleibt fensterteilungs-frei: alle 4 Guards liegen in den 2 Build-Batches (je 2 Perms),
+    // und die Mess-Jobs exportieren die Topologie-Variablen nicht.
+    EXPECT_EQ(count_occurrences(yaml, "[FENSTER-FREMD] ts=$(date -u +%FT%TZ) lane=amd zelle=[O2,no_extension]"), 1u)
+        << "der Guard sitzt in der Perm-Schleife des BUILD-Batches (Stichprobe amd-Perm)";
+    // (c) SEMANTIK-PARITAET: die gespiegelte Shell-Formel gegen die Bestandslog-Funktion selbst, inkl. der
+    // Raender n==0 (alle) und rank>=n (nie -- genau der fail-closed-Fall der Emission).
+    namespace bl = comdare::cache_engine::builder::bestandslog;
+    for (unsigned n = 1; n <= 3; ++n) {
+        for (unsigned rank = 0; rank < n; ++rank) {
+            for (std::uint64_t w = 0; w < 12; ++w) {
+                bool const shell_baut = !((w % n) != rank); // der emittierte Guard, in C++ nachgerechnet
+                EXPECT_EQ(bl::window_belongs_to(w, rank, n), shell_baut)
+                    << "Formel-Divergenz bei w=" << w << " rank=" << rank << " n=" << n;
+            }
+        }
+    }
+    EXPECT_TRUE(bl::window_belongs_to(7, 3, 0)) << "n==0 heisst ALLE (beide Seiten; Shell-Guard kurzschliesst)";
+    EXPECT_FALSE(bl::window_belongs_to(5, 4, 2)) << "rank>=n hiesse NIE -- exakt der emittierte Abbruchgrund";
+    for (std::uint64_t w = 0; w < 32; ++w) {
+        int eigentuemer = 0;
+        for (unsigned rank = 0; rank < 2; ++rank) eigentuemer += bl::window_belongs_to(w, rank, 2) ? 1 : 0;
+        EXPECT_EQ(eigentuemer, 1) << "Partitions-Vollstaendigkeit verletzt bei w=" << w
+                                  << " (jedes Fenster gehoert GENAU einer von 2 Maschinen)";
+    }
+}
+
+// (E-20/R-15, 21.08.2026) PIN-PFLICHT-DEKLARATION im Mess-Emissionspfad: prod1/amd traegt die 96/32-MiB-
+// L3-Asymmetrie (2 CCDs; /sys am Objekt gemessen) -- ungepinnt wandert der 1-Thread-Messlauf zwischen den
+// CCDs und die Cache-Messwerte sind NICHT reproduzierbar. Die Emission deklariert die SOLL-Menge (CCD0)
+// als COMDARE_MEASURE_PIN_CPUS und sagt den IST-Stand EHRLICH dazu (pin_ist=UNGEPINNT, Aktuator
+// ScopedThreadPin im run_profile-Loop unverdrahtet = W3); intel bleibt laut UNVERMESSEN statt einer
+// erfundenen Maske. KEIN taskset im Batch: dieselbe Invokation baut parallel und misst 1-Thread.
+TEST(TierCiYamlBuilder, PinPflichtDeklarationR15ImMessBatch) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    // amd: SOLL-Menge (CCD0 = 96-MiB-L3-Haelfte, cpu 0-7,16-23) GENAU EINMAL -- nur der amd-MESS-Batch.
+    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_MEASURE_PIN_CPUS=\"0-7,16-23\""), 1u)
+        << "die SOLL-Pin-Menge steht genau im amd-Mess-Batch (nicht im Bau-Batch, nicht bei intel)";
+    EXPECT_NE(yaml.find("[PIN-DEKLARATION] lane=amd pin_soll=0-7,16-23 pin_ist=UNGEPINNT"), std::string::npos)
+        << "amd deklariert SOLL und den ehrlichen IST-Stand in EINER Zeile";
+    EXPECT_NE(yaml.find("folge=ungepinnt-nicht-reproduzierbar (R-15)"), std::string::npos)
+        << "die R-15-Folge (nicht reproduzierbar) steht woertlich in der Deklaration";
+    // intel: laut UNVERMESSEN -- keine erfundene Maske fuer eine nicht vermessene Topologie.
+    EXPECT_NE(yaml.find("[PIN-DEKLARATION] lane=intel pin_soll=UNVERMESSEN pin_ist=UNGEPINNT"), std::string::npos)
+        << "intel deklariert die Luecke, statt eine Maske zu raten";
+    EXPECT_EQ(count_occurrences(yaml, "[PIN-DEKLARATION] lane="), 2u) << "genau die 2 Mess-Batches deklarieren";
+    // NIE ein falscher Vollzug: pin_ist traegt nirgends die Maske, und kein taskset drosselt den Bau.
+    EXPECT_EQ(yaml.find("pin_ist=0-7,16-23"), std::string::npos)
+        << "pin_ist darf den SOLL-Wert nicht behaupten, solange der Aktuator unverdrahtet ist";
+    EXPECT_EQ(yaml.find("taskset"), std::string::npos)
+        << "kein job-weites taskset (der parallele DLL-Bau liefe sonst auf der Pin-Menge)";
+    EXPECT_EQ(yaml.find("numactl"), std::string::npos) << "kein numactl-Praefix (prod1 ist 1 NUMA-Node)";
 }

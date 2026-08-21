@@ -776,6 +776,23 @@ private:
 // Stufen (TierCiYamlBuilder Build-/Mess-Batch + TierCmakeGraphBuilder bare-metal-Batch).
 [[nodiscard]] inline std::size_t lane_build_parallelism(std::string const& host) { return host == "amd" ? 24 : 24; }
 
+// E-20/R-15 (21.08.2026): die MESS-PIN-SOLL-MENGE je Host-Lane -- Deklaration der L3-homogenen CPU-Menge, auf
+// der der 1-Thread-Messlauf laufen SOLL. prod1/amd (Zen5 9950X3D) traegt ZWEI ungleiche CCDs: CCD0 = 96 MiB L3
+// (cpu 0-7,16-23, X3D-V-Cache), CCD1 = 32 MiB (cpu 8-15,24-31) -- /sys/devices/system/cpu/cpu*/cache/index3
+// am Objekt gemessen (21.08.2026; lscpu "L3: 128 MiB (2 instances)" ist die SUMME 96+32, nicht 2x128). Ein
+// ungepinnter Messlauf wandert zwischen den CCDs, der wirksame L3 springt 96<->32 MiB mitten in der Serie:
+// Cache-Messwerte sind dann NICHT reproduzierbar (R-15). Deklariert wird die GROSSE homogene Menge (CCD0
+// komplett, SMT-Geschwister inklusive) -- die Kern-Wahl INNERHALB des CCDs ist Aktuator-Politik
+// (ScopedThreadPin, builder/measurement/thread_pinning.hpp, AP-13/#247), kein Emissions-Vertrag.
+// intel/prod2 (RaptorLake): hybride P-/E-Kern-Topologie, am Objekt NICHT vermessen -- eine erfundene Maske
+// waere ein richtiges Messgeraet am falschen Gegenstand; die Lane bleibt LEER (= UNVERMESSEN, wird in der
+// Emission laut deklariert), bis prod2 vermessen ist. KEIN job-weites taskset: dieselbe Treiber-Invokation
+// BAUT parallel (COMDARE_BUILD_PARALLEL) und MISST 1-Thread -- ein taskset ueber den ganzen Job droesselte
+// den Bau auf die Pin-Menge (24 Worker auf 8 Kernen).
+[[nodiscard]] inline std::string lane_measure_pin_cpus(std::string const& host) {
+    return host == "amd" ? "0-7,16-23" : "";
+}
+
 // A3: EINE Formatierungs-Single-Source der YAML-Tag-Sequenz ["a","b",...] (doppelte Quotes, komma-getrennt, kein
 // Leerraum) -- GitLab wertet die Liste als UND-Bedingung: der Runner muss ALLE Tags tragen. Ein-Element-Listen
 // rendern byte-identisch zur alten tags: ["x"]-Emission (=> golden-neutral fuer die no_extension/avx2-Live-Strecke).
@@ -1499,6 +1516,28 @@ private:
         // emittierende Planer kennt sie und sagt sie.
         s += "      export COMDARE_LANE=\"" + host +
              "\"   # E-04-P1: Pflichtfeld lane= der Treiber-Marker (Planer sagt die Lane, der Treiber raet nie)\n";
+        // C-10/E-10 (21.08.2026): window_belongs_to-VERDRAHTUNG, Generator-Haelfte (Gen-2-Kampagnenbetrieb,
+        // KON29-04). Die Fenster-Schleife unten traegt ab jetzt die PARITAETS-ZUTEILUNG des Bestandslogs --
+        // WOERTLICH die Formel von bestandslog::window_belongs_to (batch_planner.hpp: Fenster w gehoert
+        // Maschine rank von n, wenn w % n == rank; n == 0 -> alle; Semantik-Paritaet testgedeckt).
+        // Topologie-Quelle sind die CI-Variablen COMDARE_MACHINE_RANK / COMDARE_MACHINES; die Defaults 0/1
+        // sind das HEUTIGE Verhalten (jede Lane-Maschine baut ALLE Fenster ihrer Perms) -- der W3-Zug
+        // "zweilanige Messung" belegt sie nur noch mit Werten, statt die Emission umzubauen.
+        // FAIL-CLOSED: rank >= n hiesse w % n == rank NIE -- die Maschine baute STILL NICHTS und der Batch
+        // endete gruen mit leerer Ausbeute; deshalb harter Abbruch VOR der ersten Perm.
+        // NICHT Teil dieser Haelfte (W3/E-13, ausdruecklich benannt): Job-Verdopplung je Lane, Artefakt-
+        // Transport zwischen Maschinen (minio Ebene B), Pruef-/Mess-Fenster bei echter Teilung, dynamische
+        // Claims a 4096 + Takeover ETA+50%.
+        s += "      RANK=\"${COMDARE_MACHINE_RANK:-0}\"; MASCHINEN=\"${COMDARE_MACHINES:-1}\"   # C-10 "
+             "Gen-2-Topologie (Default 0/1 = alle Fenster dieser Lane-Maschine)\n";
+        s += "      if [ \"$MASCHINEN\" -gt 0 ] && [ \"$RANK\" -ge \"$MASCHINEN\" ]; then\n";
+        s += "        echo \"FEHLER: COMDARE_MACHINE_RANK=$RANK >= COMDARE_MACHINES=$MASCHINEN -- diese "
+             "Maschine bekaeme STILL kein Fenster (window_belongs_to nie wahr). Abbruch statt leerem Gruen.\"\n";
+        s += "        exit 1\n";
+        s += "      fi\n";
+        s += "      echo \"== [FENSTER-TOPOLOGIE] lane=" + host +
+             " rank=$RANK maschinen=$MASCHINEN semantik=window_belongs_to (w%n==rank; n=0->alle; "
+             "batch_planner.hpp) ==\"\n";
         // Batch-KOPF (Echo, einmal): CEB-Identitaet [a,b,c] + Lane -> Trace-Legende der CEB-Ebene.
         // E-04-P1 (Teil 1b): zusaetzlich die BEZUGSGROESSEN des Fortschritts -- fenster_gesamt (Aufrundung
         // TOTAL/SLICE, rein Shell-arithmetisch und damit byte-deterministisch) und perms (die Zahl der Perms
@@ -1524,6 +1563,20 @@ private:
             s += "      while [ \"$START\" -lt \"$TOTAL\" ]; do\n";
             s += "        REMAIN=$(( TOTAL - START )); COUNT=$SLICE; [ \"$COUNT\" -gt \"$REMAIN\" ] && COUNT=$REMAIN   "
                  "# letzte Scheibe klemmt\n";
+            // C-10/E-10: die Paritaets-Zuteilung des Bestandslogs, WOERTLICH gespiegelt (window_belongs_to,
+            // batch_planner.hpp -- (w % n) == rank; n == 0 -> alle; FENSTER = START/SLICE ist der Fenster-INDEX
+            // im 4096er-Korn). Ein fremdes Fenster wird NICHT gebaut und traegt seine EIGENE
+            // [FENSTER-FREMD]-Zeile -- BEWUSST OHNE "TESTAT" im Namen und OHNE offen=: die
+            // [TESTAT]-Marken zaehlen GEBAUTE Fenster (W0b-3/E-04-P1, kTestatKlassifikation), ein
+            // uebersprungenes fremdes Fenster darf weder dort noch in der offen=-Gleichung ("je Bau-Fenster
+            // ZWEI offen=-Zeilen") mitzaehlen. Mit der Default-Topologie 0/1 ist der Zweig unerreichbar
+            // (0 % 1 == 0): das heutige Verhalten ist im Testat-Strom byte-fuer-byte unveraendert.
+            s += "        FENSTER=$(( START / SLICE ))\n";
+            s += "        if [ \"$MASCHINEN\" -gt 0 ] && [ $(( FENSTER % MASCHINEN )) -ne \"$RANK\" ]; then\n";
+            s += "          echo \"[FENSTER-FREMD] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
+                 " phase=bau fenster=${START}:${COUNT} rank=$RANK maschinen=$MASCHINEN\"\n";
+            s += "          START=$(( START + COUNT )); continue\n";
+            s += "        fi\n";
             emit_driver_log_truncate(s, "        ", "$LOGDIR/perm" + idx + "_bau_${START}.log");
             s += "        if ! COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
             s += "             " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" +
@@ -1712,6 +1765,23 @@ private:
         // Fallback-Kanal emittiert dort seine Bilanz) -- ohne diese Zeile stuende dort lane=unbelegt.
         s += "      export COMDARE_LANE=\"" + host +
              "\"   # E-04-P1: Pflichtfeld lane= der Treiber-Marker (Planer sagt die Lane)\n";
+        // E-20/R-15 (21.08.2026): PIN-PFLICHT-DEKLARATION im Mess-Emissionspfad -- SOLL laut sagen, IST ehrlich
+        // dazu. Der Aktuator existiert (ScopedThreadPin, builder/measurement/thread_pinning.hpp, AP-13/#247),
+        // ist im run_profile-Loop aber NICHT verdrahtet: pin_ist=UNGEPINNT wird deshalb MITemittiert, statt
+        // einen Vollzug zu behaupten, den es nicht gibt (Verdrahtung = W3-Vorstaffel zweilanige Messung,
+        // C-05-Naehe). Ungepinnt heisst auf prod1 (96/32-MiB-L3-Asymmetrie, s. lane_measure_pin_cpus):
+        // NICHT reproduzierbar -- genau das sagt die Zeile woertlich. KEIN taskset-Praefix, Begruendung dort.
+        if (std::string const pin = lane_measure_pin_cpus(host); !pin.empty()) {
+            s += "      export COMDARE_MEASURE_PIN_CPUS=\"" + pin +
+                 "\"   # E-20/R-15: L3-homogene SOLL-Menge (CCD0, 96 MiB); Konsument = Mess-Aktuator (W3)\n";
+            s += "      echo \"[PIN-DEKLARATION] lane=" + host + " pin_soll=" + pin +
+                 " pin_ist=UNGEPINNT grund=aktuator-unverdrahtet l3=96+32MiB-asymmetrisch "
+                 "folge=ungepinnt-nicht-reproduzierbar (R-15)\"\n";
+        } else {
+            s += "      echo \"[PIN-DEKLARATION] lane=" + host +
+                 " pin_soll=UNVERMESSEN pin_ist=UNGEPINNT grund=lane-topologie-nicht-vermessen "
+                 "(R-15 ist prod1-scoped; prod2/RaptorLake-Hybridkerne unvermessen)\"\n";
+        }
         s += "      FAIL=0\n";
         s += "      LOGDIR=\"$CI_PROJECT_DIR/Code/measure_out/" + slug + "/logs\"\n";
         s += "      mkdir -p \"$LOGDIR\"\n";
