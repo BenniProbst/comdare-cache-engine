@@ -7574,3 +7574,56 @@ target_include_directories(test_s6c_kategorien_ordnung_zwei_welten PRIVATE
 target_link_libraries(test_s6c_kategorien_ordnung_zwei_welten PRIVATE Boost::mp11)
 set_tests_properties(test_s6c_kategorien_ordnung_zwei_welten PROPERTIES
     LABELS "s6c;s21;kategorien;ordnung;zwei-welten;wachen;koeder")
+
+# =============================================================================
+# #91-VOLLZUG W2-D (2026-08-21): I-1-/I-2-Schema-Festschreibung + M13-/M6-
+# Skelette (design91-v2) als eigener Block am DATEIENDE (Kollisionsschutz
+# gegen die Bloecke anderer Straenge).
+#
+# test_bestand_schluessel_schema: I-1-CT-Schema (lager/bestand_schluessel_
+# schema.hpp) gegen die Par.62-B-Genera (bestandslog_document.hpp) + die
+# design91-v2-Komponentenlisten; Doktrin-Konstanten KON110-04/V-10b.
+comdare_add_test(test_bestand_schluessel_schema
+    SOURCES test_bestand_schluessel_schema.cpp)
+target_include_directories(test_bestand_schluessel_schema PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+set_tests_properties(test_bestand_schluessel_schema PROPERTIES
+    LABELS "i1;schema;lager;wachen")
+
+# test_kanal_id_schema: I-2-CT-Festschreibung (measurement/kanal_id_schema.hpp)
+# kreuzgeprueft gegen die Tooling-Registry-ids (V-13-Kanon) und die gebaute
+# Arena (MessEbene-Ordinale, deskriptor_ix-Typ); Kanon-Pruefer + Gegeneingang.
+comdare_add_test(test_kanal_id_schema
+    SOURCES test_kanal_id_schema.cpp)
+target_include_directories(test_kanal_id_schema PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+set_tests_properties(test_kanal_id_schema PROPERTIES
+    LABELS "i2;kanal;schema;wachen")
+
+# test_begriffs_alias_registry: M13-Skelett/I-7 (naming/begriffs_alias_
+# registry.hpp) gegen Baustein-Tag, Tooling-ids und Merge-Modi (V-11R-
+# Uebergaenge); consteval-Uebersetzung + RT-Gegeneingang.
+comdare_add_test(test_begriffs_alias_registry
+    SOURCES test_begriffs_alias_registry.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+target_include_directories(test_begriffs_alias_registry PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization")
+set_tests_properties(test_begriffs_alias_registry PROPERTIES
+    LABELS "m13;i7;alias;wachen")
+
+# test_parameter_filter_registry_skelett: M6-Katalog-Skelett -- inkludiert den
+# Kopf AUSSCHLIESSLICH ueber das INTERFACE-Ziel comdare_ceb (Bauweg-Beweis der
+# neuen <traeger/ceb/...>-Include-Wurzel, Design #29 R5).
+comdare_add_test(test_parameter_filter_registry_skelett
+    SOURCES test_parameter_filter_registry_skelett.cpp
+    LIBRARIES comdare_ceb)
+set_tests_properties(test_parameter_filter_registry_skelett PROPERTIES
+    LABELS "m6;filter;skelett;wachen")
