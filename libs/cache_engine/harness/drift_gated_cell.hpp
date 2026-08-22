@@ -28,13 +28,20 @@
 // WAS DAVON HIER GEBAUT IST: die Wiederholungs-Gruppe je Zelle, die Schwelle, das Rerun-Budget --
 // alle drei aus dem Profil-XML, nicht hartkodiert (DriftGateConfig).
 //
-// WAS HIER BEWUSST NICHT GEBAUT IST: der Fall "den GANZEN LAUF neu starten". Nicht aus Bequemlichkeit,
-// sondern weil an keiner geprueften Stelle des Korpus definiert ist, WAS "ganzer Lauf" umfasst -- eine
-// Zelle, ein 4096er-Batch, ein Kampagnentag oder die ganze mehrtaegige Kampagne. Der Unterschied
-// zwischen "ein Batch neu" und "die Kampagne neu" ist bei mehreren Messtagen enorm, und eine hier
-// erfundene Semantik erzeugte Zahlen, die spaeter niemand zuordnen koennte. Das Wort "Gruppe" (gebaut)
-// und das Wort "Lauf" (nur Regel-Text) werden im Code- und CI-Vokabular dieses Projekts an KEINER
-// Stelle synonym gebraucht; diese Datei haelt sich an dieselbe Trennung und baut nur die Gruppe.
+// C-07-BEGRIFFS-KANON (KON26-04, 2026-08-20 -- der VI.5-Satz enthaelt DREI verschieden grosse
+// Mechanismen, die vorher unter einem Wort liefen; die frueher hier deklarierte Undefiniertheit von
+// "ganzer Lauf" ist damit GESCHLOSSEN, nicht mehr offen):
+//   (1) "den ganzen Lauf neu starten" (T-15a) = die KAMPAGNE -- Granularitaet KON19-06 (= ALLES,
+//       die mehrtaegige Kampagne, nicht Zelle/Batch/Tag). Lebt NICHT hier (Wiederaufsetzpunkt-
+//       Posten); diese Datei baut weiterhin nur die GRUPPE.
+//   (2) "Beim Scheitern bis zu 5 Wiederholungen" (T-15b) = bis zu 5 Versuche des GESAMTEN
+//       Pruefdock-Durchlaufs EINER Tier-Binary bei hartem Fehlschlag -- GEBAUT in
+//       harness/mess_retry_klammer.hpp (Bau- und Mess-Budget je 5, KON37-06/KON28-02).
+//   (3) das Rerun-Budget DIESER Datei = Gruppen-Rerun bei STREUUNG (Drift ueber der Schwelle) --
+//       eine dritte Groesse mit eigener Bedingung und eigenem Default (3, s. max_reruns unten).
+// "T-15 ist kein CI-Gate" (C-07 Punkt 3) ist ebenfalls geschlossen: die ctest-Registrierung von
+// test_t15_drift_gate_messschleife + test_t15b_retry_warmup_paar IST das Gate -- jede CI-Testzelle
+// faehrt ctest; ein eigener YAML-Job waere eine zweite Wahrheit.
 //
 // == WELCHE EINZELMESSUNG DIE ZELLE BEHAELT (bewusste, begrenzte Festlegung) ========================
 // Das Gate liefert die Proben-Folge der ANGENOMMENEN Gruppe. Die Zeile der Auswerte-Ausgabe traegt aber
@@ -105,19 +112,25 @@ struct DriftGateConfig {
 
     // Rerun-Budget je Zelle.
     //
-    // DIE ZAHL 5 IST OWNER-TEXT, NICHT GERATEN: GOAL-v8 VI.5 (GELTENDES ZIEL, 08.08.2026) schreibt
-    // "Beim Scheitern bis zu 5 Wiederholungen"; das Konformitaets-Register S5-06 (09.08.2026) benennt
-    // ausdruecklich "der Default max_reruns=3 [steht] gegen die Owner-Zahl 5 vom 08.08." als Defekt.
+    // DEFAULT-RUECKBAU 5 -> 3 (KON26-04, OWNER-ENTSCHEIDEN, 2026-08-20 vollzogen -- LAUT, nicht
+    // still): ce 4cd1ab91 (09.08.) legte die Owner-Zahl 5 aus GOAL-v8 VI.5 ("Beim Scheitern bis zu
+    // 5 Wiederholungen") auf DIESES Feld und dokumentierte selbst die zweite Lesart -- den
+    // Wiederholungs-Versuch einer als "failed" klassifizierten Messung. KON26-04 entschied: die
+    // ZWEITE Lesart ist die richtige. Der Satz meint bis zu 5 Versuche des GESAMTEN
+    // Pruefdock-Durchlaufs EINER Tier-Binary bei hartem Scheitern (Owner verbatim KON37-06: "ein
+    // build oder eine Messung duerfen je 5 Mal scheitern bis wir aufgeben"). Die 5 ist deshalb
+    // UMGEZOGEN: sie lebt jetzt in MessRetryKonfig::max_versuche (harness/mess_retry_klammer.hpp,
+    // Bau- UND Mess-Budget je 5) -- und dieses Feld faellt auf den Mechanismus-Default 3 des
+    // Detektors (#197, run_with_drift_gate-Signatur) zurueck. Das Register S5-06 (09.08.), das
+    // "max_reruns=3 gegen die Owner-Zahl 5" als Defekt fuehrte, ist damit DATIERT UEBERHOLT: die
+    // Owner-5 begrenzt den Binary-Retry, nicht den Drift-Rerun (Korrektur-Entwurf in der
+    // Strang-Ergebnisdatei; das Register liegt im super-Repo).
     //
-    // EHRLICHE EINSCHRAENKUNG, die zum Owner gehoert: der Satz "Beim Scheitern bis zu 5
-    // Wiederholungen" laesst sich auch auf eine ANDERE Achse lesen -- den Wiederholungs-Versuch einer
-    // als "failed" klassifizierten Messung (der unmittelbar folgende Satz in VI.5 handelt von genau
-    // solchen Zellen). Diese zweite Achse existiert im Code NICHT, weder hier noch in perm_runner, und
-    // wird hier auch nicht erfunden. Unter BEIDEN Lesarten begrenzt die Owner-Zahl 5 ein Wiederhol-
-    // Budget; unter der hier gewaehlten kostet ein zu grosses Budget nur Messzeit und niemals eine
-    // falsche Zahl (das Gate ist advisory und bricht nie ab). Das ist der Grund, warum 5 hier die
-    // sichere Wahl ist und die offene Lesart trotzdem gemeldet gehoert.
-    std::uint32_t max_reruns = 5;
+    // DIE DREI GROESSEN, die vorher unter einem Wort liefen (C-07-Kanon, s. auch
+    // mess_retry_klammer.hpp): T-15a "ganzen Lauf neu starten" = die KAMPAGNE (nicht hier, nicht
+    // gebaut -- Wiederaufsetzpunkt-Posten); T-15b "bis zu 5" = Binary-Retry (mess_retry_klammer);
+    // DIESES Feld = Gruppen-Rerun bei STREUUNG (andere Bedingung/Einheit: Drift, nicht Fehlschlag).
+    std::uint32_t max_reruns = 3;
 
     [[nodiscard]] constexpr bool aktiv() const noexcept { return reps >= 2u; }
 };

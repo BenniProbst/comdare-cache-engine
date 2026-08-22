@@ -10,9 +10,13 @@
 // Owner-KERN 26.07. ("xlsx = kuenftig DEFAULT, CSV einstellbar + Fallback") war damit an der einzigen
 // Stelle unwirksam, an der er zaehlt: im Lauf. Diese Datei schliesst genau diese Luecke -- ADDITIV.
 //
-// ADDITIV HEISST WOERTLICH: der bestehende rohe CSV-Pfad (std::ofstream csv{a.out_csv...}) wird NICHT
-// angefasst, nicht umgeleitet, nicht ersetzt. golden bleibt byte-identisch. Das ERSETZEN des rohen
-// CSV-Pfads ist ein spaeterer, Owner-freizugebender Schritt und ausdruecklich NICHT dieses Paket.
+// ADDITIV HIESS WOERTLICH (A9-S5-Aera, bis 2026-08-21): der bestehende rohe CSV-Pfad (std::ofstream
+// csv{a.out_csv...}) wurde NICHT angefasst; das ERSETZEN war "ein spaeterer, Owner-freizugebender
+// Schritt". DIESER SCHRITT IST GEFALLEN -- S13-01 (#18/D-1, KON32-01; Design
+// 20260817-DESIGN-s13-buendel-di25.md 4.1): die offizielle CSV ist seither die PROJEKTION der Mappe
+// (projektion_oeffnen/projektion_ok unten), der rohe Parallel-Strom in den beiden Seams ist ENTFERNT.
+// golden bleibt byte-identisch -- nicht weil der alte Weg stehen blieb, sondern weil die Projektion
+// dieselben Bytes aus denselben Feldern formt (Beweis: test_s13_01_csv_kind_projektion, Byte-Orakel).
 //
 // RICHTUNG (Owner 2026-08-09 16:31, woertlich): "die csv wird doch aus der xlsx gebildet, IMMER. es
 // wird nur entweder xlsx oder csv oder BEIDE auf Platte gesichert, was auf dem RAM liegt ist etwas
@@ -42,6 +46,10 @@
 // auf origin/development bereits von weiteren Commits ueberbaut, und die Projekt-Doktrin verbietet
 // das Umschreiben geteilter Historie. Der Widerruf lebt deshalb HIER, im Artefakt -- nach demselben
 // Muster wie der Vermerk darueber, und nicht nur in einem Bericht, den spaeter niemand liest.
+// STAND-VERMERK (2026-08-21, S13-02): die Zaehlung darueber ist HISTORISCH (Messdatum 10.08.).
+// Seit ce fbe48f99 (14.08.) tragen 11/11 getrackte Profile einen Block; seit S13-02 traegt
+// m3v2_smoke zusaetzlich csv (Leser-Erhebung: die super-Wachen lesen seine measurements.csv).
+// Die LEBENDE Zaehlung erhebt test_w0b_durchstich_kette (G1) am Bestand -- nie diese Zeilen.
 //
 // I/O-LAGE (Contention-Doktrin, Design-Dossier 20260803-a9_xlsx_writer_f3_soll_design.md V-A9-4):
 // im Mess-Fenster nimmt der STAMM Zeilen nur ENTGEGEN (libxlsxwriter haelt sie im Speicher, kein
@@ -64,6 +72,8 @@
 #include <ctime>
 #include <exception>
 #include <filesystem>
+#include <fstream>  // S13-01: der Projektions-Strom der offiziellen CSV
+#include <iostream> // S13-03: die per-Binary-Mappen-Ansage des Fassaden-Sinks
 #include <memory>
 #include <span>
 #include <string>
@@ -491,6 +501,11 @@ public:
             if (!s.empty()) s += ", ";
             s += kind_ziel_.string();
         }
+        // S13-01: die offizielle Auswerte-CSV ist seit dem Umbau ebenfalls ein ZIEL dieser Mappe.
+        if (projektion_gewollt_ && !projektion_fehler_) {
+            if (!s.empty()) s += ", ";
+            s += projektion_ziel_.string();
+        }
         return s;
     }
 
@@ -603,6 +618,52 @@ public:
         for (auto const z : csv_blob_in_zeilen(blob)) zeile_aus_csv(z);
     }
 
+    // =============================================================================================
+    // S13-01 (#18/D-1, Owner 09.08. 16:31 Satz 2): DIE OFFIZIELLE CSV IST KIND DER MAPPE.
+    // Die Datei a.out_csv (measurements.csv) entsteht seit diesem Schritt NUR NOCH als PROJEKTION:
+    // eine Zeile erreicht sie AUSSCHLIESSLICH in schreibe(), NACHDEM der Stamm sie angenommen hat.
+    // Ihre Byte-Form ist die des Kindes (Felder ';'-gejoint + '\n', CsvErgebnisBlatt-Form) -- fuer
+    // Zeilen aus lazy_csv_header()/format_csv_row()/lazy_try_resume_binary() ist das byte-identisch
+    // zum entfernten rohen Strom (jede Zeile traegt genau EIN '\n', kein '\r', keine Leerzeile --
+    // das Byte-Orakel in test_s13_01_csv_kind_projektion pinnt genau diese Gleichheit).
+    //
+    // SCOPE-FESTLEGUNG (S13-02 Folgewirkung 2, Design 4.1): die Projektion speist sich AUS DEM
+    // ERGEBNIS-Blatt (SheetSchluessel, Zeile pro Messergebnis) -- konkret: aus schreibe(), dem
+    // einzigen Weg dorthin. Kuenftige Profil-Blaetter (MessEbenenSchluessel, S13-09-Drain) duerfen
+    // sie NIE speisen; der Zeilen-Zaehl-Koeder (Projektion == 1 Kopf + zeilen()) beisst dann ROT.
+    // =============================================================================================
+
+    /// Oeffnet die offizielle Auswerte-CSV als Projektion. VOR kopf_aus_csv() rufen.
+    /// Rueckgabe false = eine VERLANGTE csv kann nicht entstehen (Stamm fehlt / nicht oeffenbar)
+    /// -- der Aufrufer soll den Lauf fail-fast beenden (D-2(2): "Bricht die xlsx-Erzeugung, ist
+    /// auch die csv ungueltig"). Ist csv NICHT gewaehlt (S13-02-Filter), ist der Aufruf ein No-op
+    /// mit true: die Datei darf dann NICHT entstehen -- genau das prueft der Fall-2/4-Koeder.
+    [[nodiscard]] bool projektion_oeffnen(std::filesystem::path const& ziel) {
+        if (!wahl_.csv) return true; // nicht deklariert -> nichts anlegen (Ziel-Filter S13-02)
+        if (!scharf()) {
+            diagnose_ += " -- offizielle CSV nicht eroeffnet: der Stamm steht nicht (D-2(2))";
+            projektion_fehler_ = true;
+            return false;
+        }
+        projektion_ziel_ = ziel;
+        projektion_.open(ziel, std::ios::trunc | std::ios::binary);
+        if (!projektion_) {
+            diagnose_ += " -- offizielle CSV nicht oeffenbar: " + ziel.string();
+            projektion_fehler_ = true;
+            return false;
+        }
+        projektion_gewollt_ = true;
+        return true;
+    }
+
+    /// Steht die offizielle CSV so da, wie sie verlangt war? true auch, wenn sie nie verlangt war
+    /// (csv nicht gewaehlt / projektion_oeffnen nie gerufen -- z. B. der per-Binary-Sink, dessen
+    /// Auswerte-CSV das __S001-Kind ist). Verlaesslich erst NACH schliessen().
+    [[nodiscard]] bool projektion_ok() const noexcept {
+        return projektion_gewollt_ ? projektion_geschlossen_ok_ : !projektion_fehler_;
+    }
+    [[nodiscard]] std::filesystem::path const& projektion_ziel() const noexcept { return projektion_ziel_; }
+
     /// Schreibt INFO-Blatt und PERSISTIERT, was persistiert werden soll -- NUR das. Der Aufrufer ruft
     /// ihn NACH der Mess-Schleife; DAS ist der einzige Punkt, an dem die Mappe die Platte anfasst.
     /// DIESELBEN Meta-Daten gehen in beide Ausgaben (ein INFO-Inhalt, zwei Darstellungen).
@@ -617,6 +678,36 @@ public:
                     lab::KonstantenMeta const& konstanten) {
         if (stamm_ == nullptr) return false;
         bool alle_ok = true;
+
+        // S13-01: die offizielle CSV (Projektion) ZUERST abschliessen. GUELTIG heisst: der Stamm
+        // nimmt noch an, KEINE Zeile wurde verworfen, der Strom hat nie gefehlt und Flush+Close
+        // gelingen. Alles andere heisst: die Datei WAERE eine Luege -- sie wird ENTFERNT, nicht
+        // halb liegen gelassen (Design-Koeder S13-01: liegen gelassene CSV bei Schreibfehler = ROT).
+        if (projektion_gewollt_) {
+            bool gueltig = (stamm_blatt_ != nullptr) && verworfen_ == 0 && !projektion_fehler_;
+            if (gueltig) {
+                projektion_.flush();
+                gueltig = static_cast<bool>(projektion_);
+                projektion_.close();
+                gueltig = gueltig && !projektion_.fail();
+            } else {
+                projektion_.close();
+            }
+            if (gueltig) {
+                projektion_geschlossen_ok_ = true;
+            } else {
+                std::error_code pec;
+                std::filesystem::remove(projektion_ziel_, pec);
+                std::error_code ist_ec;
+                if (pec || std::filesystem::exists(projektion_ziel_, ist_ec)) {
+                    diagnose_ += " -- WARNUNG: ungueltige offizielle CSV NICHT entfernt: " + projektion_ziel_.string();
+                } else if (!projektion_fehler_) {
+                    diagnose_ += " -- offizielle CSV (" + projektion_ziel_.string() + ") ungueltig und entfernt";
+                }
+                projektion_fehler_ = true;
+                alle_ok            = false;
+            }
+        }
 
         if (wahl_.csv) {
             if (kind_ == nullptr) {
@@ -670,6 +761,22 @@ private:
         } catch (std::exception const& e) {
             diagnose_ += " -- die MAPPE nahm nicht mehr an (" + stamm_ziel_.string() + "): " + e.what();
             stamm_blatt_ = nullptr;
+            // S13-01: DIE PROJEKTION FAELLT MIT DEM STAMM -- SOFORT, nicht erst in schliessen().
+            // Eine Fassung, die bei ErgebnisSchreibFehler trotzdem eine measurements.csv liegen
+            // laesst, ist der benannte Design-Koeder und wird ROT (test_s13_01_csv_kind_projektion,
+            // Ablehnungs-Fall). Bereits geschriebene Zeilen sind mit dem Bruch UNGUELTIG (D-2(2)).
+            if (projektion_gewollt_) {
+                projektion_.close();
+                std::error_code pec;
+                std::filesystem::remove(projektion_ziel_, pec);
+                std::error_code ist_ec;
+                if (pec || std::filesystem::exists(projektion_ziel_, ist_ec)) {
+                    diagnose_ += " -- WARNUNG: ungueltige offizielle CSV NICHT entfernt: " + projektion_ziel_.string();
+                } else {
+                    diagnose_ += " -- offizielle CSV entfernt (Projektion faellt mit dem Stamm)";
+                }
+                projektion_fehler_ = true;
+            }
             // Das Kind faellt MIT -- ohne Stamm keine gueltige Ableitung.
             //
             // DIESE ZUWEISUNG IST REDUNDANT, UND ZWAR NACHWEISBAR (2026-08-10): kind_blatt_ wird
@@ -691,6 +798,23 @@ private:
         if (!ist_kopf) {
             ++zeilen_;
             if (!zeilen_je_blatt_.empty()) ++zeilen_je_blatt_.front();
+        }
+
+        // S13-01: die offizielle CSV bekommt DIESELBEN Felder, die der Stamm soeben ANGENOMMEN hat
+        // -- ';'-gejoint + '\n' (die Byte-Form des Kindes). Ein Strom-Fehler wird gemerkt und macht
+        // die Projektion in schliessen() ungueltig (Datei wird entfernt, nie halb liegen gelassen).
+        if (projektion_gewollt_ && !projektion_fehler_ && projektion_.is_open()) {
+            std::string zeile;
+            for (std::size_t i = 0; i < felder.size(); ++i) {
+                if (i != 0) zeile += ';';
+                zeile += felder[i];
+            }
+            zeile += '\n';
+            projektion_.write(zeile.data(), static_cast<std::streamsize>(zeile.size()));
+            if (!projektion_) {
+                diagnose_ += " -- offizielle CSV (" + projektion_ziel_.string() + ") nahm nicht mehr an";
+                projektion_fehler_ = true;
+            }
         }
 
         if (kind_blatt_ == nullptr) return;
@@ -717,6 +841,14 @@ private:
     lab::IErgebnisBlatt*                 kind_blatt_ = nullptr;
     std::filesystem::path                kind_ziel_;
 
+    /// S13-01: DIE OFFIZIELLE CSV (a.out_csv) als Projektion des Stamms. Nur belegt, wenn der
+    /// Aufrufer sie via projektion_oeffnen() verlangt hat UND wahl_.csv sie deckt.
+    std::ofstream         projektion_;
+    std::filesystem::path projektion_ziel_;
+    bool                  projektion_gewollt_        = false; ///< oeffnen gelang, Strom existiert(e)
+    bool                  projektion_fehler_         = false; ///< Open-/Schreib-/Stamm-Fehler unterwegs
+    bool                  projektion_geschlossen_ok_ = false; ///< schliessen(): vollstaendig auf Platte
+
     FormatWahl               wahl_{};
     std::string              diagnose_ = "nicht geoeffnet";
     std::vector<std::size_t> zeilen_je_blatt_;       ///< der BESTAND im Speicher, je Blatt der Mappe
@@ -726,5 +858,65 @@ private:
     std::size_t              kopf_spalten_      = 0;
     std::size_t              feld_abweichungen_ = 0;
 };
+
+// =================================================================================================
+// 5. S13-03(a) -- DER PER-BINARY-MAPPEN-SINK DER FASSADE
+// =================================================================================================
+//
+// KON32-01 (Owner, woertlich): "nur per Binary xlsx" -- je Tier-Binary EINE Ergebnis-Mappe ueber
+// DIESELBE ErgebnisMappenFactory wie das Aggregat, im bin_dir der Binary. Der Iterator kennt diese
+// Fabrik NICHT (Schichtung: builder darf nicht auf profile_facade zeigen); er bekommt vom Seam eine
+// LazyRunConfig::per_binary_mappe-Funktion nach dem measurement_sink-Muster (No-Op-Default =>
+// byte-neutral) und ruft sie an der per-Binary-Synchron-Naht (NACH result.csv+stamp).
+//
+// DIE DREI VERTRAGS-SAETZE (S13-03, Design 4.1):
+//   (a) die Mappe entsteht ueber MappenNaht -- Stamm xlsx (Filter: schliessen), Kind __S001.csv
+//       (Filter: wahl_.csv). Das KIND ist die per-Binary-AUSWERTE-CSV; ihr Name (<stamm>__S001.csv)
+//       ist per Grammatik von result.csv verschieden -- Koeder 3 (Ueberschreiben des
+//       Resume-Vertrags) ist damit strukturell ausgeschlossen und im Test als Byte-Wache gedeckt.
+//   (b) result.csv + result.csv.stamp schreibt WEITERHIN und BEDINGUNGSLOS der Iterator -- sie sind
+//       RESUME-VERTRAG (Betriebszustand), NICHT Auswerte-Format, und stehen AUSSERHALB des Filters.
+//       Dieser Sink fasst sie NIE an (er schreibt ausschliesslich Mappen-Ziele mit Grammatik-Stamm).
+//   (c) eine Projektion (projektion_oeffnen) wird hier NICHT eroeffnet -- die offizielle
+//       Auswerte-CSV je Binary IST das Kind aus (a).
+//
+// FEHLER-POLITIK: MESSEN WEITER (Muster measurement_sink/cache_push) -- eine per-Binary-Mappe, die
+// nicht entsteht, bricht die Messung nicht ab, sie wird LAUT benannt (cerr, mit bin_dir und Grund).
+// Das Aggregat + result.csv tragen die Daten weiter; der Zaehl-Test (N Mappen + 1 Aggregat) macht
+// einen stillen Ausfall im Abnahme-Lauf sichtbar.
+
+/// Liefert den per-Binary-Mappen-Sink fuer LazyRunConfig::per_binary_mappe. hostname ist
+/// lauf-konstant (dieselbe Quelle wie das Aggregat: measurement::live_hostname() am Seam).
+[[nodiscard]] inline auto mach_per_binary_mappe_sink(std::vector<std::string> writeback_methods, std::string hostname) {
+    return [methods = std::move(writeback_methods),
+            host    = std::move(hostname)](std::filesystem::path const& bin_dir, std::string const& binary_id,
+                                        std::string_view header, std::string_view rows) {
+        MappenNaht n;
+        // Der Anker dient NUR der Verzeichnis-Wahl (oeffnen liest parent_path()); die Datei
+        // "result.csv" selbst wird von dieser Naht nie geoeffnet oder geschrieben -- Satz (b).
+        n.oeffnen(bin_dir / "result.csv", methods);
+        if (!n.scharf()) {
+            std::cerr << "[MAPPE-BINARY] FEHLER binary_id='" << binary_id << "' " << n.diagnose() << "\n";
+            return;
+        }
+        n.kopf_aus_csv(header);
+        n.blob_aus_csv(rows);
+        // ziele() und bestand() VOR schliessen() lesen -- danach sind Stamm-/Kind-Objekt freigegeben
+        // und beide Auskuenfte waeren leer bzw. "FEHLT" (dieselbe Lese-Reihenfolge wie
+        // [MAPPE-BESTAND] an den Seams).
+        std::string const     ziele_txt   = n.ziele();
+        std::string const     bestand_txt = n.bestand();
+        lab::MaschinenSysinfo sysinfo;
+        sysinfo.hostname = host;
+        bool const ok    = n.schliessen(sysinfo, {}, {});
+        if (!ok || n.verworfen() != 0) {
+            std::cerr << "[MAPPE-BINARY] FEHLER binary_id='" << binary_id << "' ok=" << (ok ? "1" : "0") << " "
+                      << bestand_txt << " " << n.diagnose() << "\n";
+            return;
+        }
+        std::cout << "  [MAPPE-BINARY] binary_id='" << binary_id << "' " << bestand_txt
+                  << (ziele_txt.empty() ? std::string{} : "  ziele=" + ziele_txt) << "\n";
+    };
+}
 
 } // namespace comdare::cache_engine::lager_naht

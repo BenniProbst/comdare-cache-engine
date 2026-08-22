@@ -12,21 +12,25 @@
 // Mess-Arena den Lauf ueberhaupt fassen kann, und wie gross der Rueckschrieb wird. Wer sie erst am
 // vollen Lauf erfaehrt, erfaehrt sie zu spaet -- der volle Lauf ist mehrtaegig.
 //
-// == DIE FALLE, GEGEN DIE HIER GEBAUT IST: DER FAKTOR 18 ===========================================
+// == DIE FALLE, GEGEN DIE HIER GEBAUT IST: DER VERSCHLUCKTE FAKTOR =================================
 // Das T-15-Drift-Gate (harness/drift_gated_cell.hpp) misst DIESELBE Zelle bis zu reps*(max_reruns+1)
-// mal -- mit den produktiven Vorgabewerten 3 und 5 sind das 18 Durchlaeufe, und JEDER schreibt in
-// dieselbe monoton wachsende Arena. Eine Mengenrechnung, die EINEN Durchlauf annimmt, rechnet um bis
-// zu Faktor 18 zu klein. Genau deshalb druckt dieser Bericht die Faktoren EINZELN: wer nur das Produkt
-// sieht, kann einen fehlenden Faktor 18 nicht bemerken -- ein falsches Produkt sieht aus wie ein
-// richtiges. Die Faktor-Zeilen sind das Produkt dieses Kommandos, nicht die Endzahl.
+// mal (historisch "Faktor 18" mit den Vorgabewerten 3 und 5; seit dem KON26-04-Umzug 20.08.2026 sind
+// es 3*(3+1) = 12). Dazu kommen seit 20.08. das Wiederholungs-PAAR (x2, KON47-04: Lauf 1 verworfen,
+// Lauf 2 gespeichert) und der binary-weite T-15b-Retry (x max_versuche = 5 worst-case, KON37-06) --
+// der ARENA-Gesamt-Faktor der Vorgabewerte ist 12*2*5 = 120, und JEDER Durchlauf schreibt in
+// dieselbe monoton wachsende Arena. Eine Mengenrechnung, die EINEN Durchlauf annimmt, rechnet um
+// diesen Faktor zu klein. Genau deshalb druckt dieser Bericht die Faktoren EINZELN: wer nur das
+// Produkt sieht, kann einen fehlenden Faktor nicht bemerken -- ein falsches Produkt sieht aus wie
+// ein richtiges. Die Faktor-Zeilen sind das Produkt dieses Kommandos, nicht die Endzahl.
 //
-// == EIN BESTANDS-WIDERSPRUCH, DER HIER NICHT ENTSCHIEDEN WIRD =====================================
-// mess_arena.hpp:174-176 nennt als Planer-Formel "n_ops * zeilen_je_op(aktive Ebenen) * 2
-// (Sicherheitsfaktor 2)". checkpoint_speicher.hpp:77-80 nennt fuer denselben Faktor "bis zu 18".
-// Beide Stellen stammen vom selben Tag (09.08.2026) und widersprechen sich um Faktor 9. DIESE Datei
-// waehlt keine Seite: sie rechnet mit dem Drift-Gate-Faktor, den ihr der Aufrufer aus dem Profil-XML
-// reicht, und druckt ihn samt Nenner -- damit ist im Bericht sichtbar, welche Lesart gerade gilt.
-// Die Aufloesung des Widerspruchs gehoert dem Eigentuemer von measure_storage/, nicht diesem Kommando.
+// == DER BESTANDS-WIDERSPRUCH (D.7) IST ENTSCHIEDEN (20.08.2026) ===================================
+// HISTORIE: mess_arena.hpp nannte als Planer-Formel "n_ops * zeilen_je_op * 2 (Sicherheitsfaktor
+// 2)", checkpoint_speicher.hpp fuer denselben Faktor "bis zu 18" -- beide vom 09.08.2026, Faktor 9
+// auseinander. ENTSCHEID des measure_storage-Eigentuemers (#13/T-15b, KON26-04 Punkt 5): der
+// Sicherheitsfaktor ist der GESAMT-Faktor drift * paar * t15b_retry aus DIESER Planer-Zeile
+// (arena_gesamt_faktor); der Faktor-2-Kommentar der mess_arena war eine STALE Fruehfassung (KON92
+// C7) und ist korrigiert. Diese Datei rechnet weiterhin nur mit dem, was der Aufrufer reicht, und
+// druckt jeden Faktor samt Nenner -- die Lesart steht damit im Bericht selbst.
 //
 // == WAS HIER NICHT ENTSCHIEDEN WIRD: DAS ARENA-FENSTER ============================================
 // checkpoint_measure ist heute in KEINE Mess-Schleife verdrahtet. Damit steht nicht fest, ob eine
@@ -121,11 +125,19 @@ struct MengenEingang {
     bool          tooling_leer       = true;  ///< tooling leer == volles Angebot (dann gelten beide Ebenen)
 
     // -- aus dem Profil-XML bzw. dem eingebauten Rueckfall ------------------------------------------------------
-    std::uint64_t n_ops            = 0;     ///< Ops je (Binary x Einstellung)
-    bool          n_ops_aus_xml    = false; ///< false => der Wert ist ein Default, kein Profil-Entscheid
-    std::uint64_t drift_reps       = 3;     ///< <drift_gate reps>
-    std::uint64_t drift_max_reruns = 5;     ///< <drift_gate max_reruns>
+    std::uint64_t n_ops         = 0;     ///< Ops je (Binary x Einstellung)
+    bool          n_ops_aus_xml = false; ///< false => der Wert ist ein Default, kein Profil-Entscheid
+    std::uint64_t drift_reps    = 3;     ///< <drift_gate reps>
+    /// <drift_gate max_reruns>. Default 3 seit dem KON26-04-Umzug (20.08.2026): die Owner-5 lag auf
+    /// der falschen Achse und lebt jetzt in t15b_max_versuche darunter; der Aufrufer
+    /// (collect_mess_menge_facade) spiegelt ohnehin DriftGateConfig{} als Rueckfall.
+    std::uint64_t drift_max_reruns = 3;
     bool          drift_aus_xml    = false;
+    /// T-15b (KON37-06/KON26-04): <binary_retry max_versuche> -- das Bau-/Mess-Retry-Budget je
+    /// Binary. Rueckfall = MessRetryKonfig::max_versuche (5, harness/mess_retry_klammer.hpp); der
+    /// Aufrufer reicht den produktiven Wert, diese Datei erfindet keinen.
+    std::uint64_t t15b_max_versuche = 5;
+    bool          t15b_aus_xml      = false;
 
     // -- aus der Umgebung / dem compile-harten Bestand ----------------------------------------------------------
     std::uint64_t binaries_je_perm = 0; ///< COMDARE_GN_TOTAL (golden: 131072)
@@ -151,12 +163,27 @@ struct MessMengenSicht {
     std::string               grund; ///< wenn !erhoben: warum -- nie leer bei !erhoben
     std::vector<MengenFaktor> faktoren;
 
-    std::uint64_t zellen                  = 0;
-    std::uint64_t zeilen_je_op            = 0;
-    std::uint64_t drift_faktor            = 0;
-    std::uint64_t zeilen_je_op_batch      = 0; ///< == kapazitaet_zeilen_rechnen(n_ops, zeilen_je_op, drift_faktor)
+    std::uint64_t zellen       = 0;
+    std::uint64_t zeilen_je_op = 0;
+    std::uint64_t drift_faktor = 0;
+    /// C-05/#38b (KON47-04): das Wiederholungs-PAAR verdoppelt JEDEN Messlauf (Lauf 1 verworfen,
+    /// Lauf 2 gespeichert) -- auch der verworfene Lauf schreibt im Arena-Fenster Checkpoints.
+    /// Konstant 2: dieser Bericht bemisst die MESS-Kampagne, und dort ist das Paar PFLICHT (der
+    /// --debug-Kaltlauf ist kein Kampagnen-Modus und wird hier nicht modelliert).
+    std::uint64_t paar_faktor = 0;
+    /// T-15b (KON26-04): der binary-weite Retry -- worst-case wiederholt sich der GESAMTE Durchlauf
+    /// bis zu t15b_max_versuche Mal, und JEDER Versuch schreibt in dieselbe Arena.
+    std::uint64_t t15b_retry_faktor = 0;
+    /// ARENA-GESAMT-FAKTOR = drift_faktor * paar_faktor * t15b_retry_faktor (D.7-ENTSCHEID des
+    /// measure_storage-Eigentuemers, 20.08.2026: die Arena muss den binary-weiten x5 ZUSAETZLICH
+    /// decken -- sonst unterdimensioniert; KON26-04 Punkt 5). Mit den Vorgabewerten 12 * 2 * 5 = 120.
+    std::uint64_t arena_gesamt_faktor = 0;
+    std::uint64_t zeilen_je_op_batch  = 0; ///< == kapazitaet_zeilen_rechnen(n_ops, zeilen_je_op, arena_gesamt_faktor)
     std::uint64_t arena_bytes_je_op_batch = 0;
-    std::uint64_t ops_gesamt              = 0; ///< Kampagnen-Ops (nur wenn alle Faktoren bekannt)
+    /// Kampagnen-Ops (nur wenn alle Faktoren bekannt). Enthaelt drift * paar (jeder Lauf faehrt
+    /// Paare), aber NICHT den t15b-Retry: der ist ein FEHLERPFAD-worst-case und keine
+    /// Erwartungs-Groesse -- eine Kampagnen-Zeit mal 5 waere eine erfundene Zahl.
+    std::uint64_t ops_gesamt = 0;
 
     bool   dauer_bekannt = false;
     double dauer_s       = 0.0;
@@ -315,13 +342,38 @@ namespace mengen_detail {
 
     // == 4. DER DRIFT-FAKTOR -- die Zahl, um die eine naive Rechnung danebenliegt =================================
     fak("drift_reps", std::to_string(e.drift_reps), e.drift_aus_xml ? MengenArt::Xml : MengenArt::Default,
-        "<drift_gate reps> bzw. DriftGateConfig::reps=3 (drift_gated_cell.hpp:100)");
+        "<drift_gate reps> bzw. DriftGateConfig::reps=3 (drift_gated_cell.hpp)");
     fak("drift_max_reruns", std::to_string(e.drift_max_reruns), e.drift_aus_xml ? MengenArt::Xml : MengenArt::Default,
-        "<drift_gate max_reruns> bzw. DriftGateConfig::max_reruns=5 (drift_gated_cell.hpp:120)");
+        "<drift_gate max_reruns> bzw. DriftGateConfig::max_reruns=3 (drift_gated_cell.hpp, KON26-04-Umzug)");
     s.drift_faktor = drift_faktor_rechnen(e.drift_reps, e.drift_max_reruns);
     fak("drift_faktor", std::to_string(s.drift_faktor), MengenArt::Gerechnet,
         (e.drift_reps < 2u) ? "GATE AUS (reps<2) => genau EIN Durchlauf (drift_gated_cell.hpp:146)"
                             : "reps * (max_reruns + 1) -- JEDER Durchlauf schreibt in DIESELBE Arena");
+
+    // == 4b. PAAR- UND RETRY-FAKTOR -- die zwei Vervielfacher NEBEN der Drift (20.08.2026) =======================
+    // KON47-04: jedes Messen ist ein PAAR (Lauf 1 verworfen, Lauf 2 gespeichert) => Faktor 2 auf JEDEN
+    // Lauf (--debug-Kaltlauf waere 1; dieser Bericht rechnet die Mess-Kampagne, nicht den Debug-Fall).
+    // KON26-04 Punkt 5 (D.7-ENTSCHEID, Eigentuemer measure_storage): die Arena muss den binary-weiten
+    // T-15b-Retry x max_versuche ZUSAETZLICH decken -- sonst UNTERDIMENSIONIERT. Der Retry ist ein
+    // FEHLERPFAD-worst-case: er gehoert in die ARENA-Kapazitaet, NICHT in die Erwartungs-Zeit (Punkt 7).
+    s.paar_faktor = 2u;
+    fak("paar_faktor", std::to_string(s.paar_faktor), MengenArt::Konstante,
+        "KON47-04 Wiederholungs-Paar (mess_warmup_paar.hpp) -- Lauf 1 verworfen, Lauf 2 gespeichert");
+    s.t15b_retry_faktor = e.t15b_max_versuche == 0u ? 1u : e.t15b_max_versuche;
+    fak("t15b_retry_max_versuche", std::to_string(s.t15b_retry_faktor),
+        e.t15b_aus_xml ? MengenArt::Xml : MengenArt::Default,
+        "<binary_retry max_versuche> bzw. MessRetryKonfig::max_versuche=5 (mess_retry_klammer.hpp; "
+        "worst-case, 0 faehrt einen Versuch)");
+    std::uint64_t gesamt = 0u;
+    if (!mul_sicher(s.drift_faktor, s.paar_faktor, gesamt) || !mul_sicher(gesamt, s.t15b_retry_faktor, gesamt)) {
+        s.ueberlauf = true;
+        s.grund     = "drift_faktor * paar_faktor * t15b_retry laeuft ueber uint64";
+        return s;
+    }
+    s.arena_gesamt_faktor = gesamt;
+    fak("arena_gesamt_faktor", std::to_string(s.arena_gesamt_faktor), MengenArt::Gerechnet,
+        "drift_faktor * paar_faktor * t15b_retry_max_versuche -- Vorgabewerte 12*2*5=120 (D.7-Entscheid "
+        "KON26-04: der x5 deckt ZUSAETZLICH)");
 
     // == 5. n_ops ================================================================================================
     fak("n_ops", std::to_string(e.n_ops), e.n_ops_aus_xml ? MengenArt::Xml : MengenArt::Default,
@@ -331,9 +383,9 @@ namespace mengen_detail {
     // == 6. DIE ARENA JE OP-BATCH ================================================================================
     // Ueberlauf-Wache VOR dem Aufruf: kapazitaet_zeilen_rechnen multipliziert ungewacht.
     std::uint64_t zwischen = 0u;
-    if (!mul_sicher(e.n_ops, s.zeilen_je_op, zwischen) || !mul_sicher(zwischen, s.drift_faktor, zwischen)) {
+    if (!mul_sicher(e.n_ops, s.zeilen_je_op, zwischen) || !mul_sicher(zwischen, s.arena_gesamt_faktor, zwischen)) {
         s.ueberlauf = true;
-        s.grund     = "n_ops * zeilen_je_op * drift_faktor laeuft ueber uint64 -- kapazitaet_zeilen_rechnen "
+        s.grund     = "n_ops * zeilen_je_op * arena_gesamt_faktor laeuft ueber uint64 -- kapazitaet_zeilen_rechnen "
                       "wuerde stillschweigend eine ZU KLEINE Zahl liefern";
         return s;
     }
@@ -350,12 +402,15 @@ namespace mengen_detail {
     // sechs Zeilen darueber hat den Ueberlauf bereits abgefangen und mit Grund gemeldet. Eine zweite
     // Pruefung waere ein zweites Orakel fuer dieselbe Frage -- der static_assert unten haelt die
     // Annahme fest, statt sie zu wiederholen.
-    auto const kapazitaet = ms_::kapazitaet_zeilen_rechnen(e.n_ops, s.zeilen_je_op, s.drift_faktor);
+    // T-15b/C-05 (20.08.2026): der Sicherheitsfaktor ist seither der GESAMT-Faktor (drift * paar *
+    // retry, Zeile arena_gesamt_faktor oben) -- nicht mehr die Drift allein. KON26-04 Punkt 5
+    // woertlich: die Formel "muss den binary-weiten x5 ZUSAETZLICH decken -- sonst UNTERDIMENSIONIERT".
+    auto const kapazitaet = ms_::kapazitaet_zeilen_rechnen(e.n_ops, s.zeilen_je_op, s.arena_gesamt_faktor);
     static_assert(std::is_same_v<decltype(kapazitaet.zeilen), std::uint64_t>,
                   "KapazitaetRechnung::zeilen muss uint64 bleiben -- sonst bricht diese Zuweisung still.");
     s.zeilen_je_op_batch = kapazitaet.zeilen;
     fak("zeilen_je_op_batch", std::to_string(s.zeilen_je_op_batch), MengenArt::Gerechnet,
-        "measure_storage::kapazitaet_zeilen_rechnen(n_ops, zeilen_je_op, drift_faktor)");
+        "measure_storage::kapazitaet_zeilen_rechnen(n_ops, zeilen_je_op, arena_gesamt_faktor)");
     fak("byte_je_zeile", std::to_string(sizeof(ms_::MessCheckpointZeile)), MengenArt::Konstante,
         "sizeof(MessCheckpointZeile) -- static_assert-gewacht auf 32 (mess_arena.hpp:99)");
     if (!mul_sicher(s.zeilen_je_op_batch, sizeof(ms_::MessCheckpointZeile), s.arena_bytes_je_op_batch)) {
@@ -369,15 +424,18 @@ namespace mengen_detail {
     // == 7. DIE KAMPAGNEN-OPS ====================================================================================
     if (e.binaries_je_perm != 0u) {
         std::uint64_t ops = 0u;
+        // C-05 (KON47-04): das Paar faehrt JEDEN Lauf doppelt -> die Kampagnen-Ops tragen den Faktor 2.
+        // Der t15b-Retry bleibt hier AUSSEN vor: er ist Fehlerpfad-worst-case (Arena-Frage, Punkt 4b/6),
+        // eine Erwartungs-Zeit mal 5 waere erfunden.
         if (!mul_sicher(e.n_ops, e.binaries_je_perm, ops) || !mul_sicher(ops, s.zellen, ops) ||
-            !mul_sicher(ops, s.drift_faktor, ops)) {
+            !mul_sicher(ops, s.drift_faktor, ops) || !mul_sicher(ops, s.paar_faktor, ops)) {
             s.ueberlauf = true;
-            s.grund     = "n_ops * binaries_je_perm * zellen * drift_faktor laeuft ueber uint64";
+            s.grund     = "n_ops * binaries_je_perm * zellen * drift_faktor * paar_faktor laeuft ueber uint64";
             return s;
         }
         s.ops_gesamt = ops;
         fak("ops_gesamt", std::to_string(s.ops_gesamt), MengenArt::Gerechnet,
-            "n_ops * binaries_je_perm * zellen * drift_faktor -- die GEMESSENEN Ops der Kampagne");
+            "n_ops * binaries_je_perm * zellen * drift_faktor * paar_faktor -- die GEMESSENEN Ops der Kampagne");
     } else {
         fak("ops_gesamt", "n/a", MengenArt::Unbestimmbar, "ohne COMDARE_GN_TOTAL gibt es keine Kampagnen-Groesse");
     }
@@ -503,9 +561,10 @@ namespace mengen_detail {
                            "     Bestand liefert VOR dem Lauf keine Kalibrierung (projiziere_kampagne braucht\n"
                            "     gemessene KampagnenPosten).\n"
                          : "nicht berechnet -- es wurde keine --sekunden-je-op gereicht.\n";
-    o += "  4. widerspruch im bestand: mess_arena.hpp:174-176 nennt Sicherheitsfaktor 2,\n"
-         "     checkpoint_speicher.hpp:77-80 nennt bis zu 18. Dieser Bericht rechnet mit dem Drift-Gate-Faktor\n"
-         "     oben (Zeile drift_faktor) und entscheidet den Widerspruch NICHT.\n";
+    o += "  4. bestands-widerspruch (D.7) ENTSCHIEDEN 20.08.2026: der Sicherheitsfaktor ist der\n"
+         "     Gesamt-Faktor drift * paar * t15b_retry (Zeile arena_gesamt_faktor; KON26-04 Punkt 5,\n"
+         "     Eigentuemer measure_storage). Der Faktor-2-Kommentar der mess_arena war stale und ist\n"
+         "     korrigiert; dieser Bericht rechnet mit den Faktoren oben.\n";
     if (e.zellen_gezaehlt != s.zellen) {
         o += "  5. ZELL-DIVERGENZ: das Produkt (" + std::to_string(s.zellen) + ") und die Walk-Zaehlung (" +
              std::to_string(e.zellen_gezaehlt) +
@@ -516,6 +575,8 @@ namespace mengen_detail {
     // Maschinen-lesbare Schlusszeile, Muster kampagnen_zeile (eta_kalibrierung.hpp:350): Nenner IMMER dabei.
     o += "\ncheck_size zellen=" + std::to_string(s.zellen) + "/" + std::to_string(e.zellen_gezaehlt) +
          " zeilen_je_op=" + std::to_string(s.zeilen_je_op) + " drift_faktor=" + std::to_string(s.drift_faktor) +
+         " paar_faktor=" + std::to_string(s.paar_faktor) + " t15b_retry=" + std::to_string(s.t15b_retry_faktor) +
+         " arena_gesamt_faktor=" + std::to_string(s.arena_gesamt_faktor) +
          " zeilen_je_op_batch=" + std::to_string(s.zeilen_je_op_batch) +
          " arena_bytes=" + std::to_string(s.arena_bytes_je_op_batch) +
          " ops_gesamt=" + (s.ops_gesamt != 0u ? std::to_string(s.ops_gesamt) : std::string{"n/a"}) +

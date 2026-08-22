@@ -238,23 +238,30 @@ int main() {
         tr("aktiv() sagt dasselbe", !aus.aktiv());
     }
 
-    // == (6) DIE PRODUKTIONS-DEFAULTS SIND DIE OWNER-ZAHLEN ========================================
-    // GOAL-v8 VI.5 (GELTENDES ZIEL, 08.08.2026): "Drift-Gate 5 % ueber 3 Wiederholungen [...] beim
-    // Scheitern bis zu 5 Wiederholungen". Das Konformitaets-Register S5-06 (09.08.) benennt
-    // ausdruecklich "der Default max_reruns=3 [steht] gegen die Owner-Zahl 5 vom 08.08." als Defekt.
-    // Diese drei Zeilen sind der Ort, an dem das nachpruefbar wird -- der Signatur-Default im
-    // Detektor waere von keinem Aufrufer beobachtet worden.
+    // == (6) DIE PRODUKTIONS-DEFAULTS NACH DEM KON26-04-UMZUG ======================================
+    // GOAL-v8 VI.5: "Drift-Gate 5 % ueber 3 Wiederholungen [...] beim Scheitern bis zu 5
+    // Wiederholungen". KON26-04 (20.08.2026, owner-entschieden) hat die ZWEI Lesarten der 5
+    // getrennt: die Owner-5 gehoert zum BINARY-RETRY (T-15b, MessRetryKonfig -- bis zu 5 Versuche
+    // des gesamten Pruefdock-Durchlaufs bei hartem Scheitern, KON37-06 "je 5 Mal"); der
+    // Drift-Rerun (Gruppen-Rerun bei STREUUNG) faellt auf den Mechanismus-Default 3 des Detektors
+    // (#197) zurueck. Der fruehere Pin "max_reruns == 5" hier war der Stand ce 4cd1ab91 -- die
+    // FALSCHE der zwei im Commit dokumentierten Lesarten; das Register S5-06 ist datiert ueberholt.
     {
-        std::cout << "-- (6) Produktions-Defaults == Owner-Zahlen --\n";
+        std::cout << "-- (6) Produktions-Defaults == Owner-Zahlen (C-07-Kanon) --\n";
         ex::DriftGateConfig const d;
         eq("Default reps", d.reps, std::uint32_t{3});
         tr("Default threshold == 5 %", d.threshold > 0.0499 && d.threshold < 0.0501);
-        eq("Default max_reruns (Owner-Zahl 5)", d.max_reruns, std::uint32_t{5});
+        eq("Default max_reruns (Mechanismus-3; die 5 ist umgezogen)", d.max_reruns, std::uint32_t{3});
         tr("das Gate ist per Default AN", d.aktiv());
 
         ex::LazyRunConfig const lauf;
         eq("LazyRunConfig traegt denselben Default", lauf.drift_gate.reps, std::uint32_t{3});
-        eq("LazyRunConfig max_reruns", lauf.drift_gate.max_reruns, std::uint32_t{5});
+        eq("LazyRunConfig max_reruns", lauf.drift_gate.max_reruns, std::uint32_t{3});
+        // Die Owner-5 lebt jetzt HIER -- und speist Mess- UND Bau-Budget aus einer Quelle.
+        ex::MessRetryKonfig const rk;
+        eq("MessRetryKonfig::max_versuche (Owner-Zahl 5, umgezogen)", rk.max_versuche, std::uint32_t{5});
+        eq("LazyRunConfig::mess_retry traegt dieselbe 5", lauf.mess_retry.max_versuche, std::uint32_t{5});
+        tr("PAAR-Pflicht per Default (kein --debug-Kaltlauf)", !lauf.mess_kaltlauf_debug);
     }
 
     // == (7) DIE PROVENIENZ STEHT IN DER AUSGABE ===================================================

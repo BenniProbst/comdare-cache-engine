@@ -76,19 +76,10 @@
 #include <string>
 #include <string_view>
 
+#include <cache_engine/measurement/pmc_event_biss.hpp>      // #83: der EINE Probe-Kern (Koeder + Biss)
 #include <cache_engine/measurement/pmc_event_set.hpp>       // DIE EINE Event-Liste
 #include <cache_engine/measurement/pmc_vendor_registry.hpp> // die ZWEI Hardware-Komponenten
 #include <cache_engine/platform_probe/cpuid_probe.hpp>      // probe_cpuid().vendor
-
-#if defined(__linux__)
-#include <linux/perf_event.h>
-#include <sys/ioctl.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-
-#include <cstring>
-#include <vector>
-#endif
 
 namespace comdare::cache_engine::planner {
 
@@ -164,49 +155,19 @@ struct PmcHostBefund {
 
 namespace detail_pmc_probe {
 
-/// Der KOEDER. Ein Pointer-Chase ueber einen Puffer weit jenseits jeder L1-Groesse, mit grosser Schrittweite,
-/// damit L1D-Read-Misses, Last-Level-Misses UND DTLB-Misses real anfallen. Die Kette ist eine Permutation
-/// (jeder Slot genau einmal), also nicht vom Prefetcher vorherzusehen, und der Rueckgabewert wird vom
-/// Aufrufer verbraucht -- sonst optimierte der Compiler den ganzen Koeder weg und der Zaehler saehe nichts.
-/// KEIN Zufall aus /dev/urandom: die Kette muss REPRODUZIERBAR beissen, sonst wackelt die Erkennung.
+/// #83: NUR NOCH EINE WEITERLEITUNG. Der Koeder stand bis #83 hier woertlich; seit dem CEB-Gegeneingang
+/// (builder/pmc_startup_pruefung.hpp) braucht ihn eine zweite Seite, und builder/ darf diese Datei nicht
+/// inkludieren (Include-Richtung im Haus: profile_facade -> builder, nie zurueck). Der Kern liegt deshalb
+/// in measurement/pmc_event_biss.hpp -- dieselbe Bauform wie detail_linux_perf::cache_cfg: die Struktur
+/// bleibt, die Substanz kommt von der EINEN Stelle (ABSCHRIFT SCHLAEGT LOESCHUNG).
 [[nodiscard]] inline std::uint64_t koeder_pointer_chase() noexcept {
-#if defined(__linux__)
-    // 64 MiB: groesser als jeder heutige L2 und groesser als der L3-Anteil eines Kerns -- der Chase faellt
-    // damit bis in den Hauptspeicher durch. 4096 Byte Schrittweite trifft je Sprung eine neue Seite und
-    // erzeugt so auch DTLB-Misses.
-    constexpr std::size_t    kBytes  = 64u * 1024u * 1024u;
-    constexpr std::size_t    kStride = 4096u;
-    constexpr std::size_t    kSlots  = kBytes / kStride;
-    std::vector<std::size_t> kette(kSlots, 0);
-    // Ein einfacher, deterministischer Zyklus ueber alle Slots: Schrittweite teilerfremd zu kSlots.
-    constexpr std::size_t kSchritt = 4099u; // Primzahl, teilerfremd zu kSlots (2^14)
-    std::size_t           pos      = 0;
-    for (std::size_t i = 0; i < kSlots; ++i) {
-        std::size_t const next = (pos + kSchritt) % kSlots;
-        kette[pos]             = next;
-        pos                    = next;
-    }
-    std::uint64_t summe = 0;
-    std::size_t   p     = 0;
-    for (std::size_t i = 0; i < kSlots * 4; ++i) {
-        p = kette[p];
-        summe += p;
-    }
-    return summe;
-#else
-    return 0;
-#endif
+    return ::comdare::cache_engine::measurement::pmc_koeder_pointer_chase();
 }
 
 } // namespace detail_pmc_probe
 
 /// REALE Strategie: perf_event_open + cpuid + Koeder. Statisch eingesetzt (kein virtual).
 struct RealePmcHostStrategie {
-    /// FENSTER-DECKEL der Leer-Fenster-Wiederholung (s. event_beisst). Klein und endlich: ein Host, dessen
-    /// PMU ueber so viele Koeder-Fenster hinweg keinem einzigen Event Hardware-Zeit gibt, ist ehrlich
-    /// unbrauchbar (fail-closed) -- der Deckel schuetzt nur gegen das transiente Multiplexing-Loch.
-    static constexpr unsigned kKoederFenster = 5u;
-
     /// Der cpuid-Vendor-String dieses Hosts ("AuthenticAMD" / "GenuineIntel" / ... / "" auf non-x86).
     [[nodiscard]] static std::string cpuid_vendor() {
         return ::comdare::cache_engine::platform_probe::probe_cpuid().vendor;
@@ -215,61 +176,13 @@ struct RealePmcHostStrategie {
     /// Oeffnet EIN Event self-monitoring, laesst den Koeder laufen, liest zurueck. true nur, wenn der
     /// Zaehler geoeffnet hat UND ein GELAUFENES Fenster einen Wert > 0 traegt (K13: der Koeder MUSS
     /// beissen).
-    ///
-    /// FENSTER-LEERE IST KEINE MESSUNG (CI 16073, Job 382856): unter PMU-Multiplexing (fremde perf-Nutzer
-    /// auf dem Kern, z. B. parallele ctest-Nachbarn der CI-Zelle) kann der Zaehler oeffnen und im ganzen
-    /// Koeder-Fenster keine Hardware-Zeit bekommen -- read() liefert dann 0, obwohl das Event auf diesem
-    /// Host funktioniert. Derselbe Runner sah so in EINEM Job events=3/4, 4/4 und 2/4: die Erkennung
-    /// wackelte lauf-zu-lauf, was der Probe-Kopf ausdruecklich verbietet. Deshalb misst die Probe ihre
-    /// eigene Gueltigkeit mit (read_format TIME_ENABLED|TIME_RUNNING):
-    ///   zeit_gelaufen == 0 => Fenster leer, es GIBT keine Messung => naechstes Koeder-Fenster
-    ///                        (gedeckelt auf kKoederFenster; wert/zeiten kumulieren ueber den fd);
-    ///   zeit_gelaufen  > 0 => es WURDE gemessen: wert > 0 ist der Biss, wert == 0 die ehrliche Absage
-    ///                        (das Event zaehlt auf diesem Host nicht) -- kein weiterer Versuch.
-    /// Nach dem Deckel gilt fail-closed (kein Biss): eine dauerhaft verdraengte PMU wird nie behauptet.
+    /// #83: Weiterleitung auf den EINEN Probe-Kern (measurement/pmc_event_biss.hpp) -- der
+    /// CEB-Gegeneingang beisst seither BEWEISBAR mit demselben Koeder wie diese Planer-Probe. Die
+    /// Fenster-Gueltigkeits-Mechanik (CI 16073, Job 382856: read_format TIME_ENABLED|TIME_RUNNING,
+    /// Leer-Fenster-Deckel kPmcKoederFenster) wohnt seit der W2-Landung ebenfalls im Kern, damit
+    /// BEIDE Verbraucher identisch urteilen.
     [[nodiscard]] static bool event_beisst(::comdare::cache_engine::measurement::PmcEventSpec const& ev) noexcept {
-#if defined(__linux__)
-        struct ::perf_event_attr attr;
-        std::memset(&attr, 0, sizeof(attr)); // Muellbits in Reserve-Feldern => EINVAL; immer memset
-        attr.size           = sizeof(attr);
-        attr.type           = ev.type;
-        attr.config         = ev.config;
-        attr.disabled       = 1;
-        attr.exclude_kernel = 1;
-        attr.exclude_hv     = 1;
-        attr.read_format    = PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING;
-        long const fd       = ::syscall(__NR_perf_event_open, &attr, /*pid=*/0, /*cpu=*/-1, /*group_fd=*/-1,
-                                        /*flags=*/0UL);
-        if (fd < 0) return false;
-        int const f = static_cast<int>(fd);
-        struct LeseForm { // read_format-Layout ohne PERF_FORMAT_GROUP: Wert, dann die zwei Zeiten
-            std::uint64_t wert;
-            std::uint64_t zeit_aktiv;    // TIME_ENABLED: Event war logisch eingeschaltet
-            std::uint64_t zeit_gelaufen; // TIME_RUNNING: Event sass real auf der PMU
-        };
-        bool biss = false;
-        for (unsigned fenster = 0; fenster < kKoederFenster; ++fenster) {
-            (void)::ioctl(f, PERF_EVENT_IOC_ENABLE, 0);
-            std::uint64_t const koeder = detail_pmc_probe::koeder_pointer_chase();
-            (void)::ioctl(f, PERF_EVENT_IOC_DISABLE, 0);
-            LeseForm   lf{};
-            bool const ok = ::read(f, &lf, sizeof(lf)) == static_cast<::ssize_t>(sizeof(lf));
-            // koeder wird verbraucht, damit der Pointer-Chase nicht wegoptimiert wird (er ist der ganze
-            // Punkt). Werkzeugfehler (read schlaegt fehl) ist fail-closed und KEIN Wiederholungsgrund.
-            if (!ok || koeder == 0xFFFFFFFFFFFFFFFFULL) break;
-            if (lf.wert > 0) {
-                biss = true; // ein gelaufenes Fenster hat gezaehlt -- der Koeder hat gebissen
-                break;
-            }
-            if (lf.zeit_gelaufen > 0) break; // gemessen und NICHT gebissen: die ehrliche 0 steht
-            // zeit_gelaufen == 0: Fenster leer (Multiplexing-Verdraengung) -- naechstes Fenster.
-        }
-        (void)::close(f);
-        return biss;
-#else
-        (void)ev;
-        return false;
-#endif
+        return ::comdare::cache_engine::measurement::pmc_event_beisst(ev);
     }
 };
 

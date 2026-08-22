@@ -1222,13 +1222,37 @@ TEST(TierCiYamlBuilder, KeinAllowFailureInEmittierterJobYamlBeideStufenUndZellEb
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
 
-    planner::ExperimentPlanDirector const director;
-    planner::TierCiYamlBuilder            tb; // Stufe 2: die Batch-Jobs (Bau + Mess) je Host-Lane
-    planner::CiYamlBuilder                cb; // Stufe 1: die CEB-Jobs (build/emit/trigger)
+    // #83 (C-1(b)): der Nenner dieses Tests (der ctest-Preflight je Mess-Batch) existiert seit #83 nur
+    // noch in der BRAUCHBAREN Emission -- die flaglose emittiert stattdessen das FEHLER-Testat + exit 1.
+    // Der Test prueft deshalb die Normalstrecke mit einem brauchbaren Befund und haelt die
+    // Unbrauchbar-Emission ZUSAETZLICH gegen dieselbe Doktrin (unten): auch der Scheiter-Pfad kennt
+    // kein allow_failure -- er faellt ueber exit 1 hart rot, exakt die Owner-Linie dieses Tests.
+    planner::ExperimentPlanDirector director;
+    {
+        planner::PmcHostBefund amd_befund; // (befund_mit steht erst weiter unten im File -- inline gebaut)
+        amd_befund.lage           = planner::PmcLage::Amd;
+        amd_befund.probe_gefahren = true;
+        amd_befund.cpuid_vendor   = "AuthenticAMD";
+        director.set_pmc_befund(amd_befund);
+    }
+    planner::TierCiYamlBuilder tb; // Stufe 2: die Batch-Jobs (Bau + Mess) je Host-Lane
+    planner::CiYamlBuilder     cb; // Stufe 1: die CEB-Jobs (build/emit/trigger)
     director.construct(*tp, tb);
     director.construct(*tp, cb);
     std::string const& stufe2 = tb.text();
     std::string const& stufe1 = cb.text();
+
+    {
+        // Default-konstruierter Director = Default-Befund = Unbrauchbar (fail-closed) -- exakt der
+        // Zustand, den dieser Test bis #83 unwissentlich prueft hat.
+        planner::ExperimentPlanDirector const director_ohne;
+        planner::TierCiYamlBuilder            tb_ohne;
+        director_ohne.construct(*tp, tb_ohne);
+        EXPECT_EQ(count_occurrences(tb_ohne.text(), "allow_failure"), 0u)
+            << "#83/#278: auch die Unbrauchbar-Emission traegt KEIN allow_failure -- sie scheitert hart";
+        EXPECT_GT(count_occurrences(tb_ohne.text(), "pmc=FEHLER grund=pmc_quelle_nicht_gebaut"), 0u)
+            << "#83: der Scheiter-Pfad ist das FEHLER-Testat (Gegenprobe: die Suche greift auf diesem Text)";
+    }
 
     // GEGENPROBE VOR DEM NICHTFUND: dass die Suche auf GENAU diesen Texten ueberhaupt greift, wird an einem
     // Literal belegt, das in derselben Emission steht (sonst waere eine 0 nur eine stille Null).
@@ -1427,7 +1451,11 @@ TEST(TierCiYamlBuilder, PerBatchSliceArithmetic4096) {
     // Fenster-Schleife + Klemm-Arithmetik je Perm (4 Perms ueber die 2 Build-Batches).
     EXPECT_EQ(count_occurrences(yaml, "while [ \"$START\" -lt \"$TOTAL\" ]; do"), 4u) << "Scheiben-Schleife je Perm";
     EXPECT_EQ(count_occurrences(yaml, "COMDARE_GOLDEN_N_RANGE=\"${START}:${COUNT}\""), 4u) << "Inline-Range je Perm";
-    EXPECT_EQ(count_occurrences(yaml, "START=$(( START + COUNT ))"), 4u) << "Scheiben-Fortschritt je Perm";
+    // C-10/E-10 (21.08.2026): der Scheiben-Fortschritt steht seit der window_belongs_to-Verdrahtung ZWEIMAL
+    // je Perm -- einmal am Schleifenende (gebautes Fenster) und einmal im [FENSTER-FREMD]-Skip-Zweig
+    // (fremdes Fenster wird uebersprungen, der Zaehler muss trotzdem voranschreiten, sonst Endlosschleife).
+    EXPECT_EQ(count_occurrences(yaml, "START=$(( START + COUNT ))"), 8u)
+        << "Scheiben-Fortschritt je Perm (Bau-Pfad + [FENSTER-FREMD]-Pfad, C-10/E-10)";
     // TOTAL-Default je Build-Batch (2 Host-Lanes); Voll-Bau: COMDARE_GN_TOTAL=131072.
     EXPECT_EQ(count_occurrences(yaml, "TOTAL=\"${COMDARE_GN_TOTAL:-16}\""), 2u) << "Default 16 je Build-Batch";
     // NEGATIV: KEIN Env-Override des 4096er-Korns (§61-Verstoss verworfen) und KEIN Chunk-Konzept mehr.
@@ -2230,8 +2258,20 @@ TEST(TierCiYamlBuilder, BatchJobsCarryGnOutPersistenceFlags) {
 TEST(TierCiYamlBuilder, G4aStorageActivationPmcPreflightAndPruneAreEmittedInCorrectOrder) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
-    planner::ExperimentPlanDirector const director;
-    planner::TierCiYamlBuilder            tb; // die Batch-Jobs stehen in der STUFE-2-Tier-YAML, nicht in der Child-1
+    // #83 (C-1(b)): Gegenstand dieses Tests ist die REIHENFOLGE der Normalstrecke (Aktivierung ->
+    // Preflight -> Prune). Die Smoke-/ctest-Zeilen, an denen er sie festmacht, emittiert der Director
+    // seit #83 nur bei brauchbarem Befund (die flaglose Emission scheitert vorher am FEHLER-Testat,
+    // eigener Test PmcFailLoud). Der fruehere default-konstruierte Director trug den Default-Befund
+    // "Unbrauchbar" und prueft seither einen leeren Gegenstand -- deshalb hier ausdruecklich amd.
+    planner::ExperimentPlanDirector director;
+    {
+        planner::PmcHostBefund amd_befund; // (befund_mit steht erst weiter unten im File -- inline gebaut)
+        amd_befund.lage           = planner::PmcLage::Amd;
+        amd_befund.probe_gefahren = true;
+        amd_befund.cpuid_vendor   = "AuthenticAMD";
+        director.set_pmc_befund(amd_befund);
+    }
+    planner::TierCiYamlBuilder tb; // die Batch-Jobs stehen in der STUFE-2-Tier-YAML, nicht in der Child-1
     director.construct(*tp, tb);
     std::string const& yaml = tb.text();
 
@@ -3142,6 +3182,59 @@ TEST(PmcPflichtInvariante, FlagStehtVorDemBuildTypUndLaesstDieComboNachbarschaft
         << "PMC-Zusatz steht zwischen V32-Schalter und Build-Typ (Reihenfolge der beiden super-Mess-Jobs)";
     EXPECT_NE(s1.find("-DCMAKE_BUILD_TYPE=Release \"-DCOMDARE_MEASUREMENT_COMBO=[wallclock]\""), std::string::npos)
         << "die W2-Nachbarschaft (Build-Typ direkt gefolgt vom Combo-Define) bleibt unangetastet";
+}
+
+// =============================================================================
+// #83 PMC-FAIL-LOUD (C-1(b), Owner-GO KON103 17.08.2026) -- DER PREFLIGHT SCHEITERT STATT ZU SKIPPEN.
+// =============================================================================
+// OWNER-WORTLAUT (17.08.2026, verbatim): "C-1: (a) und (b) und (c) alle ja. [...] Stille nullen gibt es
+// bei Messung nicht, wir hatten fail loud ueber die letzten 10 wochen explore geplant."
+// DER DEFEKT IN EINEM SATZ: die emittierte Mess-Batch-Sequenz testierte "[PMC-TESTAT] ... pmc=ok"
+// UNBEDINGT -- auch wenn der Befund Unbrauchbar war und die Emission deshalb GAR KEIN
+// -DCOMDARE_ENABLE_PMC trug. Beide Smokes skippen dann ehrlich (Exit 0), `ctest -L pmc` wird gruen,
+// und ein Lauf OHNE jede PMC-Quelle traegt ein pmc=ok-Testat: die stille Null auf Testat-Ebene.
+// SEIT #83 verzweigt die EMISSION am Befund: Unbrauchbar => das Testat wird pmc=FEHLER
+// (grund=pmc_quelle_nicht_gebaut) und die Sequenz bricht mit exit 1 ab, BEVOR eine Messung startet --
+// die CI-Zelle traegt failed, der Job faellt HART rot (kein allow_failure). Die Bau-Seite bleibt soft
+// (der Treiber baut weiterhin, KON28-02); nur das MESSEN ohne Quelle ist der Fehler.
+TEST(PmcFailLoud, UnbrauchbarerBefundLaesstDenPreflightScheiternStattSkippen) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    // Fremder Nenner (T-3): erst die Gegenrichtung -- ein BRAUCHBARER Befund testiert weiter pmc=ok und
+    // traegt KEIN FEHLER-Testat. Ohne diese Haelfte koennte ein unbedingtes FEHLER-Testat den Test
+    // ebenso bestehen wie das richtige bedingte.
+    {
+        planner::ExperimentPlanDirector director;
+        director.set_pmc_befund(befund_mit(planner::PmcLage::Amd, "AuthenticAMD"));
+        planner::TierCiYamlBuilder tb;
+        director.construct(*tp, tb);
+        std::string const& s = tb.text();
+        ASSERT_NE(s.find("[PMC-PREFLIGHT]"), std::string::npos)
+            << "Vorbedingung: der Mess-Batch traegt den #37-Preflight (sonst prueft dieser Test nichts)";
+        EXPECT_NE(s.find("pmc=ok"), std::string::npos) << "brauchbarer Befund: das ok-Testat bleibt";
+        EXPECT_EQ(s.find("pmc=FEHLER"), std::string::npos)
+            << "brauchbarer Befund: KEIN FEHLER-Testat (das FEHLER-Testat ist bedingt, nicht unbedingt)";
+    }
+
+    // Die #83-Richtung: Unbrauchbar => FEHLER-Testat + exit 1 statt Smoke-Skip + pmc=ok.
+    planner::ExperimentPlanDirector director;
+    director.set_pmc_befund(befund_mit(planner::PmcLage::Unbrauchbar, "SomeOtherVendor"));
+    planner::TierCiYamlBuilder tb;
+    director.construct(*tp, tb);
+    std::string const& s = tb.text();
+    ASSERT_NE(s.find("[PMC-PREFLIGHT]"), std::string::npos)
+        << "auch die flaglose Emission traegt den Preflight-Block (er ist die Stelle, die scheitert)";
+    EXPECT_EQ(s.find("pmc=ok"), std::string::npos)
+        << "#83: eine flaglose Emission darf NIE ein pmc=ok testieren (die stille Null auf Testat-Ebene)";
+    EXPECT_NE(s.find("pmc=FEHLER grund=pmc_quelle_nicht_gebaut"), std::string::npos)
+        << "#83: das Testat nennt den Grund (KON103 C-1(b): 'PMC-Quelle nicht gebaut' ist FEHLER, kein Skip)";
+    // Der Abbruch muss NACH dem FEHLER-Testat im selben Skriptblock stehen -- ein Testat ohne exit 1
+    // waere eine Warnung, keine Scheiterung (Zelle failed, Job HART rot).
+    std::size_t const fehler_pos = s.find("pmc=FEHLER grund=pmc_quelle_nicht_gebaut");
+    std::size_t const exit_pos   = s.find("\n      exit 1\n", fehler_pos);
+    EXPECT_NE(exit_pos, std::string::npos)
+        << "#83: auf das FEHLER-Testat folgt exit 1 im selben Block (Preflight SCHEITERT statt skippt)";
 }
 
 // =============================================================================
@@ -4136,4 +4229,95 @@ TEST(CompilerPinInvariante, BareMetalSpiegelSagtDiePins) {
     EXPECT_NE(s2.text().find("clang-22-Zwilling (build-clang) ist Bau+Test-Gate je Stufe; Mess-Targets bleiben "
                              "single-compiler (N2)"),
               std::string::npos);
+}
+
+// (E-10/C-10, 21.08.2026) WindowBelongsTo-VERDRAHTUNG, Generator-Haelfte (Gen-2-Kampagnenbetrieb KON29-04):
+// die Bau-Fenster-Schleife traegt die Paritaets-Zuteilung des Bestandslogs. Topologie kommt aus
+// COMDARE_MACHINE_RANK/COMDARE_MACHINES (Default 0/1 = heutiges Verhalten: alle Fenster der Lane-Maschine);
+// rank >= maschinen ist FAIL-CLOSED (sonst baute die Maschine STILL nichts und der Batch endete gruen leer).
+// Der Mess-Batch traegt BEWUSST keine Fenster-Teilung ("Messung selbst nicht zweilanig" = W3-Vorstaffel).
+// Geprueft wird (a) die Emission literal, (b) die SEMANTIK-PARITAET der gespiegelten Shell-Formel gegen
+// bestandslog::window_belongs_to selbst (dieselbe Funktion, die BatchPlanner/plan_batch_slices nutzt) und
+// (c) die Partitions-Vollstaendigkeit (jedes Fenster gehoert GENAU einer Maschine).
+TEST(TierCiYamlBuilder, WindowBelongsToVerdrahtungGeneratorHaelfte) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    // (a) Topologie-Kopf je Build-Batch (2 Host-Lanes), Defaults 0/1 = heutiges Verhalten.
+    EXPECT_EQ(count_occurrences(yaml, "RANK=\"${COMDARE_MACHINE_RANK:-0}\"; MASCHINEN=\"${COMDARE_MACHINES:-1}\""), 2u)
+        << "je Build-Batch EIN Topologie-Kopf mit den inerten Defaults 0/1";
+    EXPECT_EQ(count_occurrences(yaml, "== [FENSTER-TOPOLOGIE] lane="), 2u)
+        << "die Topologie wird je Batch LAUT gesagt (rank/maschinen/Semantik-Quelle)";
+    // fail-closed: rank >= maschinen bricht VOR der ersten Perm ab -- kein stiller leerer Batch.
+    EXPECT_EQ(count_occurrences(yaml, "COMDARE_MACHINE_RANK=$RANK >= COMDARE_MACHINES=$MASCHINEN"), 2u)
+        << "je Build-Batch der harte rank>=maschinen-Abbruch (Abbruch statt leerem Gruen)";
+    // (b) der Paritaets-Guard je Perm-Fenster-Schleife (4 Perms) -- WOERTLICH die window_belongs_to-Formel.
+    EXPECT_EQ(count_occurrences(yaml, "FENSTER=$(( START / SLICE ))"), 4u) << "Fenster-Index im 4096er-Korn je Perm";
+    EXPECT_EQ(
+        count_occurrences(yaml, "if [ \"$MASCHINEN\" -gt 0 ] && [ $(( FENSTER % MASCHINEN )) -ne \"$RANK\" ]; then"),
+        4u)
+        << "je Perm der gespiegelte window_belongs_to-Guard ((w % n) != rank -> skip; n == 0 -> alle)";
+    EXPECT_EQ(count_occurrences(yaml, "[FENSTER-FREMD]"), 4u)
+        << "je Perm die laute Skip-Zeile (BEWUSST ohne TESTAT-Namen und ohne offen= -- zaehlt nie als gebaut)";
+    // Der Mess-Batch bleibt fensterteilungs-frei: alle 4 Guards liegen in den 2 Build-Batches (je 2 Perms),
+    // und die Mess-Jobs exportieren die Topologie-Variablen nicht.
+    EXPECT_EQ(count_occurrences(yaml, "[FENSTER-FREMD] ts=$(date -u +%FT%TZ) lane=amd zelle=[O2,no_extension]"), 1u)
+        << "der Guard sitzt in der Perm-Schleife des BUILD-Batches (Stichprobe amd-Perm)";
+    // (c) SEMANTIK-PARITAET: die gespiegelte Shell-Formel gegen die Bestandslog-Funktion selbst, inkl. der
+    // Raender n==0 (alle) und rank>=n (nie -- genau der fail-closed-Fall der Emission).
+    namespace bl = comdare::cache_engine::builder::bestandslog;
+    for (unsigned n = 1; n <= 3; ++n) {
+        for (unsigned rank = 0; rank < n; ++rank) {
+            for (std::uint64_t w = 0; w < 12; ++w) {
+                bool const shell_baut = !((w % n) != rank); // der emittierte Guard, in C++ nachgerechnet
+                EXPECT_EQ(bl::window_belongs_to(w, rank, n), shell_baut)
+                    << "Formel-Divergenz bei w=" << w << " rank=" << rank << " n=" << n;
+            }
+        }
+    }
+    EXPECT_TRUE(bl::window_belongs_to(7, 3, 0)) << "n==0 heisst ALLE (beide Seiten; Shell-Guard kurzschliesst)";
+    EXPECT_FALSE(bl::window_belongs_to(5, 4, 2)) << "rank>=n hiesse NIE -- exakt der emittierte Abbruchgrund";
+    for (std::uint64_t w = 0; w < 32; ++w) {
+        int eigentuemer = 0;
+        for (unsigned rank = 0; rank < 2; ++rank) eigentuemer += bl::window_belongs_to(w, rank, 2) ? 1 : 0;
+        EXPECT_EQ(eigentuemer, 1) << "Partitions-Vollstaendigkeit verletzt bei w=" << w
+                                  << " (jedes Fenster gehoert GENAU einer von 2 Maschinen)";
+    }
+}
+
+// (E-20/R-15, 21.08.2026) PIN-PFLICHT-DEKLARATION im Mess-Emissionspfad: prod1/amd traegt die 96/32-MiB-
+// L3-Asymmetrie (2 CCDs; /sys am Objekt gemessen) -- ungepinnt wandert der 1-Thread-Messlauf zwischen den
+// CCDs und die Cache-Messwerte sind NICHT reproduzierbar. Die Emission deklariert die SOLL-Menge (CCD0)
+// als COMDARE_MEASURE_PIN_CPUS und sagt den IST-Stand EHRLICH dazu (pin_ist=UNGEPINNT, Aktuator
+// ScopedThreadPin im run_profile-Loop unverdrahtet = W3); intel bleibt laut UNVERMESSEN statt einer
+// erfundenen Maske. KEIN taskset im Batch: dieselbe Invokation baut parallel und misst 1-Thread.
+TEST(TierCiYamlBuilder, PinPflichtDeklarationR15ImMessBatch) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    // amd: SOLL-Menge (CCD0 = 96-MiB-L3-Haelfte, cpu 0-7,16-23) GENAU EINMAL -- nur der amd-MESS-Batch.
+    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_MEASURE_PIN_CPUS=\"0-7,16-23\""), 1u)
+        << "die SOLL-Pin-Menge steht genau im amd-Mess-Batch (nicht im Bau-Batch, nicht bei intel)";
+    EXPECT_NE(yaml.find("[PIN-DEKLARATION] lane=amd pin_soll=0-7,16-23 pin_ist=UNGEPINNT"), std::string::npos)
+        << "amd deklariert SOLL und den ehrlichen IST-Stand in EINER Zeile";
+    EXPECT_NE(yaml.find("folge=ungepinnt-nicht-reproduzierbar (R-15)"), std::string::npos)
+        << "die R-15-Folge (nicht reproduzierbar) steht woertlich in der Deklaration";
+    // intel: laut UNVERMESSEN -- keine erfundene Maske fuer eine nicht vermessene Topologie.
+    EXPECT_NE(yaml.find("[PIN-DEKLARATION] lane=intel pin_soll=UNVERMESSEN pin_ist=UNGEPINNT"), std::string::npos)
+        << "intel deklariert die Luecke, statt eine Maske zu raten";
+    EXPECT_EQ(count_occurrences(yaml, "[PIN-DEKLARATION] lane="), 2u) << "genau die 2 Mess-Batches deklarieren";
+    // NIE ein falscher Vollzug: pin_ist traegt nirgends die Maske, und kein taskset drosselt den Bau.
+    EXPECT_EQ(yaml.find("pin_ist=0-7,16-23"), std::string::npos)
+        << "pin_ist darf den SOLL-Wert nicht behaupten, solange der Aktuator unverdrahtet ist";
+    EXPECT_EQ(yaml.find("taskset"), std::string::npos)
+        << "kein job-weites taskset (der parallele DLL-Bau liefe sonst auf der Pin-Menge)";
+    EXPECT_EQ(yaml.find("numactl"), std::string::npos) << "kein numactl-Praefix (prod1 ist 1 NUMA-Node)";
 }

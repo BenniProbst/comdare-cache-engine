@@ -37,6 +37,12 @@
 // Spalte (ce-Pipeline 15430, Job 369291, -Wclang-format-violations, Spalte 40). Ohne
 // Anhaenge-Kommentar faellt die Zeile aus der Gruppe -- beide Wachen sind zugleich erfuellt.
 #include <harness/drift_gated_cell.hpp>
+// T-15b: MessRetryKonfig + mit_mess_retry + mess_durchlauf_hart_gescheitert -- die Binary-Retry-
+// Klammer um den GESAMTEN Pruefdock-Durchlauf (KON37-06/KON28-02/KON26-04, Dispatch unten).
+#include <harness/mess_retry_klammer.hpp>
+// C-05/#38b: mess_warmup_paar -- je Drift-Probe ein Paar (Lauf 1 verworfen, Lauf 2 gespeichert;
+// KON47-04); der --debug-Kaltlauf haengt an LazyRunConfig::mess_kaltlauf_debug.
+#include <harness/mess_warmup_paar.hpp>
 #include <cache_engine/measurement/axis_error.hpp> // E-6/K-10: SampleStatus + sample_status_token (n/a-Zell-Renderer)
 #include "measure_parallelism.hpp"   // #45: resolve_measure_parallelism (Debug-Methodik -> Mess-Pool; Entry-Konsum)
 #include "result_ingest.hpp"         // ingest_result_line / parse_result_line_to_node_value (#45 reine Parse-Naht)
@@ -50,6 +56,7 @@
 #include "../bestandslog/planer_driven_build.hpp" // #46b I1b: Planer-getriebener Slice-Bau (opt-in, SlicePlanner/Queue)
 #include "../bestandslog/eta_kalibrierung.hpp"    // A5/F5: laufende Kalibrierung (Schwelle, Median, Re-Kalibrierung)
 #include "../bestandslog/reservation_lifecycle.hpp" // #46b I1b: Reservierungs-Lifecycle je Slice (pro-forma/Kalib/Done)
+#include "../pmc_startup_pruefung.hpp"              // #83 C-1(c): CEB-Gegeneingang am Lauf-Host (Warn-Drei-Wege)
 #include "progress_delta.hpp" // Welle 5 (E-W5-2): ProgressDelta / ProgressSinkFn / Delta-Logik (builder-Sibling-Leaf, §38 hinauf)
 #include "progress_heartbeat.hpp" // S1 (§62-B Log-Flush): geflushtes Mess-Fortschritts-Testat je Zelle (Befund 6h-stumm)
 #include "slice_marker.hpp"       // E-04-P1: Marker-Familie v2 (die EINE Renderer-Quelle des Live-Fortschritts-Kanals)
@@ -70,10 +77,11 @@
 #include <cstdio>    // (C-1) std::snprintf fuer ns_per_op-Formatierung
 #include <exception> // TP1FK1-B2: std::exception -- der werfende Transport wird im Mess-Pfad klassifiziert gefangen
 #include <filesystem>
-#include <fstream>    // (E) per-Binary-Ergebnis-CSV schreiben
-#include <functional> // #46b I1: bestand_key_of-Injektion (std::function)
-#include <memory>     // #45: std::unique_ptr<IPmcSource> als per-Worker-ctx im parallelen Mess-Loop
-#include <optional>   // #46b I1: bestand_key_of-Rueckgabe (std::optional<std::string>)
+#include <fstream>     // (E) per-Binary-Ergebnis-CSV schreiben
+#include <functional>  // #46b I1: bestand_key_of-Injektion (std::function)
+#include <string_view> // S13-03(a): PerBinaryMappeFn reicht Header/Blob als string_view
+#include <memory>      // #45: std::unique_ptr<IPmcSource> als per-Worker-ctx im parallelen Mess-Loop
+#include <optional>    // #46b I1: bestand_key_of-Rueckgabe (std::optional<std::string>)
 #include <span>
 #include <string>
 #include <system_error>
@@ -89,6 +97,12 @@ using CachePullFn = ::comdare::cache_engine::builder::artifact_transport::CacheP
 using MeasurementSinkFn = ::comdare::cache_engine::builder::artifact_transport::MeasurementSinkFn;
 // W11 (§43.c): der Teil-Marker-Sink + der async Push-Pump (BAU-Modus). Wie CachePushFn transport-kanonisch, hier aliast.
 using PartialMarkerFn = ::comdare::cache_engine::builder::artifact_transport::PartialMarkerFn;
+// S13-03(a) (#18/D-1, KON32-01 "nur per Binary xlsx"): der per-Binary-Ergebnis-Mappen-Sink. Der Iterator kennt die
+// ErgebnisMappenFactory NICHT (Schichtung: builder zeigt nie auf profile_facade); die Fassade injiziert eine fertige
+// Funktion (lager_naht::mach_per_binary_mappe_sink), gerufen an der per-Binary-Synchron-Naht mit (bin_dir, binary_id,
+// Header-Zeile, per-Binary-CSV-Blob). Leer (Default) => No-Op => golden/CI byte-identisch (Muster measurement_sink).
+using PerBinaryMappeFn = std::function<void(std::filesystem::path const& bin_dir, std::string const& binary_id,
+                                            std::string_view header, std::string_view csv_rows)>;
 // #46b I1 (opt-in Bestandslog-Verdrahtung): der Transport-Naht-Typ + die Registrierungs-Zustandsmaschine liegen im
 // bestandslog-Modul; hier als Alias hochgezogen (Muster wie CachePushFn -- haelt den Iterator stamp-/transport-frei).
 namespace bestandslog  = ::comdare::cache_engine::builder::bestandslog;
@@ -266,6 +280,10 @@ struct LazyRunConfig {
     // Hydrierung => byte-neutral; der Host belegt sie via ArtifactCache::pull_tier_prefix (scharf nur via Env/CI).
     CachePullFn       cache_pull;
     MeasurementSinkFn measurement_sink;
+    // S13-03(a): je GEMESSENER Binary EINE Ergebnis-Mappe (Fassaden-Sink, s. PerBinaryMappeFn oben). Gerufen an der
+    // per-Binary-Synchron-Naht NACH result.csv+stamp (der Resume-Vertrag ist dann bereits gesichert), synchron wie
+    // cache_push/measurement_sink. Leer (Default) => No-Op => byte-/verhaltensneutral (golden/CI byte-identisch).
+    PerBinaryMappeFn per_binary_mappe;
     // Welle 5 (E-W5-2, §38-Fortschritts-Rueck-Kanal): No-Op-Default => byte-neutral; Muster EXAKT wie cache_push/
     // measurement_sink. Der Iterator feuert je Binary an der Per-Binary-Synchron-Naht (NACH result.csv+stamp/nach
     // Provisionierung) GENAU EINEN ProgressDelta (erste Meldung = Voll-Konfiguration, danach mixed-radix-minimale
@@ -391,10 +409,24 @@ struct LazyRunConfig {
     // erzeugt N eigene Zeilen mit eigenem repetition_index; drift_gate.reps ist gruppen-intern und
     // erzeugt EIN Drift-Urteil ueber EINE Zelle. Wer die beiden vermengt, misst N*M statt N.
     //
-    // Der Default (reps=3, 5 %, max_reruns=5) IST die Owner-Regel aus GOAL-v8 VI.5 -- ein Default von
-    // "aus" haette bedeutet, dass die Regel ueberall dort schweigt, wo das XML sie nicht nennt, und
-    // genau das war der Zustand, den T-15 beendet.
+    // Der Default (reps=3, 5 %, max_reruns=3 seit dem KON26-04-Umzug -- die Owner-5 lebt in
+    // mess_retry unten) folgt GOAL-v8 VI.5 im C-07-Kanon -- ein Default von "aus" haette bedeutet,
+    // dass die Regel ueberall dort schweigt, wo das XML sie nicht nennt, und genau das war der
+    // Zustand, den T-15 beendet.
     DriftGateConfig drift_gate{};
+    // T-15b (20.08.2026, KON37-06/KON28-02/KON26-04) -- DIE BINARY-RETRY-KLAMMER. max_versuche kommt
+    // aus dem Profil-XML (<binary_retry max_versuche/>, Kette wie drift_gate darueber); der EINE Wert
+    // speist das MESS-Budget (Dispatch klammert measure_one_binary) UND das BAU-Budget
+    // (BuildConfig::bau_max_versuche) -- "je 5 Mal" heisst getrennte Budgets DERSELBEN Groesse.
+    // SELBSTCHECK: dies ist NICHT drift_gate.max_reruns (Gruppen-Rerun bei STREUUNG) und NICHT
+    // n_repeats (KF-10-Berichts-Wiederholung) -- die dritte Groesse, eigene Bedingung: FEHLSCHLAG.
+    MessRetryKonfig mess_retry{};
+    // C-05/#38b (KON47-04) -- der --debug-Kaltlauf-Schalter des Wiederholungs-Paars. false (Default
+    // und heute JEDER produktive Lauf) = PAAR-PFLICHT: je Drift-Probe zwei Messlaeufe, Lauf 1
+    // verworfen, Lauf 2 traegt die Zeile. true (kuenftige --debug-CLI, S-8/W2, via
+    // resolve_mess_kaltlauf_debug) = GENAU EIN Lauf, kalt. Der Arena-/Zeit-Faktor 2 dieser
+    // Verdopplung steht als eigene Planer-Zeile (paar_faktor, planner_mengen_types.hpp).
+    bool mess_kaltlauf_debug = false;
 };
 
 // -- D3-7b-RIEGEL: DAS PRAEDIKAT DER GEGENSEITIGEN AUSSCHLIESSUNG --------------------------------
@@ -1012,15 +1044,23 @@ inline void lazy_row_mess_ausstattung_uebernehmen(LazyMeasuredRow& row, LazyRunC
     // via PERF_TYPE_HW_CACHE/LL auf AMD Zen5, ENOENT) ODER die ohne Zugriffsrecht fehlschlaegt (RAPL-Energy,
     // root-only seit Linux 5.10), rendert die EINE D2-Taxonomie SourceUnavailable/"n/a" (axis_error.hpp)
     // statt einer erfundenen 0. Eine Zahl, die die Quelle wirklich geliefert hat -- auch eine ECHTE 0 --
-    // bleibt unveraendert eine Zahl (kein Token verdeckt einen realen Nullbefund). Gilt NUR wenn die Zeile
-    // ueberhaupt `pmc.available` ist; die PMC-off-Zeile (NullPmcSource) behaelt ihre bestehende 0-Konvention
-    // unveraendert (kein Verhaltenswechsel im Default-Build, in dem praktisch die gesamte Test-/Golden-Flotte
-    // laeuft).
+    // bleibt unveraendert eine Zahl (kein Token verdeckt einen realen Nullbefund).
+    //
+    // #83 (C-1(c), Owner-GO KON103 17.08.2026): DAS available-GATE IST GEFALLEN. Bis #83 galt die
+    // Ehrlichkeit "NUR wenn die Zeile ueberhaupt pmc.available ist"; die PMC-off-Zeile (NullPmcSource)
+    // behielt eine "0-Konvention" -- acht Zellen lasen "0", byte-gleich zu acht echten Nullmessungen.
+    // Genau das ist die stille 0 des Teil-Laufs, und der Owner hat die Empfehlung woertlich angenommen:
+    // "die ERGEBNIS-Seite wird hart (die Zeile traegt den Zaehler oder einen ehrlichen Status-Token,
+    // nie eine stille 0) [...] ein Messlauf ohne PMC-Zaehler ist nicht als vollstaendig buchbar, aber
+    // er ist als ausdruecklich gekennzeichneter Teil-Lauf buchbar." Die Kennzeichnung ist zweifach:
+    // pmc_available bleibt 0 (Zeilen-Aussage, Spalte unveraendert) UND jede nicht erhobene Zelle traegt
+    // den n/a-Token statt einer Zahl. Eine ECHTE 0 einer OFFENEN Quelle bleibt weiterhin "0" -- die
+    // Unterscheidung ist das per-Feld-Flag, nicht der Zahlenwert. (Pin-Umschrieb: test_a8s3 W10.)
     std::string_view const pmc_na    = cem::sample_status_token(cem::SampleStatus::SourceUnavailable);
     auto                   pmc_zelle = [&](std::uint64_t value, bool source_available) {
         if (!zell_ersatz.empty()) {
             out += zell_ersatz;
-        } else if (row.pmc.available && !source_available) {
+        } else if (!source_available) {
             out += pmc_na;
         } else {
             out += std::to_string(value);
@@ -1262,6 +1302,14 @@ struct LazyRunResult {
     // Selektion dieses Laufs und werden deshalb ueber den per-Binary-Miss-Weg real NACHGEBAUT.
     // 0 ausserhalb des planer-getriebenen Baus (dort findet kein Claim-Check statt).
     std::size_t bestand_takeover_uebernommen = 0;
+    // C-11 (KON28-02 SOFT, 20.08.2026): die MESS-WARNUNGEN dieses Laufs -- heute genau eine Klasse:
+    // fehlende MESSEINRICHTUNG der Mess-Achsen-Kategorie (PMC nicht eingerichtet, make_pmc_source()
+    // liefert eine nicht-verfuegbare Quelle). SOFT heisst: die Binary WIRD gebaut, gemessen so weit
+    // es geht (HW-Counter-Spalten ehrlich n/a), KEIN Retry -- aber die Warnung reist als TRAEGER bis
+    // in die xlsx (Entry reicht sie als KonstantenMeta-Zeilen in MappenNaht::schliessen ->
+    // INFO-Blatt). GENAU EINE Zeile je Lauf und Klasse, nicht je Zelle (eine je Zelle waere bei
+    // 131072 Binaries eine Flut ohne Informationsgewinn). Leer == keine Soft-Lage.
+    std::vector<std::string> mess_warnungen;
 };
 
 // W5 (2026-08-05): der Feld-Schluessel des Resume-Stempel-Schwanzes als EINE benannte Konstante. Er stand
@@ -2174,6 +2222,9 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     bcfg.per_binary_subdirs      = cfg.per_binary_subdirs; // (E): je Tier-Binary ein eigener Unterordner
     bcfg.build_parallelism       = cfg.build_parallelism;  // W6 (§32-F7): expliziter Bau-Pool-Worker-Override (0=heute)
     bcfg.build_variant_sig       = cfg.build_variant_sig;  // A7-B: Treiber-Mengen-Signatur; leer = Variant-Gate AUS
+    // T-15b (KON37-06): das BAU-Budget aus DERSELBEN Owner-Quelle wie das Mess-Budget ("je 5 Mal" =
+    // getrennte Budgets derselben Groesse) -- die Bau-Klammer selbst liegt in provision_core.
+    bcfg.bau_max_versuche = cfg.mess_retry.max_versuche;
     // Task #59: DERSELBE String in beide Felder -- Glied [6] ist run-konstant (build_orchestrator.hpp:311-312),
     // das Soll des Gates und die Aufzeichnung neben der Binary sind heute derselbe Wert. Die Felder bleiben
     // getrennt, weil sie verschiedene Fragen beantworten (s. BuildConfig); sie hier aus EINER Quelle zu
@@ -3024,15 +3075,29 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             // Die beiden Marker klammern den Mess-Aufruf fuer die Verdrahtungs-Wache in
             // test_t15_drift_gate_messschleife: sie prueft, dass es im ganzen Iterator keinen
             // Mess-Aufruf AUSSERHALB dieser Klammer gibt. Wer sie verschiebt, muss die Wache mitnehmen.
+            // C-05/#38b (KON47-04, 20.08.2026): je Drift-Probe EIN WIEDERHOLUNGS-PAAR -- Lauf 1 misst
+            // und wird VERWORFEN (Warmup unter realer Messlast), Lauf 2 traegt die Zahl. Da BEIDE
+            // Messpfade (observable + workload) durch DIESE eine Stelle laufen, ist damit JEDE
+            // gespeicherte Zeile warm und das Drift-Gate urteilt ueber warme Werte. --debug
+            // (cfg.mess_kaltlauf_debug, am RunMethodology-Zustand, resolve_mess_kaltlauf_debug) misst
+            // GENAU EINMAL, kalt. Der Mess-Aufruf selbst bleibt UNVERAENDERT (dieselben Argumente,
+            // dieselbe workload_id-Verzweigung) -- was sich aendert, ist ausschliesslich, wie oft er
+            // je Probe laeuft und welcher der Laeufe die Zeile traegt.
             auto const zelle = run_cell_with_drift_gate(
                 cfg.drift_gate,
                 [&]() -> PermResult {
-                    // [T-15-KLAMMER]
-                    return workload_id.empty() ? run_observable_perm(*obs, setting_id, cfg.n_ops, cell_pmc)
-                                               : run_workload_perm(*obs, rbk, scn, setting_id, workload_id, cfg.n_ops,
-                                                                   cfg.workload_seed, cfg.workload_records,
-                                                                   &cfg.workload_configs, cell_pmc);
-                    // [T-15-KLAMMER-ENDE]
+                    return mess_warmup_paar(cfg.mess_kaltlauf_debug,
+                                            [&]() -> PermResult {
+                                                // [T-15-KLAMMER]
+                                                return workload_id.empty()
+                                                           ? run_observable_perm(*obs, setting_id, cfg.n_ops, cell_pmc)
+                                                           : run_workload_perm(*obs, rbk, scn, setting_id, workload_id,
+                                                                               cfg.n_ops, cfg.workload_seed,
+                                                                               cfg.workload_records,
+                                                                               &cfg.workload_configs, cell_pmc);
+                                                // [T-15-KLAMMER-ENDE]
+                                            })
+                        .payload;
                 },
                 [](PermResult const& p) { return p.total_ns; }, &std::cerr, setting_id);
             PermResult const& pr = zelle.payload;
@@ -3093,6 +3158,17 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         }
 
         // (E): per-Binary-Ergebnis-CSV schreiben (isoliert je bin_dir) + Resume-Stempel nur nach verifiziertem Write.
+        //
+        // S13-03(b) (#18/D-1, KON32-01 -- Design 20260817 4.1, ENTSCHEIDUNG): result.csv +
+        // result.csv.stamp sind ein RESUME-VERTRAG und stehen AUSSERHALB des <writeback_methods>-
+        // Ziel-Filters. Der Filter regelt die AUSGABE an den Anwender (Auswerte-Formate); dieser
+        // Pfad ist BETRIEBSZUSTAND der Mess-Maschine: lazy_try_resume_binary (Resume-Arbiter),
+        // cfg.measurement_sink (measure-drop, Ebene C) und planner_status_types (kResultCsvName)
+        // haengen an genau dieser Datei. Sie wird deshalb WEITERHIN und BEDINGUNGSLOS geschrieben --
+        // auch fuer ein Nur-xlsx-Profil. Wer hier einen Filter einzieht, macht Resume, Status und
+        // Drop-Kanal blind, ohne dass etwas rot wuerde -- ausser den S13-03-Koedern
+        // (test_s13_03_per_binary_mappe), die genau dafuer beissen. Die AUSWERTE-CSV je Binary ist
+        // NICHT diese Datei, sondern das __S001-Kind der per-Binary-Mappe (cfg.per_binary_mappe).
         if (cfg.per_binary_subdirs && !per_binary_csv.empty() && !bin_dir.empty()) {
             std::error_code ec;
             std::filesystem::create_directories(bin_dir, ec);
@@ -3157,6 +3233,13 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // unabhaengige Ziele). Der SYNCHRON-Kontrakt bleibt zellintern (kein async/detached); nur die ZELLEN ueberlappen
         // und NUR im Debug (keine Mess-Timing-Garantie, §61-MODI). Fehler behandelt der Client (MESSEN WEITER).
         if (cfg.per_binary_subdirs && !bin_dir.empty()) {
+            // S13-03(a): je GEMESSENER Binary EINE Ergebnis-Mappe -- NACH result.csv+stamp (der
+            // Resume-Vertrag liegt dann bereits), VOR Push/Sink, synchron (I/O-Contention-Doktrin
+            // wie die Nachbarn). Der Sink beruehrt result.csv NIE (Satz (b) oben; Byte-Wache im
+            // Test). Leer (Default) oder keine Mess-Zeilen (provision-/pruef-only, Fehl-Bau) =>
+            // No-Op => byte-identisch.
+            if (cfg.per_binary_mappe && !per_binary_csv.empty())
+                cfg.per_binary_mappe(bin_dir, binary_id, lazy_csv_header(), per_binary_csv);
             // TP1FK1-B2 (Codex-Befund CX-W1): synchron pushen; wirft der Push, klassifiziert loggen (MESSEN
             // WEITER) UND den vorgemerkten Bestandslog-Eintrag dieser Binary verwerfen. Der Store hat den Satz
             // nie erhalten -- ein Eintrag im geteilten Dokument waere unter dem Bau-Filter des Folgelaufs ein
@@ -3198,17 +3281,67 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // Outcomes in INDEX-Ordnung (results[j]) -> deterministisch unabhaengig von der Ausfuehrungsreihenfolge.
     // S1 (§62-B Log-Flush, Befund 6h-stumm): geflushtes Mess-Fortschritts-Testat je fertiger Zelle (zeit-gated,
     // thread-sicher -- im Debug-Pool feuert genau EIN Worker je Intervall). Rein auf std::cerr -> golden/CSV-NEUTRAL.
+    // #83 (C-1(c), Owner-GO KON103 17.08.2026): der CEB-GEGENEINGANG am LAUF-Host, EINMAL je Mess-Lauf
+    // und VOR der ersten Zelle. Die Planer-Probe beweist die Lage nur fuer den PLANER-Host; hier laeuft
+    // die Messung. Drei Wege (KON106-04): einkompiliert+live -> still; einkompiliert ohne Zugriff ->
+    // [PMC-WARN] Teil-Lauf; NICHT einkompiliert, aber der Host-Koeder beisst -> [PMC-WARN] "PMC
+    // vorhanden, aber nicht verwendet" (der Owner-Fall). Die Wegwerf-Quelle unten kostet einmalig das
+    // Oeffnen/Schliessen der Zaehler-fds (RAII) -- sie stellt der realen Quelle dieselbe Frage, die
+    // jeder Mess-Worker gleich darauf selbst beantwortet, nur EINMAL und VOR dem Fenster, damit die
+    // Warnung im Log VOR den Messzeilen steht und nicht hinter Stunden von Fortschritts-Testaten.
+    {
+        std::unique_ptr<measurement::IPmcSource> const startup_quelle = make_pmc_source();
+        (void)pmc_startup_pruefe_und_melde(kPmcQuelleEinkompiliert, startup_quelle->available());
+    }
     ProgressHeartbeat        measure_hb{"mess-zelle", builds.size()};
     std::size_t              observed_max_concurrency = 0;
     std::vector<CellOutcome> outcomes                 = collect_ordered<CellOutcome>(
         builds.size(), cfg.measure_parallelism, [] { return make_pmc_source(); },
         [&](std::unique_ptr<measurement::IPmcSource>& ctx, std::size_t j) {
-            CellOutcome oc = measure_one_binary(builds[j], ctx.get());
-            measure_hb.tick(); // S1: je fertig gemessener/geladener Zelle ein geflushtes Fortschritts-Testat
+            // T-15b (KON37-06/KON28-02/KON26-04, 20.08.2026) -- DIE BINARY-RETRY-KLAMMER. Scheitert
+            // der Durchlauf HART (load_failed: die drei SourceUnavailable-Pfade -- ODER SampleStatus::
+            // Failed EINER Einstellung: KON28-02 "failt eine hart, scheitert die Messung der Binary
+            // KOMPLETT"), wiederholt sie den GESAMTEN measure_one_binary-Durchlauf bis zu
+            // cfg.mess_retry.max_versuche Mal (Owner-5). Nach Erschoepfung steht der LETZTE Ausgang
+            // ("failed"/"n/a" in der Zelle, nie null), der Lauf misst weiter. Jeder Wiederholungs-
+            // Versuch verwirft den vorigen Ausgang VOLLSTAENDIG (oc ist je Aufruf frisch; die
+            // per-Binary-Ablage schreibt trunc; Bestandslog/Push sind key-idempotent je Binary).
+            // SOFT (PMC-Einrichtung fehlt) triggert NIE: das Praedikat liest nur load_failed und den
+            // Zeilen-Status (mess_durchlauf_hart_gescheitert, harness/mess_retry_klammer.hpp).
+            // Die Versuchs-Bilanz reist NICHT in die CSV (Schema byte-identisch); Meldungen [t15b-
+            // retry] gehen nach std::cerr. Der Resume-Kurzschluss ist nie "hart" -> nie wiederholt.
+            // [T-15B-RETRY]
+            auto klammer = mit_mess_retry(
+                cfg.mess_retry, [&] { return measure_one_binary(builds[j], ctx.get()); },
+                [](CellOutcome const& oc) {
+                    return mess_durchlauf_hart_gescheitert(oc, measurement::SampleStatus::Failed);
+                },
+                &std::cerr, builds[j].binary_id);
+            // [T-15B-RETRY-ENDE]
+            CellOutcome oc = std::move(klammer.outcome);
+            measure_hb.tick(); // S1: je fertig gemessener/geladener ZELLE ein Testat (nicht je Versuch)
             return oc;
         },
         &observed_max_concurrency);
     measure_hb.done(); // S1: Mess-Fenster abgeschlossen -- genau eine geflushte Abschluss-Zeile
+    // C-11 (KON28-02 SOFT): fehlende MESSEINRICHTUNG der Mess-Achsen-Kategorie -> GENAU EINE
+    // Warnzeile je Lauf in den Traeger LazyRunResult::mess_warnungen (Entry -> MappenNaht ->
+    // INFO-Blatt der xlsx). Beurteilt wird die EINRICHTUNG selbst (dieselbe Factory, die die
+    // Mess-Worker speist -- available() der frisch gewaehlten Quelle), nicht ein Zeilen-Flag:
+    // ein einzelner Zaehler-Fehlschlag bei vorhandener Einrichtung ist keine Soft-Lage, sondern
+    // steht als n/a in seiner Zelle. KEIN Retry, KEIN Scheitern -- der Lauf hat bis hier bereits
+    // alles gemessen, was ohne PMC messbar ist.
+    if (!builds.empty()) {
+        if (auto const pmc_probe = make_pmc_source(); pmc_probe == nullptr || !pmc_probe->available()) {
+            std::string const quelle =
+                pmc_probe == nullptr ? std::string{"keine Quelle"} : std::string{pmc_probe->name()};
+            result.mess_warnungen.push_back(
+                "[C-11 soft] PMC-Messeinrichtung fehlt (Quelle: " + quelle +
+                ") -- HW-Counter-Spalten dieses Laufs sind n/a; Messung lief so weit es geht, "
+                "KEIN Retry (KON28-02).");
+            std::cerr << result.mess_warnungen.back() << "\n" << std::flush;
+        }
+    }
     if (cfg.measure_parallelism > 1)
         std::cerr << "[#45] paralleler Mess-Loop (Debug): pool=" << cfg.measure_parallelism
                   << " zellen=" << builds.size() << " beobachtete-Spitze=" << observed_max_concurrency << "\n";

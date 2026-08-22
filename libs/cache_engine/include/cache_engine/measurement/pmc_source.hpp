@@ -27,8 +27,11 @@ struct PmcCounters {
     bool          available               = false; // false = NICHT real gemessen (ehrlich, kein Schein-0)
     // B5/M-2-KORREKTUR-2 (2026-08-06, AMD-L3-Befund): PRO-ZAEHLER Verfuegbarkeit fuer die drei Felder, die
     // NICHT auf jeder Plattform/jedem Vendor gleich real sind -- cache_misses_l3 scheitert auf AMD Zen5 beim
-    // Oeffnen (PERF_TYPE_HW_CACHE/LL/READ/MISS -> ENOENT, am Objekt auf prod1 nachgemessen),
-    // cache_misses_l2/coherence_invalidations werden von KEINER heutigen IPmcSource je geoeffnet.
+    // Oeffnen (PERF_TYPE_HW_CACHE/LL/READ/MISS -> ENOENT, am Objekt auf prod1 nachgemessen).
+    // #82 (I-PMC-3, 2026-08-21): der Satz "cache_misses_l2/coherence_invalidations werden von KEINER
+    // heutigen IPmcSource je geoeffnet" ist seither UEBERHOLT -- LinuxPerfPmcSource oeffnet beide ueber
+    // PERF_TYPE_RAW, modell-gebunden aus measurement/pmc_raw_event_katalog.hpp (heute Zen 5, kreuzgeprobt);
+    // Modelle ohne Katalog-Eintrag lesen weiter ehrlich "n/a" ueber genau diese Flags.
     // `available` bleibt die ZEILEN-weite Aussage ("mindestens ein Zaehler hat real geliefert"); diese drei
     // Flags sind die ZAEHLER-weite Verfeinerung darunter. Default false (Fail-Safe, wie SystemAxisSample,
     // axis_error.hpp). Nur wenn `available && !dieses-Flag` wird die CSV-Zelle zu SourceUnavailable/"n/a"

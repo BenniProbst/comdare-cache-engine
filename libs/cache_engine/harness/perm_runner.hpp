@@ -189,6 +189,16 @@ inline void apply_conformance_gate_(anatomy::IDriveableTier& tier, PermResult& r
 /// Zustand → kein kumulatives Artefakt), pre-Observe (Baseline der absoluten Zähler), n_ops insert + n_ops
 /// lookup UNTER steady_clock-Messung (total_ns), post-Observe, und bildet die result_ingest-Zeile aus dem
 /// DELTA (post − pre) der getriebenen Zähler. Der host-/cluster-seitige Unikat-Mess-Lauf je Binary.
+///
+/// BAUSTEIN-ROLLE (C-05/KON47-04, 20.08.2026): diese Funktion ist der EINZELLAUF -- sie misst je
+/// Aufruf GENAU EINMAL, kalt (tier_clear + ein getimter Batch). Die Warm-Pflicht liegt beim
+/// produktiven Aufrufer: der EINE Kampagnen-Messpfad laeuft durch die [T-15-KLAMMER] des Iterators
+/// (measure_under_setting), wo mess_warmup_paar je Drift-Probe ZWEI dieser Laeufe faehrt (Lauf 1
+/// verworfen, Lauf 2 gespeichert; --debug 1x kalt). Aufrufer-Zensus 20.08. (Nenner: alle *.hpp/*.cpp
+/// ausser Bauverzeichnissen): Iterator-Klammer + run_workload_perm-Fallback (selbst nur in der
+/// Klammer erreicht) + apps/perm_runner (Behelfs-CLI, KEIN Kampagnenpfad -- misst deklariert kalt)
+/// + Testdateien. Es gibt damit KEINEN zweiten produktiven Kaltpfad; wer hier einen neuen Aufrufer
+/// ergaenzt, uebernimmt die Paar-Pflicht (Test: test_t15b_retry_warmup_paar, Quellen-Wache).
 /// #156-De-Risk (2026-06-20): `pmc` ist die EINE, vom Aufrufer pro Treiber-Lauf via make_pmc_source() erzeugte
 /// HW-Counter-Quelle (Strategy: NullPmcSource/WindowsPcmPmcSource hinter IPmcSource). nullptr = kein PMC (Default
 /// → r.pmc bleibt 0/available=false, exakt das alte Verhalten; KEIN Mess-Overhead). begin()/end() klammern NUR

@@ -7789,3 +7789,425 @@ add_test(NAME test_variant_hauswache COMMAND test_variant_hauswache
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_variant_hauswache)
 set_tests_properties(test_variant_hauswache PROPERTIES
     LABELS "variant;hauswache;par23;wachen" TIMEOUT 120)
+
+# =============================================================================
+# S-19 PLANUNGS-SIMULATION (#7, 2026-08-20): eigener Block am DATEIENDE
+# (Kollisionsschutz gegen die Bloecke anderer Straenge; Namenskonvention
+# test_s19_*). ZWEI Schichten wie bei check-size: der REINE Rechner
+# (standalone, Soll-Werte von Hand, T-3) und die KOMMANDO-Schicht an der
+# echten Planer-Binary + dem echten golden-320-Profil (m3v2_study).
+#
+# test_s19_simulation_rechnung: Pruefling ist planner_simulation.hpp -- ein
+# reiner Header ohne Bibliotheks-Anhang (er zieht planner_mengen_types.hpp und
+# damit builder/measure_storage/checkpoint_speicher.hpp): dieselben zwei
+# Include-Wurzeln wie test_check_size_mengenrechnung.
+add_executable(test_s19_simulation_rechnung "test_s19_simulation_rechnung.cpp")
+target_compile_features(test_s19_simulation_rechnung PRIVATE cxx_std_23)
+target_include_directories(test_s19_simulation_rechnung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+comdare_set_platform_defines(test_s19_simulation_rechnung)
+add_test(NAME test_s19_simulation_rechnung COMMAND test_s19_simulation_rechnung)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s19_simulation_rechnung)
+set_tests_properties(test_s19_simulation_rechnung PROPERTIES
+    LABELS "s19;planer;simulation;mengen;standalone")
+
+# test_s19_simulation_cli: faehrt die ECHTE Planer-Binary als Prozess (Muster
+# test_check_size_cli_deckel, inkl. der dort belegten add_dependencies-Falle:
+# $<TARGET_FILE:...> legt KEINE Bau-Kante an -- ohne add_dependencies laeuft
+# der selektive --target-comdare_tests-Weg auf eine fehlende Binary).
+add_executable(test_s19_simulation_cli "test_s19_simulation_cli.cpp")
+target_compile_features(test_s19_simulation_cli PRIVATE cxx_std_23)
+comdare_set_platform_defines(test_s19_simulation_cli)
+add_test(NAME test_s19_simulation_cli COMMAND test_s19_simulation_cli
+    "$<TARGET_FILE:comdare_experiment_planner>"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/m3v2_study.profile.xml")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s19_simulation_cli)
+add_dependencies(test_s19_simulation_cli comdare_experiment_planner)
+set_tests_properties(test_s19_simulation_cli PROPERTIES
+    LABELS "s19;planer;simulation;cli;standalone" TIMEOUT 180)
+
+# =============================================================================
+# T-15b + C-05 MESS-FENSTER (20.08.2026): Binary-Retry-Klammer + Wiederholungs-
+# Paar als eigener Block am DATEIENDE (Kollisionsschutz gegen die Bloecke
+# anderer Straenge; Harmonisierung macht der Lande-Zug).
+#
+# test_t15b_retry_warmup_paar: KON37-06 (je 5x Build+Messung, Stop bei Erfolg,
+# aufgeben nach Erschoepfung) + KON28-02 (hart triggert, SOFT/PMC nie --
+# Koeder) + KON47-04 (Paar 2 Laeufe/1 Wert, --debug 1x kalt, Verwerf-Beweis;
+# 6 Laeufe/3 Werte unter dem Drift-Gate) + XML-Kette <binary_retry> samt
+# Attr-Default-Umzugs-Beweis (drift max_reruns "5"->"3", KON26-04) +
+# Quellen-Wachen (Dispatch-Klammer [T-15B-RETRY], Paar in der T-15-KLAMMER,
+# Bau-Klammer im Orchestrator, Kaltpfad-Zensus perm_runner). Rezept/Includes
+# gespiegelt von test_t15_drift_gate_messschleife (standalone int main(), zieht
+# den Iterator-Header); die Quell-Pfade reisen per compile definition.
+add_executable(test_t15b_retry_warmup_paar "test_t15b_retry_warmup_paar.cpp")
+target_compile_features(test_t15b_retry_warmup_paar PRIVATE cxx_std_23)
+target_include_directories(test_t15b_retry_warmup_paar PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_t15b_retry_warmup_paar PRIVATE Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_t15b_retry_warmup_paar)
+# Pfade ueber Zwischenvariablen (DIFF-HYGIENE: keine >120-Spalten-Zeile; Muster _t15_tree).
+set(_t15b_ce "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+target_compile_definitions(test_t15b_retry_warmup_paar PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_T15B_ITERATOR_QUELLE=\"${_t15b_ce}/builder/experiment_tree/cache_engine_builder_iterator.hpp\""
+    "COMDARE_T15B_ENTRY_QUELLE=\"${_t15b_ce}/profile_facade/profile_run_entry.hpp\""
+    "COMDARE_T15B_EXPENTRY_QUELLE=\"${_t15b_ce}/profile_facade/experiment_run_entry.hpp\""
+    "COMDARE_T15B_ORCH_QUELLE=\"${_t15b_ce}/builder/build_orchestrator/build_orchestrator.hpp\""
+    "COMDARE_T15B_PERMRUNNER_QUELLE=\"${_t15b_ce}/harness/perm_runner.hpp\"")
+unset(_t15b_ce)
+add_test(NAME test_t15b_retry_warmup_paar COMMAND test_t15b_retry_warmup_paar)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_t15b_retry_warmup_paar)
+set_tests_properties(test_t15b_retry_warmup_paar PROPERTIES
+    LABELS "t15b;c05;retry;warmup-paar;messfenster;standalone;koeder")
+
+# =============================================================================
+# S-8-KOPF (T-NEU-6 Teil 1, 2026-08-20): CONTRACT-TESTS der Traeger-Stufe-1-
+# Neubauten als eigener Block am DATEIENDE (Kollisionsschutz; Konvention
+# test_s8*). Zwei TUs:
+#
+# test_s8kopf_planner_kopf: B-01-Naht-Schablone (3 Klassen hinauf, Negativ-
+# proben compile-hart) + B-14 sechs Steuerdocks (Nenner FREMD: 3! per
+# std::next_permutation, Instrument-Abschrift des Owner-KERNs 09.08.) +
+# Traeger-Raketen-Geruest (Tiefe 3, erst Tier dann Hybrid, KEINE YAML by
+# construction) + #22(ii)-Debug-Neutralitaet AN der dump-plan-Naht (Plan-Text
+# byte-invariant unter COMDARE_DEBUG_FREIGABE). Die TU zieht den Monolith-
+# Director (profile_facade) UND die neue <traeger/planner/...>-Wurzel
+# (comdare_planner) => Include-/Link-/Define-Satz deckungsgleich zu
+# test_experiment_plan_director (gleicher Director-Include-Baum) plus
+# comdare_planner.
+comdare_add_test(test_s8kopf_planner_kopf
+    SOURCES test_s8kopf_planner_kopf.cpp
+    LIBRARIES comdare_builder_xml_config_parser comdare_planner)
+comdare_prepare_thesis_object_dir(test_s8kopf_planner_kopf)
+target_include_directories(test_s8kopf_planner_kopf PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_s8kopf_planner_kopf PRIVATE Boost::mp11)
+# Pfad-Kurzformen NUR fuer die Diff-Hygiene-Spaltenbreite (Werte identisch zur
+# Langform bei test_experiment_plan_director, s. Kommentar oben):
+set(_s8kopf_prof "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles")
+set(_s8kopf_mess "${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement")
+target_compile_definitions(test_s8kopf_planner_kopf PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_PLANNER_THESIS_ALL_AXES=\"${_s8kopf_prof}/thesis_profiles/all_axes_golden.profile.xml\""
+    "COMDARE_EXPERIMENT_GOLDEN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_golden.xml\""
+    "COMDARE_CE_AXIS_REGISTRY=\"${_s8kopf_prof}/cache_engine_axis_registry.xml\""
+    "COMDARE_SYSTEM_AXIS_REGISTRY=\"${_s8kopf_mess}/system_axis_registry.xml\""
+    "COMDARE_MEASUREMENT_AXIS_REGISTRY=\"${_s8kopf_mess}/measurement_axis_registry.xml\"")
+# Gleiche Bau-Graph-Kante wie test_experiment_plan_director (P1689-Scan vs.
+# Generator-Custom-Command, s. Kommentar dort): der Director-Include-Baum zieht
+# generated_source_catalog.hpp.
+comdare_attach_generated_catalog(test_s8kopf_planner_kopf)
+set_tests_properties(test_s8kopf_planner_kopf PROPERTIES
+    LABELS "s8;contract;planner;traeger;naht;steuerdock;rakete;debug-neutralitaet")
+
+# test_s8_traeger_grenzwache: DESIGN #29 Par. 4.4 -- die Grenz-Wache zieht MIT
+# dem ersten S-8-Commit ein. Quelltext-Scanner als Google-Test (Muster
+# test_vs_taxonomie_klassen_grep): (a) keine Include-Kante Stufe N->N+1 in
+# libs/traeger/, (b) jede traeger->builder-Kante traegt den Marker
+# TRAEGER-BRUECKE(#88). Koeder beidseitig im Test (Wegwerf-Baum, Posten-69-
+# Namenskonvention via COMDARE_TEST_TMP_BUILD_TAG, verzeichnisweit definiert).
+# std-only + gtest => kein Link-Bedarf ueber gtest hinaus; der Pruef-Baum
+# kommt als Define.
+comdare_add_test(test_s8_traeger_grenzwache
+    SOURCES test_s8_traeger_grenzwache.cpp)
+target_compile_definitions(test_s8_traeger_grenzwache PRIVATE
+    "COMDARE_TRAEGER_WURZEL=\"${PROJECT_SOURCE_DIR}/libs/traeger\"")
+set_tests_properties(test_s8_traeger_grenzwache PROPERTIES
+    LABELS "s8;traeger;grenzwache;wachen;koeder")
+
+# =============================================================================
+# S13-02 ZIEL-FILTER (#18/D-1, KON32-01, 2026-08-21): <writeback_methods> steuert
+# die PERSISTENZ -- vier Faelle am ECHTEN run_profile, je Fall literales
+# Verzeichnis-Listing + Koeder-Abwesenheits-Pruefung (nicht deklarierte Datei
+# darf NICHT liegen). Eigener Block am DATEIENDE (Kollisionsschutz gegen die
+# Bloecke anderer Straenge; Namenskonvention test_s13_*).
+# T-1: ROT-ZUERST gegen ce 66de5c09 gefahren (Faelle 2/4 bissen: der rohe
+# CSV-Strom schrieb die nicht deklarierte measurements.csv) -- Protokoll im
+# Strang-Ergebnis 20260820-w2-sofortstaffel/s13-schema-kette-ergebnis.md.
+# Include-/Link-/Define-Satz = test_t2a_f4_facade_plan_durchreichung (das
+# echte run_profile mit Stub-Compile; profile_run_entry.hpp zieht source_/
+# sota_catalog, den XML-Parser und -- seit A9-S5 -- comdare::lager_ablage).
+add_executable(test_s13_02_zielfilter_vier_faelle "test_s13_02_zielfilter_vier_faelle.cpp")
+target_compile_features(test_s13_02_zielfilter_vier_faelle PRIVATE cxx_std_23)
+target_include_directories(test_s13_02_zielfilter_vier_faelle PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_s13_02_zielfilter_vier_faelle PRIVATE Boost::mp11
+    comdare::anatomy_module_loader comdare::workload_driver comdare_builder_xml_config_parser
+    comdare::lager_ablage)
+comdare_set_platform_defines(test_s13_02_zielfilter_vier_faelle)
+target_compile_definitions(test_s13_02_zielfilter_vier_faelle PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_S13_THESIS_MIN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/planner_thesis_min.profile.xml\""
+    "COMDARE_S13_EXPERIMENT_KERN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_kern_seam_fixture.xml\"")
+comdare_attach_generated_catalog(test_s13_02_zielfilter_vier_faelle)
+add_test(NAME test_s13_02_zielfilter_vier_faelle COMMAND test_s13_02_zielfilter_vier_faelle)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s13_02_zielfilter_vier_faelle)
+set_tests_properties(test_s13_02_zielfilter_vier_faelle PROPERTIES
+    LABELS "s13;zielfilter;writeback;facade;koeder;standalone" TIMEOUT 300)
+
+# =============================================================================
+# S13-01 CSV=KIND-DER-MAPPE (#18/D-1, Owner 09.08. 16:31, 2026-08-21): die
+# offizielle CSV als PROJEKTION des Stamms -- Byte-Orakel der golden-Gleichheit,
+# Ziel-Filter an der Naht, der benannte Design-Koeder (Stamm-Bruch laesst KEINE
+# CSV zurueck) und die Scope-Zaehl-Wache (nur Ergebnis-Blatt speist die
+# Projektion). Eigener Block am DATEIENDE (Kollisionsschutz; test_s13_*).
+# Include-/Link-Satz = test_a9s5_ergebnis_mappe_naht (dieselbe Naht-Flaeche,
+# ODR-Use der ErgebnisMappenFactory -> comdare::lager_ablage; kein ZIP-Rueckweg
+# noetig, also ohne zlib).
+add_executable(test_s13_01_csv_kind_projektion "test_s13_01_csv_kind_projektion.cpp")
+target_compile_features(test_s13_01_csv_kind_projektion PRIVATE cxx_std_23)
+target_include_directories(test_s13_01_csv_kind_projektion PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder")
+target_link_libraries(test_s13_01_csv_kind_projektion PRIVATE
+    comdare::lager_ablage gtest gtest_main)
+add_test(NAME test_s13_01_csv_kind_projektion COMMAND test_s13_01_csv_kind_projektion)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s13_01_csv_kind_projektion)
+set_tests_properties(test_s13_01_csv_kind_projektion PROPERTIES
+    LABELS "s13;csv_kind;projektion;naht;koeder")
+
+# =============================================================================
+# S13-03 PER-BINARY-MAPPE + RESUME-VERTRAG (#18/D-1, KON32-01, 2026-08-21):
+# Zaehl-Abnahme (N Mappen + 1 Aggregat), Koeder 1 (Resume ueberlebt Nur-xlsx),
+# Koeder 2+3 als Byte-Wache (result.csv+stamp bleiben byte-identisch unter dem
+# Sink), Positivprobe N->N+1 am Arbiter (lazy_try_resume_binary) mit
+# Gegeneingang (fremder Stempel-Praefix resumiert NICHT). Eigener Block am
+# DATEIENDE (Kollisionsschutz; test_s13_*).
+# Include-/Define-Satz = test_a8s3_csv_klasse_c (der Iterator-Header zieht den
+# Mess-Pfad -> Boost::mp11 + Mess-Defines + generierte Kataloge) PLUS die
+# Naht-Flaeche (comdare::lager_ablage, Muster test_a9s5).
+add_executable(test_s13_03_per_binary_mappe "test_s13_03_per_binary_mappe.cpp")
+target_compile_features(test_s13_03_per_binary_mappe PRIVATE cxx_std_23)
+target_include_directories(test_s13_03_per_binary_mappe PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_s13_03_per_binary_mappe PRIVATE Boost::mp11
+    comdare::lager_ablage gtest gtest_main)
+comdare_set_platform_defines(test_s13_03_per_binary_mappe)
+target_compile_definitions(test_s13_03_per_binary_mappe PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_s13_03_per_binary_mappe COMMAND test_s13_03_per_binary_mappe)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s13_03_per_binary_mappe)
+set_tests_properties(test_s13_03_per_binary_mappe PROPERTIES
+    LABELS "s13;per_binary;resume_vertrag;mappe;koeder")
+
+# =============================================================================
+# #83 PMC-FAIL-LOUD-PAKET (C-1(c), Owner-GO KON103 17.08.2026; Bau 2026-08-21):
+# der CEB-GEGENEINGANG am Lauf-Host -- eigener Block am DATEIENDE (Kollisions-
+# schutz gegen die Bloecke anderer Straenge; Namenskonvention test_pmc_*).
+#
+# test_pmc_startup_pruefung: die Drei-Wege-Unterscheidung KON106-04 (Fehler ->
+# Emission/PmcFailLoud; WARNUNG bei vorhanden-aber-ungenutzt; stiller Normal-
+# fall) mit Koeder-Strategien je Richtung. BEWUSST OHNE 'pmc'-Label -- dieselbe
+# Lehre wie test_b5_pmc_ehrlichkeit_alle_sieben (M-1/M-CE-25): die Fake-Wege
+# sind reine Logik, der Real-Weg pinnt nur die Invariante und FORDERT keine
+# PMU (ein fehlgeschlagenes perf_event_open ist dort die stille OhnePmc-Lage).
+# ctest -LE pmc ist ein REGEX-Filter: schon ein 'pmc'-SUBSTRING im Label wuerde
+# den Test aus test:unit werfen -- deshalb tragen die Labels den Begriff nicht.
+comdare_add_test(test_pmc_startup_pruefung
+    SOURCES test_pmc_startup_pruefung.cpp)
+target_include_directories(test_pmc_startup_pruefung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+set_tests_properties(test_pmc_startup_pruefung PROPERTIES
+    LABELS "fail_loud;startup_pruefung;gegeneingang;wachen;koeder")
+
+# =============================================================================
+# #82 I-PMC-2/3 (C-2, Owner-GO KON103 17.08.2026; Bau 2026-08-21): der modell-
+# gebundene RAW-Katalog (L2/coherence via PERF_TYPE_RAW) -- eigener Block am
+# DATEIENDE. Reine constexpr-Identitaet + FREMDE Nachrechnung der Kodierungen
+# (AMD-sysfs-Format-Layout) -- oeffnet KEINEN Counter, deshalb ebenfalls ohne
+# 'pmc'-Label (s. Block darueber; -LE pmc ist Regex).
+comdare_add_test(test_pmc_raw_event_katalog
+    SOURCES test_pmc_raw_event_katalog.cpp)
+target_include_directories(test_pmc_raw_event_katalog PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+set_tests_properties(test_pmc_raw_event_katalog PROPERTIES
+    LABELS "fail_loud;raw_katalog;kreuzprobe")
+
+# =============================================================================
+# #91-VOLLZUG W2-D (2026-08-21): I-1-/I-2-Schema-Festschreibung + M13-/M6-
+# Skelette (design91-v2) als eigener Block am DATEIENDE (Kollisionsschutz
+# gegen die Bloecke anderer Straenge).
+#
+# test_bestand_schluessel_schema: I-1-CT-Schema (lager/bestand_schluessel_
+# schema.hpp) gegen die Par.62-B-Genera (bestandslog_document.hpp) + die
+# design91-v2-Komponentenlisten; Doktrin-Konstanten KON110-04/V-10b.
+comdare_add_test(test_bestand_schluessel_schema
+    SOURCES test_bestand_schluessel_schema.cpp)
+target_include_directories(test_bestand_schluessel_schema PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+set_tests_properties(test_bestand_schluessel_schema PROPERTIES
+    LABELS "i1;schema;lager;wachen")
+
+# test_kanal_id_schema: I-2-CT-Festschreibung (measurement/kanal_id_schema.hpp)
+# kreuzgeprueft gegen die Tooling-Registry-ids (V-13-Kanon) und die gebaute
+# Arena (MessEbene-Ordinale, deskriptor_ix-Typ); Kanon-Pruefer + Gegeneingang.
+comdare_add_test(test_kanal_id_schema
+    SOURCES test_kanal_id_schema.cpp)
+target_include_directories(test_kanal_id_schema PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+set_tests_properties(test_kanal_id_schema PROPERTIES
+    LABELS "i2;kanal;schema;wachen")
+
+# test_begriffs_alias_registry: M13-Skelett/I-7 (naming/begriffs_alias_
+# registry.hpp) gegen Baustein-Tag, Tooling-ids und Merge-Modi (V-11R-
+# Uebergaenge); consteval-Uebersetzung + RT-Gegeneingang.
+comdare_add_test(test_begriffs_alias_registry
+    SOURCES test_begriffs_alias_registry.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+target_include_directories(test_begriffs_alias_registry PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization")
+set_tests_properties(test_begriffs_alias_registry PROPERTIES
+    LABELS "m13;i7;alias;wachen")
+
+# test_parameter_filter_registry_skelett: M6-Katalog-Skelett -- inkludiert den
+# Kopf AUSSCHLIESSLICH ueber das INTERFACE-Ziel comdare_ceb (Bauweg-Beweis der
+# neuen <traeger/ceb/...>-Include-Wurzel, Design #29 R5).
+comdare_add_test(test_parameter_filter_registry_skelett
+    SOURCES test_parameter_filter_registry_skelett.cpp
+    LIBRARIES comdare_ceb)
+set_tests_properties(test_parameter_filter_registry_skelett PROPERTIES
+    LABELS "m6;filter;skelett;wachen")
+
+# =============================================================================
+# P-H/#89 (Ledger-#44/PV-4, Staffel-2-Strang p-h-89, 2026-08-21): eigener Block
+# am DATEIENDE (Kollisionsschutz, Registrier-Doktrin).
+#
+# test_ph89_paper_prueflinge: Paper->Prueflinge-Uebersetzungs-Registry (CT,
+# Begriffs-Alias, KEIN Uebersetzer; KON110-05 R-1/R-2, KON112-08/-09) gegen den
+# XML-Bestand sota/*.profile.xml (33, Nenner FREMD) in BEIDEN Richtungen +
+# PV-4 profile_ref-Dereferenzierung (R-4-Literal 'UNERFUELLBARES XML-ZIEL
+# "ERROR"') + I-5 Farb-Tokens (Achsen-Tokens der Organ-Zeile, reale
+# algo_version aus der Versions-Tabelle -> Boost::mp11 + Registries) +
+# template-ref-Haerte am Experiment-Kanal + 33 Paper-Experiment-XMLs (F1a) +
+# M14-Ranking-Grammatik. Include-/Link-Satz wie test_validate_profile (die
+# Versions-Tabelle zieht alle Achsen-Registries).
+comdare_add_test(test_ph89_paper_prueflinge
+    SOURCES test_ph89_paper_prueflinge.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+target_include_directories(test_ph89_paper_prueflinge PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_ph89_paper_prueflinge PRIVATE Boost::mp11)
+target_compile_definitions(test_ph89_paper_prueflinge PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_CE_ALGORITHM_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles\"")
+set_tests_properties(test_ph89_paper_prueflinge PROPERTIES
+    LABELS "ph89;paper-prueflinge;pv4;i5;m14;contract;profiles")
+
+# =============================================================================
+# W2 SOFORTSTAFFEL-2 STRANG trigger-fixzellen (E-7 R-12 + E-8 R-13, 2026-08-21):
+# eigener Block am DATEIENDE (Kollisionsschutz gegen die Bloecke anderer Straenge).
+#
+# test_e07_gate_kriterien: der E-07-Gate-Pruefer (profile_facade/e07_gate_kriterien.hpp,
+# Dossier-Kriterien K1-K5+N1-N3, fail-closed, Nenner literal in der Ausgabe, Koeder
+# beidseitig). Header-only-Pruefling, nur stdlib -> kein Zusatz-Link.
+comdare_add_test(test_e07_gate_kriterien
+    SOURCES test_e07_gate_kriterien.cpp)
+target_include_directories(test_e07_gate_kriterien PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+set_tests_properties(test_e07_gate_kriterien PROPERTIES
+    LABELS "e07;gate;kriterien;b10;wachen;koeder")
+
+# test_e8_bytes_in_use_peak_demo: bytes_in_use_peak im Demo-Treiber WAHR (r3 C5) --
+# Link-/Include-Satz wie test_workload_and_experiment (derselbe Pruefling-Verbund).
+comdare_add_test(test_e8_bytes_in_use_peak_demo
+    SOURCES test_e8_bytes_in_use_peak_demo.cpp
+    LIBRARIES comdare::cache_engine_concepts comdare::workload_generator comdare::experiment)
+set_tests_properties(test_e8_bytes_in_use_peak_demo PROPERTIES
+    LABELS "e8;r13;bytes-in-use-peak;messwahrheit;koeder")
+
+# =============================================================================
+# #97/E-12 SKIP-OEKONOMIE (C-13 + C-14, 2026-08-21): eigener Block am DATEIENDE
+# (Kollisionsschutz gegen die Bloecke anderer Straenge).
+#
+# C-14: die Bestandslog-SKIP-Wache an der Presence-Naht (lager_presence.hpp).
+# SKIP nur bei BELEGTEM Eintrag je binary_id; der KON3-06-Koeder (kollabierter
+# Leer-Zellen-Bestand + leere Lauf-Zelle) wird ROT. Include-/Link-Satz wie
+# test_g3_lager_presence (ctsha512 via Index + Threads fuer den Zustands-Mutex).
+comdare_add_test(test_c14_lager_presence_wache
+    SOURCES test_c14_lager_presence_wache.cpp)
+target_include_directories(test_c14_lager_presence_wache PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_c14_lager_presence_wache PRIVATE Threads::Threads)
+set_tests_properties(test_c14_lager_presence_wache PROPERTIES
+    LABELS "c14;skip;bestandslog;wachen;koeder")
+
+# C-13: das wiederhergestellte Entscheidungs-/Ausweis-Modul der Skip-Oekonomie
+# (selektiver_rebuild.hpp; Nachfolger der mit 813c3232 entfernten V36.E-Maschinerie
+# auf dem heutigen Stempel-Stand). Include-/Link-Satz identisch zum A2-Block:
+# der Prueflig delegiert an dll_is_current (build_orchestrator.hpp), das zieht
+# denselben Header-Satz wie test_a2_sha512_skip_gate/test_bvset_teilmenge.
+add_executable(test_c13_selektiver_rebuild "test_c13_selektiver_rebuild.cpp")
+target_compile_features(test_c13_selektiver_rebuild PRIVATE cxx_std_23)
+target_include_directories(test_c13_selektiver_rebuild PRIVATE ${COMDARE_MCE24_INCLUDES})
+target_link_libraries(test_c13_selektiver_rebuild
+    PRIVATE gtest gtest_main Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_c13_selektiver_rebuild)
+add_test(NAME test_c13_selektiver_rebuild COMMAND test_c13_selektiver_rebuild)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_c13_selektiver_rebuild)
+set_tests_properties(test_c13_selektiver_rebuild PROPERTIES
+    LABELS "c13;skip;wachen;koeder")
+
+# C-14-SCHWESTER (T-6 "beide Genera", Audit-Fund S97-F1, 2026-08-22): dieselbe
+# SKIP-Wache im MEASUREMENT-Genus. MesswertRunState::lager_contains ist laut
+# eigenem Docstring die Mess-Presence-Naht; der KON3-06-Koeder (kollabierter
+# Leer-Zellen-Bestand + leere Lauf-Zelle) wird auch dort ROT. Include-/Link-Satz
+# wie test_c14_lager_presence_wache (Zustands-Mutex braucht Threads).
+comdare_add_test(test_c14_messwert_presence_wache
+    SOURCES test_c14_messwert_presence_wache.cpp)
+target_include_directories(test_c14_messwert_presence_wache PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_c14_messwert_presence_wache PRIVATE Threads::Threads)
+set_tests_properties(test_c14_messwert_presence_wache PROPERTIES
+    LABELS "c14;skip;bestandslog;messwert;wachen;koeder")
