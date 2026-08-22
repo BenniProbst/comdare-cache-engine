@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- P-H/#89 (Ledger-#44/PV-4; Owner-GO 08.08.2026 "unter sorgfaeltiger Design Planung"):
+     EIN Paper = GENAU EIN Experiment-XML (F1a, KON107-02: "Es gibt keine Kandidaten").
+     Paper P15 == Pruefling "graefe" (paper_pruefling_registry.hpp, sota/graefe.profile.xml).
+     A_full-STANDARD (F1a): KEINE <phases> == KERN-A leitet die 3 Verbund-Stufen ab
+     (Verbund1_CeOnly . Verbund2_Replace . Verbund3_Union == F1c volle CE-Wiederverwendung,
+     voll auspermutiert); volle Workload-/OP-Listen; Mess-Tooling abwesend == Default [all]
+     == w/ma/mi voll (F1b "Jede Reihe wird in drei Granularitaeten erhoben").
+     <template ref="P15"> == der Paper-Template-Namensraum (Registry-gedeckt; Fehlziel ist
+     seit der R-4-Haertung ein harter Planer-Fehler). -->
+<comdare_experiment version="2" id="paper_experiment_p15">
+
+  <template ref="P15" mode="full"/>
+
+  <execution_engines>
+    <engine id="ee_ce"  type="CacheEngineExecutionEngineAdapter" registry="cache_engine_axis_registry.xml"/>
+    <engine id="ee_prt" type="PrtArtExecutionEngineAdapter"      registry="prt_art_axis_registry.xml"/>
+  </execution_engines>
+
+  <lebewesen>
+    <tier id="graefe"/>
+  </lebewesen>
+
+  <workloads>ycsb_a ycsb_b ycsb_c ycsb_d ycsb_e ycsb_f</workloads>
+
+  <op_types>OP-1 OP-2 OP-3 OP-4 OP-5 OP-6</op_types>
+
+  <output>
+    <binary_path>_runs/${date}/paper_experiment_p15/results.bin</binary_path>
+    <csv_path>_runs/${date}/paper_experiment_p15/results.csv</csv_path>
+    <latex_path>_runs/${date}/paper_experiment_p15/results.tex</latex_path>
+    <comparison_metrics>true</comparison_metrics>
+  </output>
+
+</comdare_experiment>

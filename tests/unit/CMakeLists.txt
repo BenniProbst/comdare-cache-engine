@@ -8103,3 +8103,34 @@ comdare_add_test(test_parameter_filter_registry_skelett
     LIBRARIES comdare_ceb)
 set_tests_properties(test_parameter_filter_registry_skelett PROPERTIES
     LABELS "m6;filter;skelett;wachen")
+
+# =============================================================================
+# P-H/#89 (Ledger-#44/PV-4, Staffel-2-Strang p-h-89, 2026-08-21): eigener Block
+# am DATEIENDE (Kollisionsschutz, Registrier-Doktrin).
+#
+# test_ph89_paper_prueflinge: Paper->Prueflinge-Uebersetzungs-Registry (CT,
+# Begriffs-Alias, KEIN Uebersetzer; KON110-05 R-1/R-2, KON112-08/-09) gegen den
+# XML-Bestand sota/*.profile.xml (33, Nenner FREMD) in BEIDEN Richtungen +
+# PV-4 profile_ref-Dereferenzierung (R-4-Literal 'UNERFUELLBARES XML-ZIEL
+# "ERROR"') + I-5 Farb-Tokens (Achsen-Tokens der Organ-Zeile, reale
+# algo_version aus der Versions-Tabelle -> Boost::mp11 + Registries) +
+# template-ref-Haerte am Experiment-Kanal + 33 Paper-Experiment-XMLs (F1a) +
+# M14-Ranking-Grammatik. Include-/Link-Satz wie test_validate_profile (die
+# Versions-Tabelle zieht alle Achsen-Registries).
+comdare_add_test(test_ph89_paper_prueflinge
+    SOURCES test_ph89_paper_prueflinge.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+target_include_directories(test_ph89_paper_prueflinge PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_ph89_paper_prueflinge PRIVATE Boost::mp11)
+target_compile_definitions(test_ph89_paper_prueflinge PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_CE_ALGORITHM_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles\"")
+set_tests_properties(test_ph89_paper_prueflinge PROPERTIES
+    LABELS "ph89;paper-prueflinge;pv4;i5;m14;contract;profiles")
