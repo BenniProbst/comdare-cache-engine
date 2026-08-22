@@ -7771,3 +7771,21 @@ add_test(NAME test_configure_enable_gnu COMMAND test_configure_enable_gnu
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_configure_enable_gnu)
 set_tests_properties(test_configure_enable_gnu PROPERTIES
     LABELS "configure;gnu;enable-disable;wachen" TIMEOUT 120)
+
+# A1-RIEGEL (#117, Owner-Order 21.08.2026) test_variant_hauswache: hausweiter
+# kommentarfester std::variant-Quelltext-Scan ueber libs/cache_engine (rekursiv)
+# mit exakt eingefrorener Allowlist (8 Eintraege, Soll-Summe 21 Stellen; Befund
+# backups-workflow/20260821-a1-variant-audit). Schliesst die Waechter-Luecke
+# NEBEN der hybrid/-Zonen-Wache (test_hy_a1_dock_contract, Test E) und dem
+# Typ-Praedikat des Striktheits-Guards (Block D): ein neuer variant in
+# organ_axes/anatomy/topics/builder/measurement wird jetzt testseitig ROT.
+add_executable(test_variant_hauswache "test_variant_hauswache.cpp")
+COMDARE_set_cpp23(test_variant_hauswache)
+COMDARE_set_default_warnings(test_variant_hauswache)
+COMDARE_set_platform_defines(test_variant_hauswache)
+target_link_libraries(test_variant_hauswache PRIVATE gtest)
+add_test(NAME test_variant_hauswache COMMAND test_variant_hauswache
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_variant_hauswache)
+set_tests_properties(test_variant_hauswache PROPERTIES
+    LABELS "variant;hauswache;par23;wachen" TIMEOUT 120)

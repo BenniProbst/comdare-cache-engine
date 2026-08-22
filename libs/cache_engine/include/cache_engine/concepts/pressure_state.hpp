@@ -1,4 +1,13 @@
 #pragma once
+// PARAGRAF-23-QUARANTAENE (2026-08-22, A1-Audit #117): std::variant-basiert (State-Pattern der
+// REV-5.2-Aera) -> fuer statische/Organ-Achsen VERBOTEN (Runtime-Tag + Code-Bloat, Paragraf 23).
+// NICHT in den Live-Codegen-Pfad verdrahten; der Live-Weg sind monomorphe CRTP+Concept-Achsen.
+// Heutige Konsumenten sind ausschliesslich Tests (Umbrella cache_engine.hpp ->
+// test_v41_cache_engine_facade, test_pressure_state; Include-Rueckwaertskette im Befund
+// backups-workflow/20260821-a1-variant-audit/befund.md Abschnitt 2). Guards:
+// tests/unit/test_variant_hauswache.cpp (Allowlist-Eintrag mit eingefrorener Stellen-Zahl 2)
+// und tests/unit/test_striktheit_metaprog_guard.cpp (Block D). Rein additiver Marker.
+// ---------------------------------------------------------------------------
 // pressure_state.hpp - REV 5.2 State-Pattern via std::variant
 // Quelle: U09 (UML), extract_state_visitor_per_paper.md, extract_state_visitor_pattern.md
 
