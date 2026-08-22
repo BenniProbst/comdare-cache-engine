@@ -964,10 +964,10 @@ private:
                         else if (r.status == 125)
                             r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ArtefaktIo});
                         else if (r.status < 0 || r.status >= 128)
-                            // NACH-Prüfung-Fix: Signal-Abbruch. decode_process_status liefert 128+WTERMSIG POSITIV
-                            // (137=SIGKILL/OOM-Killer im RAM-Druck-Parallelbau, 139=SIGSEGV, 134=SIGABRT) — das ist
-                            // ein Prozess-Abbruch (INFRA), NIE ein Compiler-Urteil. (r.status<0 deckt zusätzlich die
-                            // Orchestrator-Sentinels.) Vorher fielen 128+sig fälschlich in den D1-else (Sweep-Rüge).
+                            // NACH-Pruefung-Fix: Signal-Abbruch. decode_process_status liefert 128+WTERMSIG POSITIV
+                            // (137=SIGKILL/OOM-Killer im RAM-Druck-Parallelbau, 139=SIGSEGV, 134=SIGABRT) -- das ist
+                            // ein Prozess-Abbruch (INFRA), NIE ein Compiler-Urteil. (r.status<0 deckt zusaetzlich die
+                            // Orchestrator-Sentinels.) Vorher fielen 128+sig faelschlich in den D1-else (Sweep-Ruege).
                             r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ProzessAbbruch});
                         else
                             r.outcome =

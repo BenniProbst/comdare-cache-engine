@@ -7897,13 +7897,17 @@ target_include_directories(test_s8kopf_planner_kopf PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_s8kopf_planner_kopf PRIVATE Boost::mp11)
+# Pfad-Kurzformen NUR fuer die Diff-Hygiene-Spaltenbreite (Werte identisch zur
+# Langform bei test_experiment_plan_director, s. Kommentar oben):
+set(_s8kopf_prof "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles")
+set(_s8kopf_mess "${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement")
 target_compile_definitions(test_s8kopf_planner_kopf PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
-    "COMDARE_PLANNER_THESIS_ALL_AXES=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/all_axes_golden.profile.xml\""
+    "COMDARE_PLANNER_THESIS_ALL_AXES=\"${_s8kopf_prof}/thesis_profiles/all_axes_golden.profile.xml\""
     "COMDARE_EXPERIMENT_GOLDEN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_golden.xml\""
-    "COMDARE_CE_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/cache_engine_axis_registry.xml\""
-    "COMDARE_SYSTEM_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement/system_axis_registry.xml\""
-    "COMDARE_MEASUREMENT_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement/measurement_axis_registry.xml\"")
+    "COMDARE_CE_AXIS_REGISTRY=\"${_s8kopf_prof}/cache_engine_axis_registry.xml\""
+    "COMDARE_SYSTEM_AXIS_REGISTRY=\"${_s8kopf_mess}/system_axis_registry.xml\""
+    "COMDARE_MEASUREMENT_AXIS_REGISTRY=\"${_s8kopf_mess}/measurement_axis_registry.xml\"")
 # Gleiche Bau-Graph-Kante wie test_experiment_plan_director (P1689-Scan vs.
 # Generator-Custom-Command, s. Kommentar dort): der Director-Include-Baum zieht
 # generated_source_catalog.hpp.
@@ -8184,7 +8188,8 @@ set_tests_properties(test_c14_lager_presence_wache PROPERTIES
 add_executable(test_c13_selektiver_rebuild "test_c13_selektiver_rebuild.cpp")
 target_compile_features(test_c13_selektiver_rebuild PRIVATE cxx_std_23)
 target_include_directories(test_c13_selektiver_rebuild PRIVATE ${COMDARE_MCE24_INCLUDES})
-target_link_libraries(test_c13_selektiver_rebuild PRIVATE gtest gtest_main Boost::mp11 comdare_builder_xml_config_parser)
+target_link_libraries(test_c13_selektiver_rebuild
+    PRIVATE gtest gtest_main Boost::mp11 comdare_builder_xml_config_parser)
 comdare_set_platform_defines(test_c13_selektiver_rebuild)
 add_test(NAME test_c13_selektiver_rebuild COMMAND test_c13_selektiver_rebuild)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_c13_selektiver_rebuild)

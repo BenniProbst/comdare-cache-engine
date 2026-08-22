@@ -45,7 +45,8 @@
 // DOKTRIN: header-only C++23, ASCII-Kommentare, stdlib + build_orchestrator (die eine Skip-Quelle).
 // Laeuft VOR dem Bau (Planer-/Orchestrierungs-Seite), nie im gemessenen Hot-Path.
 
-#include "build_orchestrator/build_orchestrator.hpp" // dll_is_current + SkipBvsetKontext (die EINE per-Binary-Skip-Quelle)
+// dll_is_current + SkipBvsetKontext (die EINE per-Binary-Skip-Quelle):
+#include "build_orchestrator/build_orchestrator.hpp"
 
 #include <cstddef>
 #include <filesystem>
