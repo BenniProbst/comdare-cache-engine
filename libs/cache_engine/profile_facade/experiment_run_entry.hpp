@@ -252,7 +252,7 @@ struct RunExperimentResult {
         datasets_signature += d.id + ':' + d.akte_ref + ':' + d.loader;
     }
 
-    // ── (6) S13-01/-02 (#18/D-1, KON32-01; Schwesterstelle zu profile_run_entry.hpp -- T-6: derselbe
+    // -- (6) S13-01/-02 (#18/D-1, KON32-01; Schwesterstelle zu profile_run_entry.hpp -- T-6: derselbe
     //    Schnitt an BEIDEN Naehten): DIE MAPPE IST DER STAMM, die offizielle CSV ihr KIND. Der rohe
     //    Parallel-Strom (std::ofstream csv{a.out_csv, trunc} + csv<< in emit) ist ENTFERNT -- eine
     //    Zeile erreicht a.out_csv NUR noch als PROJEKTION, NACHDEM der Stamm sie angenommen hat
@@ -260,7 +260,7 @@ struct RunExperimentResult {
     //    Projektion + __S001-Kind; xlsx -> Stamm auf Platte; LEER/FEHLEND => xlsx (Owner-KERN 26.07.);
     //    die Mappe im RAM entsteht IMMER. Fail-fast wie frueher beim CSV-Open (M11-Muster): ohne
     //    Stamm bzw. ohne herstellbare VERLANGTE csv faellt der Lauf, BEVOR gemessen wird -- ein
-    //    Lauf, dessen Persistenz nicht stehen kann, wuerde nur Stunden verbrennen. ──
+    //    Lauf, dessen Persistenz nicht stehen kann, wuerde nur Stunden verbrennen. --
     ::comdare::cache_engine::lager_naht::MappenNaht mappe;
     mappe.oeffnen(a.out_csv, ep.writeback_methods);
     if (!mappe.scharf()) {
@@ -269,7 +269,7 @@ struct RunExperimentResult {
         return res;
     }
     if (!mappe.projektion_oeffnen(a.out_csv)) {
-        std::cout << "RUN_EXPERIMENT FEHLER: offizielle CSV nicht herstellbar -- " << mappe.diagnose() << " → "
+        std::cout << "RUN_EXPERIMENT FEHLER: offizielle CSV nicht herstellbar -- " << mappe.diagnose() << " -> "
                   << a.out_csv.string() << "\n";
         res.exit_code = 1;
         return res;
@@ -557,17 +557,19 @@ struct RunExperimentResult {
     bool const csv_ok        = csv_gewaehlt && mappe.projektion_ok();
     bool const persistenz_ok = stamm_ok && mappe_ok;
 
+    // Pfeil als \u2192-Escape statt Roh-Byte (Diff-Hygiene-ASCII): Ausgabe-Byte identisch E2 86 92,
+    // der Pfeil ist PARSE-ANKER der super-Wache (ci/lauf_marker.sh PFEIL_UTF8; Pfad = alles NACH dem Pfeil).
     std::cout << "RUN_EXPERIMENT fertig: phasen=" << res.phases << " sota_rows=" << res.sota_rows
               << " sota_ids=" << res.sota_binary_ids << " measured=" << res.any_measured
               << " resumed=" << res.any_resumed << " csv_ok=" << (csv_ok ? "1" : "0")
-              << " persistenz_ok=" << (persistenz_ok ? "1" : "0") << " → " << a.out_csv.string() << "\n";
+              << " persistenz_ok=" << (persistenz_ok ? "1" : "0") << " \u2192 " << a.out_csv.string() << "\n";
 
     // Storage #51 (Ebene C, whole-run + datierter Baum): die EINE offizielle CSV NACH dem verifizierten
     // Schliessen additiv an die measure-drop-Senke. No-Op-Default => byte-neutral. Nur wenn sie
     // VERLANGT war und liegt (S13-02: ein Nur-xlsx-Lauf hat keine measurements.csv zu spiegeln).
     if (csv_ok && a.measurement_sink) a.measurement_sink(a.out_csv, "measurements.csv");
 
-    // Exit 0 = mind. 1 (Binary × Setting) real gemessen ODER resumiert UND ALLE GEWAEHLTEN
+    // Exit 0 = mind. 1 (Binary x Setting) real gemessen ODER resumiert UND ALLE GEWAEHLTEN
     // Persistenzen stehen fehlerfrei (M11-Nachfolger; S13-01: Fehler im Stamm => Exit != 0).
     res.exit_code = ((res.any_measured > 0 || res.any_resumed > 0) && persistenz_ok) ? 0 : 1;
     return res;

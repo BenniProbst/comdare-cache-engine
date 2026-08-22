@@ -796,7 +796,7 @@ struct RunProfileResult {
         return res;
     }
     if (!mappe.projektion_oeffnen(a.out_csv)) {
-        std::cout << "RUN_PROFILE FEHLER: offizielle CSV nicht herstellbar -- " << mappe.diagnose() << " → "
+        std::cout << "RUN_PROFILE FEHLER: offizielle CSV nicht herstellbar -- " << mappe.diagnose() << " -> "
                   << a.out_csv.string() << "\n";
         res.exit_code = 1;
         return res;
@@ -1536,17 +1536,19 @@ struct RunProfileResult {
     // Zusage zusaetzlich an ihrer eigenen Stelle: HOECHSTENS EIN Modus-Token je Zeile, ueber alle vier
     // Schalter-Belegungen geprueft.
     // INERT bei beiden Schaltern false: der Zusatz ist dann der leere String, die Zeile byte-identisch.
+    // Pfeil als \u2192-Escape statt Roh-Byte (Diff-Hygiene-ASCII): Ausgabe-Byte identisch E2 86 92,
+    // der Pfeil ist PARSE-ANKER der super-Wache (ci/lauf_marker.sh PFEIL_UTF8; Pfad = alles NACH dem Pfeil).
     std::cout << "RUN_PROFILE fertig: basis_rows=" << res.basis_rows << " sota_rows=" << res.sota_rows
               << " (basis_ids=" << res.basis_binary_ids << " sota_ids=" << res.sota_binary_ids << ")"
               << " measured=" << res.any_measured << " resumed=" << res.any_resumed
               << " provisioned=" << res.any_provisioned << lauf_modus_zusatz(a.provision_only, a.pruef_only)
-              << " csv_ok=" << (csv_ok ? "1" : "0") << " persistenz_ok=" << (persistenz_ok ? "1" : "0") << " → "
+              << " csv_ok=" << (csv_ok ? "1" : "0") << " persistenz_ok=" << (persistenz_ok ? "1" : "0") << " \u2192 "
               << a.out_csv.string() << "\n";
 
     // Storage #51 (Ebene C, whole-run + datierter Baum): die EINE offizielle CSV NACH dem verifizierten
     // Schliessen additiv an die measure-drop-Senke. No-Op-Default (leere measurement_sink) => byte-neutral.
     // Nur wenn sie VERLANGT war und liegt (S13-02: ein Nur-xlsx-Lauf hat keine measurements.csv zu
-    // spiegeln). SYNCHRON (alle Paesse fertig) — kein async/detached.
+    // spiegeln). SYNCHRON (alle Paesse fertig) -- kein async/detached.
     if (csv_ok && a.measurement_sink) a.measurement_sink(a.out_csv, "measurements.csv");
 
     // Exit 0 = mind. 1 (Binary x Setting) real gemessen ODER resumiert (Voll-Resume = gueltiger Lauf)
