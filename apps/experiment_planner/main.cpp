@@ -273,58 +273,60 @@ struct PlanerBlockGate {
 // Drift-Gate) nicht bemerken -- ein zu kleines Produkt sieht aus wie ein richtiges.
 //
 // STEUERT NICHTS, wie `status`: kein Bau, keine Messung, keine Reservierung, kein planer_block (also nie 6).
+// Die Aufrufer-Zutaten-Parser -- DATEI-WEIT, weil check-size UND simulate (S-19) dieselben Regeln
+// brauchen (ein Ort, eine Wahrheit). KONFIG-FEHLER SIND HART (rc 2 beim Aufrufer), nicht
+// stillschweigend 0: ein vertippter Deckel, der als "kein Deckel" durchrutscht, waere genau der
+// Gruen-ohne-Pruefung-Fall.
+[[nodiscard]] double zahl_oder_fehler(std::string const& s, char const* flag, bool& kaputt) {
+    if (s.empty()) return 0.0;
+    try {
+        std::size_t  gelesen = 0;
+        double const w       = std::stod(s, &gelesen);
+        if (gelesen != s.size() || !(w > 0.0)) {
+            std::cerr << "comdare-experiment-planner: " << flag << " erwartet eine positive Zahl, bekam '" << s
+                      << "'.\n";
+            kaputt = true;
+            return 0.0;
+        }
+        return w;
+    } catch (...) {
+        std::cerr << "comdare-experiment-planner: " << flag << " erwartet eine positive Zahl, bekam '" << s << "'.\n";
+        kaputt = true;
+        return 0.0;
+    }
+}
+// Der Byte-Deckel ist eine GANZE Zahl und wird als solche geparst (strtoull, Ganz-String + errno).
+// NICHT als double: static_cast<uint64_t>(0.5) waere 0 == "kein Deckel" (stiller Deckel-Verlust),
+// und der Cast von inf/1e30/2^64 nach uint64 ist UB. Nur [0-9]+ ist zugelassen -- strtoull selbst
+// wuerde "-1" kommentarlos nach 2^64-1 wickeln und Hex/Leerraum schlucken. 0 ist ABGELEHNT: ein
+// Deckel von null Bytes ist ein Tippfehler, kein Auftrag "nicht pruefen" (Flag weglassen heisst das).
+[[nodiscard]] std::uint64_t ganzzahl_oder_fehler(std::string const& s, char const* flag, bool& kaputt) {
+    if (s.empty()) return 0u; // Flag nicht gesetzt == kein Deckel
+    bool nur_ziffern = true;
+    for (char const c : s) {
+        if (c < '0' || c > '9') {
+            nur_ziffern = false;
+            break;
+        }
+    }
+    errno                         = 0;
+    char*                    ende = nullptr;
+    unsigned long long const w    = std::strtoull(s.c_str(), &ende, 10);
+    if (!nur_ziffern || ende != s.c_str() + s.size() || errno == ERANGE || w == 0ull) {
+        std::cerr << "comdare-experiment-planner: " << flag
+                  << " erwartet eine positive GANZE Zahl (dezimal, ohne Vorzeichen), bekam '" << s << "'.\n";
+        kaputt = true;
+        return 0u;
+    }
+    return static_cast<std::uint64_t>(w);
+}
+
 [[nodiscard]] int run_check_size_guarded(std::string const& profil, std::string const& max_bytes_arg,
                                          std::string const& max_tage_arg, std::string const& sek_je_op_arg) noexcept {
     try {
-        // Die drei Aufrufer-Zutaten -- geparst VOR dem Profil-Walk. KONFIG-FEHLER SIND HART (rc 2), nicht
-        // stillschweigend 0: ein vertippter Deckel, der als "kein Deckel" durchrutscht, waere genau der
-        // Gruen-ohne-Pruefung-Fall. Die Reihenfolge (erst Flags, dann Profil) ist Absicht: ein kaputtes Flag
-        // ist ohne Profil pruefbar und faellt auch dann als 2, wenn zusaetzlich das Profil unlesbar ist.
-        auto zahl_oder_fehler = [](std::string const& s, char const* flag, bool& kaputt) -> double {
-            if (s.empty()) return 0.0;
-            try {
-                std::size_t  gelesen = 0;
-                double const w       = std::stod(s, &gelesen);
-                if (gelesen != s.size() || !(w > 0.0)) {
-                    std::cerr << "comdare-experiment-planner: " << flag << " erwartet eine positive Zahl, bekam '" << s
-                              << "'.\n";
-                    kaputt = true;
-                    return 0.0;
-                }
-                return w;
-            } catch (...) {
-                std::cerr << "comdare-experiment-planner: " << flag << " erwartet eine positive Zahl, bekam '" << s
-                          << "'.\n";
-                kaputt = true;
-                return 0.0;
-            }
-        };
-        // Der Byte-Deckel ist eine GANZE Zahl und wird als solche geparst (strtoull, Ganz-String + errno).
-        // NICHT als double: static_cast<uint64_t>(0.5) waere 0 == "kein Deckel" (stiller Deckel-Verlust),
-        // und der Cast von inf/1e30/2^64 nach uint64 ist UB. Nur [0-9]+ ist zugelassen -- strtoull selbst
-        // wuerde "-1" kommentarlos nach 2^64-1 wickeln und Hex/Leerraum schlucken. 0 ist ABGELEHNT: ein
-        // Deckel von null Bytes ist ein Tippfehler, kein Auftrag "nicht pruefen" (Flag weglassen heisst das).
-        auto ganzzahl_oder_fehler = [](std::string const& s, char const* flag, bool& kaputt) -> std::uint64_t {
-            if (s.empty()) return 0u; // Flag nicht gesetzt == kein Deckel
-            bool nur_ziffern = true;
-            for (char const c : s) {
-                if (c < '0' || c > '9') {
-                    nur_ziffern = false;
-                    break;
-                }
-            }
-            errno                         = 0;
-            char*                    ende = nullptr;
-            unsigned long long const w    = std::strtoull(s.c_str(), &ende, 10);
-            if (!nur_ziffern || ende != s.c_str() + s.size() || errno == ERANGE || w == 0ull) {
-                std::cerr << "comdare-experiment-planner: " << flag
-                          << " erwartet eine positive GANZE Zahl in Bytes (dezimal, ohne Vorzeichen), bekam '" << s
-                          << "'.\n";
-                kaputt = true;
-                return 0u;
-            }
-            return static_cast<std::uint64_t>(w);
-        };
+        // Die drei Aufrufer-Zutaten -- geparst VOR dem Profil-Walk (Parser datei-weit, s. oben). Die
+        // Reihenfolge (erst Flags, dann Profil) ist Absicht: ein kaputtes Flag ist ohne Profil pruefbar
+        // und faellt auch dann als 2, wenn zusaetzlich das Profil unlesbar ist.
         bool                kaputt       = false;
         std::uint64_t const deckel_bytes = ganzzahl_oder_fehler(max_bytes_arg, "--max-bytes", kaputt);
         double const        deckel_tage  = zahl_oder_fehler(max_tage_arg, "--max-tage", kaputt);
@@ -352,6 +354,94 @@ struct PlanerBlockGate {
         return 2;
     } catch (...) {
         std::cerr << "[Fehler: check-size] unbekannte Ausnahme\n";
+        return 2;
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// simulate -- S-19 PLANUNGS-SIMULATION (#7, 2026-08-20): die B-4-/Mess-Mengen-Rechnung VOR dem Lauf.
+//
+// PLANER-ETAPPE (D.1/O1 ausdruecklich): der Owner-Auftrag verlangt die Berechnung ZUSAETZLICH auf der
+// CEB; deren Rechen-Vertrag (S-10/S-22) ist nicht gebaut -- diese Etappe rechnet im Planer und SAGT es.
+// Die geparsten Aufrufer-Zutaten sind exakt die check-size-Regeln (Parser datei-weit, eine Wahrheit).
+//
+// MEHRERE Profile == EINE Kampagne (Owner: "Paper = genau EIN Experiment-XML"; FULL JOIN je Achse
+// ueber alle Paper). Je Profil ein eigener Bericht, danach die Aggregation mit der B-4-Zahl.
+//
+// STEUERT NICHTS, wie check-size: kein Bau, keine Messung, keine Reservierung, kein planer_block.
+struct SimulateArgs {
+    std::vector<std::string> profile;
+    std::string              sek_je_op, bau_sek_je_dll, bytes_je_dll, lager_budget, t3_fenster;
+    std::string              mess_teilmenge, kandidaten, fremde_lane;
+};
+
+[[nodiscard]] int run_simulate_guarded(SimulateArgs const& args) noexcept {
+    try {
+        bool                kaputt       = false;
+        double const        sek_je_op    = zahl_oder_fehler(args.sek_je_op, "--sekunden-je-op", kaputt);
+        double const        bau_sek      = zahl_oder_fehler(args.bau_sek_je_dll, "--bau-sekunden-je-dll", kaputt);
+        double const        t3_fenster   = zahl_oder_fehler(args.t3_fenster, "--t3-fenster-tage", kaputt);
+        std::uint64_t const bytes_je_dll = ganzzahl_oder_fehler(args.bytes_je_dll, "--bytes-je-dll", kaputt);
+        std::uint64_t const lager_budget = ganzzahl_oder_fehler(args.lager_budget, "--lager-budget-bytes", kaputt);
+        std::uint64_t const teilmenge    = ganzzahl_oder_fehler(args.mess_teilmenge, "--mess-teilmenge", kaputt);
+        std::vector<std::uint64_t> kandidaten;
+        if (!args.kandidaten.empty()) {
+            std::string rest = args.kandidaten;
+            while (!rest.empty()) {
+                auto const        komma = rest.find(',');
+                std::string const token = rest.substr(0, komma);
+                rest                    = (komma == std::string::npos) ? std::string{} : rest.substr(komma + 1);
+                kandidaten.push_back(ganzzahl_oder_fehler(token, "--kandidaten", kaputt));
+            }
+        }
+        // Die fremde Lane ist eine DEKLARATION (nicht gemessen) -- nur die drei Lage-Woerter sind zulaessig,
+        // damit ein Tippfehler nicht stumm als "unbrauchbar" durchgeht (fail-closed heisst LAUT, nicht still).
+        if (!args.fremde_lane.empty() && args.fremde_lane != "amd" && args.fremde_lane != "intel" &&
+            args.fremde_lane != "unbrauchbar") {
+            std::cerr << "comdare-experiment-planner: --fremde-lane erwartet amd|intel|unbrauchbar, bekam '"
+                      << args.fremde_lane << "'.\n";
+            kaputt = true;
+        }
+        if (kaputt) return 2;
+
+        std::vector<pln::KampagnenPosten> posten;
+        int                               schlechtester = 0;
+        for (auto const& prof : args.profile) {
+            pln::SimulationsEingang eingang{};
+            if (int const rc = pf::collect_simulation_eingang_facade(std::filesystem::path{prof}, eingang, std::cerr);
+                rc != 0) {
+                return rc; // 5 = unbekannte/unlesbare Profil-Wurzel (Diagnose steht schon auf stderr)
+            }
+            eingang.mengen.sekunden_je_op = sek_je_op;
+            eingang.mess_teilmenge        = teilmenge;
+            eingang.bau_sekunden_je_dll   = bau_sek;
+            eingang.bau_sekunden_art      = pln::MengenArt::Geschaetzt;
+            eingang.bau_sekunden_nenner   = "--bau-sekunden-je-dll vom Aufrufer -- Trace-Anker, NICHT gemessen@16W";
+            eingang.bytes_je_dll          = bytes_je_dll;
+            eingang.bytes_je_dll_art      = pln::MengenArt::Geschaetzt;
+            eingang.bytes_je_dll_nenner   = "--bytes-je-dll vom Aufrufer (GN-9-Kalibrierwert)";
+            eingang.lager_budget_bytes    = lager_budget;
+            eingang.t3_fenster_tage       = t3_fenster;
+            eingang.fremde_lane_label     = args.fremde_lane;
+            eingang.fremde_lane_pmc       = (args.fremde_lane == "amd" || args.fremde_lane == "intel");
+
+            auto sicht = pln::simulation_rechnen(eingang);
+            std::cout << pln::simulations_bericht(sicht, eingang);
+            // Nicht erhoben ist KEIN Erfolg -- und eine Kampagne mit einem Loch ist keine Kampagne.
+            if (!sicht.erhoben) return 1;
+            if (sicht.abgelehnt()) schlechtester = 1;
+            posten.push_back(pln::KampagnenPosten{std::filesystem::path{prof}.filename().string(), std::move(eingang),
+                                                  std::move(sicht)});
+        }
+        auto const kampagne = pln::kampagnen_aggregation(posten);
+        std::cout << pln::kampagnen_bericht(kampagne, kandidaten);
+        if (!kampagne.erhoben) return 1;
+        return schlechtester;
+    } catch (std::exception const& e) {
+        std::cerr << "[Fehler: simulate] " << e.what() << "\n";
+        return 2;
+    } catch (...) {
+        std::cerr << "[Fehler: simulate] unbekannte Ausnahme\n";
         return 2;
     }
 }
@@ -545,6 +635,32 @@ void help_for(std::string const& topic) {
                   << "        ueberzaehliges Argument; 5 unbekannte Profil-Wurzel.\n";
         return;
     }
+    if (topic == "simulate") {
+        std::cout << "comdare-experiment-planner simulate [<profil>...] [--sekunden-je-op=F]\n"
+                  << "    [--bau-sekunden-je-dll=F] [--bytes-je-dll=N] [--lager-budget-bytes=N]\n"
+                  << "    [--t3-fenster-tage=F] [--mess-teilmenge=N] [--kandidaten=N,N,...]\n"
+                  << "    [--fremde-lane=amd|intel|unbrauchbar]\n"
+                  << "  S-19 PLANUNGS-SIMULATION (#7): rechnet aus den XML-FREIGABEN die Bau-Menge (B-4-Zahl =\n"
+                  << "  Organ-Freigabe-Produkt x System-Perms je XML, Summe ueber die Kampagne) und die Mess-Seite\n"
+                  << "  (dynamic_dims-Produkt, T-15 x KF-10, Messgeraete-Rekombination als AUSGANG der gemessenen\n"
+                  << "  PMC-Torlage -- nie als Vorgabe). MEHRERE Profile = EINE Kampagne (FULL JOIN je Achse).\n"
+                  << "  Baut KEINE DLL, misst NICHT, schreibt nichts. PLANER-ETAPPE: der CEB-Rechen-Ort folgt\n"
+                  << "  mit dem CEB-Rechen-Vertrag (S-10/S-22); dieser Lauf rechnet im Planer und sagt es.\n"
+                  << "    --sekunden-je-op=F       Mess-Kalibrierung (GESCHAETZT; ohne sie bleibt Mess-ETA n/a)\n"
+                  << "    --bau-sekunden-je-dll=F  Bau-Trace-Anker je DLL (GESCHAETZT; ohne ihn Bau-ETA n/a)\n"
+                  << "    --bytes-je-dll=N         GN-9-Kalibrierwert fuer den Lager-Bedarf\n"
+                  << "    --lager-budget-bytes=N   verlangt das Lager-Gate (fail-closed ohne --bytes-je-dll)\n"
+                  << "    --t3-fenster-tage=F      verlangt den OV-4-Deckel = f(T-3) als AUSGANG (fail-closed\n"
+                  << "                             ohne BEIDE Kalibrierungen -- O4/GN-9)\n"
+                  << "    --mess-teilmenge=N       Interims-Eingang der Mess-Teilmenge (kein XML-Traeger; ohne\n"
+                  << "                             sie ist die Mess-Gesamtzahl unbestimmbar, nur die Schranke)\n"
+                  << "    --kandidaten=N,N,...     Gegenprobe: gerechnete B-4-Zahl gegen diese Kandidaten stellen\n"
+                  << "    --fremde-lane=..         DEKLARIERTE Lage der zweiten Lane (nicht gemessen); ohne\n"
+                  << "                             Deklaration wird keine zweite Lane erfunden\n"
+                  << "  Exit: 0 ok; 1 verlangter Deckel gerissen/unbestimmbar oder nicht erhoben; 2 kaputtes\n"
+                  << "        Flag; 5 unbekannte Profil-Wurzel.\n";
+        return;
+    }
     if (topic == "fingerprint") {
         std::cout << "comdare-experiment-planner fingerprint [<profil>]\n"
                   << "  Druckt das Chunk-Organ-Fingerprint-PRE-IMAGE des Range-Fensters nach stdout (die CI\n"
@@ -572,6 +688,8 @@ void help_for(std::string const& topic) {
               << "                          Rueck-Leser: Stand von CEB-Bauten, Tier-Binaries und Messwerten\n"
               << "  check-size [<profil>] [--max-bytes=N] [--max-tage=F] [--sekunden-je-op=F]\n"
               << "                          Mengen-Vorschau VOR dem Lauf: Faktoren, Nenner, Arena, Dauer\n"
+              << "  simulate [<profil>...] [Flags, s. 'help simulate']\n"
+              << "                          S-19 Planungs-Simulation: B-4-Bau-Zahl + Mess-Menge + Deckel-AUSGANG\n"
               << "  version                 Planer-Selbst-Stempel + Compile-Einstellung\n"
               << "  help [<subcommand>]     diese Uebersicht bzw. Detail-Hilfe (auch: <subcommand> --help)\n\n"
               << "Globales Flag (mit JEDEM Subkommando kombinierbar, Stellung frei):\n"
@@ -606,7 +724,7 @@ void help_for(std::string const& topic) {
 [[nodiscard]] int unbekanntes_subkommando(std::string const& wort) noexcept {
     std::cerr << "comdare-experiment-planner: unbekanntes Subkommando '" << wort
               << "' -- erwartet: validate | plan dump|ci|cmake | cache-key | fingerprint | status | check-size | "
-                 "version | help.\n"
+                 "simulate | version | help.\n"
               << "  (Die CEB-Rolle 'tier ci|cmake' und der Mess-Lauf 'run' leben im comdare-messung-driver.)\n";
     return 1;
 }
@@ -836,6 +954,50 @@ int main(int argc, char* argv[]) {
             }
         }
         return run_check_size_guarded(resolve_profile(prof_arg), max_bytes_arg, max_tage_arg, sek_arg);
+    }
+    // simulate: additiver if-Zweig wie check-size; --simulate ist der kanonische Flag-Alias (Muster
+    // --version/--check-size). MEHRERE Positionale sind hier ERWUENSCHT (eine Kampagne aus N Papers) --
+    // der check-size-Schutz gegen ein Zweit-Positional gilt darum bewusst NICHT.
+    if (a1 == "simulate" || a1 == "--simulate") {
+        if (a2 == "--help" || a2 == "-h") {
+            help_for("simulate");
+            return 0;
+        }
+        SimulateArgs sim;
+        for (std::size_t i = 2; i < args.size(); ++i) {
+            std::string const& a = args[i];
+            if (a == "--help" || a == "-h") {
+                help_for("simulate");
+                return 0;
+            }
+            if (a.rfind("--sekunden-je-op=", 0) == 0) {
+                sim.sek_je_op = a.substr(std::string_view{"--sekunden-je-op="}.size());
+            } else if (a.rfind("--bau-sekunden-je-dll=", 0) == 0) {
+                sim.bau_sek_je_dll = a.substr(std::string_view{"--bau-sekunden-je-dll="}.size());
+            } else if (a.rfind("--bytes-je-dll=", 0) == 0) {
+                sim.bytes_je_dll = a.substr(std::string_view{"--bytes-je-dll="}.size());
+            } else if (a.rfind("--lager-budget-bytes=", 0) == 0) {
+                sim.lager_budget = a.substr(std::string_view{"--lager-budget-bytes="}.size());
+            } else if (a.rfind("--t3-fenster-tage=", 0) == 0) {
+                sim.t3_fenster = a.substr(std::string_view{"--t3-fenster-tage="}.size());
+            } else if (a.rfind("--mess-teilmenge=", 0) == 0) {
+                sim.mess_teilmenge = a.substr(std::string_view{"--mess-teilmenge="}.size());
+            } else if (a.rfind("--kandidaten=", 0) == 0) {
+                sim.kandidaten = a.substr(std::string_view{"--kandidaten="}.size());
+            } else if (a.rfind("--fremde-lane=", 0) == 0) {
+                sim.fremde_lane = a.substr(std::string_view{"--fremde-lane="}.size());
+            } else if (!a.empty() && a.front() == '-') {
+                // rc 2, nicht 1 -- dieselbe Unterscheidbarkeits-Regel wie bei check-size.
+                std::cerr << "comdare-experiment-planner: unbekanntes Flag '" << a
+                          << "' fuer simulate (Detail: 'help simulate').\n";
+                return 2;
+            } else {
+                sim.profile.push_back(a);
+            }
+        }
+        // Kein Positional => dieselbe Aufloesung wie ueberall (env > einkompiliertes Default-Profil).
+        if (sim.profile.empty()) sim.profile.push_back(resolve_profile(std::string{}));
+        return run_simulate_guarded(sim);
     }
     if (a1 == "plan") {
         if (a2 == "--help" || a2 == "-h" || a3 == "--help" || a3 == "-h") {

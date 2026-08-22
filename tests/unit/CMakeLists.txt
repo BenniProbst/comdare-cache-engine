@@ -7789,3 +7789,39 @@ add_test(NAME test_variant_hauswache COMMAND test_variant_hauswache
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_variant_hauswache)
 set_tests_properties(test_variant_hauswache PROPERTIES
     LABELS "variant;hauswache;par23;wachen" TIMEOUT 120)
+
+# =============================================================================
+# S-19 PLANUNGS-SIMULATION (#7, 2026-08-20): eigener Block am DATEIENDE
+# (Kollisionsschutz gegen die Bloecke anderer Straenge; Namenskonvention
+# test_s19_*). ZWEI Schichten wie bei check-size: der REINE Rechner
+# (standalone, Soll-Werte von Hand, T-3) und die KOMMANDO-Schicht an der
+# echten Planer-Binary + dem echten golden-320-Profil (m3v2_study).
+#
+# test_s19_simulation_rechnung: Pruefling ist planner_simulation.hpp -- ein
+# reiner Header ohne Bibliotheks-Anhang (er zieht planner_mengen_types.hpp und
+# damit builder/measure_storage/checkpoint_speicher.hpp): dieselben zwei
+# Include-Wurzeln wie test_check_size_mengenrechnung.
+add_executable(test_s19_simulation_rechnung "test_s19_simulation_rechnung.cpp")
+target_compile_features(test_s19_simulation_rechnung PRIVATE cxx_std_23)
+target_include_directories(test_s19_simulation_rechnung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+comdare_set_platform_defines(test_s19_simulation_rechnung)
+add_test(NAME test_s19_simulation_rechnung COMMAND test_s19_simulation_rechnung)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s19_simulation_rechnung)
+set_tests_properties(test_s19_simulation_rechnung PROPERTIES
+    LABELS "s19;planer;simulation;mengen;standalone")
+
+# test_s19_simulation_cli: faehrt die ECHTE Planer-Binary als Prozess (Muster
+# test_check_size_cli_deckel, inkl. der dort belegten add_dependencies-Falle:
+# $<TARGET_FILE:...> legt KEINE Bau-Kante an -- ohne add_dependencies laeuft
+# der selektive --target-comdare_tests-Weg auf eine fehlende Binary).
+add_executable(test_s19_simulation_cli "test_s19_simulation_cli.cpp")
+target_compile_features(test_s19_simulation_cli PRIVATE cxx_std_23)
+comdare_set_platform_defines(test_s19_simulation_cli)
+add_test(NAME test_s19_simulation_cli COMMAND test_s19_simulation_cli
+    "$<TARGET_FILE:comdare_experiment_planner>"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/m3v2_study.profile.xml")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s19_simulation_cli)
+add_dependencies(test_s19_simulation_cli comdare_experiment_planner)
+set_tests_properties(test_s19_simulation_cli PROPERTIES
+    LABELS "s19;planer;simulation;cli;standalone" TIMEOUT 180)

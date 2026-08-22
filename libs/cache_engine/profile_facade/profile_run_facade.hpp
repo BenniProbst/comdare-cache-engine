@@ -11,6 +11,7 @@
 #include <builder/experiment_tree/progress_delta.hpp> // Welle 5 (E-W5-2): ProgressSinkFn / ProgressDelta (§38-Naht, No-Op)
 #include <profile_facade/planner/planner_status_types.hpp> // W5: MessFormatFakten / PlanSollSicht (NUR PODs, std-only)
 #include <profile_facade/planner/planner_mengen_types.hpp> // check-size: MengenEingang (PODs + reine Rechnung)
+#include <profile_facade/planner/planner_simulation.hpp>   // S-19 simulate: SimulationsEingang (PODs + reine Rechnung)
 
 #include <cstddef>
 #include <cstdint>
@@ -416,5 +417,26 @@ struct PlanerBlockContext {
 // Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar.
 [[nodiscard]] int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner::MengenEingang& out,
                                             std::ostream& os);
+
+// ---------------------------------------------------------------------------------------------------------------
+// S-19 PLANUNGS-SIMULATION (#7, 2026-08-20): die SIMULATIONS-ERHEBUNG -- Planer-Etappe (D.1/O1: der
+// CEB-Rechen-Ort folgt mit S-22/#53; diese Etappe rechnet im Planer und sagt es dazu).
+//
+// Dieselbe Naht-Form wie collect_mess_menge_facade und EIN Walk fuer beide Ernten: der Simulations-
+// Sammler UMHUELLT den Mengen-Sammler (Delegation am selben IPlanBuilder-Strom -- ein Kanal, eine
+// Wahrheit) und erntet zusaetzlich, was die Simulation braucht: den PMC-Befund des Plan-Kopfs, die
+// System-Perm-Identitaeten, die Tooling-Kombinations-Breite. Danach liest sie die XML-Freigaben je
+// Organ-Achse (permute_axes bzw. axes_default_lookup; leere Werteliste == volle Registry-Liste, exakt
+// die build_axis_levels-Regel) und die dynamischen Laufzeit-Dimensionen OHNE repetition (die zaehlt
+// als KF-10 genau einmal -- Doppelzaehl-Falle, s. planner_simulation.hpp Kopf).
+//
+// ERHEBT nur; GERECHNET wird in planner::simulation_rechnen (reiner Header, T-3-pruefbar von Hand).
+// Was der Aufrufer NACH dieser Funktion selbst setzt (Kommandozeile, nicht Profil): mess_teilmenge,
+// bau_sekunden_je_dll, bytes_je_dll, lager_budget_bytes, t3_fenster_tage, mengen.sekunden_je_op,
+// fremde_lane_label/fremde_lane_pmc.
+//
+// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar.
+[[nodiscard]] int collect_simulation_eingang_facade(std::filesystem::path const& profile_path,
+                                                    planner::SimulationsEingang& out, std::ostream& os);
 
 } // namespace comdare::cache_engine::builder::profile_facade
