@@ -1081,9 +1081,13 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
     // das nichts -- und es ist der Preis dafuer, dass der Koeder wirklich BEISST statt nur zu oeffnen.
     {
         planner::PmcHostBefund const befund = planner::probe_pmc_host<>();
-        // Die Zeile geht ins Planer-Log, nicht nur in die Emission: wer den Planer-Lauf liest, sieht die
-        // Grundlage seiner Entscheidung, samt Nenner und samt der Grenze der Aussage.
-        os << "[" << what << "] " << befund.nenner_zeile() << "\n";
+        // Die Zeile geht ins Planer-LOG (stderr), nicht auf den Datenkanal: `os` traegt bei allen acht
+        // Fassaden dieser Naht das ARTEFAKT (Plan-Text/YAML/CMake), und eine Log-Zeile davor machte z. B.
+        // ein `plan ci > child.yml` syntaktisch kaputt und die stdout-Bytes lauf-abhaengig (CI 16073,
+        // Job 382856: der Biss-Vektor ist eine Laufzeit-Momentaufnahme). Dieselbe clig.dev-Trennung, mit
+        // der der [debug]-Vermerk auf stderr liegt (stdout bleibt emissions-rein). Die EMISSION behaelt
+        // ihre Befund-Aussage: `pmc_befund=` im Plan-Text, "# PMC-BEFUND ..." als YAML-Kommentar (T-2/V-1).
+        std::cerr << "[" << what << "] " << befund.nenner_zeile() << "\n";
         director.set_pmc_befund(befund);
     }
     // smoke=>debug-Entkopplung (2026-07-22): das METHODIK-Profil (COMDARE_PLAN_METHODIK_PROFILE) liefert -- falls

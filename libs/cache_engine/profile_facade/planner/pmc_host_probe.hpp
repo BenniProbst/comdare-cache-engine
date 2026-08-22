@@ -45,7 +45,13 @@
 // KOEDER-PFLICHT (K13): "oeffnet" genuegt NICHT. Ein Zaehler kann oeffnen und im ganzen Fenster keine
 // Hardware-Zeit bekommen (t_running==0; die Quelle kennt diesen Fall und verwirft dort den Wert). Deshalb
 // laeuft zwischen ENABLE und READ ein cache-feindlicher Pointer-Chase ueber einen Puffer weit jenseits L1:
-// liefert der Zaehler danach 0, hat der KOEDER NICHT GEBISSEN und das Event zaehlt als nicht brauchbar.
+// liefert der Zaehler nach einem GELAUFENEN Fenster 0, hat der KOEDER NICHT GEBISSEN und das Event zaehlt
+// als nicht brauchbar. PRAEZISIERUNG (CI 16073, Job 382856): eine 0 aus einem Fenster OHNE Hardware-Zeit
+// ist dagegen KEINE Messung -- unter PMU-Multiplexing (fremde perf-Nutzer, parallele ctest-Nachbarn der
+// CI-Zellen) kam derselbe Host so in EINEM Job auf events=3/4, 4/4 und 2/4, und die Erkennung wackelte
+// genau so, wie es der Satz "die Kette muss REPRODUZIERBAR beissen" verbietet. event_beisst() misst
+// deshalb die Gueltigkeit des Fensters mit (read_format TIME_ENABLED|TIME_RUNNING) und wiederholt leere
+// Fenster gedeckelt, bevor es urteilt; erst ein gelaufenes Fenster entscheidet, fail-closed bleibt.
 //
 // FAIL-CLOSED, ausdruecklich: unbekannter Vendor => unbrauchbar, auch wenn Zaehler oeffnen. Nicht-Linux =>
 // unbrauchbar (leere Event-Liste). Probe nicht gefahren => unbrauchbar. In KEINEM dieser Faelle wird PMC
@@ -196,13 +202,31 @@ namespace detail_pmc_probe {
 
 /// REALE Strategie: perf_event_open + cpuid + Koeder. Statisch eingesetzt (kein virtual).
 struct RealePmcHostStrategie {
+    /// FENSTER-DECKEL der Leer-Fenster-Wiederholung (s. event_beisst). Klein und endlich: ein Host, dessen
+    /// PMU ueber so viele Koeder-Fenster hinweg keinem einzigen Event Hardware-Zeit gibt, ist ehrlich
+    /// unbrauchbar (fail-closed) -- der Deckel schuetzt nur gegen das transiente Multiplexing-Loch.
+    static constexpr unsigned kKoederFenster = 5u;
+
     /// Der cpuid-Vendor-String dieses Hosts ("AuthenticAMD" / "GenuineIntel" / ... / "" auf non-x86).
     [[nodiscard]] static std::string cpuid_vendor() {
         return ::comdare::cache_engine::platform_probe::probe_cpuid().vendor;
     }
 
     /// Oeffnet EIN Event self-monitoring, laesst den Koeder laufen, liest zurueck. true nur, wenn der
-    /// Zaehler geoeffnet hat UND danach einen Wert > 0 traegt (K13: der Koeder MUSS beissen).
+    /// Zaehler geoeffnet hat UND ein GELAUFENES Fenster einen Wert > 0 traegt (K13: der Koeder MUSS
+    /// beissen).
+    ///
+    /// FENSTER-LEERE IST KEINE MESSUNG (CI 16073, Job 382856): unter PMU-Multiplexing (fremde perf-Nutzer
+    /// auf dem Kern, z. B. parallele ctest-Nachbarn der CI-Zelle) kann der Zaehler oeffnen und im ganzen
+    /// Koeder-Fenster keine Hardware-Zeit bekommen -- read() liefert dann 0, obwohl das Event auf diesem
+    /// Host funktioniert. Derselbe Runner sah so in EINEM Job events=3/4, 4/4 und 2/4: die Erkennung
+    /// wackelte lauf-zu-lauf, was der Probe-Kopf ausdruecklich verbietet. Deshalb misst die Probe ihre
+    /// eigene Gueltigkeit mit (read_format TIME_ENABLED|TIME_RUNNING):
+    ///   zeit_gelaufen == 0 => Fenster leer, es GIBT keine Messung => naechstes Koeder-Fenster
+    ///                        (gedeckelt auf kKoederFenster; wert/zeiten kumulieren ueber den fd);
+    ///   zeit_gelaufen  > 0 => es WURDE gemessen: wert > 0 ist der Biss, wert == 0 die ehrliche Absage
+    ///                        (das Event zaehlt auf diesem Host nicht) -- kein weiterer Versuch.
+    /// Nach dem Deckel gilt fail-closed (kein Biss): eine dauerhaft verdraengte PMU wird nie behauptet.
     [[nodiscard]] static bool event_beisst(::comdare::cache_engine::measurement::PmcEventSpec const& ev) noexcept {
 #if defined(__linux__)
         struct ::perf_event_attr attr;
@@ -213,19 +237,35 @@ struct RealePmcHostStrategie {
         attr.disabled       = 1;
         attr.exclude_kernel = 1;
         attr.exclude_hv     = 1;
+        attr.read_format    = PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING;
         long const fd       = ::syscall(__NR_perf_event_open, &attr, /*pid=*/0, /*cpu=*/-1, /*group_fd=*/-1,
                                         /*flags=*/0UL);
         if (fd < 0) return false;
         int const f = static_cast<int>(fd);
-        (void)::ioctl(f, PERF_EVENT_IOC_RESET, 0);
-        (void)::ioctl(f, PERF_EVENT_IOC_ENABLE, 0);
-        std::uint64_t const koeder = detail_pmc_probe::koeder_pointer_chase();
-        (void)::ioctl(f, PERF_EVENT_IOC_DISABLE, 0);
-        std::uint64_t wert = 0;
-        bool const    ok   = ::read(f, &wert, sizeof(wert)) == static_cast<::ssize_t>(sizeof(wert));
+        struct LeseForm { // read_format-Layout ohne PERF_FORMAT_GROUP: Wert, dann die zwei Zeiten
+            std::uint64_t wert;
+            std::uint64_t zeit_aktiv;    // TIME_ENABLED: Event war logisch eingeschaltet
+            std::uint64_t zeit_gelaufen; // TIME_RUNNING: Event sass real auf der PMU
+        };
+        bool biss = false;
+        for (unsigned fenster = 0; fenster < kKoederFenster; ++fenster) {
+            (void)::ioctl(f, PERF_EVENT_IOC_ENABLE, 0);
+            std::uint64_t const koeder = detail_pmc_probe::koeder_pointer_chase();
+            (void)::ioctl(f, PERF_EVENT_IOC_DISABLE, 0);
+            LeseForm   lf{};
+            bool const ok = ::read(f, &lf, sizeof(lf)) == static_cast<::ssize_t>(sizeof(lf));
+            // koeder wird verbraucht, damit der Pointer-Chase nicht wegoptimiert wird (er ist der ganze
+            // Punkt). Werkzeugfehler (read schlaegt fehl) ist fail-closed und KEIN Wiederholungsgrund.
+            if (!ok || koeder == 0xFFFFFFFFFFFFFFFFULL) break;
+            if (lf.wert > 0) {
+                biss = true; // ein gelaufenes Fenster hat gezaehlt -- der Koeder hat gebissen
+                break;
+            }
+            if (lf.zeit_gelaufen > 0) break; // gemessen und NICHT gebissen: die ehrliche 0 steht
+            // zeit_gelaufen == 0: Fenster leer (Multiplexing-Verdraengung) -- naechstes Fenster.
+        }
         (void)::close(f);
-        // koeder wird verbraucht, damit der Pointer-Chase nicht wegoptimiert wird (er ist der ganze Punkt).
-        return ok && wert > 0 && koeder != 0xFFFFFFFFFFFFFFFFULL;
+        return biss;
 #else
         (void)ev;
         return false;
