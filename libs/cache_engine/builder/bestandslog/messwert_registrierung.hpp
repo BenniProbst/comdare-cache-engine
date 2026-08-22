@@ -118,7 +118,21 @@ public:
     }
 
     /// Lesender Zugriff fuer eine Mess-Presence-Naht (war diese Zelle schon gemessen?).
+    ///
+    /// C-14-SCHWESTER (#97/E-12, KON3-06-Klasse; T-6 "beide Genera", Audit-Fund S97-F1): eine
+    /// LEERE Lauf-Zelle begruendet NIE einen "schon gemessen"-Befund. Ein kollabierter
+    /// Leer-Zellen-Bestand (je Kennung EIN Eintrag mit leerer Zelle) traefe sonst via
+    /// lager_key_from_hex jede leer gefragte Zelle (leer-vs-leer matcht) -- dieselbe Luecke,
+    /// die C-14 auf der Binary-Seite an der Presence-Naht schliesst (lager_presence.hpp,
+    /// make_lager_presence). PLATZIERUNGS-ABWAEGUNG: dort sitzt die Wache BEWUSST an der Naht
+    /// und NICHT in LagerRunState::lager_contains (der Koeder-Test ASSERTet das rohe Tupel);
+    /// HIER ist lager_contains laut diesem Docstring AUSSCHLIESSLICH die (kuenftige)
+    /// Mess-Presence-Naht -- die Wache sitzt deshalb direkt an ihr. Der rohe Index-Weg dieses
+    /// Genus bleibt observe() (dedupliziert weiter ueber das unbewachte Tupel; Schwester-Karte
+    /// S97-F1, Traeger wie F-106). Beweis: test_c14_messwert_presence_wache (Koeder ROT vor
+    /// dieser Wache, 2026-08-22).
     [[nodiscard]] bool lager_contains(std::string_view key_hex, ZellKoordinaten const& zelle) const {
+        if (zelle.empty()) return false; // C-14-Schwester: leere Lauf-Zelle ist NIE ein Beleg (s. oben)
         auto const k = lager_key_from_hex(key_hex, zelle);
         if (!k) return false; // KONSERVATIVER Miss: lieber einmal zu viel messen als eine Luecke melden
         std::lock_guard<std::mutex> lk(mtx_);

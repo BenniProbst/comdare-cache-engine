@@ -82,10 +82,25 @@ template <class View>
 // Der Zustand wird per REFERENZ gehalten (er lebt im Iterator ueber den ganzen Bau). lager_contains ist
 // thread-sicher (T2) -> die zurueckgegebene Funktion darf aus dem Planer-Thread laufen, waehrend die
 // Build-Worker observe() rufen.
+//
+// C-14 SKIP-WACHE (#97/E-12, KON3-06): eine LEERE Lauf-Zelle begruendet NIE einen Bestands-SKIP.
+// Der reale Bestand traegt je binary_id GENAU EINEN kollabierten Eintrag mit leerer Zelle (320
+// gepruefte IDs, Fingerprint bit-identisch ueber [O2,avx2]/[O3,avx512]); laeuft zugleich der Host
+// ohne gesetzte Zell-Env (profile_run_entry.hpp: "Ungesetzt => alle drei leer"), traefe die Frage
+// lager_contains(hex, {}) genau diesen Eintrag -- und EIN Eintrag begruendete den SKIP fuer JEDE
+// Matrix-Zelle. Deshalb hier, an der Naht, an der der SKIP begruendet wird: ohne benennbare
+// Lauf-Zelle gibt es nichts, WOFUER der Skip gelten wuerde -> konservativer Miss (kostet
+// schlimmstenfalls einen ueberfluessigen Bau, nie eine unterschlagene Binary). Der DEFAULT-
+// NEUTRAL-Satz aus dem Kopf bleibt wahr: der Lauf ohne Lager-Provider meldet weiterhin durchweg
+// "fehlt" -- diese Wache macht nur auch den Lauf ohne Zell-Env konservativ statt falsch-skippend.
+// Die Eintrags-Seite deckt die Tupel-Gleichheit von selbst: ein Leer-Zellen-Eintrag matcht keine
+// belegte Lauf-Zelle (LagerKey-Vergleich, bestandslog_index.hpp). Beweis: test_c14_lager_presence_wache
+// (Koeder ROT vor dieser Wache, 2026-08-21).
 [[nodiscard]] inline PresenceFn make_lager_presence(LagerRunState const& state, IndexKeyFn key_of,
                                                     ZellKoordinaten zelle) {
     return [&state, key_of = std::move(key_of), zelle = std::move(zelle)](std::size_t i) -> bool {
-        if (!key_of) return false; // kein Schluessel-Weg -> konservativer Miss
+        if (!key_of) return false;       // kein Schluessel-Weg -> konservativer Miss
+        if (zelle.empty()) return false; // C-14: leere Lauf-Zelle ist NIE ein SKIP-Beleg (s. Kopf)
         auto const hex = key_of(i);
         if (!hex) return false; // Fingerprint unbekannt -> konservativer Miss
         return state.lager_contains(*hex, zelle);
