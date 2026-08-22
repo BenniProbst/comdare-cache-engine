@@ -40,6 +40,30 @@
 # nicht die Commit-Granularitaet -- er erzwingt Floor-Datei und Registrierung
 # im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
+# -- NACHZUG 2026-08-22 ABEND (W2-LANDE-ZUG-ENDSTAND 5ddda4e5: 10-Straenge-Merge, ZWANZIG NEUE
+#    REGISTRIERUNGEN; Change = Lande-Merge + dieser Anker-Nachzug im SELBEN Push, Board #131) --
+# 544/540/538 loest 524/520/518 ab. Der Zuwachs ist +20 in JEDER Klasse und stammt
+# vollstaendig aus dem W2-Lande-Zug (Merge 5ddda4e5; Straenge s19/messfenster/s8kopf/
+# s13schema/pmcpaket/vollzug91/ph89/trigfix/skip97/kampvor):
+#     test_begriffs_alias_registry test_bestand_schluessel_schema test_c13_selektiver_rebuild
+#     test_c14_lager_presence_wache test_c14_messwert_presence_wache test_e07_gate_kriterien
+#     test_e8_bytes_in_use_peak_demo test_kanal_id_schema test_parameter_filter_registry_skelett
+#     test_ph89_paper_prueflinge test_pmc_raw_event_katalog test_pmc_startup_pruefung
+#     test_s13_01_csv_kind_projektion test_s13_02_zielfilter_vier_faelle
+#     test_s13_03_per_binary_mappe test_s19_simulation_cli test_s19_simulation_rechnung
+#     test_s8_traeger_grenzwache test_s8kopf_planner_kopf test_t15b_retry_warmup_paar
+# GEMESSEN, NICHT GERECHNET (KON58-13): alle drei Sprossen an DIESEM Baum EINMAL LIVE erhoben
+# (build-l1 @ 5ddda4e5); jede Namensliste bestand die Gegenprobe Listenlaenge == Total
+# (544/544, 540/540, 538/538). ZWEI-SEITIGE GEGENPROBE, LC_ALL=C comm in BEIDE Richtungen:
+# avx512f->avx2 verliert exakt die dokumentierten VIER, avx2->basis exakt die ZWEI, beide
+# Gegenrichtungen LEER; die 20 Neuen stehen in ALLEN DREI Namensmengen je genau 1x -> +20 auf
+# allen Sprossen, Abstaende -4/-2 unveraendert. Alt-Listen-Gegenprobe: comm gegen die
+# 524er-Namensliste (cifix-Messung) = exakt die 20 Neuen, 0 verschwunden. WIEDERHERSTELLUNG
+# 'cmake -U' auf BEIDE Variablen: Total wieder 544, Namensliste BYTE-GLEICH, beide
+# Cache-Schalter wieder INTERNAL=1. MESSHOST prod1, GCC, Ninja, 2026-08-22, Baum build-l1
+# @ 5ddda4e5. Messlog: ~/backups-workflow/20260822-lande-zug/Z10/floor-treppe-z10.log
+# (+ floor-ctestN-*.log, floor-namen-*.txt ebendort).
+#
 # -- NACHZUG 2026-08-22 (W2-LANDE-KOPF 9c74f553: A1-variant-Riegel, EINE NEUE REGISTRIERUNG;
 #    Fix-Change = NSDMI test_variant_hauswache + dieser Anker-Nachzug, Heilung CI 16085) ------
 # 524/520/518 loest 523/519/517 ab. Der Zuwachs ist +1 in JEDER Klasse und stammt
@@ -765,6 +789,6 @@
 # == exakt test_pruefling_fixture_ladung, Gegenrichtung LEER.
 # MESSHOST prod1, GCC 15.3.0, Ninja, 2026-08-21. Messlogs:
 # /home/comdare/backups-workflow/20260821-w1l-landung/floor-messung.log (+ floor-logs/).
-avx512f 524
-avx2 520
-basis 518
+avx512f 544
+avx2 540
+basis 538
