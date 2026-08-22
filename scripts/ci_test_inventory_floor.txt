@@ -40,6 +40,26 @@
 # nicht die Commit-Granularitaet -- er erzwingt Floor-Datei und Registrierung
 # im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
+# -- NACHZUG 2026-08-22 (W2-LANDE-KOPF 9c74f553: A1-variant-Riegel, EINE NEUE REGISTRIERUNG;
+#    Fix-Change = NSDMI test_variant_hauswache + dieser Anker-Nachzug, Heilung CI 16085) ------
+# 524/520/518 loest 523/519/517 ab. Der Zuwachs ist +1 in JEDER Klasse und stammt
+# vollstaendig aus dem A1-Riegel (Merge 9c74f553, Board #117):
+#     test_variant_hauswache   (hausweiter std::variant-Scan mit eingefrorener
+#                               8er-Allowlist; klassen- und pruefling-neutral)
+# GEMESSEN, NICHT GERECHNET: alle drei Sprossen an DIESEM Baum LIVE erhoben -- CI-Form-
+# Configure MIT COMDARE_CE_PRUEFLINGE, J-1-SIEBEN-Werkzeuge literal (adhoc_emitter_cli,
+# anatomy_codegen_cli, axis_registry_gen, catalog_codegen_cli, measurement_axis_registry_gen,
+# overlay_source_hash_gen, system_axis_registry_gen), RECONFIGURE, all + comdare_profile_run_
+# facade + comdare_tests, RECONFIGURE2; Zaehlbasis "Total Tests: N" mit Gegenprobe
+# Listenlaenge==Total (524/524, 520/520, 518/518). ZWEI-SEITIGE comm-GEGENPROBE (LC_ALL=C,
+# beide Richtungen): avx512f->avx2 verliert exakt die dokumentierten VIER, avx2->basis exakt
+# die ZWEI, beide Gegenrichtungen LEER; test_variant_hauswache steht in ALLEN DREI Namens-
+# mengen je genau 1x -> +1 auf allen Sprossen, Abstaende -4/-2 unveraendert.
+# WIEDERHERSTELLUNG 'cmake -U' auf BEIDE Variablen: Total wieder 524, Namensliste BYTE-GLEICH,
+# beide Cache-Schalter wieder INTERNAL=1. MESSHOST prod1, GCC, Ninja, 2026-08-22,
+# Baum build-floor @ 9c74f553+NSDMI-Fix. Messlog:
+# ~/backups-workflow/20260822-lande-cifix-varwache/floor-messung2.log (+ floor-logs2/).
+#
 # -- NACHZUG 2026-08-19 (A2.5/G5 B3 WALLCLOCK-ERBE, EINE NEUE REGISTRIERUNG) --
 # 507/503/501 loest 506/502/500 ab. Der Zuwachs ist +1 in JEDER Klasse und stammt
 # vollstaendig aus dem B3-Posten (Schalter-Hoheits-Umzug zur CEB, KON37-01/KON34-04):
@@ -745,6 +765,6 @@
 # == exakt test_pruefling_fixture_ladung, Gegenrichtung LEER.
 # MESSHOST prod1, GCC 15.3.0, Ninja, 2026-08-21. Messlogs:
 # /home/comdare/backups-workflow/20260821-w1l-landung/floor-messung.log (+ floor-logs/).
-avx512f 523
-avx2 519
-basis 517
+avx512f 524
+avx2 520
+basis 518

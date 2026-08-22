@@ -62,7 +62,7 @@ std::string g_wurzel; // argv[1]: Pfad zu libs/cache_engine (der zu scannende Qu
 // ============================================================================================
 struct AllowEintrag {
     std::string_view rel;
-    std::size_t      soll;
+    std::size_t soll{}; // NSDMI: cppcheck uninitMemberVarNoCtor (CI 16085 Job 382984); Verwendung bleibt Aggregat-Init
     std::string_view grund;
 };
 
