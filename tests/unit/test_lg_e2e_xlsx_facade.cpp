@@ -5,8 +5,15 @@
 // VORBESTAND (Anrechnung statt Doppelung): die xlsx-KETTE existiert und ist getestet --
 // test_a9s5_ergebnis_mappe_naht prueft die NAHT isoliert (ZIP-Signatur, Zellwerte, csv+xlsx aus
 // EINER Mappe), test_a9s3_* pruefen Writer/Registry. Was FEHLTE, ist der Beweis ueber die FACADE:
-// run_profile(Args) -> neben out_csv entsteht die Mappe wirklich als .xlsx-Datei ("xlsx IST DIE
+// run_profile(Args) -> die Mappe entsteht wirklich als .xlsx-Datei ("xlsx IST DIE
 // AUSGABE", Owner-KERN 26.07.: <writeback_methods> LEER/FEHLEND => xlsx).
+//
+// LANDE-HARMONISIERUNG (W2-Zug 4/10, KON32-01/S13-02): seit dem s13-Ziel-Filter heisst
+// LEER/FEHLEND => NUR xlsx -- eine NICHT deklarierte measurements.csv darf NICHT mehr
+// entstehen (der fruehere rohe CSV-Strom war exakt die vom Owner als falsch deklarierte
+// KON32-01-Luecke). Dieser Test prueft die Abwesenheit; die CSV-MIT-Kopf-Substanz deckt
+// seither test_s13_02_zielfilter_vier_faelle (Faelle 1/3, deklarierte CSV) und
+// test_s13_01_csv_kind_projektion (Byte-Orakel der Projektion).
 //
 // FAHRWEG (Muster test_t2a_f4_facade_plan_durchreichung, derselbe leichte Lauf): Mini-Profil
 // planner_thesis_min, Stub-Compile (0 == Erfolg), provision_only, max_binaries=1 -- KEIN echter
@@ -20,9 +27,10 @@
 //     mit EINEM Sheet je gewaehlter Unter-Achsen-Permutation + zusaetzlichem INFO-Sheet"; die
 //     Kopf-Mappe traegt EIN Daten-Sheet + das INFO-Sheet. Der ZIP-Traeger nennt jeden
 //     "xl/worksheets/sheet"-Eintrag zweimal (Local Header + Central Directory) -> 4 Treffer.
-//   * Zeilen-Nenner: provision_only misst nichts -> die CSV traegt GENAU 1 Zeile (den Kopf);
-//     die Mappe entsteht trotzdem (Kopf-Mappe, A9-S5-Doktrin "geschrieben wird in schliessen()").
-//   * Stamm-Nenner: xlsx-Name und CSV liegen im selben Verzeichnis; die .xlsx beginnt mit der
+//   * CSV-Nenner (S13-02): das Mini-Profil deklariert KEINE writeback_methods -> es darf
+//     KEINE measurements.csv liegen (Default = NUR xlsx); die Mappe entsteht trotzdem
+//     (Kopf-Mappe, A9-S5-Doktrin "geschrieben wird in schliessen()").
+//   * Stamm-Nenner: die .xlsx liegt im Lauf-Verzeichnis und beginnt mit der
 //     ZIP-Signatur PK\x03\x04 (eine xlsx IST ein ZIP -- dieselbe Probe wie test_a9s5).
 //
 // T-11c-MUTATIONSANKER: den Writer-Anschluss des Tests wegmutieren (provision_only-Lauf ohne
@@ -71,7 +79,7 @@ namespace fs  = std::filesystem;
     return n;
 }
 
-TEST(LgE2eXlsxFacade, RunProfileErzeugtDieMappeAlsXlsxNebenDerCsv) {
+TEST(LgE2eXlsxFacade, RunProfileErzeugtDieMappeAlsXlsxOhneUndeklarierteCsv) {
     std::error_code ec;
     fs::path const  base = ::comdare::test::user_tmp_dir() / "comdare_lg_e2e_xlsx";
     fs::remove_all(base, ec);
@@ -93,10 +101,11 @@ TEST(LgE2eXlsxFacade, RunProfileErzeugtDieMappeAlsXlsxNebenDerCsv) {
     tlz::RunProfileResult const r = tlz::run_profile(a);
     ASSERT_EQ(r.exit_code, 0) << "der leichte provision_only-Lauf muss regulaer enden";
 
-    // Zeilen-Nenner der CSV: GENAU der Kopf (provision_only misst nichts).
-    std::string const csv = read_file(a.out_csv);
-    ASSERT_FALSE(csv.empty()) << "die CSV muss existieren und den Kopf tragen";
-    EXPECT_EQ(zaehle_teilstring(csv, "\n"), 1u) << "provision_only: genau 1 Zeile (der Kopf), keine Messwerte";
+    // CSV-Nenner (LANDE-HARMONISIERUNG, KON32-01/S13-02): das Mini-Profil deklariert KEINE
+    // writeback_methods -> Default = NUR xlsx; die NICHT deklarierte measurements.csv darf
+    // NICHT liegen (der Alt-Kontrakt "CSV entsteht immer" war die KON32-01-Luecke; die
+    // CSV-MIT-Kopf-Substanz deckt test_s13_02 Faelle 1/3 + test_s13_01 mit deklarierter CSV).
+    EXPECT_FALSE(fs::exists(a.out_csv)) << "nicht deklarierte measurements.csv darf NICHT entstehen (S13-02)";
 
     // Datei-Nenner: GENAU EINE .xlsx neben der CSV ("xlsx IST DIE AUSGABE"; writeback fehlt im
     // Mini-Profil => xlsx-Default).
@@ -123,6 +132,7 @@ TEST(LgE2eXlsxFacade, RunProfileErzeugtDieMappeAlsXlsxNebenDerCsv) {
     a.dll_dir = lauf2 / "dll";
     ASSERT_EQ(tlz::run_profile(a).exit_code, 0);
     EXPECT_EQ(dateien_mit_endung(lauf2, ".xlsx").size(), 1u);
+    EXPECT_FALSE(fs::exists(a.out_csv)) << "auch im Wiederholungslauf: keine undeklarierte CSV (S13-02)";
 }
 
 } // namespace
