@@ -8,6 +8,11 @@
 // zu verschiedenen Tier-Binaries; alles per XML in ranges/batches/einzeln konfigurierbar,
 // NICHTS gepinnt, JEDES TEIL beweglich. CEB-Default = O3 (IEEE-754-deterministisch, Option B, Ruling
 // 2026-07-18), per env/XML/Planer ueberschreibbar; Ofast/O0/O1/O2 additiv als Vergleichs-Extreme.
+//   ^ UEBERHOLT (22.08.2026, Owner-Entscheid 21.08.2026: "O2 ist Standard fuer alle Builds, O3 wird
+//   unter Warnung angeboten"; Owner-Primaerquelle Thesis-Kommentar 728fc74: "Maximale Optimierung
+//   muss waehlbar bleiben"): der CEB-Default ist seither O2 (DefaultOptLevelOption unten). O3/Ofast
+//   bleiben waehlbare Werte der Unter-Achse; die Haus-Bauwelt bietet O3 per cmake/compiler_flags.cmake
+//   COMDARE_OPT_O3=ON unter lauter Configure-WARNING an. Der Ruling-Satz oben bleibt als Historie.
 //
 // Fluss wie external_utils (das strikte Vorbild): CompileFn-Flag (-O<n>) + H-10-Sidecar-
 // Provenienz (build_version "+opt="); binary_id-NEUTRAL (steht nie in kCompositionAxisNames,
@@ -107,8 +112,11 @@ struct OptO3Option final : OptimizationLevelSubAxis<OptO3Option> {
 };
 
 /// Ofast = O3 + -ffast-math-Familie + -fallow-store-data-races: aggressivste Stufe, IEEE-754-/
-/// Determinismus-brechend (is_ieee754_deterministic()==false). CEB-DEFAULT (OF-2), per XML
-/// ueberschreibbar. MSVC hat kein direktes Aequivalent -> /O2 (naechstliegend; /fp:fast waere die
+/// Determinismus-brechend (is_ieee754_deterministic()==false). "CEB-DEFAULT (OF-2)" war die
+/// Buchstaben-Lesart der Alt-Aera -- UEBERHOLT bereits durch Ruling 2026-07-18 (Default O3), seit
+/// 22.08.2026 gilt O2 (Owner-Entscheid 21.08.2026, s. DefaultOptLevelOption); Ofast bleibt
+/// waehlbares Vergleichs-Extrem per XML ("Maximale Optimierung muss waehlbar bleiben", 728fc74).
+/// MSVC hat kein direktes Aequivalent -> /O2 (naechstliegend; /fp:fast waere die
 /// separate Fliesskomma-Achse).
 struct OptOfastOption final : OptimizationLevelSubAxis<OptOfastOption> {
     [[nodiscard]] static constexpr std::string_view do_opt_level_id() noexcept { return "Ofast"; }
@@ -125,7 +133,16 @@ struct OptOfastOption final : OptimizationLevelSubAxis<OptOfastOption> {
 /// als +opt=-Sidecar-Vergleichs-Extreme (OptOfastOption bleibt konkrete Achse). "Nichts gepinnt, JEDES TEIL
 /// beweglich": dies ist NUR der benannte Default-Startwert; env COMDARE_PILOT_OPT_LEVEL + XML/Planer (A3)
 /// ueberschreiben jedes Teil. Benannte Single-Source, damit die Default-Wahl nicht als rohes Literal dupliziert wird.
-using DefaultOptLevelOption = OptO3Option;
+/// UEBERHOLT-NACHTRAG (22.08.2026, Owner-Entscheid 21.08.2026 "O2 ist Standard fuer alle Builds, O3 wird unter
+/// Warnung angeboten"; Owner-Primaerquelle Thesis-Kommentar 728fc74: "... ist das nicht im Ermessen des
+/// Entwicklers, was er bei der Verwendung des Systems unter Warnung der Konsequenzen verwendet? Maximale
+/// Optimierung muss waehlbar bleiben."): der CEB-Default ist seither **O2** -- ebenfalls IEEE-754-deterministisch,
+/// wahrt den 1-Thread-Mess-Determinismus. Der Absatz oben ist die Historie des 07-18-Rulings (Doku-Doktrin:
+/// supersedieren, nie loeschen). O3 bleibt vollwertig waehlbar: per XML/Planer als Achsen-Wert (erzeugt einen
+/// ANDEREN Toolchain-Fingerprint, Glied [5] '+opt=' -- nie einen falschen Cache-Skip; binary_id/golden-320
+/// unberuehrt) und in der Haus-Bauwelt per COMDARE_OPT_O3=ON (cmake/compiler_flags.cmake) unter lauter
+/// Configure-WARNING mit Konsequenz-Nennung.
+using DefaultOptLevelOption = OptO2Option;
 
 /// Single-Source der gueltigen opt_level-ids (Reihenfolge = Design-Space-Vokabular). Speist die Profil-Validierung
 /// (validate_profile kValidOptLevels), damit die Werte nicht dupliziert werden (Konformitaets-Single-Source, analog
@@ -139,8 +156,9 @@ static_assert(OptimizationLevelSubAxisConcept<OptO1Option>);
 static_assert(OptimizationLevelSubAxisConcept<OptO2Option>);
 static_assert(OptimizationLevelSubAxisConcept<OptO3Option>);
 static_assert(OptimizationLevelSubAxisConcept<OptOfastOption>);
-static_assert(DefaultOptLevelOption::opt_level_id() == std::string_view{"O3"}, "Ruling 2026-07-18: CEB-Default = O3");
-static_assert(DefaultOptLevelOption::is_ieee754_deterministic(), "O3 ist IEEE-754-deterministisch (Option B)");
+static_assert(DefaultOptLevelOption::opt_level_id() == std::string_view{"O2"},
+              "O2-Standard: Owner-Entscheid 21.08.2026 (supersediert Ruling 2026-07-18, CEB-Default O3)");
+static_assert(DefaultOptLevelOption::is_ieee754_deterministic(), "O2 ist IEEE-754-deterministisch (Option B haelt)");
 static_assert(OptO2Option::gcc_opt_flag() == std::string_view{"-O2"});
 static_assert(OptOfastOption::parent_axis_label() == std::string_view{"compiler"}, "opt_level haengt unter compiler");
 

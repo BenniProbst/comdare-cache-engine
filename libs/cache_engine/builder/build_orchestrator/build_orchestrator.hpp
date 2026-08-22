@@ -1137,6 +1137,11 @@ namespace detail {
     // DefaultOptLevelOption=OptO3Option); die Facade (profile_run_facade active_opt_level) sourct ihn und
     // reicht ihn hier als opt_flag runter. Ein harter O3-Signatur-Default hier waere selbst ein neuer Pin —
     // daher bleibt der transitional-ueberschreibbare "-O2" stehen (der Facade-Wert gewinnt immer).
+    // O2-STANDARD-NACHTRAG (22.08.2026, Owner-Entscheid 21.08.2026 "O2 ist Standard fuer alle Builds,
+    // O3 wird unter Warnung angeboten"): der bewegliche CEB-Default ist seither O2
+    // (DefaultOptLevelOption=OptO2Option) -- Signatur-Default und CEB-Default fallen damit zusammen;
+    // der Absatz oben ist Historie der O3-Aera. Der Wert hier bleibt byte-unveraendert transitional,
+    // der Facade-/Planer-Wert gewinnt weiterhin immer.
     return [include_dirs = std::move(include_dirs), defines = std::move(defines), cxx = std::move(cxx),
             link_libs = std::move(link_libs), opt_flag = std::move(opt_flag),
             emit_fno_gnu_unique](BuildJob const& job) -> int {

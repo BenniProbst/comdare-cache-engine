@@ -145,9 +145,11 @@ static_assert(cem::OptimizationLevelSubAxisConcept<cem::OptOfastOption>);
 static_assert(cem::OptO2Option::axis_label() == std::string_view{"opt_level"});
 static_assert(cem::OptOfastOption::parent_axis_label() == std::string_view{"compiler"});
 static_assert(cem::OptO3Option::gcc_opt_flag() == std::string_view{"-O3"});
-// Ruling 2026-07-18 (Option B): CEB-Default = O3 (IEEE-754-deterministisch, beweglich, kein Pin); Ofast additive
-// Extreme, bricht den Determinismus (-fallow-store-data-races/-funsafe-math).
-static_assert(cem::DefaultOptLevelOption::opt_level_id() == std::string_view{"O3"});
+// Ruling 2026-07-18 (Option B): CEB-Default = O3 -- UEBERHOLT (22.08.2026, Owner-Entscheid 21.08.2026:
+// "O2 ist Standard fuer alle Builds, O3 wird unter Warnung angeboten"): CEB-Default = O2 (ebenfalls
+// IEEE-754-deterministisch, beweglich, kein Pin); O3/Ofast bleiben waehlbare Extreme, Ofast bricht den
+// Determinismus (-fallow-store-data-races/-funsafe-math).
+static_assert(cem::DefaultOptLevelOption::opt_level_id() == std::string_view{"O2"});
 static_assert(cem::DefaultOptLevelOption::is_ieee754_deterministic());
 static_assert(cem::OptO3Option::is_ieee754_deterministic());
 static_assert(!cem::OptOfastOption::is_ieee754_deterministic());

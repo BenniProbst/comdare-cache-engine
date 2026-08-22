@@ -2314,7 +2314,8 @@ private:
     }
 
     // opt/simd-Listen-Ableitung IDENTISCH zu run_profile/run_experiment_profile (Welle-2-Naht): leer => EINE
-    // Identitaets-Perm auf dem CEB-Default (O3 / no_extension) = Vor-Wiring-Verhalten byte-identisch.
+    // Identitaets-Perm auf dem CEB-Default (O2 / no_extension; O2-Standard seit 22.08.2026, davor O3)
+    // = Vor-Wiring-Verhalten strukturell identisch.
     [[nodiscard]] static std::vector<std::string> opt_perms_of(std::vector<std::string> const& xml_opt_levels) {
         return xml_opt_levels.empty() ? std::vector<std::string>{std::string{cm::DefaultOptLevelOption::opt_level_id()}}
                                       : xml_opt_levels;

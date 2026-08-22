@@ -712,16 +712,20 @@ struct RunProfileResult {
     // Layer-Trennung wie in der Shell-Grammatik (Section 62-B-NACHTRAG): zelle = [d,e,f][g,h,i] (System-Perm + Organ-
     // Referenz), die CEB-Ebene [a,b,c] steht im EIGENEN ceb-Feld. lane = COMDARE_LANE (die emittierende Stufe-2-
     // Bau-/Mess-Batch-Lane setzt sie); ungesetzt => der Renderer schreibt den ehrlichen Sentinel "unbelegt".
-    // Die opt/simd-Defaults (O3 / no_extension) spiegeln die Emissions-Seite (experiment_plan_director), damit ein
-    // Lauf ohne gesetzte Perm-Env dieselbe Zelle benennt wie der emittierte Job.
+    // Die opt/simd-Defaults (O2 / no_extension; O2-Standard seit 22.08.2026, davor O3) spiegeln die Emissions-
+    // Seite (experiment_plan_director), damit ein Lauf ohne gesetzte Perm-Env dieselbe Zelle benennt wie der
+    // emittierte Job. opt kommt aus der benannten Single-Source DefaultOptLevelOption -- hier stand bis
+    // 22.08.2026 ein rohes "O3"-Literal (Duplikat gegen die Single-Source-Regel der Achse, mitgeheilt).
     ex::MarkerKontext const marker_kontext = [&bestand_zelle] {
         auto const env_or_empty = [](char const* name) {
             char const* const v = std::getenv(name);
             return (v != nullptr) ? std::string{v} : std::string{};
         };
         ex::MarkerKontext k;
+        namespace cem          = ::comdare::cache_engine::measurement;
         k.lane                 = env_or_empty("COMDARE_LANE");
-        std::string const opt  = bestand_zelle.opt.empty() ? std::string{"O3"} : bestand_zelle.opt;
+        std::string const opt  = bestand_zelle.opt.empty() ? std::string{cem::DefaultOptLevelOption::opt_level_id()}
+                                                           : bestand_zelle.opt;
         std::string const simd = bestand_zelle.simd.empty() ? std::string{"no_extension"} : bestand_zelle.simd;
         k.zelle                = pl::system_perm(opt, simd) + pl::organ_reference();
         // COMDARE_MEASUREMENT_COMBO traegt bereits die fertige [a,b,c]-Legende der emittierenden CEB-Strecke

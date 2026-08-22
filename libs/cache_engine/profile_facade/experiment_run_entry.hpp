@@ -291,7 +291,8 @@ struct RunExperimentResult {
     //    CSV-Header (der bleibt genau EINMAL); je Perm eigene CompileFn(opt_flag+march) + eigenes build_version-
     //    Sidecar (+cxx=+opt=+ext=) + eigenes SOTA-Dedup. binary_id BLEIBT Organ-only (opt/simd = system_config →
     //    NIE binary_id, Q2 Option C); es wächst nur die MESS-Matrix (CSV × |opt×simd|). Quelle = die geparste XML
-    //    (ep.compiler.opt_levels/simd_extensions, opt-f); leer ⇒ CEB-Default (O3 / no_extension). ──
+    //    (ep.compiler.opt_levels/simd_extensions, opt-f); leer => CEB-Default (O2 / no_extension;
+    //    O2-Standard seit 22.08.2026, davor O3). --
     namespace cm = ::comdare::cache_engine::measurement;
     std::vector<std::string> const opt_perms =
         ep.compiler.opt_levels.empty()
