@@ -194,15 +194,21 @@ int main() {
         std::cout << "    W9 pmc_cache_misses_l2='" << l2_ua << "' pmc_coherence_invalidations='" << coh_ua << "'\n";
         tr("W9 l2 UND coherence_invalidations folgen demselben Weg wie l3 ('" + na + "')", l2_ua == na && coh_ua == na);
 
-        // W10: PMC-OFF-Zeile (available=false, NullPmcSource-Analogon) behaelt die BESTEHENDE 0-Konvention --
-        // kein Verhaltenswechsel im Default-Build, in dem praktisch die gesamte Test-/Golden-Flotte laeuft.
+        // W10 (#83 C-1(c), Owner-GO KON103 17.08.2026 -- UMSCHRIEB des frueheren Pins): die PMC-OFF-Zeile
+        // (available=false, NullPmcSource-Analogon) trug bis #83 die "0-Konvention" -- alle acht PMC-Zellen
+        // lasen "0", ununterscheidbar von einer echten Nullmessung. Der Owner hat die Empfehlung woertlich
+        // angenommen ("die ERGEBNIS-Seite wird hart: die Zeile traegt den Zaehler oder einen ehrlichen
+        // Status-Token, nie eine stille 0"). Ein Teil-Lauf ohne PMC bleibt buchbar, aber AUSDRUECKLICH
+        // gekennzeichnet: pmc_available=0 UND Token statt Zahl in jeder nicht erhobenen Zelle.
         ex::LazyMeasuredRow pmc_off_row       = probe_row();
         pmc_off_row.pmc.available             = false;
         std::vector<std::string> const off    = split_semicolon(ex::format_csv_row(pmc_off_row));
         std::string const              l3_off = cell(header, off, "pmc_cache_misses_l3");
+        std::string const              av_off = cell(header, off, "pmc_available");
         std::cout << "    W10 pmc_cache_misses_l3 (pmc_available=0, PMC-off-Analogon) = '" << l3_off << "'\n";
-        tr("W10 PMC-off-Zeile (pmc_available=0) bleibt bei der alten 0-Konvention, kein Verhaltenswechsel",
-           l3_off == "0");
+        tr("W10 PMC-off-Zeile traegt Token statt stiller 0 (#83: Teil-Lauf ausdruecklich gekennzeichnet)",
+           l3_off == na);
+        tr("W10b die Kennzeichnung pmc_available=0 bleibt dabei erhalten (Teil-Lauf, kein Voll-Lauf)", av_off == "0");
 
         // W11/W12 (B5/M-2-KORREKTUR-3, Owner-KERN "stiller Rueckfall ist verboten"): energy_micro_joules
         // folgt demselben Muster wie l2/l3/coherence -- ein best-effort-RAPL-Fehlschlag (kein Root, keine
