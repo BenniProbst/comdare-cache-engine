@@ -7608,3 +7608,19 @@ add_test(NAME test_c13_selektiver_rebuild COMMAND test_c13_selektiver_rebuild)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_c13_selektiver_rebuild)
 set_tests_properties(test_c13_selektiver_rebuild PROPERTIES
     LABELS "c13;skip;wachen;koeder")
+
+# C-14-SCHWESTER (T-6 "beide Genera", Audit-Fund S97-F1, 2026-08-22): dieselbe
+# SKIP-Wache im MEASUREMENT-Genus. MesswertRunState::lager_contains ist laut
+# eigenem Docstring die Mess-Presence-Naht; der KON3-06-Koeder (kollabierter
+# Leer-Zellen-Bestand + leere Lauf-Zelle) wird auch dort ROT. Include-/Link-Satz
+# wie test_c14_lager_presence_wache (Zustands-Mutex braucht Threads).
+comdare_add_test(test_c14_messwert_presence_wache
+    SOURCES test_c14_messwert_presence_wache.cpp)
+target_include_directories(test_c14_messwert_presence_wache PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_c14_messwert_presence_wache PRIVATE Threads::Threads)
+set_tests_properties(test_c14_messwert_presence_wache PROPERTIES
+    LABELS "c14;skip;bestandslog;messwert;wachen;koeder")
