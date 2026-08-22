@@ -7925,3 +7925,94 @@ target_compile_definitions(test_s8_traeger_grenzwache PRIVATE
     "COMDARE_TRAEGER_WURZEL=\"${PROJECT_SOURCE_DIR}/libs/traeger\"")
 set_tests_properties(test_s8_traeger_grenzwache PROPERTIES
     LABELS "s8;traeger;grenzwache;wachen;koeder")
+
+# =============================================================================
+# S13-02 ZIEL-FILTER (#18/D-1, KON32-01, 2026-08-21): <writeback_methods> steuert
+# die PERSISTENZ -- vier Faelle am ECHTEN run_profile, je Fall literales
+# Verzeichnis-Listing + Koeder-Abwesenheits-Pruefung (nicht deklarierte Datei
+# darf NICHT liegen). Eigener Block am DATEIENDE (Kollisionsschutz gegen die
+# Bloecke anderer Straenge; Namenskonvention test_s13_*).
+# T-1: ROT-ZUERST gegen ce 66de5c09 gefahren (Faelle 2/4 bissen: der rohe
+# CSV-Strom schrieb die nicht deklarierte measurements.csv) -- Protokoll im
+# Strang-Ergebnis 20260820-w2-sofortstaffel/s13-schema-kette-ergebnis.md.
+# Include-/Link-/Define-Satz = test_t2a_f4_facade_plan_durchreichung (das
+# echte run_profile mit Stub-Compile; profile_run_entry.hpp zieht source_/
+# sota_catalog, den XML-Parser und -- seit A9-S5 -- comdare::lager_ablage).
+add_executable(test_s13_02_zielfilter_vier_faelle "test_s13_02_zielfilter_vier_faelle.cpp")
+target_compile_features(test_s13_02_zielfilter_vier_faelle PRIVATE cxx_std_23)
+target_include_directories(test_s13_02_zielfilter_vier_faelle PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_s13_02_zielfilter_vier_faelle PRIVATE Boost::mp11
+    comdare::anatomy_module_loader comdare::workload_driver comdare_builder_xml_config_parser
+    comdare::lager_ablage)
+comdare_set_platform_defines(test_s13_02_zielfilter_vier_faelle)
+target_compile_definitions(test_s13_02_zielfilter_vier_faelle PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_S13_THESIS_MIN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/planner_thesis_min.profile.xml\""
+    "COMDARE_S13_EXPERIMENT_KERN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_kern_seam_fixture.xml\"")
+comdare_attach_generated_catalog(test_s13_02_zielfilter_vier_faelle)
+add_test(NAME test_s13_02_zielfilter_vier_faelle COMMAND test_s13_02_zielfilter_vier_faelle)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s13_02_zielfilter_vier_faelle)
+set_tests_properties(test_s13_02_zielfilter_vier_faelle PROPERTIES
+    LABELS "s13;zielfilter;writeback;facade;koeder;standalone" TIMEOUT 300)
+
+# =============================================================================
+# S13-01 CSV=KIND-DER-MAPPE (#18/D-1, Owner 09.08. 16:31, 2026-08-21): die
+# offizielle CSV als PROJEKTION des Stamms -- Byte-Orakel der golden-Gleichheit,
+# Ziel-Filter an der Naht, der benannte Design-Koeder (Stamm-Bruch laesst KEINE
+# CSV zurueck) und die Scope-Zaehl-Wache (nur Ergebnis-Blatt speist die
+# Projektion). Eigener Block am DATEIENDE (Kollisionsschutz; test_s13_*).
+# Include-/Link-Satz = test_a9s5_ergebnis_mappe_naht (dieselbe Naht-Flaeche,
+# ODR-Use der ErgebnisMappenFactory -> comdare::lager_ablage; kein ZIP-Rueckweg
+# noetig, also ohne zlib).
+add_executable(test_s13_01_csv_kind_projektion "test_s13_01_csv_kind_projektion.cpp")
+target_compile_features(test_s13_01_csv_kind_projektion PRIVATE cxx_std_23)
+target_include_directories(test_s13_01_csv_kind_projektion PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder")
+target_link_libraries(test_s13_01_csv_kind_projektion PRIVATE
+    comdare::lager_ablage gtest gtest_main)
+add_test(NAME test_s13_01_csv_kind_projektion COMMAND test_s13_01_csv_kind_projektion)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s13_01_csv_kind_projektion)
+set_tests_properties(test_s13_01_csv_kind_projektion PROPERTIES
+    LABELS "s13;csv_kind;projektion;naht;koeder")
+
+# =============================================================================
+# S13-03 PER-BINARY-MAPPE + RESUME-VERTRAG (#18/D-1, KON32-01, 2026-08-21):
+# Zaehl-Abnahme (N Mappen + 1 Aggregat), Koeder 1 (Resume ueberlebt Nur-xlsx),
+# Koeder 2+3 als Byte-Wache (result.csv+stamp bleiben byte-identisch unter dem
+# Sink), Positivprobe N->N+1 am Arbiter (lazy_try_resume_binary) mit
+# Gegeneingang (fremder Stempel-Praefix resumiert NICHT). Eigener Block am
+# DATEIENDE (Kollisionsschutz; test_s13_*).
+# Include-/Define-Satz = test_a8s3_csv_klasse_c (der Iterator-Header zieht den
+# Mess-Pfad -> Boost::mp11 + Mess-Defines + generierte Kataloge) PLUS die
+# Naht-Flaeche (comdare::lager_ablage, Muster test_a9s5).
+add_executable(test_s13_03_per_binary_mappe "test_s13_03_per_binary_mappe.cpp")
+target_compile_features(test_s13_03_per_binary_mappe PRIVATE cxx_std_23)
+target_include_directories(test_s13_03_per_binary_mappe PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_s13_03_per_binary_mappe PRIVATE Boost::mp11
+    comdare::lager_ablage gtest gtest_main)
+comdare_set_platform_defines(test_s13_03_per_binary_mappe)
+target_compile_definitions(test_s13_03_per_binary_mappe PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_s13_03_per_binary_mappe COMMAND test_s13_03_per_binary_mappe)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s13_03_per_binary_mappe)
+set_tests_properties(test_s13_03_per_binary_mappe PROPERTIES
+    LABELS "s13;per_binary;resume_vertrag;mappe;koeder")

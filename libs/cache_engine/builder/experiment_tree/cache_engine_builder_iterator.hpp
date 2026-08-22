@@ -76,10 +76,11 @@
 #include <cstdio>    // (C-1) std::snprintf fuer ns_per_op-Formatierung
 #include <exception> // TP1FK1-B2: std::exception -- der werfende Transport wird im Mess-Pfad klassifiziert gefangen
 #include <filesystem>
-#include <fstream>    // (E) per-Binary-Ergebnis-CSV schreiben
-#include <functional> // #46b I1: bestand_key_of-Injektion (std::function)
-#include <memory>     // #45: std::unique_ptr<IPmcSource> als per-Worker-ctx im parallelen Mess-Loop
-#include <optional>   // #46b I1: bestand_key_of-Rueckgabe (std::optional<std::string>)
+#include <fstream>     // (E) per-Binary-Ergebnis-CSV schreiben
+#include <functional>  // #46b I1: bestand_key_of-Injektion (std::function)
+#include <string_view> // S13-03(a): PerBinaryMappeFn reicht Header/Blob als string_view
+#include <memory>      // #45: std::unique_ptr<IPmcSource> als per-Worker-ctx im parallelen Mess-Loop
+#include <optional>    // #46b I1: bestand_key_of-Rueckgabe (std::optional<std::string>)
 #include <span>
 #include <string>
 #include <system_error>
@@ -95,6 +96,12 @@ using CachePullFn = ::comdare::cache_engine::builder::artifact_transport::CacheP
 using MeasurementSinkFn = ::comdare::cache_engine::builder::artifact_transport::MeasurementSinkFn;
 // W11 (§43.c): der Teil-Marker-Sink + der async Push-Pump (BAU-Modus). Wie CachePushFn transport-kanonisch, hier aliast.
 using PartialMarkerFn = ::comdare::cache_engine::builder::artifact_transport::PartialMarkerFn;
+// S13-03(a) (#18/D-1, KON32-01 "nur per Binary xlsx"): der per-Binary-Ergebnis-Mappen-Sink. Der Iterator kennt die
+// ErgebnisMappenFactory NICHT (Schichtung: builder zeigt nie auf profile_facade); die Fassade injiziert eine fertige
+// Funktion (lager_naht::mach_per_binary_mappe_sink), gerufen an der per-Binary-Synchron-Naht mit (bin_dir, binary_id,
+// Header-Zeile, per-Binary-CSV-Blob). Leer (Default) => No-Op => golden/CI byte-identisch (Muster measurement_sink).
+using PerBinaryMappeFn = std::function<void(std::filesystem::path const& bin_dir, std::string const& binary_id,
+                                            std::string_view header, std::string_view csv_rows)>;
 // #46b I1 (opt-in Bestandslog-Verdrahtung): der Transport-Naht-Typ + die Registrierungs-Zustandsmaschine liegen im
 // bestandslog-Modul; hier als Alias hochgezogen (Muster wie CachePushFn -- haelt den Iterator stamp-/transport-frei).
 namespace bestandslog  = ::comdare::cache_engine::builder::bestandslog;
@@ -272,6 +279,10 @@ struct LazyRunConfig {
     // Hydrierung => byte-neutral; der Host belegt sie via ArtifactCache::pull_tier_prefix (scharf nur via Env/CI).
     CachePullFn       cache_pull;
     MeasurementSinkFn measurement_sink;
+    // S13-03(a): je GEMESSENER Binary EINE Ergebnis-Mappe (Fassaden-Sink, s. PerBinaryMappeFn oben). Gerufen an der
+    // per-Binary-Synchron-Naht NACH result.csv+stamp (der Resume-Vertrag ist dann bereits gesichert), synchron wie
+    // cache_push/measurement_sink. Leer (Default) => No-Op => byte-/verhaltensneutral (golden/CI byte-identisch).
+    PerBinaryMappeFn per_binary_mappe;
     // Welle 5 (E-W5-2, §38-Fortschritts-Rueck-Kanal): No-Op-Default => byte-neutral; Muster EXAKT wie cache_push/
     // measurement_sink. Der Iterator feuert je Binary an der Per-Binary-Synchron-Naht (NACH result.csv+stamp/nach
     // Provisionierung) GENAU EINEN ProgressDelta (erste Meldung = Voll-Konfiguration, danach mixed-radix-minimale
@@ -3138,6 +3149,17 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         }
 
         // (E): per-Binary-Ergebnis-CSV schreiben (isoliert je bin_dir) + Resume-Stempel nur nach verifiziertem Write.
+        //
+        // S13-03(b) (#18/D-1, KON32-01 -- Design 20260817 4.1, ENTSCHEIDUNG): result.csv +
+        // result.csv.stamp sind ein RESUME-VERTRAG und stehen AUSSERHALB des <writeback_methods>-
+        // Ziel-Filters. Der Filter regelt die AUSGABE an den Anwender (Auswerte-Formate); dieser
+        // Pfad ist BETRIEBSZUSTAND der Mess-Maschine: lazy_try_resume_binary (Resume-Arbiter),
+        // cfg.measurement_sink (measure-drop, Ebene C) und planner_status_types (kResultCsvName)
+        // haengen an genau dieser Datei. Sie wird deshalb WEITERHIN und BEDINGUNGSLOS geschrieben --
+        // auch fuer ein Nur-xlsx-Profil. Wer hier einen Filter einzieht, macht Resume, Status und
+        // Drop-Kanal blind, ohne dass etwas rot wuerde -- ausser den S13-03-Koedern
+        // (test_s13_03_per_binary_mappe), die genau dafuer beissen. Die AUSWERTE-CSV je Binary ist
+        // NICHT diese Datei, sondern das __S001-Kind der per-Binary-Mappe (cfg.per_binary_mappe).
         if (cfg.per_binary_subdirs && !per_binary_csv.empty() && !bin_dir.empty()) {
             std::error_code ec;
             std::filesystem::create_directories(bin_dir, ec);
@@ -3202,6 +3224,13 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // unabhaengige Ziele). Der SYNCHRON-Kontrakt bleibt zellintern (kein async/detached); nur die ZELLEN ueberlappen
         // und NUR im Debug (keine Mess-Timing-Garantie, §61-MODI). Fehler behandelt der Client (MESSEN WEITER).
         if (cfg.per_binary_subdirs && !bin_dir.empty()) {
+            // S13-03(a): je GEMESSENER Binary EINE Ergebnis-Mappe -- NACH result.csv+stamp (der
+            // Resume-Vertrag liegt dann bereits), VOR Push/Sink, synchron (I/O-Contention-Doktrin
+            // wie die Nachbarn). Der Sink beruehrt result.csv NIE (Satz (b) oben; Byte-Wache im
+            // Test). Leer (Default) oder keine Mess-Zeilen (provision-/pruef-only, Fehl-Bau) =>
+            // No-Op => byte-identisch.
+            if (cfg.per_binary_mappe && !per_binary_csv.empty())
+                cfg.per_binary_mappe(bin_dir, binary_id, lazy_csv_header(), per_binary_csv);
             // TP1FK1-B2 (Codex-Befund CX-W1): synchron pushen; wirft der Push, klassifiziert loggen (MESSEN
             // WEITER) UND den vorgemerkten Bestandslog-Eintrag dieser Binary verwerfen. Der Store hat den Satz
             // nie erhalten -- ein Eintrag im geteilten Dokument waere unter dem Bau-Filter des Folgelaufs ein
