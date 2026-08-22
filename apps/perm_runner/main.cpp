@@ -44,6 +44,10 @@ int main(int argc, char** argv) {
     // Mess-Lauf + EINE result_ingest-Zeile nach stdout (der Cluster-Webhook/Ingest liest exakt dieses Format).
     // run_observable_perm liefert jetzt ein PermResult{line,total_ns,n_ops}; nach stdout geht die .line (das
     // ingest-Format ist unverändert — total_ns ist Host-Telemetrie und reist NICHT über die ingest-Zeile).
+    // C-05 (KON47-04, 20.08.2026), DEKLARIERT: dieses Behelfs-CLI ist KEIN Kampagnenpfad und misst
+    // bewusst KALT (genau ein Einzellauf, kein Wiederholungs-Paar). Die Paar-Pflicht gilt fuer den
+    // EINEN produktiven Messpfad ([T-15-KLAMMER] im Iterator); wer diese Zeile in eine Kampagne
+    // uebernimmt, uebernimmt die Klammer (s. run_observable_perm-Kopf, harness/perm_runner.hpp).
     ex::PermResult const pr = ex::run_observable_perm(*tier, binary_id, n_ops);
     std::cout << pr.line << "\n";
     return 0;

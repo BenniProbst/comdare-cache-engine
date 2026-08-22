@@ -116,10 +116,19 @@ struct KapazitaetRechnung {
 ///
 /// zeilen = n_ops * zeilen_je_op * sicherheitsfaktor. Die Zahl der Zeilen je Op ist 2 (das
 /// Makro-Paar) plus 2 je aktiver Achse (die Mikro-Paare); sie kommt vom Planer aus dem XML und wird
-/// hier NICHT erraten. Der Sicherheitsfaktor deckt die Vervielfachung durch das Drift-Gate ab:
-/// run_cell_with_drift_gate (harness/drift_gated_cell.hpp) misst dieselbe Zelle bis zu
-/// reps * (max_reruns + 1) mal -- mit den Vorgabewerten 3 und 5 sind das bis zu 18 Durchlaeufe je
-/// Zelle, und JEDER schreibt in dieselbe monoton wachsende Arena.
+/// hier NICHT erraten. Der Sicherheitsfaktor ist seit 20.08.2026 der GESAMT-Faktor DREIER
+/// Vervielfacher (D.7-ENTSCHEID des measure_storage-Eigentuemers, KON26-04 Punkt 5; die Planer-Zeile
+/// arena_gesamt_faktor in planner_mengen_types.hpp rechnet und benennt ihn):
+///   (1) Drift-Gate: run_cell_with_drift_gate (harness/drift_gated_cell.hpp) misst dieselbe Zelle
+///       bis zu reps * (max_reruns + 1) mal -- Vorgabewerte 3 und 3 (KON26-04-Umzug) = 12
+///       (historisch "bis zu 18" mit dem alten max_reruns-Default 5).
+///   (2) Wiederholungs-PAAR (KON47-04, mess_warmup_paar.hpp): jeder Lauf faehrt doppelt (Lauf 1
+///       verworfen, Lauf 2 gespeichert) -- auch der verworfene schreibt im Fenster. Faktor 2.
+///   (3) T-15b Binary-Retry (KON37-06, mess_retry_klammer.hpp): worst-case wiederholt sich der
+///       GESAMTE Durchlauf bis zu max_versuche = 5 Mal -- die Arena muss diesen binary-weiten x5
+///       ZUSAETZLICH decken, sonst ist sie unterdimensioniert (KON26-04 woertlich).
+/// Vorgabewerte gesamt: 12 * 2 * 5 = 120 Durchlaeufe je Zelle, und JEDER schreibt in dieselbe
+/// monoton wachsende Arena.
 ///
 /// RUECKRECHNUNGS-WAECHTER, derselbe Griff wie in MessArena::reservieren: nach jeder Multiplikation
 /// wird durch den einen Faktor zurueckgeteilt und gegen den anderen geprueft. Vorzeichenlose

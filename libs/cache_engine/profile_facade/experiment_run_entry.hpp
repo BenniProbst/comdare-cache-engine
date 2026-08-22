@@ -490,7 +490,13 @@ struct RunExperimentResult {
                         // #45 (§16.2-M1/§61-MODI) + A-05/V-12: KEIN Registry-Modus misst parallel (debug ist
                         // ausgebaut); build/measure/compare/release/undeklariert => 0 => sequentiell
                         // (byte-neutral). COMDARE_MEASURE_PARALLEL wirkt erst via S-8/W2-Wieder-Inbetriebnahme.
-                        cfg.measure_parallelism       = ex::resolve_measure_parallelism(ep.run_methodology);
+                        cfg.measure_parallelism = ex::resolve_measure_parallelism(ep.run_methodology);
+                        // C-05/#38b (KON47-04): derselbe Methodik-Zustand speist den --debug-Kaltlauf-
+                        // Schalter des Wiederholungs-Paars -- heute immer false (kein Registry-Modus
+                        // "misst UND parallel") => PAAR-PFLICHT auch im Experiment-Kanal. Das
+                        // <comdare_experiment>-Root traegt KEIN <binary_retry> (wie n_ops/drift_gate,
+                        // s. collect_mess_menge_facade) => cfg.mess_retry bleibt der Owner-Default 5.
+                        cfg.mess_kaltlauf_debug       = ex::resolve_mess_kaltlauf_debug(ep.run_methodology);
                         cfg.resume_completed_binaries = a.resume_override_set ? a.resume : true;
                         cfg.n_repeats                 = (a.n_repeats == 0) ? 1u : a.n_repeats;
                         cfg.env_limits.thread_count   = 16;

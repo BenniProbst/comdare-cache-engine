@@ -992,6 +992,21 @@ struct RunProfileResult {
             cfg.drift_gate.threshold  = static_cast<double>(tp.drift_gate_threshold_permille) / 1000.0;
             cfg.drift_gate.max_reruns = static_cast<std::uint32_t>(tp.drift_gate_max_reruns);
         }
+        // T-15b (2026-08-20): das LETZTE Glied der Retry-Kette XML -> ThesisProfile -> LazyRunConfig
+        // (dasselbe Muster wie die drift_gate-Zeilen darueber, dieselbe Ein-Wahrheits-Regel: nur bei
+        // deklariertem <binary_retry> wird ueberschrieben, sonst steht der Owner-Default 5 aus
+        // MessRetryKonfig). Der EINE Wert speist BEIDE Budgets -- die Mess-Klammer (Iterator-Dispatch)
+        // und die Bau-Klammer (BuildConfig::bau_max_versuche): KON37-06 "je 5 Mal" heisst getrennte
+        // Budgets DERSELBEN Groesse, nicht zwei Konfigurationen.
+        if (tp.binary_retry_declared)
+            cfg.mess_retry.max_versuche = static_cast<std::uint32_t>(tp.binary_retry_max_versuche);
+        // C-05/#38b (KON47-04): der --debug-Kaltlauf-Schalter des Wiederholungs-Paars, aus DERSELBEN
+        // Methodik-Quelle wie measure_parallelism darunter (ein Zustand, zwei Ableitungen -- beide
+        // ueber die EINE Registry-Nachschlage-Stelle). Heute erfuellt KEIN Registry-Modus das
+        // Praedikat "misst UND parallel" => false => PAAR-PFLICHT fuer jeden produktiven Lauf; die
+        // kuenftige --debug-CLI (S-8/W2) erreicht den Kaltlauf ueber dieselbe Zustands-Injektion.
+        cfg.mess_kaltlauf_debug = ex::resolve_mess_kaltlauf_debug(
+            a.methodik_run_methodology.empty() ? tp.run_methodology : a.methodik_run_methodology);
         cfg.env_limits.thread_count = 16;
         if (a.min_free_gb > 0.0) {
             cfg.ram_per_build_bytes     = static_cast<std::uint64_t>(a.min_free_gb * 1024.0 * 1024.0 * 1024.0);
@@ -1000,7 +1015,11 @@ struct RunProfileResult {
         return cfg;
     };
 
-    auto emit = [&](ex::LazyRunResult const& r, std::size_t* row_sink) {
+    // C-11 (KON28-02): die ueber alle Paesse gesammelten Mess-Warnungen (Soft-Lagen; heute die
+    // fehlende PMC-Einrichtung). Sie reisen unten als KonstantenMeta-Zeilen in mappe.schliessen und
+    // stehen damit im INFO-Blatt der xlsx -- der Owner-Satz "Warnung in xlsx" woertlich.
+    std::vector<std::string> mess_warnungen;
+    auto                     emit = [&](ex::LazyRunResult const& r, std::size_t* row_sink) {
         csv << r.resumed_csv_rows;
         // #165-B (P-MD8, 2026-06-20): den statistischen Ausreißer-Flag VOR der Emission je Pass befüllen. Lokale,
         // mutierbare Kopie der frisch gemessenen Zeilen (LazyRunResult bleibt unberührt); annotate_quality_flags
@@ -1019,6 +1038,13 @@ struct RunProfileResult {
         res.any_provisioned += r.built; // INC-G6: bereitgestellte DLLs (gebaut+resumiert) -- Erfolgsmass provision_only
         res.any_pruef_ok += r.pruef_ok; // S3 (§62-B): Gate bestanden je Zelle
         res.any_pruef_failed += r.pruef_failed; // S3 (§62-B): Gate durchgefallen / .so nicht ladbar
+        // C-11 (KON28-02 SOFT): die Mess-Warnungen dieses Passes einsammeln -- DEDUPLIZIERT ueber
+        // die Paesse (jeder Pass desselben Laufs meldet dieselbe fehlende PMC-Einrichtung; eine
+        // Zeile je Klasse genuegt der xlsx). Der Traeger ist LazyRunResult::mess_warnungen, die
+        // Ankunft das INFO-Blatt (mappe.schliessen unten).
+        for (auto const& warnung : r.mess_warnungen)
+            if (std::find(mess_warnungen.begin(), mess_warnungen.end(), warnung) == mess_warnungen.end())
+                mess_warnungen.push_back(warnung);
     };
 
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -1471,7 +1497,14 @@ struct RunProfileResult {
     if (mappe.mappe_lebt()) {
         ::comdare::cache_engine::builder::lager_ablage::MaschinenSysinfo sysinfo;
         sysinfo.hostname = ::comdare::cache_engine::measurement::live_hostname();
-        mappe_ok         = mappe.schliessen(sysinfo, {}, {});
+        // C-11 (KON28-02 SOFT): die gesammelten Mess-Warnungen als KonstantenMeta-Zeilen ins
+        // INFO-Blatt -- die Warnung KOMMT IN DER XLSX AN (Owner woertlich "Warnung in xlsx"), ueber
+        // den bestehenden Meta-Kanal statt einer zweiten Blattsorte. Nummeriert, damit mehrere
+        // Klassen nebeneinander stehen koennen; leer == keine Soft-Lage == exakt der alte Aufruf.
+        ::comdare::cache_engine::builder::lager_ablage::KonstantenMeta warn_meta;
+        for (std::size_t w = 0; w < mess_warnungen.size(); ++w)
+            warn_meta.push_back({"mess_warnung_" + std::to_string(w + 1), mess_warnungen[w]});
+        mappe_ok = mappe.schliessen(sysinfo, {}, warn_meta);
     }
     std::cout << "  [MAPPE] ok=" << (mappe_ok ? "1" : "0") << " zeilen=" << mappe.zeilen() << "/" << mappe.angeboten()
               << " (angenommen/angeboten) verworfen=" << mappe.verworfen()
