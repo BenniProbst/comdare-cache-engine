@@ -11,7 +11,7 @@
 //      zellen               = 2*1                      = 2
 //      dyn_produkt          = 1*3*6*4                  = 72
 //      messungen_je_einst.  = 3*3 (T-15 x KF-10)       = 9
-//      drift_worst          = 3*(5+1)                  = 18
+//      drift_worst          = 3*(3+1)                  = 12   (Drift-Default 3 seit T-15b-Umzug; 120er-Basis)
 //      mess_ops_je_binary   = 10*72*9                  = 6480
 //      messgeraete          = 3+1 (PMC-Tor an)         = 4
 //      rekombination        = 4!                       = 24
@@ -90,7 +90,7 @@ pl::SimulationsEingang eingang_s() {
     e.mengen.zellen_gezaehlt  = 2;
     e.mengen.n_ops            = 10;
     e.mengen.drift_reps       = 3;
-    e.mengen.drift_max_reruns = 5;
+    e.mengen.drift_max_reruns = 3; // T-15b-Umzug: Drift-Default 3 (die 5 zog zum Binary-Retry, KON26-04)
     e.mengen.batch_korn       = 4096;
     e.mengen.profile_id       = "s19_test";
     e.mengen.source_kind      = "thesis";
@@ -128,7 +128,7 @@ void s_basis() {
     pruefe_gleich(s.zellen, 2u, "S: zellen 2*1");
     pruefe_gleich(s.dyn_produkt, 72u, "S: dyn_produkt 1*3*6*4");
     pruefe_gleich(s.messungen_je_einstellung, 9u, "S: T-15 x KF-10 = 3*3");
-    pruefe_gleich(s.drift_worst, 18u, "S: drift_worst 3*(5+1)");
+    pruefe_gleich(s.drift_worst, 12u, "S: drift_worst 3*(3+1) -- Drift-Teil der 120er-Basis (D.7)");
     pruefe_gleich(s.mess_ops_je_binary, 6480u, "S: mess_ops_je_binary 10*72*9");
     pruefe_gleich(s.messgeraete, 4u, "S: messgeraete 3+1");
     pruefe_gleich(s.rekombination, 24u, "S: rekombination 4! (Hand-Tabelle)");
@@ -143,6 +143,7 @@ void s_basis() {
     pruefe_enthaelt(b, "NIE Vorgabe", "S: Rekombination als AUSGANG deklariert");
     pruefe_enthaelt(b, "OBERE SCHRANKE", "S: Schranke als Schranke benannt");
     pruefe_enthaelt(b, "NICHT in die geplante Menge multipliziert", "S: x5-Klammer nicht multipliziert");
+    pruefe_enthaelt(b, "120er-Basis", "S: Arena-Deckel als D.7-entschiedene 120er-Basis deklariert (H-5)");
     pruefe_enthaelt(b, "urteil=ok", "S: Urteil ok");
 }
 

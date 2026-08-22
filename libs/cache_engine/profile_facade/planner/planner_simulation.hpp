@@ -23,12 +23,14 @@
 // Faktor |repetitions| zu gross. REGEL DIESER DATEI: dyn_dims kommt OHNE repetition herein (der
 // Sammler filtert, der Bericht sagt es), repetition zaehlt GENAU EINMAL -- als kf10_repetitions.
 //
-// == ZWEI LESARTEN, KEINE ENTSCHEIDUNG (D.7) =======================================================
+// == D.7 ENTSCHIEDEN (KON26-04): ARENA-DECKEL = GESAMT-FAKTOR, 120er-BASIS =========================
 // Die GEPLANTE Messungs-Zahl je Einstellung ist T-15 x KF-10 (Erfolgs-Pfad, jeder Wert einzeln
-// persistiert, KON37-06). Der Arena-WORST-CASE ist drift_faktor_rechnen = reps * (max_reruns + 1)
-// (bis 18). Die T-15b-Klammer (je bis zu N Fehlversuche fuer Build UND Messung, C-08: "x5
-// ZUSAETZLICH") ist eine dritte, NICHT multiplizierte Klammer. Alle drei stehen als EIGENE Zeilen;
-// der Widerspruch mess_arena(2) vs checkpoint_speicher(18) gehoert measure_storage/(#13), nicht hier.
+// persistiert, KON37-06). Der Arena-WORST-CASE ist der GESAMT-Faktor arena_gesamt_faktor =
+// drift * paar * t15b_retry (Vorgabewerte 12*2*5 = 120; gerechnet in planner_mengen_types.hpp,
+// Eigentuemer measure_storage/#13). drift_faktor_rechnen = reps * (max_reruns + 1) (bis 12) ist
+// darin der Drift-TEIL-Faktor; die T-15b-Klammer (je bis zu N Fehlversuche fuer Build UND Messung,
+// C-08: "x5 ZUSAETZLICH") geht in die ARENA-Kapazitaet multipliziert ein, in die geplante
+// MESS-Menge weiterhin NICHT. Alle Faktoren stehen als EIGENE Zeilen im Bericht.
 //
 // == BAU-MENGE != MESS-MENGE (Owner-Auftrag check-size, datierter Nachtrag 09.08.2026) =============
 // n_bau zaehlt DLL-Bauten (Organ-Freigabe-Produkt x System-Perms). Die Mess-Menge zaehlt Ops ueber
@@ -135,7 +137,7 @@ struct SimulationsSicht {
     std::uint64_t dyn_produkt   = 0; ///< prod dynamic_dims (OHNE repetition)
 
     std::uint64_t messungen_je_einstellung = 0; ///< T-15 x KF-10 (geplant; 0 == unbestimmbar)
-    std::uint64_t drift_worst              = 0; ///< reps * (max_reruns + 1) -- Arena-Deckel-Lesart (D.7)
+    std::uint64_t drift_worst              = 0; ///< reps * (max_reruns + 1) -- Drift-TEIL-Faktor der Arena (D.7)
     std::uint64_t mess_ops_je_binary       = 0; ///< n_ops * dyn_produkt * messungen_je_einstellung
     std::uint64_t mess_ops_gesamt          = 0; ///< nur mit gereichter Teilmenge (sonst 0 == n/a)
     std::uint64_t mess_ops_schranke        = 0; ///< OBERE SCHRANKE (Teilmenge == n_bau)
@@ -314,10 +316,12 @@ struct SimulationsSicht {
     }
     s.drift_worst = drift_faktor_rechnen(e.mengen.drift_reps, e.mengen.drift_max_reruns);
     fak("drift_worst_arena", std::to_string(s.drift_worst), MengenArt::Gerechnet,
-        "reps * (max_reruns + 1) -- ARENA-Deckel-Lesart; steht NEBEN der geplanten Zahl, nicht statt ihr (D.7)");
+        "reps * (max_reruns + 1) -- Drift-TEIL-Faktor des Arena-Deckels arena_gesamt_faktor (D.7 "
+        "ENTSCHIEDEN, 120er-Basis); steht NEBEN der geplanten Zahl, nicht statt ihr");
     fak("t15b_fehlversuch_klammer", "je " + std::to_string(e.t15b_fehlversuche) + " (Build UND Messung)", e.t15b_art,
         "WORST-CASE-KLAMMER T-15b/C-08 (x" + std::to_string(e.t15b_fehlversuche) +
-            " ZUSAETZLICH) -- NICHT in die geplante Menge multipliziert; Eigentuemer measure_storage/#13");
+            " ZUSAETZLICH) -- NICHT in die geplante Menge multipliziert, wohl aber in den Arena-Deckel "
+            "arena_gesamt_faktor = drift*paar*retry (120er-Basis, D.7 ENTSCHIEDEN); Eigentuemer measure_storage/#13");
 
     // == Mess-Seite: Ops je Binary der Teilmenge =================================================================
     fak("n_ops", std::to_string(e.mengen.n_ops), e.mengen.n_ops_aus_xml ? MengenArt::Xml : MengenArt::Default,
@@ -612,8 +616,9 @@ struct KampagnenSicht {
     o += "  2. rekombination: die Fakultaet steht auf der GEMESSENEN Torlage DIESES Hosts; eine zweite Lane\n"
          "     geht nur DEKLARIERT ein. iw/ima/imi(/i{pmc})-Tore haben kein XML-Feld und werden nicht erfunden\n"
          "     (D.2 -- Hypothesen-Tore, Traeger #53/PMC-Design).\n";
-    o += "  3. arena-widerspruch: mess_arena(Faktor 2) vs checkpoint_speicher(bis 18) entscheidet dieser\n"
-         "     Bericht NICHT -- beide Lesarten stehen als eigene Zeilen (drift_worst_arena, t15b-Klammer).\n";
+    o += "  3. arena-deckel: D.7 ENTSCHIEDEN (KON26-04) -- der worst-case ist der GESAMT-Faktor\n"
+         "     arena_gesamt_faktor = drift * paar * retry (120er-Basis, planner_mengen_types.hpp);\n"
+         "     drift_worst_arena und t15b-Klammer sind TEIL-Faktoren, keine konkurrierenden Lesarten.\n";
     o += "  4. lastsequenz: das Registry-Angebot traegt heute 1 Framework (ycsb); Sequenz-Permutationen ohne\n"
          "     Werte-Katalog bleiben unterbestimmt (D.3) -- dyn[workload] zaehlt die XML-Auswahl.\n";
     if (e.mengen.binaries_je_perm != 0u && e.mengen.binaries_je_perm != s.organ_produkt) {
