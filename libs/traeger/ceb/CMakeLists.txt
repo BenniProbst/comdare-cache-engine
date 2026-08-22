@@ -8,3 +8,7 @@ if(NOT TARGET comdare_planner)
 endif()
 add_library(comdare_ceb INTERFACE)
 target_link_libraries(comdare_ceb INTERFACE comdare_planner)
+# EIGENE Include-Wurzel <traeger/ceb/...> (DESIGN #29 R5: neue Traeger-Projekte erben KEINE
+# Alt-Wurzeln; die PUBLIC-Wurzel des Monolithen wird NICHT erweitert). Erster Kopf: M6-Katalog-
+# Skelett parameter_filter_registry.hpp (#91-Vollzug W2-D, design91-v2 Abschnitt 3/M6).
+target_include_directories(comdare_ceb INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
