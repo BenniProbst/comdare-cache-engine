@@ -68,7 +68,9 @@ std::string ersetze(std::string const& proto, std::string_view key, std::string_
     while (pos < proto.size()) {
         std::size_t const nl    = proto.find('\n', pos);
         std::string const zeile = proto.substr(pos, nl - pos);
-        pos                     = nl + 1;
+        // KLEIN-1-Haertung (Audit r1, Lande-Zug Z07): endet die Eingabe nicht mit '\n',
+        // lieferte pos = npos + 1 == 0 einen latenten Endlos-Pfad -- fail-closed beenden.
+        pos = (nl == std::string::npos) ? proto.size() : nl + 1;
         if (zeile.rfind(std::string(key) + "=", 0) == 0) {
             if (!ersatz.empty()) out += std::string(ersatz) + "\n";
         } else {
