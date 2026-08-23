@@ -722,10 +722,10 @@ struct RunProfileResult {
             return (v != nullptr) ? std::string{v} : std::string{};
         };
         ex::MarkerKontext k;
-        namespace cem          = ::comdare::cache_engine::measurement;
-        k.lane                 = env_or_empty("COMDARE_LANE");
-        std::string const opt  = bestand_zelle.opt.empty() ? std::string{cem::DefaultOptLevelOption::opt_level_id()}
-                                                           : bestand_zelle.opt;
+        namespace cem = ::comdare::cache_engine::measurement;
+        k.lane        = env_or_empty("COMDARE_LANE");
+        std::string const opt =
+            bestand_zelle.opt.empty() ? std::string{cem::DefaultOptLevelOption::opt_level_id()} : bestand_zelle.opt;
         std::string const simd = bestand_zelle.simd.empty() ? std::string{"no_extension"} : bestand_zelle.simd;
         k.zelle                = pl::system_perm(opt, simd) + pl::organ_reference();
         // COMDARE_MEASUREMENT_COMBO traegt bereits die fertige [a,b,c]-Legende der emittierenden CEB-Strecke
