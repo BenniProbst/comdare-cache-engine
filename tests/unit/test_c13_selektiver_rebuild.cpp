@@ -202,7 +202,7 @@ TEST(C13SelektiverRebuild, AusweisZaehltGegenFremdenNenner) {
     struct Fall {
         fs::path    output;
         std::string expected;
-        bool        flotten_neubau;
+        bool        flotten_neubau{}; // NSDMI: cppcheck uninitMemberVarNoCtor (CI 16095 383082); Aggregat-Init bleibt
     };
     std::vector<Fall> const flotte = {
         {aktuell, hexkey('a'), false},             // -> skip

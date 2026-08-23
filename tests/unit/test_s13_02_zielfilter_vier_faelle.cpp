@@ -135,8 +135,8 @@ tlz::RunProfileResult lauf(fs::path const& profil, fs::path const& lauf_dir) {
 struct FallErwartung {
     std::string fall;
     std::string block;
-    bool        csv_erwartet;  ///< measurements.csv MUSS liegen
-    bool        xlsx_erwartet; ///< genau EINE .xlsx MUSS liegen
+    bool        csv_erwartet{};  ///< measurements.csv MUSS liegen. NSDMI: uninitMemberVarNoCtor (CI 16095 383082)
+    bool        xlsx_erwartet{}; ///< genau EINE .xlsx MUSS liegen. NSDMI: dito; Aggregat-Init bleibt
 };
 
 } // namespace
@@ -205,7 +205,7 @@ int main() {
     struct ExpFall {
         std::string fall;
         std::string block;
-        bool        csv_erwartet;
+        bool        csv_erwartet{}; // NSDMI: cppcheck uninitMemberVarNoCtor (CI 16095 383082); Aggregat-Init bleibt
     };
     std::vector<ExpFall> const exp_faelle{
         {"exp_nur_xlsx", "  <writeback_methods>\n    <method value=\"xlsx\"/>\n  </writeback_methods>", false},
