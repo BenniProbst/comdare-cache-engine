@@ -789,6 +789,26 @@
 # == exakt test_pruefling_fixture_ladung, Gegenrichtung LEER.
 # MESSHOST prod1, GCC 15.3.0, Ninja, 2026-08-21. Messlogs:
 # /home/comdare/backups-workflow/20260821-w1l-landung/floor-messung.log (+ floor-logs/).
-avx512f 544
-avx2 540
-basis 538
+# NACHZUG 22.08.2026 (O2-STANDARD-Strang bau/o2-standard; Owner-Entscheid 21.08.2026: "O2 ist
+# Standard fuer alle Builds, O3 wird unter Warnung angeboten"): 524/520/518 loest 523/519/517 ab.
+# KONTO, EIN Name in EINEM Zug (Registrierung und Floor-Zeile im SELBEN Commit, #39-Doktrin):
+#   test_o2_standard_opt_default (O2-Default-Kette der opt_level-Unter-Achse: T-2-Aussage
+#     DefaultOptLevelOption==O2 gegen im Test EINGEFRORENE Literale + T-4-Gegeneingang O3/Ofast
+#     bleiben waehlbare Werte, kAllOptLevelIds-Nenner 5; DIESER Change) -- UNBEDINGT registriert
+#     (comdare_add_test auf oberster Ebene am CMakeLists-DATEIENDE, kein ISA-Gate, kein
+#     opt-in-Label) => +1 auf allen drei Sprossen (die im Kopf festgehaltene +1-Regel).
+# WIE GEMESSEN, NICHT GERECHNET: avx512f ist die Klasse dieser Maschine (prod1) und wurde LIVE
+# abgelesen -- gcc-release, volle Treppe (Frisch-Configure MIT -DCOMDARE_CE_PRUEFLINGE, J-1 SIEBEN
+# Werkzeuge, RECONFIGURE, all, comdare_tests, RECONFIGURE2), 'ctest -N'-Schlusszeile literal
+# "Total Tests: 524". Fuer avx2/basis gilt dieselbe +1-Regel unbedingter Tests wie beim 508er-,
+# 509er-, 510er- und 511er-Nachzug (Sprossenabstaende -4 und -2 bleiben unveraendert). Messlog:
+# /home/comdare/backups-workflow/20260822-o2std-beweise/gruen-ctest-N.log
+# LANDE-HARMONISIERUNG 23.08.2026 (o2-Merge in development @ 3841d717, Lead nach Z12-Riss):
+#   Basis-Zahlen des Strang-Blocks (524/520/518) galten auf der o2-Basis ed9f1a3c-Aera;
+#   am MERGE-ENDSTAND gilt dev-Anker 544 + die oben deklarierte +1-Regel des unbedingten
+#   Tests. WIE GEMESSEN, NICHT GERECHNET: build-l1 (COMDARE_CE_PRUEFLINGE gesetzt),
+#   cmake-Refresh RC=0, 'ctest -N'-Schlusszeile literal "Total Tests: 545".
+#   Messlog: ~/.claude/jobs/5a19728e/tmp/o2merge-reconf.log (Kopie folgt im Beweisort).
+avx512f 545
+avx2 541
+basis 539

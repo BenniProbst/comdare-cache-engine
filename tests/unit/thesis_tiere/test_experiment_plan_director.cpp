@@ -154,11 +154,11 @@ TEST(ExperimentPlanDirector, ThesisMinYieldsSingleIdentityPermAndSinglePass) {
     EXPECT_EQ(cb.header.profile_id, "planner_thesis_min");
     ASSERT_EQ(cb.perms.size(), 1u) << "keine system_axes => EINE Identitaets-Perm (Vor-Wiring-Verhalten)";
     EXPECT_EQ(cb.header.perm_count, 1u);
-    EXPECT_EQ(cb.perms[0].opt_id, "O3") << "CEB-Default opt (DefaultOptLevelOption)";
+    EXPECT_EQ(cb.perms[0].opt_id, "O2") << "CEB-Default opt (DefaultOptLevelOption; O2-Standard 21.08.2026)";
     EXPECT_EQ(cb.perms[0].simd_id, "no_extension") << "CEB-Default simd (DefaultSimdOption)";
-    EXPECT_EQ(cb.perms[0].opt_flag, "-O3");
+    EXPECT_EQ(cb.perms[0].opt_flag, "-O2");
     EXPECT_EQ(cb.perms[0].march_flag, "");
-    EXPECT_EQ(cb.perms[0].build_version_suffix, "+opt=O3") << "no_extension traegt kein +ext=";
+    EXPECT_EQ(cb.perms[0].build_version_suffix, "+opt=O2") << "no_extension traegt kein +ext=";
 
     ASSERT_EQ(cb.steps_per_perm.size(), 1u);
     ASSERT_EQ(cb.steps_per_perm[0].size(), 1u) << "keine <axis_sweeps> => 1 Basis-Sweep-Pass";

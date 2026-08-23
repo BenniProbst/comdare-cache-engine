@@ -1177,7 +1177,8 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
     }
 
     // ── (10) opt-f/A3: <system_axes> HART gegen die OptO*Option-ids / SimdSubAxis::simd_id()s. LEER ist zulaessig
-    //    (CEB-Default O3 / no_extension; XSD minOccurs=0). opt_level/simd sind system_config → binary_id-NEUTRAL
+    //    (CEB-Default O2 / no_extension; O2-Standard seit 22.08.2026, davor O3; XSD minOccurs=0).
+    //    opt_level/simd sind system_config -> binary_id-NEUTRAL
     //    (Provenienz build_version/H-10-Sidecar); hier nur die Enum-Wohlgeformtheit. Die Aufloesung id→Flag
     //    (-O<n> / -march) macht die opt-g-Facade (make_gpp_compile_fn-Kanal), die ISA-Gegatung ebenso.
     // Single-Source: die gueltigen opt_level-ids kommen aus der OptimizationLevelSubAxis-Familie (kAllOptLevelIds),

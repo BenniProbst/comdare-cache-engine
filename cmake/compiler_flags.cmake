@@ -2,6 +2,33 @@
 # REV 5.3 Phase 6 - Compiler-Flags pro OS/Compiler
 # Multi-OS-konforme Flag-Setzung; KEIN /OS-spezifisches Setting ohne Fallback.
 
+# O2-STANDARD (Owner-Entscheid 21.08.2026: "O2 ist Standard fuer alle Builds, O3 wird unter
+# Warnung angeboten"; Owner-Primaerquelle Thesis-Kommentar 728fc74, 21.08.2026: "... ist das
+# nicht im Ermessen des Entwicklers, was er bei der Verwendung des Systems unter Warnung der
+# Konsequenzen verwendet? Maximale Optimierung muss waehlbar bleiben."):
+# Release der Haus-Bauwelt (CEB/Planer/Tests) traegt -O2. -O3 bleibt AUSDRUECKLICH waehlbar --
+# als Opt-in COMDARE_OPT_O3=ON mit lauter Configure-WARNING, die die KONSEQUENZEN nennt.
+# Historie: bis 22.08.2026 trug Release hier -O3 (UEBERHOLT; Doku-Doktrin, nichts geloescht).
+# Die Tier-Binary-Emission (build_orchestrator-opt_flag-Kanal / XML-Achse opt_level) ist davon
+# UNBERUEHRT -- ihr beweglicher CEB-Default lebt in system_axes/optimization_level_sub_axis.hpp.
+option(COMDARE_OPT_O3
+    "Release-Builds mit -O3 statt des O2-Standards uebersetzen (Opt-in unter Warnung)" OFF)
+if(COMDARE_OPT_O3)
+    message(WARNING
+        "COMDARE_OPT_O3=ON: Release-Builds tragen -O3 statt des O2-Standards "
+        "(Owner-Entscheid 21.08.2026: 'O2 ist Standard fuer alle Builds, O3 wird unter Warnung "
+        "angeboten'). KONSEQUENZEN: (1) O3-Artefakte tragen einen ANDEREN Toolchain-Fingerprint "
+        "(Glied [5], build_version '+opt=') -- Messreihen sind mit O2-Standard-Bestand NICHT "
+        "direkt vergleichbar (eigene Mess-Zelle; kein falscher Cache-Skip, fail-closed); "
+        "(2) aggressivere Transformationen (u.a. Auto-Vektorisierung) aendern Codegroesse und "
+        "Laufzeitcharakteristik; der IEEE-754-Determinismus bleibt bei -O3 erhalten (erst -Ofast "
+        "braeche ihn, das bleibt der XML-Achse vorbehalten); (3) binary_id und golden-320 bleiben "
+        "unberuehrt; (4) MSVC-Release bleibt /O2 (kein /O3-Aequivalent).")
+    message(STATUS "Release-Optimierung: -O3 (COMDARE_OPT_O3-Opt-in unter Warnung)")
+else()
+    message(STATUS "Release-Optimierung: -O2 (O2-Standard, Owner-Entscheid 21.08.2026)")
+endif()
+
 # Helper: setze Compile-Optionen pro Compiler-Familie
 function(COMDARE_set_default_warnings target)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -18,6 +45,14 @@ function(COMDARE_set_default_warnings target)
             NOMINMAX
             WIN32_LEAN_AND_MEAN)
     elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+        # O2-STANDARD: Release-Opt-Stufe zur Configure-Zeit aufgeloest. COMDARE_OPT_O3 ist eine
+        # Cache-Option (in jedem Scope sichtbar), die Aufloesung ist nie leer -- kein stiller
+        # Compiler-Default -O0 durch eine ungesetzte Variable moeglich.
+        if(COMDARE_OPT_O3)
+            set(_COMDARE_release_opt "-O3")
+        else()
+            set(_COMDARE_release_opt "-O2")
+        endif()
         # B16/K12 (2026-08-21): die C++-ONLY-Kategorien sind per COMPILE_LANGUAGE:CXX gegatet.
         # Bis B16 traf diese Funktion nur reine C++-Test-Executables und das Gate war unnoetig;
         # mit der Produktions-Deckung erreichte sie erstmals ein Target mit einer C-TU und gcc
@@ -59,7 +94,7 @@ function(COMDARE_set_default_warnings target)
             -Werror=pedantic
             $<$<COMPILE_LANGUAGE:CXX>:-Werror=old-style-cast>
             $<$<CONFIG:Debug>:-O0 -g3>
-            $<$<CONFIG:Release>:-O3>
+            $<$<CONFIG:Release>:${_COMDARE_release_opt}>
             $<$<CONFIG:RelWithDebInfo>:-O2 -g>)
     endif()
 endfunction()

@@ -470,13 +470,17 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 
 // opt_level-Unter-Achse der Compiler-Haupt-Achse (Bau-INC-2c.opt-c). Die Flag-QUELLE ist die Achse
 // (OptO*SubAxis::gcc/clang/msvc_opt_flag, compile-time-Reflexion), der ORT ist der opt_flag-Param von
-// make_gpp_compile_fn (opt-b). CEB-DEFAULT = O3 (Ruling 2026-07-18, Option B): IEEE-754-deterministisch,
-// wahrt den 1-Thread-Mess-Determinismus der golden-Reihe. NICHTS GLOBAL GEPINNT — der Startwert kommt aus
-// der benannten Single-Source DefaultOptLevelOption (=O3); Single-XML (9dim-G3, Sec.50) + XML/Planer (A3) bewegen
-// JEDES Teil (nicht mehr COMDARE_PILOT_OPT_LEVEL-Env). Ofast/O0/O1/O2 leben additiv als +opt=-Sidecar-Extreme.
+// make_gpp_compile_fn (opt-b). CEB-DEFAULT = O3 (Ruling 2026-07-18, Option B) -- UEBERHOLT 22.08.2026
+// (Owner-Entscheid 21.08.2026 "O2 ist Standard fuer alle Builds, O3 wird unter Warnung angeboten"):
+// CEB-DEFAULT = O2, ebenfalls IEEE-754-deterministisch, wahrt den 1-Thread-Mess-Determinismus der
+// golden-Reihe. NICHTS GLOBAL GEPINNT -- der Startwert kommt aus der benannten Single-Source
+// DefaultOptLevelOption (=O2 seit 22.08.2026, davor O3); Single-XML (9dim-G3, Sec.50) + XML/Planer (A3)
+// bewegen JEDES Teil (nicht mehr COMDARE_PILOT_OPT_LEVEL-Env). Ofast/O0/O1/O3 leben additiv als
+// +opt=-Sidecar-Extreme ("Maximale Optimierung muss waehlbar bleiben", Thesis-Kommentar 728fc74).
 [[nodiscard]] std::string_view active_opt_level(cx::ThesisProfile const* tp = nullptr) {
     // Single-XML (9dim-G3): GENAU EIN deklarierter <opt_level> -> dieser Wert; sonst die benannte Achsen-Single-
-    // Source (kein rohes Literal, kein Pin) = "O3". Mehrere opt_levels traegt der Permutations-Pfad (run_profile).
+    // Source (kein rohes Literal, kein Pin) = "O2" (O2-Standard seit 22.08.2026, davor O3). Mehrere opt_levels
+    // traegt der Permutations-Pfad (run_profile).
     if (tp != nullptr && tp->compiler.opt_levels.size() == 1) return tp->compiler.opt_levels.front();
     return ::comdare::cache_engine::measurement::DefaultOptLevelOption::opt_level_id();
 }
@@ -497,8 +501,10 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     if (level == cm::OptOfastOption::opt_level_id())
         return pick(cm::OptOfastOption::gcc_opt_flag(), cm::OptOfastOption::clang_opt_flag());
     // Fehlerklasse (INC-29.0, KonfigXmlParse-Nachbar): unbekannter Smoke-Wert -> sichtbar degradiert, NIE leer
-    // (kein impliziter Compiler-Default /Od), NIE harter exit. Fallback = der bewegliche CEB-Default (O3), NICHT
-    // ein O2-Pin. Formale D1-Log-Klassifikation an der Build-Naht folgt INC-29.2/d1-log.
+    // (kein impliziter Compiler-Default /Od), NIE harter exit. Fallback = der bewegliche CEB-Default -- die
+    // benannte Single-Source, KEIN rohes Literal-Pin (zur O3-Aera hiess dieser Satz "O3, NICHT ein O2-Pin";
+    // seit dem O2-Standard 22.08.2026 liefert dieselbe Single-Source O2). Formale D1-Log-Klassifikation an
+    // der Build-Naht folgt INC-29.2/d1-log.
     std::cerr << "[profile_facade] opt_level '" << level << "' unbekannt; nutze CEB-Default "
               << cm::DefaultOptLevelOption::opt_level_id() << ".\n";
     return pick(cm::DefaultOptLevelOption::gcc_opt_flag(), cm::DefaultOptLevelOption::clang_opt_flag());
@@ -1382,7 +1388,8 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
             return ex::compose_algo_signature(axes, *algo_table);
         };
     }
-    // Fallback-Einzel-CompileFn (greift nur, wenn compile_for_perm null wäre) = beweglicher CEB-Default (O3).
+    // Fallback-Einzel-CompileFn (greift nur, wenn compile_for_perm null waere) = beweglicher CEB-Default
+    // (Single-Source DefaultOptLevelOption; O2-Standard seit 22.08.2026, davor O3).
     // Scheibe 2b: bei Build-Typ Debug -O0 -g statt der Optimierung; ungesetzt/Release => byte-identisch zum Ist.
     a.compile = ex::make_gpp_compile_fn(
         perm_include_dirs(), perm_compile_flags(nullptr, /*mit_toolchain_glied=*/true, args.build_version),

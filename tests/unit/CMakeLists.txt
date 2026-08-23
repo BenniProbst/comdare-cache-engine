@@ -8211,3 +8211,18 @@ target_include_directories(test_c14_messwert_presence_wache PRIVATE
 target_link_libraries(test_c14_messwert_presence_wache PRIVATE Threads::Threads)
 set_tests_properties(test_c14_messwert_presence_wache PROPERTIES
     LABELS "c14;skip;bestandslog;messwert;wachen;koeder")
+
+# O2-STANDARD (Owner-Entscheid 21.08.2026: "O2 ist Standard fuer alle Builds, O3 wird unter
+# Warnung angeboten"): Default-Kette der opt_level-Unter-Achse -- DefaultOptLevelOption == O2
+# (T-3: Literal-Nenner im Test eingefroren, nie aus dem Pruefling gezogen) + T-4-Gegeneingang:
+# O3/Ofast bleiben waehlbare Werte des vollen {O0..Ofast}-Vokabulars. Additiv, golden/
+# binary_id-neutral (opt ist Fingerprint-Glied [5], steht nie in kCompositionAxisNames).
+comdare_add_test(test_o2_standard_opt_default
+    SOURCES test_o2_standard_opt_default.cpp)
+target_include_directories(test_o2_standard_opt_default PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_compile_definitions(test_o2_standard_opt_default PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)

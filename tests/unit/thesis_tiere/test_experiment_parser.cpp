@@ -390,7 +390,8 @@ TEST(ExperimentParser, BogusSimdExtensionIsError) {
     EXPECT_TRUE(any_contains(vr.errors, "avx1024"));
 }
 
-// (c14) opt-f/A3 — LEERE <system_axes> sind ZULAESSIG (minOccurs=0; leer = CEB-Default O3 / no_extension).
+// (c14) opt-f/A3 -- LEERE <system_axes> sind ZULAESSIG (minOccurs=0; leer = CEB-Default O2 / no_extension,
+//       O2-Standard seit 22.08.2026, davor O3).
 //       Die golden-Byte-Identitaet der 320 binary_ids bleibt unberuehrt (opt/simd sind binary_id-neutral).
 TEST(ExperimentParser, EmptySystemAxesIsOk) {
     auto ep = parse_golden();
