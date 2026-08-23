@@ -27,6 +27,15 @@
 // PRODUKT-Emission ist unberuehrt (fail-loud #83: nichts wird versteckt, der Plan traegt weiter den
 // Live-Befund). Maskierungs-Drift ist laut: verschwindet das Praefix aus der Emission, reisst die
 // Mindest-Anzahl (dump/ci >= 1) den Test.
+//
+// DRITTE FLAECHE -- DEFINE-KIPP (Lead-Entscheid 23.08.; 383091-Erstlauf, Hunks @@ -54/-65/-104):
+// unter PMU-Volllast kippte im SELBEN Job auch die LAGE (0/4 "koeder_hat_nicht_gebissen" vs 3/4
+// intel) -- dann kippen die zwei PMC-Defines der emittierten "- cmake ..."-Zeilen per ANWESENHEIT
+// (ceb_pmc_compile_define: Unbrauchbar => leer; Hunk @@ -65 traegt KEINE "# PMC-BEFUND"-Nachbarzeile,
+// Form (b) deckt dort nie). Form (c) im Support-Helfer normalisiert die Token beidseitig; ihr
+// Zaehler traegt BEWUSST KEINEN beidseitigen Pflicht-Vergleich (Lead-Leitplanke: die Anwesenheits-
+// Asymmetrie ist die legitime Folge des Lage-Kipps -- ein starrer Nenner wuerde hier FALSCH
+// beissen). MaskierungFormCDecktDefineKippGenau haelt die Form-Treue als Dauer-Bissprobe fest.
 //   (2) Exit-8-Zweig: --debug OHNE Freigabe -> rc 8 und stdout LEER (die Sperre emittiert kein
 //       halbes Byte auf den Datenkanal).
 //   (3) Exit-6-Zweig: Bestandslog-Gate unvollstaendig (COMDARE_BESTANDSLOG=true + minio-Ebene
@@ -157,6 +166,50 @@ TEST(Vl3DebugStdoutByteGleich, PlanDumpBytegleich) { pruefe_bytegleich("plan dum
 TEST(Vl3DebugStdoutByteGleich, PlanCiBytegleich) { pruefe_bytegleich("plan ci", 1u); }
 TEST(Vl3DebugStdoutByteGleich, PlanCmakeBytegleich) { pruefe_bytegleich("plan cmake"); }
 TEST(Vl3DebugStdoutByteGleich, ValidateBytegleich) { pruefe_bytegleich("validate"); }
+
+TEST(Vl3DebugStdoutByteGleich, MaskierungFormCDecktDefineKippGenau) {
+    // K13-DAUER-BISSPROBE der Form (c) am 383091-Muster (s. Kopf, DRITTE FLAECHE) -- in-memory an
+    // Zeilen EXAKT der Emissionsform, damit die Probe nicht am Host-Lage-Zufall haengt:
+    //   (ii) der LEGITIME Kipp (einseitige Define-Anwesenheit in einer "- cmake "-Zeile) wird nach
+    //        Maskierung byte-gleich -- fuer BEIDE vendor-ids;
+    //   (i)  eine Divergenz AUSSERHALB der maskierten Klasse bleibt UNGLEICH (T-11c bleibt scharf);
+    //   Form-Treue: das Token in einer NICHT-"- cmake "-Zeile wird NICHT angefasst.
+    std::string const                mit_intel    = "stages:\n"
+                                                    "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON"
+                                                    " -DCOMDARE_ENABLE_PMC=ON -DCOMDARE_PMC_VENDOR=intel"
+                                                    " -DCMAKE_BUILD_TYPE=Release\n";
+    std::string const                ohne_defines = "stages:\n"
+                                                    "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON"
+                                                    " -DCMAKE_BUILD_TYPE=Release\n";
+    comdare::test::PmcMaskiert const mi           = comdare::test::pmc_zeilen_maskieren(mit_intel);
+    comdare::test::PmcMaskiert const oh           = comdare::test::pmc_zeilen_maskieren(ohne_defines);
+    EXPECT_EQ(mi.text, oh.text) << "Form (c) muss den intel-Define-Kipp beidseitig normalisieren";
+    EXPECT_EQ(mi.pmc_define_tokens, 1u);
+    EXPECT_EQ(oh.pmc_define_tokens, 0u) << "Anwesenheits-Asymmetrie 1 vs 0 ist der LEGITIME Kipp -- "
+                                           "genau deshalb kein beidseitiger Pflicht-Vergleich";
+
+    std::string const mit_amd  = "    - cmake -B build-clang -G Ninja -DCOMDARE_V32_ENABLE=ON"
+                                 " -DCOMDARE_ENABLE_PMC=ON -DCOMDARE_PMC_VENDOR=amd"
+                                 " -DCMAKE_BUILD_TYPE=Release\n";
+    std::string const ohne_amd = "    - cmake -B build-clang -G Ninja -DCOMDARE_V32_ENABLE=ON"
+                                 " -DCMAKE_BUILD_TYPE=Release\n";
+    EXPECT_EQ(comdare::test::pmc_zeilen_maskieren(mit_amd).text, comdare::test::pmc_zeilen_maskieren(ohne_amd).text)
+        << "Form (c) muss auch die amd-vendor-id decken";
+
+    // (i) Nicht-PMC-Divergenz (stages-Byte) bleibt nach Maskierung sichtbar -- keine Uebermaskierung.
+    std::string const fremd_divergenz = "stagex:\n"
+                                        "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON"
+                                        " -DCOMDARE_ENABLE_PMC=ON -DCOMDARE_PMC_VENDOR=intel"
+                                        " -DCMAKE_BUILD_TYPE=Release\n";
+    EXPECT_NE(comdare::test::pmc_zeilen_maskieren(fremd_divergenz).text, oh.text)
+        << "eine Divergenz AUSSERHALB der PMC-Klasse darf die Maskierung nicht verschlucken";
+
+    // Form-Treue: dieselben Token ausserhalb einer "- cmake "-Zeile bleiben unangetastet.
+    std::string const                kommentar = "# Doku: -DCOMDARE_ENABLE_PMC=ON -DCOMDARE_PMC_VENDOR=intel\n";
+    comdare::test::PmcMaskiert const ko        = comdare::test::pmc_zeilen_maskieren(kommentar);
+    EXPECT_EQ(ko.text, kommentar) << "Form (c) greift NUR in '- cmake '-Zeilen";
+    EXPECT_EQ(ko.pmc_define_tokens, 0u);
+}
 
 TEST(Vl3DebugStdoutByteGleich, ExitAchtSperreLaesstStdoutLeer) {
     // (2): Sperre ohne Freigabe -- rc 8, und der Datenkanal traegt KEIN Byte.
