@@ -1252,6 +1252,10 @@ TEST(TierCiYamlBuilder, KeinAllowFailureInEmittierterJobYamlBeideStufenUndZellEb
             << "#83/#278: auch die Unbrauchbar-Emission traegt KEIN allow_failure -- sie scheitert hart";
         EXPECT_GT(count_occurrences(tb_ohne.text(), "pmc=FEHLER grund=pmc_quelle_nicht_gebaut"), 0u)
             << "#83: der Scheiter-Pfad ist das FEHLER-Testat (Gegenprobe: die Suche greift auf diesem Text)";
+        // RIEGEL-AUSWEIS (Lead-Verschaerfung 23.08.): der default-konstruierte (Vor-Probe-)Befund
+        // traegt keinen fehlgrund -- das Testat weist dann "unbenannt" aus statt leer zu schweigen.
+        EXPECT_GT(count_occurrences(tb_ohne.text(), "befund_grund=unbenannt"), 0u)
+            << "Riegel-AUSWEIS: ein grundloser Unbrauchbar-Befund muss 'befund_grund=unbenannt' testieren";
     }
 
     // GEGENPROBE VOR DEM NICHTFUND: dass die Suche auf GENAU diesen Texten ueberhaupt greift, wird an einem
@@ -3235,6 +3239,30 @@ TEST(PmcFailLoud, UnbrauchbarerBefundLaesstDenPreflightScheiternStattSkippen) {
     std::size_t const exit_pos   = s.find("\n      exit 1\n", fehler_pos);
     EXPECT_NE(exit_pos, std::string::npos)
         << "#83: auf das FEHLER-Testat folgt exit 1 im selben Block (Preflight SCHEITERT statt skippt)";
+    // Der Grund des ERHOBENEN Unbrauchbar-Befunds steht woertlich im Testat (Riegel-AUSWEIS-Mechanik).
+    EXPECT_NE(s.find("befund_grund=koeder_hat_nicht_gebissen"), std::string::npos)
+        << "Riegel-AUSWEIS: das FEHLER-Testat muss den fehlgrund des Befunds woertlich ausweisen";
+
+    // RIEGEL-AUSWEIS (Lead-Verschaerfung 23.08., K13-Dauer-Wache): der per COMDARE_PMC_PROBE_AUS
+    // angehaltene Befund (fehlgrund=probe_per_env_riegel_nicht_gefahren, gesetzt in
+    // profile_run_facade.cpp construct_plan_into) ist in echten Mess-Batches NIE still -- das
+    // FEHLER-Testat nennt ihn WOERTLICH, und der exit 1 darunter zieht den Mess-Job hart rot.
+    {
+        planner::ExperimentPlanDirector director_riegel;
+        planner::PmcHostBefund          br = befund_mit(planner::PmcLage::Unbrauchbar, "SomeOtherVendor");
+        br.probe_gefahren                  = false; // Riegel: die Probe wurde NICHT gefahren
+        br.fehlgrund                       = "probe_per_env_riegel_nicht_gefahren";
+        director_riegel.set_pmc_befund(br);
+        planner::TierCiYamlBuilder tbr;
+        director_riegel.construct(*tp, tbr);
+        std::string const& sr = tbr.text();
+        std::size_t const  ausweis_pos =
+            sr.find("pmc=FEHLER grund=pmc_quelle_nicht_gebaut befund_grund=probe_per_env_riegel_nicht_gefahren");
+        EXPECT_NE(ausweis_pos, std::string::npos)
+            << "Riegel-AUSWEIS: das FEHLER-Testat muss den Env-Riegel-Grund woertlich nennen";
+        EXPECT_NE(sr.find("\n      exit 1\n", ausweis_pos), std::string::npos)
+            << "Riegel-AUSWEIS: auch der Riegel-Fall bricht den Mess-Batch mit exit 1 hart ab";
+    }
 }
 
 // =============================================================================

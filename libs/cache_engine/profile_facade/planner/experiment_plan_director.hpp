@@ -1756,8 +1756,16 @@ private:
         // (Token statt stiller 0, cache_engine_builder_iterator.hpp pmc_zelle).
         // ==========================================================================================
         if (header_.pmc_befund.lage == PmcLage::Unbrauchbar) {
+            // RIEGEL-AUSWEIS (Lead-Verschaerfung 23.08.): der Unbrauchbar-GRUND des Befunds wird im
+            // FEHLER-Testat IMMER mit ausgewiesen (befund_grund=...; ein ERHOBENER Unbrauchbar-Befund
+            // traegt per Struct-Kontrakt nie einen leeren fehlgrund, pmc_host_probe.hpp; der default-
+            // konstruierte Vor-Probe-Zustand weist "unbenannt" aus statt leer). Ein per
+            // COMDARE_PMC_PROBE_AUS angehaltener Befund (probe_per_env_riegel_nicht_gefahren) ist in
+            // echten Mess-Batches damit NIE still: das Testat nennt ihn woertlich, exit 1 zieht rot.
             s += "      echo \"[PMC-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host +
-                 " pmc=FEHLER grund=pmc_quelle_nicht_gebaut (Befund unbrauchbar -> Emission ohne "
+                 " pmc=FEHLER grund=pmc_quelle_nicht_gebaut befund_grund=" +
+                 (header_.pmc_befund.fehlgrund.empty() ? std::string{"unbenannt"} : header_.pmc_befund.fehlgrund) +
+                 " (Befund unbrauchbar -> Emission ohne "
                  "-DCOMDARE_ENABLE_PMC; ein Mess-Batch ohne PMC-Quelle scheitert statt zu skippen, "
                  "KON103 C-1(b))\"\n";
             s += "      exit 1\n";

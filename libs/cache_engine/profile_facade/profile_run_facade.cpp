@@ -1106,6 +1106,11 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
         // per Konstruktion: es wird nie PMC behauptet, die Emission weist die Nicht-Erhebung aus
         // (T-2). Der Riegel sitzt HIER und nicht in probe_pmc_host(): die Probe bleibt eine reine
         // Messfunktion, ihre Unit-Tests (PmcHostProbe.*) duerfen vom Prozess-Env nichts spueren.
+        // NUR-TEST-DEKLARATION (Lead-Verschaerfung 23.08.): der Riegel ist ein TEST-Instrument der
+        // Byte-Vergleichs-Hermetik -- in CI-MESS-Jobs NIE setzen. Setzt ihn dort doch jemand, ist
+        // das NIE still: der #83-Mess-Preflight testiert [PMC-TESTAT] pmc=FEHLER mit
+        // befund_grund=probe_per_env_riegel_nicht_gefahren und bricht mit exit 1 hart rot ab
+        // (experiment_plan_director.hpp, Preflight-Wache; Riegel-AUSWEIS-Zeile ebd.).
         planner::PmcHostBefund befund;
         char const* const      riegel = std::getenv("COMDARE_PMC_PROBE_AUS");
         if (riegel != nullptr && std::string_view{riegel} == "true") {
