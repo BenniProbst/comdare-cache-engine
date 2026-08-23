@@ -58,6 +58,7 @@
 #include <set>
 #include <sstream> // W5-B: --dump-plan Root-Tag-Sniff (ostringstream)
 #include <string>
+#include <string_view> // COMDARE_PMC_PROBE_AUS-Riegel: getenv-Wert-Vergleich
 #include <utility>
 #include <vector>
 
@@ -1093,7 +1094,25 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
     // fuer alle vier). Gegen einen Planer-Lauf, der danach eine mehrtaegige Messstrecke emittiert, ist
     // das nichts -- und es ist der Preis dafuer, dass der Koeder wirklich BEISST statt nur zu oeffnen.
     {
-        planner::PmcHostBefund const befund = planner::probe_pmc_host<>();
+        // COMDARE_PMC_PROBE_AUS=true -- STOERGROESSEN-RIEGEL an der EINEN Erhebungsstelle: die
+        // Host-Probe wird NICHT gefahren, der Befund ist der definierte Nicht-Erhebungs-Zustand
+        // (Unbrauchbar, probe_gefahren=false, quelle=nicht_erhoben) und damit deterministisch --
+        // samt ALLER nachgelagerten Flaechen (pmc_befund=-Planzeile, "# PMC-BEFUND"-Kommentar,
+        // ceb_pmc_compile_define-Defines, Preflight-Zweige). WARUM: die Live-Probe ist eine
+        // PMU-Momentaufnahme JE PROZESSLAUF; CI 16095, Job 383091 kippte unter Runner-Multiplexing
+        // sogar die LAGE (0/4 "koeder_hat_nicht_gebissen" vs 3/4 intel) zwischen zwei Laeufen --
+        // die Define-Flaeche der Emission wechselte mit, was KEINE Zeilen-Maskierung strukturell
+        // einholen kann. Byte-Vergleichs-Tests setzen den Riegel selbst (Hermetik); fail-closed
+        // per Konstruktion: es wird nie PMC behauptet, die Emission weist die Nicht-Erhebung aus
+        // (T-2). Der Riegel sitzt HIER und nicht in probe_pmc_host(): die Probe bleibt eine reine
+        // Messfunktion, ihre Unit-Tests (PmcHostProbe.*) duerfen vom Prozess-Env nichts spueren.
+        planner::PmcHostBefund befund;
+        char const* const      riegel = std::getenv("COMDARE_PMC_PROBE_AUS");
+        if (riegel != nullptr && std::string_view{riegel} == "true") {
+            befund.fehlgrund = "probe_per_env_riegel_nicht_gefahren"; // Unbrauchbar OHNE Grund waere stille Null
+        } else {
+            befund = planner::probe_pmc_host<>();
+        }
         // Die Zeile geht ins Planer-LOG (stderr), nicht auf den Datenkanal: `os` traegt bei allen acht
         // Fassaden dieser Naht das ARTEFAKT (Plan-Text/YAML/CMake), und eine Log-Zeile davor machte z. B.
         // ein `plan ci > child.yml` syntaktisch kaputt und die stdout-Bytes lauf-abhaengig (CI 16073,

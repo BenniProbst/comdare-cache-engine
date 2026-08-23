@@ -36,6 +36,15 @@
 // Zaehler traegt BEWUSST KEINEN beidseitigen Pflicht-Vergleich (Lead-Leitplanke: die Anwesenheits-
 // Asymmetrie ist die legitime Folge des Lage-Kipps -- ein starrer Nenner wuerde hier FALSCH
 // beissen). MaskierungFormCDecktDefineKippGenau haelt die Form-Treue als Dauer-Bissprobe fest.
+//
+// RIEGEL-DOPPELBODEN (Lead-Entscheid 23.08. nach Objekt-Messung, Harmonisierung beider Fixe):
+// Form (c) deckt die drei BEKANNTEN 383091-Flaechen; ueber den #83-Preflight verzweigt aber
+// WEITERE Emission am Befund -- solche Flaechen kann keine Zeilen-Maskierung strukturell
+// abschliessend einholen. Deshalb haelt grundstellung() die Stoergroesse ZUSAETZLICH an der
+// QUELLE an (COMDARE_PMC_PROBE_AUS=true, s. profile_run_facade.cpp): der Befund ist der
+// definierte Nicht-Erhebungs-Zustand, ALLE Flaechen sind deterministisch, und die Maskierung
+// samt ihrer Nenner bleibt als Drift-Wache scharf (die PMC-Zeilenklasse existiert weiter, mit
+// erhoben=0). Die LIVE-Erhebung selbst prueft PmcProbeLebtOhneRiegel (Anwesenheit, kein Byte-Paar).
 //   (2) Exit-8-Zweig: --debug OHNE Freigabe -> rc 8 und stdout LEER (die Sperre emittiert kein
 //       halbes Byte auf den Datenkanal).
 //   (3) Exit-6-Zweig: Bestandslog-Gate unvollstaendig (COMDARE_BESTANDSLOG=true + minio-Ebene
@@ -106,7 +115,15 @@ void env_setzen(char const* name, char const* wert) {
 #endif
 }
 
-/// Hermetische Grundstellung VOR jedem Fall: Freigabe weg, Bestandslog weg, Profil-Env weg.
+/// Hermetische Grundstellung VOR jedem Fall: Freigabe weg, Bestandslog weg, Profil-Env weg -- und die
+/// PMU-Stoergroesse ANGEHALTEN: COMDARE_PMC_PROBE_AUS=true laesst den Planer die Host-Probe NICHT
+/// fahren (definierter Nicht-Erhebungs-Zustand, fail-closed). Noetig, weil die Live-Probe eine
+/// PMU-Momentaufnahme JE PROZESSLAUF ist und unter Runner-Multiplexing sogar die LAGE kippt
+/// (CI 16095, Job 383091: 0/4 "koeder_hat_nicht_gebissen" vs 3/4 intel zwischen zwei Laeufen) --
+/// dann wechselt die DEFINE-Flaeche der YAML-/CMake-Emission (ceb_pmc_compile_define) mit, die
+/// KEINE Zeilen-Maskierung strukturell einholen kann. Mit Riegel sind ALLE Flaechen deterministisch;
+/// die PMC-Zeilenklasse bleibt VORHANDEN (pmc_befund=... erhoben=0 / "# PMC-BEFUND lage=unbrauchbar"),
+/// die Maskierungs-Nenner unten bleiben also scharf. Die LIVE-Erhebung deckt PmcProbeLebtOhneRiegel.
 void grundstellung() {
     env_setzen("COMDARE_DEBUG_FREIGABE", nullptr);
     env_setzen("COMDARE_BESTANDSLOG", nullptr);
@@ -116,6 +133,7 @@ void grundstellung() {
     env_setzen("COMDARE_MINIO_ENDPOINT", nullptr);
     env_setzen("COMDARE_MINIO_BUCKET", nullptr);
     env_setzen("COMDARE_THESIS_PROFILE", nullptr);
+    env_setzen("COMDARE_PMC_PROBE_AUS", "true");
 }
 
 /// Das Byte-Paar eines Subkommandos: einmal ohne, einmal mit --debug (Freigabe aktiv).
@@ -209,6 +227,24 @@ TEST(Vl3DebugStdoutByteGleich, MaskierungFormCDecktDefineKippGenau) {
     comdare::test::PmcMaskiert const ko        = comdare::test::pmc_zeilen_maskieren(kommentar);
     EXPECT_EQ(ko.text, kommentar) << "Form (c) greift NUR in '- cmake '-Zeilen";
     EXPECT_EQ(ko.pmc_define_tokens, 0u);
+}
+
+TEST(Vl3DebugStdoutByteGleich, PmcProbeLebtOhneRiegel) {
+    // GEGENSTUECK zum Riegel in grundstellung(): OHNE COMDARE_PMC_PROBE_AUS wird die Host-Probe
+    // REAL gefahren (I-PMC-2, Owner 10.08.2026: "erkennt jeder Planer auf jeder Maschine fuer
+    // sich"). Geprueft wird die ANWESENHEIT der Erhebung (erhoben=1), NIE ein Byte-Paar zweier
+    // Live-Laeufe -- genau das waere die 383091-Klasse. Lage-unabhaengig wahr: auch ein Host ohne
+    // benutzbare PMU liefert erhoben=1 (unbrauchbar ist ein ERHOBENER Befund, T-2).
+    grundstellung();
+    env_setzen("COMDARE_PMC_PROBE_AUS", nullptr);
+    Lauf const l = fahre_stdout("plan dump \"" + g_profil + "\"");
+    grundstellung();
+    EXPECT_EQ(l.rc, 0) << "plan dump ohne Riegel muss normal laufen";
+    EXPECT_NE(l.out.find("pmc_befund="), std::string::npos) << "die pmc_befund-Zeile (I-PMC-2) fehlt im Plan-Text";
+    EXPECT_NE(l.out.find(" erhoben=1"), std::string::npos)
+        << "ohne Riegel muss die Probe GEFAHREN sein (erhoben=1) -- sonst ist die Owner-Erkennung "
+           "still abgeschaltet. stdout:\n"
+        << l.out;
 }
 
 TEST(Vl3DebugStdoutByteGleich, ExitAchtSperreLaesstStdoutLeer) {
