@@ -1453,6 +1453,24 @@ inline constexpr char kLazyResumeStampFormat[] = "resume-v6";
     return true;
 }
 
+// #137 / N-12 (par.27.1.J EP-1, 24.08.2026) -- .stale-Rettung VOR dem trunc-Schreiben der
+// per-Binary-result.csv auf dem ERFOLGS-Pfad. Spiegelt das Fehlzweig-Muster weiter unten
+// (fs::rename result.csv -> result.csv.stale; Kategorie "abgebrochene Messung"): liegt am Ziel
+// ein Alt-Stand (result.csv ohne zertifizierten Stamp, z.B. nach einem Riss mitten im
+// Schreiben), wird er als Rohdatum gerettet, NIE geloescht. Rueckgabe true = Zielplatz frei
+// (kein Alt-Stand ODER Rettung gelungen); false = fail-closed: der Alt-Stand liegt noch, der
+// Aufrufer darf NICHT trunc-schreiben (Messdaten-nie-loeschen-Dauerregel).
+[[nodiscard]] inline bool lazy_stale_rettung_vor_write(std::filesystem::path const& ziel_csv) {
+    std::error_code ist_ec;
+    if (!std::filesystem::exists(ziel_csv, ist_ec)) return true;
+    std::filesystem::path stale = ziel_csv;
+    stale += ".stale";
+    std::error_code ren_ec;
+    std::filesystem::rename(ziel_csv, stale, ren_ec);
+    std::error_code nach_ec;
+    return !(static_cast<bool>(ren_ec) || std::filesystem::exists(ziel_csv, nach_ec));
+}
+
 // TP1-N2 (B-1) / TP1FK1-B2 (Codex-Befund CX-W1): die EINE Form des Bestandslog-Eintragspfades.
 // Er ist STORE-RELATIV (relativ zum output_dir, generic '/'-Trenner) -- der Push spiegelt exakt diese
 // Struktur in den Objekt-Store, und ein maschinen-LOKALER Absolutpfad im GETEILTEN Dokument waere fuer
@@ -3172,8 +3190,20 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         if (cfg.per_binary_subdirs && !per_binary_csv.empty() && !bin_dir.empty()) {
             std::error_code ec;
             std::filesystem::create_directories(bin_dir, ec);
+            // #137 / N-12: .stale-Rettung AUCH auf dem Erfolgs-Pfad (bisher nur im Fehlzweig oben).
+            // Ein liegender Alt-Stand ist ein Rohdatum; scheitert seine Sicherung, wird fail-closed
+            // NICHTS ueberschrieben: kein Write, kein Stamp -> der Folgelauf misst neu.
             bool csv_write_ok = false;
-            {
+            if (!lazy_stale_rettung_vor_write(bin_dir / "result.csv")) {
+                std::cerr << "[" << measurement::LogAndContinueInfraPolicy::log_prefix() << ": "
+                          << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo) << "] binary_id='"
+                          << binary_id << "' result.csv NICHT nach result.csv.stale"
+                          << " gesichert in " << bin_dir.string()
+                          << " -- der Alt-Mess-Stand bleibt UNVERAENDERT liegen (Messdaten nie loeschen);"
+                             " frischer per-Binary-Write und Resume-Stamp entfallen (Folgelauf misst neu);"
+                             " der Ordner MUSS von Hand geraeumt werden\n"
+                          << std::flush;
+            } else {
                 std::ofstream pf{bin_dir / "result.csv", std::ios::trunc};
                 if (pf) {
                     pf << lazy_csv_header() << per_binary_csv;
