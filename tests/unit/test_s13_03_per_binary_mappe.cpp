@@ -202,3 +202,38 @@ TEST(S1303PerBinary, WiederanlaufSetztBeiNPlusEinsAuf) {
     EXPECT_FALSE(ex::lazy_try_resume_binary(tmp.path / "bin0", "resume-v6|ANDERE-config", &rows))
         << "Ein abweichender Stempel-Praefix heisst: ehrliche Neu-Messung, kein staler Uebertrag.";
 }
+
+// ---------------------------------------------------------------------------------------------
+// #137 / N-12 (par.27.1.J EP-1, 24.08.2026) -- .stale-RETTUNG AUF DEM ERFOLGS-PFAD.
+// ROT-ZUERST: dieser Test wurde VOR dem Helfer kompiliert (Rot-Protokoll
+// fixlogs/fix6-ep1-rot.log: 'lazy_stale_rettung_vor_write' undeklariert); GRUEN erst mit
+// Helfer + Verdrahtung. Die .stale-Mechanik existierte NUR im Fehlzweig (:2807-Muster);
+// auf dem Erfolgs-Pfad ueberschrieb ios::trunc einen liegenden Alt-Stand ersatzlos.
+// ---------------------------------------------------------------------------------------------
+TEST(S1303PerBinary, StaleRettungAufDemErfolgspfadRettetAltstandByteGleich) {
+    TempDir    tmp;
+    auto const bin_dir = tmp.path / "bin0";
+    fs::create_directories(bin_dir);
+    std::string const alt = ex::lazy_csv_header() + "alt;riss;42\n";
+    write_file(bin_dir / "result.csv", alt);
+    // (1) Alt-Stand liegt -> Rettung: Zielplatz frei, .stale traegt den Alt-Stand BYTE-GLEICH.
+    EXPECT_TRUE(ex::lazy_stale_rettung_vor_write(bin_dir / "result.csv"));
+    EXPECT_FALSE(fs::exists(bin_dir / "result.csv")) << "Zielplatz muss nach der Rettung frei sein.";
+    EXPECT_EQ(read_file(bin_dir / "result.csv.stale"), alt)
+        << "Rohdatum: gerettet wird byte-gleich, nie geloescht (Messdaten-Dauerregel).";
+    // (2) Kein Alt-Stand -> true, und es entsteht NICHTS (die .stale von (1) bleibt unberuehrt).
+    EXPECT_TRUE(ex::lazy_stale_rettung_vor_write(bin_dir / "result.csv"));
+    EXPECT_EQ(read_file(bin_dir / "result.csv.stale"), alt);
+}
+
+// VERDRAHTUNGS-WACHE (t15-Muster: die Quelle wird gelesen): die Rettung muss auf dem
+// ERFOLGS-Pfad AUFGERUFEN sein -- die blosse Definition (1 Fundstelle des Aufruf-Tokens)
+// traegt nicht. Biss-Probe: Aufruf im Iterator entfernen -> dieser Test faellt.
+TEST(S1303PerBinary, StaleRettungIstAufDemErfolgspfadVerdrahtet) {
+    std::ifstream quelle{COMDARE_S1303_ITERATOR_QUELLE};
+    ASSERT_TRUE(quelle.is_open()) << "Iterator-Quelle nicht lesbar: " COMDARE_S1303_ITERATOR_QUELLE;
+    std::string const text{std::istreambuf_iterator<char>(quelle), std::istreambuf_iterator<char>()};
+    std::size_t       n = 0;
+    for (std::size_t pos = 0; (pos = text.find("lazy_stale_rettung_vor_write(", pos)) != std::string::npos; ++pos) ++n;
+    EXPECT_GE(n, 2u) << "#137: Definition + mindestens ein Aufruf auf dem Erfolgs-Pfad erwartet.";
+}

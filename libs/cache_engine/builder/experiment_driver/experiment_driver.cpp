@@ -486,6 +486,11 @@ int ExperimentDriver::phase5_run_workload(std::span<loader::ModuleHandle> handle
             }
         }
 
+        // honest-0-DEKLARATION (F-147/trigfix-KLEIN-4, par.27.5.2 F3-12; f15_compare/main.cpp:614-
+        // Muster): bytes_in_use_peak wird vom ALT-Treiber NIE befuellt -- die Zero-Init-0 bleibt
+        // (Alt-Treiber ohne Peak-Quelle; echte Quelle = E-24/B7-Aufloesungssatz, WAHRER Peak nur im
+        // experiment_demo-Pfad :91). Die OFFIZIELLE Kampagnen-CSV (WIDE, profile_run_entry.hpp)
+        // traegt dafuer ehrlich "n/a"; dieser Export ist Alt-Architektur ausserhalb des Trigger-Pfads.
         comdare_measurement_record_v1 rec{};
         m->run_workload(inst, wl_for_this_module, &rec);
 

@@ -165,7 +165,7 @@ TEST(E07GateKriterien, K3aStaleTrefferBeisst) {
     EXPECT_FALSE(erg.kriterium_erfuellt[2]);
 }
 
-TEST(E07GateKriterien, AntiScheinGruenDeltaNullProbeIstUnguelig) {
+TEST(E07GateKriterien, AntiScheinGruenDeltaNullProbeIstUngueltig) {
     // Der Anti-Schein-Gruen-Koeder aus dem Dossier: erwartetes Delta 0 (n' == n == 6). ALLE
     // Einzelwerte sehen "gruen" aus (expected==actual, 0 Treffer) -- die Probe ist trotzdem
     // UNGUELTIG, weil sie nichts unterscheidet.
@@ -174,9 +174,9 @@ TEST(E07GateKriterien, AntiScheinGruenDeltaNullProbeIstUnguelig) {
     auto const erg = e07::e07_gate_auswerten(proto);
     EXPECT_FALSE(erg.go);
     EXPECT_FALSE(erg.kriterium_erfuellt[2]) << "K3a muss als UNGUELTIG fallen";
-    bool unguelig = false;
-    for (auto const& b : erg.befunde) unguelig = unguelig || b.find("UNGUELTIG") != std::string::npos;
-    EXPECT_TRUE(unguelig) << "der Delta-0-Befund muss WOERTLICH ausgewiesen sein";
+    bool ungueltig = false;
+    for (auto const& b : erg.befunde) ungueltig = ungueltig || b.find("UNGUELTIG") != std::string::npos;
+    EXPECT_TRUE(ungueltig) << "der Delta-0-Befund muss WOERTLICH ausgewiesen sein";
 }
 
 TEST(E07GateKriterien, K3bOhneSchrumpfDeltaIstUngueltig) {

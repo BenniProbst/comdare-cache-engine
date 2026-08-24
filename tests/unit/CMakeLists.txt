@@ -8014,8 +8014,13 @@ target_include_directories(test_s13_03_per_binary_mappe PRIVATE
 target_link_libraries(test_s13_03_per_binary_mappe PRIVATE Boost::mp11
     comdare::lager_ablage gtest gtest_main)
 comdare_set_platform_defines(test_s13_03_per_binary_mappe)
+# #137 (N-12): die Verdrahtungs-Wache liest die Iterator-Quelle (t15-Muster; Zwischenvariable
+# wegen der 120-Spalten-Diff-Wache, s. SELBSTCHECK am t15-Block).
+set(_s1303_tree "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/experiment_tree")
 target_compile_definitions(test_s13_03_per_binary_mappe PRIVATE
-    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_S1303_ITERATOR_QUELLE=\"${_s1303_tree}/cache_engine_builder_iterator.hpp\"")
+unset(_s1303_tree)
 add_test(NAME test_s13_03_per_binary_mappe COMMAND test_s13_03_per_binary_mappe)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_s13_03_per_binary_mappe)
 set_tests_properties(test_s13_03_per_binary_mappe PROPERTIES

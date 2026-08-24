@@ -538,7 +538,7 @@ TEST(ExperimentParser, TemplateModeFullWithoutRefIsAccepted) {
 //             Fehlziel zum HARTEN Planer-Fehler mit der Anzeige UNERFUELLBARES XML-ZIEL "ERROR" --
 //             fail-loud statt stiller full-Ersatz. Der Test prueft jetzt GENAU das: unbekannter
 //             nicht-leerer ref = harter Fehler MIT dem R-4-Literal; ein REGISTRIERTER ref (P01) und der
-//             leere ref (Test daueber) bleiben fehlerfrei.
+//             leere ref (Test darueber) bleiben fehlerfrei.
 TEST(ExperimentParser, TemplateWithUnknownRefIsHardR4Error) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());

@@ -5,7 +5,7 @@
 // M14-Ranking-Grammatik + Markierungs-/Ranking-Ausgabe + 33 Paper-Experiment-XMLs (F1a:
 // ein Paper = genau ein Experiment-XML; Owner-GO 08.08.2026).
 //
-// NENNER-DOKTRIN (T-2, Nenner fremd): der 33er-Nenner kommt NICHT aus der Registry selbst,
+// NENNER-DOKTRIN (T-3, Nenner fremd): der 33er-Nenner kommt NICHT aus der Registry selbst,
 // sondern aus dem XML-BESTAND libs/cache_engine/algorithm_profiles/sota/*.profile.xml
 // (COMDARE_CE_ALGORITHM_PROFILES_DIR, CMake-seitig gereicht) -- Registry und Bestand werden
 // GEGENEINANDER geprueft (beide Richtungen), kein Selbst-Beleg.
@@ -20,6 +20,8 @@
 #include "comdare_test_tmp.hpp"
 #include "xml_config_parser/xml_config_parser.hpp"
 
+#include <cache_engine/naming/begriffs_alias_registry.hpp>
+
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -30,6 +32,7 @@
 namespace {
 
 namespace tlz = ::comdare::cache_engine::thesis_lazy;
+namespace nmg = ::comdare::cache_engine::naming;
 namespace ex  = ::comdare::cache_engine::builder::experiment;
 namespace cx  = ::comdare::builder::xml;
 namespace fs  = std::filesystem;
@@ -82,17 +85,35 @@ TEST(Ph89PaperPruefling, RegistryDecktXmlBestandBeideRichtungen) {
 // Gegeneingang: NICHT deklarierte Paare sind NICHT dasselbe.
 // ---------------------------------------------------------------------------------------------
 TEST(Ph89PaperPruefling, BegriffsAliasDeklarierteGleichheit) {
-    // Anwendungsfall (1): Ledger-#44/F1-Vokabular-Naht.
+    // Anwendungsfall (1): Ledger-#44/F1-Vokabular-Naht. KANON-RICHTUNG = M13 (FIX FUND-1,
+    // Audit ph89 r1): kanonisch ist das M13-Kanon-Vokabular, nicht das Kuerzel.
     static_assert(tlz::same_begriff("SPARSE_NODE4_ART", "node4"));
-    static_assert(tlz::begriff_kanonisch("SPARSE_NODE4_ART") == "node4");
-    // Anwendungsfall (2): KON112-01c compare/macro/micro == w/ma/mi.
+    static_assert(tlz::begriff_kanonisch("node4") == "SPARSE_NODE4_ART");
+    static_assert(tlz::begriff_kanonisch("SPARSE_NODE4_ART") == "SPARSE_NODE4_ART"); // Kanon = Fixpunkt
+    // Anwendungsfall (2): KON112-01c compare/macro/micro == w/ma/mi; Kanon-Ziele je M13:
+    // wallclock/macro/micro (w UND compare sind ZWEI Aliasse DESSELBEN Kanons wallclock).
     static_assert(tlz::same_begriff("compare", "w"));
     static_assert(tlz::same_begriff("macro", "ma"));
     static_assert(tlz::same_begriff("micro", "mi"));
+    static_assert(tlz::begriff_kanonisch("w") == "wallclock");
+    static_assert(tlz::begriff_kanonisch("compare") == "wallclock");
+    static_assert(tlz::begriff_kanonisch("ma") == "macro");
+    static_assert(tlz::begriff_kanonisch("mi") == "micro");
+    // CT-KREUZ-WACHE gegen M13 (naming::kanon_of) je GETEILTER Gruppe -- bindet beide
+    // Registries bis zur getragenen M13-Absorption (Staffel 3) aneinander. Verbund2/3 kennt
+    // M13 noch nicht (Absorptions-Rest; kanon_of braeche dort per R-2 compile-time).
+    static_assert(tlz::begriff_kanonisch("node4") == nmg::kanon_of("organ_baustein", "node4"));
+    static_assert(tlz::begriff_kanonisch("w") == nmg::kanon_of("mess_ebene", "w"));
+    static_assert(tlz::begriff_kanonisch("compare") == nmg::kanon_of("mess_ebene", "compare"));
+    static_assert(tlz::begriff_kanonisch("ma") == nmg::kanon_of("mess_ebene", "ma"));
+    static_assert(tlz::begriff_kanonisch("mi") == nmg::kanon_of("mess_ebene", "mi"));
+    static_assert(tlz::begriff_kanonisch("Stufe1_CeOnly") == nmg::kanon_of("verbund_phase", "Stufe1_CeOnly"));
     // Anwendungsfall (3): B-2/V-11R Stufe*->Verbund*.
     static_assert(tlz::same_begriff("Stufe1_CeOnly", "Verbund1_CeOnly"));
     static_assert(tlz::same_begriff("Stufe2_PrueflingReplace", "Verbund2_Replace"));
     static_assert(tlz::same_begriff("Stufe3_FullJoin", "Verbund3_Union"));
+    static_assert(tlz::begriff_kanonisch("Stufe2_PrueflingReplace") == "Verbund2_Replace");
+    static_assert(tlz::begriff_kanonisch("Stufe3_FullJoin") == "Verbund3_Union");
     // Identitaet gilt immer; Unbekanntes bleibt es selbst (kein Uebersetzer, keine Transformation).
     static_assert(tlz::same_begriff("irgendwas", "irgendwas"));
     static_assert(tlz::begriff_kanonisch("unbekannt") == "unbekannt");

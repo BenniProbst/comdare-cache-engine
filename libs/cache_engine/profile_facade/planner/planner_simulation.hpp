@@ -621,6 +621,11 @@ struct KampagnenSicht {
          "     drift_worst_arena und t15b-Klammer sind TEIL-Faktoren, keine konkurrierenden Lesarten.\n";
     o += "  4. lastsequenz: das Registry-Angebot traegt heute 1 Framework (ycsb); Sequenz-Permutationen ohne\n"
          "     Werte-Katalog bleiben unterbestimmt (D.3) -- dyn[workload] zaehlt die XML-Auswahl.\n";
+    // L-07 (s19-FUND-1, par.27.1.I; Anker frisch 24.08. @943c70ee-Kette): reiner Hinweis-String,
+    // kein Rechen-Delta.
+    o += "  hybrid: der Hybrid-Mehrfach-Aufbau (GOAL VI.2) ist nicht modelliert; Hybrid-Belegung kommt\n"
+         "     per XML (KON42-01(4)) und zaehlt dann als Freigabe -- die Dock-Zahl ist Programm-Deckel\n"
+         "     (KON42-01(3)), kein Faktor.\n";
     if (e.mengen.binaries_je_perm != 0u && e.mengen.binaries_je_perm != s.organ_produkt) {
         o += "  5. GN-DIVERGENZ: COMDARE_GN_TOTAL (" + std::to_string(e.mengen.binaries_je_perm) +
              ") und organ_produkt (" + std::to_string(s.organ_produkt) +
