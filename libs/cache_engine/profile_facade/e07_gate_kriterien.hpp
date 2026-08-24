@@ -194,7 +194,10 @@ namespace detail {
 
     // ---- Phase 3: die 10 Kriterien (jedes nur mit vollstaendigen Eingaben erfuellbar). ----
     auto const setze = [&](std::string_view name, bool erfuellt) {
-        auto const it                    = std::find(kKriterienNamen.begin(), kKriterienNamen.end(), name);
+        auto const it = std::find(kKriterienNamen.begin(), kKriterienNamen.end(), name);
+        if (it == kKriterienNamen.end()) return; // KLEIN-2 (S2/T12-3, par.27.1.J): end()-Guard vor dem
+                                                 // Index-Zugriff -- heute unerreichbar (alle Aufrufe aus
+                                                 // der 10er-Literalliste), Haertung gegen kuenftige Tippfehler.
         auto const idx                   = static_cast<std::size_t>(it - kKriterienNamen.begin());
         ergebnis.kriterium_erfuellt[idx] = erfuellt;
         if (erfuellt) ++ergebnis.kriterien_erfuellt;
