@@ -154,64 +154,71 @@ static_assert(typen_bekannt_und_l6_anker(), "P-H/R-3+L6: pruefling_typ nur full|
 } // namespace paper_registry_wachen
 
 // --
-// R-2 -- BEGRIFFS-ALIAS (Mechanismus-Erstbelegung der Paper-Domaene, KON112-09). Eine Gruppe
-// deklariert ZWEI Schreibweisen DESSELBEN Dings; `kanonisch` ist das lebende Registry-/Enum-
-// Vokabular, `alias` die historische/dokumentarische Schreibweise. KEIN Uebersetzer (s. Kopf).
+// R-2 -- BEGRIFFS-ALIAS (Mechanismus-Erstbelegung der Paper-Domaene, KON112-09). Eine Zeile
+// deklariert ZWEI Schreibweisen DESSELBEN Dings; `kanonisch` traegt die M13-KANON-RICHTUNG
+// (naming/begriffs_alias_registry.hpp: SPARSE_NODE4_ART/wallclock/macro/micro), `alias` die
+// Kuerzel-/Alt-Schreibweise. Gleiches Kanon-Ziel darf MEHRFACH auftreten (wallclock <- w UND
+// compare): 8 Zeilen / 7 Aequivalenzklassen. KEIN Uebersetzer (s. Kopf).
+// FIX FUND-1 (Audit ph89 r1, H-11/P-23): Richtung an M13 angeglichen; die CT-Kreuz-Wache im
+// Test bindet beide Registries bis zur getragenen M13-Absorption (Staffel 3) aneinander.
 // --
 struct BegriffsAliasGruppe {
-    std::string_view kanonisch; // lebendes Vokabular (Registry-name() / Enum-Name / Mess-Ebene)
-    std::string_view alias;     // als DASSELBE deklarierte zweite Schreibweise
+    std::string_view kanonisch; // M13-Kanon (Baustein-Tag / Serialisierungs-Token / Verbund-Name)
+    std::string_view alias;     // als DASSELBE deklarierte Kuerzel-/Alt-Schreibweise
 };
 
-inline constexpr std::array<BegriffsAliasGruppe, 7> kBegriffsAliasRegistry = {{
-    // (1) Ledger-#44/F1-Vokabular-Naht: Registry-Wrapper-name() vs Profil-/Flag-Vokabular.
-    {"node4", "SPARSE_NODE4_ART"},
-    // (2) KON112-01c: Mess-Ebenen w/ma/mi == compare/macro/micro (erster Anwendungsfall).
-    {"w", "compare"},
-    {"ma", "macro"},
-    {"mi", "micro"},
+inline constexpr std::array<BegriffsAliasGruppe, 8> kBegriffsAliasRegistry = {{
+    // (1) Ledger-#44/F1-Vokabular-Naht: Baustein-Tag (M13-Kanon) <- Registry-Wrapper-name().
+    {"SPARSE_NODE4_ART", "node4"},
+    // (2) KON112-01c: Mess-Ebenen-Kanons wallclock/macro/micro <- Kuerzel w/ma/mi; die
+    //     Ebene-0-Dualitaet traegt ZWEI Aliasse auf dasselbe Kanon-Ziel (wallclock <- w, compare).
+    {"wallclock", "w"},
+    {"wallclock", "compare"},
+    {"macro", "ma"},
+    {"micro", "mi"},
     // (3) B-2/V-11R: Verbund-Namen tragen; Stufe*-Altnamen sind DASSELBE Ding (kein Re-Parse).
     {"Verbund1_CeOnly", "Stufe1_CeOnly"},
     {"Verbund2_Replace", "Stufe2_PrueflingReplace"},
     {"Verbund3_Union", "Stufe3_FullJoin"},
 }};
 
-/// same_begriff -- sind a und b DASSELBE deklarierte Ding (oder identisch)? NICHT deklarierte
-/// Paare sind NICHT dasselbe -- die Registry uebersetzt nicht quer (R-2: Uebersetzen = Regression).
-[[nodiscard]] constexpr bool same_begriff(std::string_view a, std::string_view b) noexcept {
-    if (a == b) return true;
-    for (auto const& g : kBegriffsAliasRegistry) {
-        bool const a_in = (a == g.kanonisch || a == g.alias);
-        bool const b_in = (b == g.kanonisch || b == g.alias);
-        if (a_in && b_in) return true;
-    }
-    return false;
-}
-
 /// begriff_kanonisch -- die kanonische UMBENENNUNG innerhalb einer deklarierten Gruppe
-/// (compile-time "als dasselbe umbenannt", Owner-R-2-Wortlaut). Unbekannte Begriffe bleiben
-/// sie selbst (Identitaet -- ausdruecklich KEINE Transformation, kein Fallback-Raten).
+/// (compile-time "als dasselbe umbenannt", Owner-R-2-Wortlaut; Richtung = M13-Kanon, ein Kanon
+/// ist sein eigener Fixpunkt). Unbekannte Begriffe bleiben sie selbst (Identitaet --
+/// ausdruecklich KEINE Transformation, kein Fallback-Raten).
 [[nodiscard]] constexpr std::string_view begriff_kanonisch(std::string_view begriff) noexcept {
     for (auto const& g : kBegriffsAliasRegistry)
         if (begriff == g.kanonisch || begriff == g.alias) return g.kanonisch;
     return begriff;
 }
 
+/// same_begriff -- sind a und b DASSELBE deklarierte Ding (oder identisch)? Projektion auf das
+/// KANON-Ziel: zwei Aliasse DESSELBEN Kanons sind dasselbe (w == compare via wallclock). NICHT
+/// deklarierte Paare sind NICHT dasselbe -- die Registry uebersetzt nicht quer (R-2: Uebersetzen
+/// = Regression); Unbekanntes projiziert auf sich selbst (Identitaet bleibt wahr).
+[[nodiscard]] constexpr bool same_begriff(std::string_view a, std::string_view b) noexcept {
+    return begriff_kanonisch(a) == begriff_kanonisch(b);
+}
+
 namespace begriffs_alias_wachen {
 [[nodiscard]] consteval bool begriffe_disjunkt() {
-    // Ein Begriff darf nur in EINER Gruppe stehen (sonst waere "dasselbe" mehrdeutig).
-    for (std::size_t i = 0; i < kBegriffsAliasRegistry.size(); ++i)
-        for (std::size_t j = i + 1; j < kBegriffsAliasRegistry.size(); ++j) {
-            auto const& a = kBegriffsAliasRegistry[i];
+    // M13-deckungsgleiche Eindeutigkeit (FIX FUND-1): gleiches KANON-Ziel zweier Zeilen ist
+    // ERLAUBT (dieselbe Sache, z.B. wallclock <- w UND compare); ein ALIAS darf nur EINMAL
+    // vorkommen (== M13s (fach,alias)-Wache, hier fachlos global) und NIE zugleich Kanon-Ziel
+    // sein -- sonst waere die kanonische Projektion mehrdeutig bzw. kein Fixpunkt (der Fall
+    // j == i deckt den Selbst-Alias `kanonisch == alias` mit ab).
+    for (std::size_t i = 0; i < kBegriffsAliasRegistry.size(); ++i) {
+        auto const& a = kBegriffsAliasRegistry[i];
+        for (std::size_t j = 0; j < kBegriffsAliasRegistry.size(); ++j) {
             auto const& b = kBegriffsAliasRegistry[j];
-            if (a.kanonisch == b.kanonisch || a.kanonisch == b.alias || a.alias == b.kanonisch || a.alias == b.alias)
-                return false;
+            if (i != j && a.alias == b.alias) return false; // Alias-Dublette == mehrdeutige Zeile
+            if (a.alias == b.kanonisch) return false;       // Alias zugleich Kanon-Ziel (inkl. Selbst-Alias)
         }
-    for (auto const& g : kBegriffsAliasRegistry)
-        if (g.kanonisch == g.alias) return false; // Selbst-Alias ist sinnlos == Deklarationsfehler
+    }
     return true;
 }
-static_assert(begriffe_disjunkt(), "R-2: Begriffs-Gruppen muessen disjunkt sein (sonst mehrdeutig).");
+static_assert(begriffe_disjunkt(), "R-2: Aliasse eindeutig und nie zugleich Kanon-Ziel (gleiches Kanon-Ziel mehrerer "
+                                   "Zeilen ist erlaubt -- dieselbe Sache).");
 } // namespace begriffs_alias_wachen
 
 // --
