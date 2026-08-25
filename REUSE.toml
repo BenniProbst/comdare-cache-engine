@@ -1,0 +1,305 @@
+# REUSE.toml -- comdare-cache-engine                                       (2026-08-25)
+# =============================================================================
+# REUSE-Spezifikation 3.3 (https://reuse.software/spec-3.3/). Diese Datei ORDNET
+# ZU, sie lizenziert nichts um: massgeblich sind LICENSE (Comdare Research
+# License, Version 1.0; Abschnitt 8 fuer Third-Party Components), NOTICE und
+# LICENSE_AUDIT_EXT.md -- und fuer jede Fremdkomponente ihre eigene Lizenzdatei.
+#
+# REGELN DIESER DATEI
+#   * Passen mehrere [[annotations]] auf eine Datei, gilt die LETZTE (Spec 3.3):
+#     Reihenfolge vom Allgemeinen (Eigencode) zum Besonderen (je ext/-Paket),
+#     ganz am Ende die Comdare-eigenen Dateien INNERHALB von ext/.
+#   * precedence "closest" (Vorgabe): traegt eine Datei selbst SPDX-Angaben,
+#     gelten diese (so bleiben die Koepfe von userspace-rcu, liburing,
+#     libxlsxwriter, catch.hpp ... massgeblich); nur kopflose Dateien bekommen
+#     die Tabelle.
+#   * precedence "override" steht an genau VIER Stellen: (1) docs/ -- die
+#     historische Lizenz-Uebersicht zitiert ein Apache-2.0-Kopfbeispiel;
+#     (2) die zwei Dateien der Lizenz-Wache, die SPDX-Zeilen als Zeichenketten-
+#     Bruchstuecke tragen, und die Wurzel-CMakeLists.txt, deren SPDX-Zeile einen
+#     Kommentar-Anhang traegt; (3) ext/io/liburing/.../io_uring.h, dessen Kopf
+#     den von SPDX ZURUECKGEZOGENEN Bezeichner GPL-2.0 traegt -- die Tabelle
+#     nennt dieselbe Lizenz mit dem gueltigen Bezeichner GPL-2.0-only. In allen
+#     Faellen aendert override die Lizenz NICHT.
+#   * Das Git-Submodul ext/queuing/Q01-concurrentqueue ist fuer `reuse lint`
+#     keine Covered File; die kuratierte Kopie unter axis_q1_queuing ist es.
+#   * Rechtstraeger wie in LICENSE: BEP Venture UG (haftungsbeschraenkt), Marke
+#     Comdare; "BEP" allein bezeichnet niemanden.
+# PRUEFUNG: `reuse lint` an der Repo-Wurzel (z.B. `uvx --from reuse reuse lint`).
+# ASCII-only.
+version = 1
+SPDX-PackageName = "comdare-cache-engine"
+SPDX-PackageSupplier = "Organization: BEP Venture UG (haftungsbeschraenkt)"
+SPDX-PackageDownloadLocation = "https://github.com/BenniProbst/comdare-cache-engine"
+SPDX-PackageComment = "Active Cache-Aware Hardware Adaptation Cache Engine for Trie-Based Index Structures. Eigencode unter der Comdare Research License 1.0 (LICENSE; Change Date 2031-08-10, danach Apache-2.0). Fremdcode unter ext/ behaelt seine eigene Lizenz (LICENSE Abschnitt 8, NOTICE, LICENSE_AUDIT_EXT.md)."
+
+# -- 1. EIGENCODE --------------------------------------------------------------
+[[annotations]]
+path = "**"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 BEP Venture UG (haftungsbeschraenkt), Marke Comdare"
+SPDX-License-Identifier = "LicenseRef-Comdare-Research-1.0"
+
+# Dokumentation: die historische Lizenz-Uebersicht (08.05.2026, als ueberholt
+# markiert) zitiert ein Apache-2.0-Kopfbeispiel; das Zitat ist keine Lizenzangabe
+# der Datei. Session-Protokolle zitieren ebenfalls Koepfe.
+[[annotations]]
+path = "docs/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 BEP Venture UG (haftungsbeschraenkt), Marke Comdare"
+SPDX-License-Identifier = "LicenseRef-Comdare-Research-1.0"
+
+# Die Lizenz-Wache traegt SPDX-Zeilen als Zeichenketten-Bruchstuecke (ihre Koeder
+# werden zur Laufzeit zusammengesetzt); die Wurzel-CMakeLists.txt haengt
+# "(siehe LICENSE)" an ihre SPDX-Zeile. Beides sind keine gueltigen SPDX-Ausdruecke
+# -- die Lizenz ist dieselbe.
+[[annotations]]
+path = ["CMakeLists.txt", "tests/unit/support/lizenz_audit.hpp", "tests/unit/test_lizenz_konsistenz.cpp"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 BEP Venture UG (haftungsbeschraenkt), Marke Comdare"
+SPDX-License-Identifier = "LicenseRef-Comdare-Research-1.0"
+
+# -- 2. VENDORIERTE ZELLEN unter libs/ ------------------------------------------
+# comdare-platform / comdare-simd: byte-identische Kopien der foundation-Zellen
+# (#265, First-Party-Vendoring). Sie tragen ihre eigene Lizenzdatei -- die
+# Per-Seat-EULA der BEP Venture UG (haftungsbeschraenkt) vom 2026-02-20 -- und
+# diese Tabelle gibt wieder, was dort liegt. Offener Punkt (Beweisort 25.08.):
+# EULA-Datei im CRL-Repo gegen LICENSE Abschnitt 1.2 -- Entscheid des Rechteinhabers.
+[[annotations]]
+path = "libs/common/platform/vendor/comdare-platform/**"
+SPDX-FileCopyrightText = "2026 BEP Venture UG (haftungsbeschraenkt), Marke Comdare"
+SPDX-License-Identifier = "LicenseRef-Comdare-Plattformabstraktion-EULA"
+
+[[annotations]]
+path = "libs/common/platform/vendor/comdare-simd/**"
+SPDX-FileCopyrightText = "2026 BEP Venture UG (haftungsbeschraenkt), Marke Comdare"
+SPDX-License-Identifier = "LicenseRef-Comdare-SIMD-Vektorisierung-EULA"
+
+# HdrHistogram_c (Michael Barker u.a.): "released to the public domain, as
+# explained at http://creativecommons.org/publicdomain/zero/1.0/" = CC0-1.0.
+[[annotations]]
+path = "libs/common/measurement/hdr_histogram_wrapper/vendor/**"
+SPDX-FileCopyrightText = "Michael Barker and the HdrHistogram_c contributors"
+SPDX-License-Identifier = "CC0-1.0"
+
+# Comdare-eigene Dateien in den Vendor-Ordnern (Formatierung, Uebersicht).
+[[annotations]]
+path = ["libs/common/measurement/hdr_histogram_wrapper/vendor/.clang-format",
+        "libs/common/platform/vendor/.clang-format", "libs/common/platform/vendor/REPOS_OVERVIEW.md"]
+SPDX-FileCopyrightText = "2026 BEP Venture UG (haftungsbeschraenkt), Marke Comdare"
+SPDX-License-Identifier = "LicenseRef-Comdare-Research-1.0"
+
+# -- 3. BAU-WERKZEUGE unter cmake/third_party ----------------------------------
+[[annotations]]
+path = "cmake/third_party/boost_mp11/**"
+SPDX-FileCopyrightText = "2015-2024 Peter Dimov"
+SPDX-License-Identifier = "BSL-1.0"
+
+[[annotations]]
+path = "cmake/third_party/googletest-1.15.2.tar.gz"
+SPDX-FileCopyrightText = "2008 Google Inc. and the GoogleTest contributors"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# -- 4. FREMDCODE unter ext/ (LICENSE Abschnitt 8; NOTICE; LICENSE_AUDIT_EXT.md) -
+# Traversal / SOTA-Repos
+[[annotations]]
+path = ["ext/traversal/P01-ART/**", "ext/traversal/axis_03a_search_algo/paper_p01_art/**",
+        "ext/prefetch/axis_07_prefetch/paper_p01_art_prefetch/**"]
+SPDX-FileCopyrightText = "2019-2026 UnoDB contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ["ext/traversal/P02-HOT/**", "ext/traversal/axis_03a_search_algo/paper_p02_hot/**"]
+SPDX-FileCopyrightText = "2018 Robert Binna"
+SPDX-License-Identifier = "ISC"
+
+# MIT plus W3C-Namensklausel -- kein SPDX-Listenbezeichner; Volltext in LICENSES/.
+[[annotations]]
+path = ["ext/traversal/P03-Masstree/**", "ext/traversal/axis_03a_search_algo/paper_p03_masstree/**"]
+SPDX-FileCopyrightText = ["2011-2019 President and Fellows of Harvard College",
+                          "2010-2011 Regents of the University of California",
+                          "2010-2013 Massachusetts Institute of Technology"]
+SPDX-License-Identifier = "LicenseRef-Masstree"
+
+# GPL-3.0-only: LICENSE = GPLv3-Text, README "under the terms of the GNU General
+# Public License v3.0"; keine "or later"-Erklaerung der Autoren am Objekt.
+[[annotations]]
+path = "ext/traversal/P04-CoCo-trie/**"
+SPDX-FileCopyrightText = "Antonio Boffa and the CoCo-trie contributors"
+SPDX-License-Identifier = "GPL-3.0-only"
+
+[[annotations]]
+path = ["ext/traversal/P05-START/**", "ext/traversal/axis_03a_search_algo/paper_p05_start/**"]
+SPDX-FileCopyrightText = "2020 Michael Jungmair"
+SPDX-License-Identifier = "MIT"
+
+# B2-Tree / BART: privat erhalten (TUM Database Group, 08.05.2026), keine Lizenzdatei.
+[[annotations]]
+path = "ext/traversal/P06-B2tree/**"
+SPDX-FileCopyrightText = "Josef Schmeisser, Maximilian E. Schuele, Viktor Leis, Thomas Neumann, Alfons Kemper (Technische Universitaet Muenchen)"
+SPDX-License-Identifier = "LicenseRef-Third-Party-No-License-File"
+
+[[annotations]]
+path = ["ext/traversal/P07-Wormhole/**", "ext/traversal/axis_03a_search_algo/paper_p07_wormhole/**",
+        "ext/prefetch/axis_07_prefetch/paper_p07_wormhole_prefetch/**"]
+SPDX-FileCopyrightText = "Xingbo Wu and the Wormhole contributors"
+SPDX-License-Identifier = "GPL-3.0-only"
+
+[[annotations]]
+path = ["ext/traversal/P10-SuRF/**", "ext/traversal/axis_03a_search_algo/paper_p10_surf/**"]
+SPDX-FileCopyrightText = "2018 Carnegie Mellon University"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "ext/traversal/P20-BTreesAreBack/**"
+SPDX-FileCopyrightText = "2021 FSU Jena and the LeanStore contributors"
+SPDX-License-Identifier = "MIT"
+
+# Mahling/Weisgut/Rabl (HPI): README bittet um Zitation, keine Lizenzdatei.
+[[annotations]]
+path = "ext/traversal/P25-Mahling/**"
+SPDX-FileCopyrightText = "Fabian Mahling, Marcel Weisgut, Tilmann Rabl (Hasso-Plattner-Institut, Universitaet Potsdam)"
+SPDX-License-Identifier = "LicenseRef-Third-Party-No-License-File"
+
+# Userspace RCU ist selbst REUSE-konform (Koepfe je Datei, LICENSES/ im Klon);
+# die Tabelle deckt nur die wenigen kopflosen Dateien mit der Bibliothekslizenz.
+[[annotations]]
+path = "ext/traversal/P29-RCU/**"
+SPDX-FileCopyrightText = "Mathieu Desnoyers, Paul E. McKenney and the Userspace RCU contributors"
+SPDX-License-Identifier = "LGPL-2.1-or-later"
+
+# haz_ptr: keine Lizenzdatei, aber MIT-Erlaubnistext im Kopf jeder Quelldatei.
+[[annotations]]
+path = "ext/traversal/P30-HazardPointers/**"
+SPDX-FileCopyrightText = "2019 Jiahua Huang"
+SPDX-License-Identifier = "MIT"
+
+# Allokatoren
+[[annotations]]
+path = "ext/allocator/A01-hoard/**"
+SPDX-FileCopyrightText = "1998-2019 Emery Berger"
+SPDX-License-Identifier = "Apache-2.0"
+
+# A03: README "GNU Lesser General Public License ... version 2.1 ... or (at your
+# option) any later version" (Scott Schneider, Christos Antonopoulos, 2007).
+# NOTICE nennt MIT, LICENSE_AUDIT_EXT.md "KEINE LICENSE" -- beides weicht vom
+# Objekt ab (Restposten 25.08.: NOTICE/Audit nachziehen).
+[[annotations]]
+path = "ext/allocator/A03-michael-lockfree/**"
+SPDX-FileCopyrightText = "2007 Scott Schneider, Christos Antonopoulos"
+SPDX-License-Identifier = "LGPL-2.1-or-later"
+
+[[annotations]]
+path = ["ext/allocator/A04-mimalloc/**", "ext/allocator/axis_06_allocator/paper_a04_mimalloc/**"]
+SPDX-FileCopyrightText = "2018-2025 Microsoft Corporation, Daan Leijen"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["ext/allocator/A05-jemalloc/**", "ext/A05-jemalloc/**",
+        "ext/allocator/axis_06_allocator/paper_a05_jemalloc/**"]
+SPDX-FileCopyrightText = ["2002-present Jason Evans", "2007-2012 Mozilla Foundation", "2009-present Facebook, Inc."]
+SPDX-License-Identifier = "BSD-2-Clause"
+
+[[annotations]]
+path = "ext/allocator/A06-tcmalloc/**"
+SPDX-FileCopyrightText = "Google LLC and the tcmalloc contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ["ext/allocator/A07-snmalloc/**", "ext/allocator/axis_06_allocator/paper_a07_snmalloc/**"]
+SPDX-FileCopyrightText = "Microsoft Corporation and the snmalloc contributors"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "ext/allocator/A08-scalloc/**"
+SPDX-FileCopyrightText = "2012-2015 the scalloc project authors"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# rpmalloc: README "This library is put in the public domain ... Or, if you
+# choose, you can use it under the MIT license" (Unlicense-Text im Abschnitt License).
+[[annotations]]
+path = ["ext/allocator/A10-rpmalloc/**", "ext/allocator/axis_06_allocator/paper_a10_rpmalloc/**"]
+SPDX-FileCopyrightText = "Mattias Jansson"
+SPDX-License-Identifier = "Unlicense OR MIT"
+
+[[annotations]]
+path = ["ext/allocator/A11-lrmalloc/**", "ext/allocator/axis_06_allocator/paper_a11_lrmalloc/**"]
+SPDX-FileCopyrightText = "2018 Ricardo Leite"
+SPDX-License-Identifier = "MIT"
+
+# dlmalloc 2.7.2: "written by Doug Lea and released to the public domain".
+[[annotations]]
+path = ["ext/allocator/A20-dlmalloc/**", "ext/allocator/axis_06_allocator/paper_a20_dlmalloc/**"]
+SPDX-FileCopyrightText = "Doug Lea (public domain)"
+SPDX-License-Identifier = "LicenseRef-Public-Domain-Dedication"
+
+# Infrastruktur-Snapshots ext/io/ (COMDARE-VENDOR-PROVENANCE.md je Ordner)
+[[annotations]]
+path = "ext/io/libxlsxwriter/**"
+SPDX-FileCopyrightText = "2014-2026 John McNamara"
+SPDX-License-Identifier = "BSD-2-Clause"
+
+[[annotations]]
+path = ["ext/io/libxlsxwriter/third_party/minizip/**", "ext/io/libxlsxwriter/include/xlsxwriter/third_party/zip.h",
+        "ext/io/libxlsxwriter/include/xlsxwriter/third_party/ioapi.h"]
+SPDX-FileCopyrightText = ["1998-2010 Gilles Vollant", "2009-2010 Mathias Svensson"]
+SPDX-License-Identifier = "Zlib"
+
+[[annotations]]
+path = ["ext/io/libxlsxwriter/third_party/md5/**", "ext/io/libxlsxwriter/include/xlsxwriter/third_party/md5.h"]
+SPDX-FileCopyrightText = "2001 Alexander Peslyak (public domain)"
+SPDX-License-Identifier = "LicenseRef-Public-Domain-Dedication"
+
+[[annotations]]
+path = ["ext/io/libxlsxwriter/third_party/dtoa/**", "ext/io/libxlsxwriter/include/xlsxwriter/third_party/emyg_dtoa.h"]
+SPDX-FileCopyrightText = ["2015 Doug Currie", "2014 Milo Yip"]
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "ext/io/libxlsxwriter/include/xlsxwriter/third_party/tmpfileplus.h"
+SPDX-FileCopyrightText = "2012-2016 David Ireland, DI Management Services Pty Ltd"
+SPDX-License-Identifier = "MPL-2.0"
+
+[[annotations]]
+path = ["ext/io/libxlsxwriter/include/xlsxwriter/third_party/queue.h",
+        "ext/io/libxlsxwriter/include/xlsxwriter/third_party/tree.h"]
+SPDX-FileCopyrightText = "1991, 1993 The Regents of the University of California"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = "ext/io/zlib/**"
+SPDX-FileCopyrightText = "1995-2026 Jean-loup Gailly and Mark Adler"
+SPDX-License-Identifier = "Zlib"
+
+# liburing: README "dual licensed LGPL and MIT"; Comdare waehlt MIT (NOTICE).
+[[annotations]]
+path = "ext/io/liburing/**"
+SPDX-FileCopyrightText = "2020 Jens Axboe and the liburing contributors"
+SPDX-License-Identifier = "LGPL-2.1-only OR MIT"
+
+# Kernel-Header: Kopf traegt "(GPL-2.0 WITH Linux-syscall-note) OR MIT"; GPL-2.0
+# ist von SPDX zurueckgezogen zugunsten von GPL-2.0-only -- dieselbe Lizenz.
+[[annotations]]
+path = "ext/io/liburing/src/include/liburing/io_uring.h"
+precedence = "override"
+SPDX-FileCopyrightText = "The Linux kernel contributors"
+SPDX-License-Identifier = "(GPL-2.0-only WITH Linux-syscall-note) OR MIT"
+
+# concurrentqueue (Cameron Desrochers): Simplified BSD, wahlweise Boost Software License.
+[[annotations]]
+path = "ext/queuing/axis_q1_queuing/paper_q01_concurrentqueue/**"
+SPDX-FileCopyrightText = "2013-2016 Cameron Desrochers"
+SPDX-License-Identifier = "BSD-2-Clause OR BSL-1.0"
+
+# -- 5. COMDARE-EIGENE DATEIEN INNERHALB von ext/: Ordner-Uebersichten, Vendor- ---
+#       Provenance, die CMake-Huellen der io-Snapshots (A9-S1 Vendor-Scheibe,
+#       G3 Lager-Gate), die axis_*-Kuratierung (Manifeste, Lock-Dateien,
+#       MODIFICATIONS, kuratierte READMEs). LETZTE Tabelle, damit sie die
+#       Paket-Zuordnungen oben fuer genau diese Dateien ueberschreibt.
+[[annotations]]
+path = ["ext/.gitkeep", "ext/CMakeLists.txt", "ext/*/REPOS_OVERVIEW.md",
+        "ext/io/*/COMDARE-VENDOR-PROVENANCE.md", "ext/io/*/CMakeLists.txt",
+        "ext/**/MODIFICATIONS.md", "ext/**/manifest.txt", "ext/**/sha256_locked.txt",
+        "ext/**/compiler_info.txt", "ext/*/axis_*/paper_*/README.md", "ext/*/axis_*/paper_*/.gitignore"]
+SPDX-FileCopyrightText = "2026 BEP Venture UG (haftungsbeschraenkt), Marke Comdare"
+SPDX-License-Identifier = "LicenseRef-Comdare-Research-1.0"

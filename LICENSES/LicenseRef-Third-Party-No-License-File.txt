@@ -1,0 +1,18 @@
+Third-Party Material Without a License File
+
+The files marked with this identifier are third-party works reproduced in
+this repository for research documentation, comparison and verification:
+research prototypes that were received or downloaded without a license file,
+published papers (PDF), templates and similar material.
+
+No license is granted by this repository for these files. All rights remain
+with their respective copyright holders, who are named in the REUSE.toml
+annotation of each path and, where available, in the files themselves. The
+use of these files here is limited to what the copyright holders have
+permitted and to what applicable copyright law allows (for example quotation
+and scientific citation).
+
+Before using any of these files beyond reading them, contact the respective
+authors or publishers. The file NOTICE records the known status of each
+vendored research project; the cache engine additionally records it in
+LICENSE_AUDIT_EXT.md.
