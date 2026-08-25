@@ -335,11 +335,18 @@ TEST(D51PerzentilKanon, KreuzTestGeraderLaengeBitGleich) {
 
     // (a) Der ECHTE Lastprofil-CSV-Serialisierer.
     wd::WorkloadRunResult r;
-    r.profile_name        = "d51";
-    r.op_count            = probe.size();
-    r.insert_ns           = probe;
-    r.lookup_ns           = probe;
-    std::string const csv = wd::serialize_workload_run_results_csv(std::vector<wd::WorkloadRunResult>{r});
+    r.profile_name = "d51";
+    r.op_count     = probe.size();
+    r.insert_ns    = probe;
+    r.lookup_ns    = probe;
+    // A2.5-R1 (25.08.2026, L-06 Warnungs-Review, gcc 15.3 -O3 -Wfree-nonheap-object): das braced
+    // Temporaer std::vector<...>{r} (1552-Byte-Element) liess gcc in der inline-expandierten
+    // Vektor-Destruktion einen Nicht-Heap-Zeiger mit Offset melden (gcc-15-STL-Klasse, W135-6-
+    // verwandt). Ein benannter Vektor mit push_back nimmt denselben Serialisierer-Pfad ohne den
+    // Temporaer-Pfad; Semantik unveraendert: GENAU EIN Ergebnis-Datensatz.
+    std::vector<wd::WorkloadRunResult> ergebnisse;
+    ergebnisse.push_back(r);
+    std::string const csv = wd::serialize_workload_run_results_csv(ergebnisse);
     std::size_t const nl  = csv.find('\n');
     ASSERT_NE(nl, std::string::npos);
     auto const spalten = csv_spalten(csv.substr(nl + 1));
