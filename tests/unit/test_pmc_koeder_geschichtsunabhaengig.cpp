@@ -15,6 +15,9 @@
 //       Zaehler (Lead-Order 25.08.2026: "4x im selben Prozess, identische Bisse").
 //   (2) Je Event ACHT direkte Koeder-Fenster (pmc_event_beisst, DIE Event-Liste) urteilen identisch --
 //       die feinere Sonde: jede Erhebung ist selbst eine Folge solcher Fenster.
+//   (3) GEOMETRIE-ANKER (T-3, Literale HIER eingefroren): 64 MiB, 4096 B je Kettenglied, 16384 Seiten --
+//       mehr als der groesste bekannte L2-DTLB (4096 Eintraege) haelt. Wer den Koeder wieder schrumpft,
+//       reisst diesen Anker, bevor die Erkennung still geschichtsabhaengig wird.
 //
 // FREMDER NENNER (T-3): die Event-Zahl kommt aus measurement::kPmcEventCount, nie als hier erfundene Zahl.
 // EHRLICHE GRENZE: beisst auf dieser Maschine KEIN Event (kein Zugriff, Container, paranoid), ist "alle
@@ -103,4 +106,20 @@ TEST(PmcKoederGeschichtsunabhaengig, AchtKoederFensterJeEventUrteilenIdentisch) 
                 << "(Geschichtsabhaengigkeit des Koeders)." << sicht;
         }
     }
+}
+
+// (3) Die Geometrie, die (1) und (2) traegt -- als eingefrorene Literale (T-3), nicht aus dem Pruefling gezogen.
+TEST(PmcKoederGeschichtsunabhaengig, GeometrieAnkerSechzigVierMiBEineSeiteJeKettenglied) {
+    constexpr std::size_t kBytesSoll   = 67108864u;
+    constexpr std::size_t kSchrittSoll = 4096u;
+    constexpr std::size_t kSeitenSoll  = 16384u;
+    constexpr std::size_t kL2DtlbMax   = 4096u;
+    static_assert(cme::kPmcKoederBytes == kBytesSoll, "64 MiB");
+    static_assert(cme::kPmcKoederSchritt == kSchrittSoll, "eine 4-KiB-Seite je Kettenglied");
+    static_assert(cme::kPmcKoederSlots == kSeitenSoll, "16384 Kettenglieder = 16384 Seiten");
+    static_assert(cme::kPmcKoederSlots > kL2DtlbMax, "mehr Seiten als der groesste bekannte L2-DTLB");
+    EXPECT_EQ(cme::kPmcKoederBytes, kBytesSoll);
+    EXPECT_EQ(cme::kPmcKoederSchritt, kSchrittSoll);
+    EXPECT_EQ(cme::kPmcKoederSlots, kSeitenSoll);
+    EXPECT_GT(cme::kPmcKoederSlots, kL2DtlbMax);
 }

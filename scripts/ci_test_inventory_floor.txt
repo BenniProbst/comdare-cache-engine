@@ -809,6 +809,20 @@
 #   Tests. WIE GEMESSEN, NICHT GERECHNET: build-l1 (COMDARE_CE_PRUEFLINGE gesetzt),
 #   cmake-Refresh RC=0, 'ctest -N'-Schlusszeile literal "Total Tests: 545".
 #   Messlog: ~/.claude/jobs/5a19728e/tmp/o2merge-reconf.log (Kopie folgt im Beweisort).
-avx512f 545
-avx2 541
-basis 539
+# NACHZUG 25.08.2026 (E07/dtlb-KOEDER-Strang bau/pmc-dtlb-koeder, Diagnose #114-Re-Run; Beweisort
+# backups-workflow/20260825-diagnose-e07/): 546/542/540 loest 545/541/539 ab.
+# KONTO, EIN Name in EINEM Zug (Registrierung und Floor-Zeile im SELBEN Commit, #39-Doktrin):
+#   test_pmc_koeder_geschichtsunabhaengig (Host-Erkennung 4x im selben Prozess + je Event 8 Koeder-
+#     Fenster identisch + Geometrie-Anker 64 MiB / 4096 B / 16384 Seiten; T-1 rot zuerst am alten
+#     128-KiB-Koeder 5/5 Laeufe rc=1, gruen nach dem Fix 5/5; DIESER Change) -- UNBEDINGT registriert
+#     (comdare_add_test auf oberster Ebene am CMakeLists-DATEIENDE, kein ISA-Gate, kein opt-in-Label)
+#     => +1 auf allen drei Sprossen (die im Kopf festgehaltene +1-Regel unbedingter Tests).
+# WIE GEMESSEN, NICHT GERECHNET: avx512f ist die Klasse dieser Maschine (prod1) und wurde LIVE abgelesen --
+# gcc-release, volle Treppe (Frisch-Configure MIT -DCOMDARE_CE_PRUEFLINGE, J-1 SIEBEN Werkzeuge, RECONFIGURE),
+# 'ctest -N'-Schlusszeile literal "Total Tests: 546" (Baum /home/comdare/wt-ce-pmckoeder/build/gcc-release,
+# 25.08.2026 14:38Z). avx2/basis: beide Klassen per cmake erzwungen (-DCOMDARE_HOST_RUNS_AVX512F=0 -> 542;
+# zusaetzlich -DCOMDARE_HOST_RUNS_AVX2=0 -> 540), danach 'cmake -U' auf BEIDE Variablen; Messlog:
+# ~/backups-workflow/20260825-diagnose-e07/logs/floor/ (Sprossenabstaende -4 und -2 unveraendert).
+avx512f 546
+avx2 542
+basis 540
