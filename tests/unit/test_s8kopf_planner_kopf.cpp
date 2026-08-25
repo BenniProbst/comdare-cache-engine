@@ -36,6 +36,7 @@
 
 #include <algorithm>
 #include <array>
+#include <concepts>
 #include <cstddef>
 #include <cstdlib> // setenv/unsetenv (Debug-Neutralitaets-Probe)
 #include <filesystem>
@@ -78,6 +79,16 @@ struct MessRohdatenPaket {
     double                               werte[8] = {}; // "sieht aus wie Messwerte" -- genau die unheilbare Klasse
 };
 static_assert(!trg::SteuerNahtHinauf<MessRohdatenPaket>, "KON50-01: Mess-Rohdaten fallen durch");
+// A2.5-R1 (25.08.2026, L-06 Warnungs-Review, clang -Wunused-const-variable): die Marker der
+// Negativprobe werden HIER gelesen und gepinnt. Der Concept prueft seine Konjunkte in Reihe
+// (Whitelist zuerst); fuer einen NICHT gelisteten Typ liest er die Marker gar nicht -- die Probe
+// faellt am Whitelist-Konjunkt, der KON50-01-Bruch ist damit DOKUMENTIERT, nicht das entscheidende
+// Konjunkt. Die Pins belegen, dass Richtung und Marker der Probe korrekt gesetzt sind und GENAU der
+// deklarierte Bruch traegt (kein Tippfehler-Durchfall).
+static_assert(std::same_as<MessRohdatenPaket::naht_richtung, trg::NahtHinauf>);
+static_assert(MessRohdatenPaket::traegt_mess_rohdaten, "Probe traegt den deklarierten Bruch");
+static_assert(!MessRohdatenPaket::ausser_der_reihe);
+static_assert(MessRohdatenPaket::prioritaet == trg::NahtPrioritaet::Normal);
 
 // NEGATIVPROBE 2 (Geschlossenheit, KON50-02): ein STRUKTUR-KLON mit allen richtigen Markern
 // ist trotzdem KEINE Naht-Klasse -- die Schablone ist Whitelist, kein Muster.
@@ -89,6 +100,11 @@ struct StrukturKlon {
     std::string                          beliebig;
 };
 static_assert(!trg::SteuerNahtHinauf<StrukturKlon>, "geschlossene Menge: Klon faellt durch");
+// Pins (A2.5-R1): der Klon traegt ALLE Marker korrekt -- er faellt ausschliesslich an der Whitelist.
+static_assert(std::same_as<StrukturKlon::naht_richtung, trg::NahtHinauf>);
+static_assert(!StrukturKlon::traegt_mess_rohdaten);
+static_assert(!StrukturKlon::ausser_der_reihe);
+static_assert(StrukturKlon::prioritaet == trg::NahtPrioritaet::Normal);
 
 // NEGATIVPROBE 3 (KON52-01 "GENAU EINE OOB-Nachricht"): ein zweiter OOB-Typ faellt durch,
 // selbst wenn er ausser_der_reihe = true traegt.
@@ -99,6 +115,10 @@ struct ZweitesOobSignal {
 };
 static_assert(!trg::SteuerNahtAusserDerReihe<ZweitesOobSignal>, "KON52-01: nur das FertigSignal ist OOB");
 static_assert(trg::SteuerNahtAusserDerReihe<trg::FertigSignal>);
+// Pins (A2.5-R1): das Zweitsignal traegt den OOB-Marker wirklich -- es faellt nur an der Whitelist
+// (std::same_as<T, FertigSignal>), nicht an einem fehlenden Marker.
+static_assert(ZweitesOobSignal::ausser_der_reihe);
+static_assert(!ZweitesOobSignal::traegt_mess_rohdaten);
 
 // Richtungs- und Rollen-Trennung: das Hinab-Fragment ist keine Hinauf-Klasse; das FertigSignal
 // reist NICHT in der Queue (es ist OOB); das Fragment ist der einzige Hinab-Traeger.

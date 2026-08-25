@@ -79,6 +79,10 @@ struct ProofOrganMetaMetaG1 final : cet::OrganMetaMetaAxis<ProofOrganMetaMetaG1>
 } // namespace
 static_assert(cet::axis_category_of<OrganDachProbe>() == cet::AxisCategory::organ);
 static_assert(cet::axis_category_of<ProofOrganMetaMetaG1>() == cet::AxisCategory::organ);
+// A2.5-R1 (25.08.2026, L-06 Warnungs-Review, clang -Wunused-const-variable): der Organ-Meta-Meta-
+// Vertrag verlangt axis_code_version nur im requires-Ausdruck (unbewertet); die Beweisachse liest
+// ihren Stempel HIER und pinnt ihn -- Aussage statt Anwesenheit (T-2).
+static_assert(ProofOrganMetaMetaG1::axis_code_version == std::string_view{"1.0.0.c"});
 
 // -- Block C: die Unter->Haupt-KETTE als TYP (V-01R-Kern) -----------------------------------------
 // DefaultSchedulingSystemAxis ist eine ECHTE Unter-Achse des Bestands: CebSubAxis<., TargetIsaAxisTag>
