@@ -765,16 +765,28 @@ private:
     return "amd";
 }
 
-// §62-B Lane-Bau-Parallelitaet Single-Source (S4, 2026-07-23): die harte parallele Compile-Zahl
-// (COMDARE_BUILD_PARALLEL) je Host-Lane des Build+Mess-Batches. COMDARE_BUILD_PARALLEL ist der Bau-Pool-WORKER-Override
-// ("harte parallele Compile-Zahl", profile_run_entry.hpp:132-135). User-KERN (Drosselung 2026-07-23, mit User-GO): amd
-// von 32 auf 24 GEDROSSELT -- Slice-1-Empirie: 32 Worker (19,95 min) ~ 24 Worker (19,4 min), aber 32 verursacht ~20G
-// Swap-Thrashing (RAM-Bound). intel bleibt 24. => BEIDE Lanes 24 (nicht mehr nproc-Max amd; die fruehere 32/24-T-Wert-
-// Lesart ist RAM-korrigiert). Der Host-Parameter/die Struktur bleiben (per-Host tunebar, falls die Lanes wieder
-// divergieren). Voll ausschoepfbar, weil P4 (geteilte resource_group ceb-measure-<host>) je Maschine nur EINEN Batch
-// gleichzeitig laufen laesst; das MESSEN selbst bleibt 1-Thread (run_profile-Loop). GETEILTE Single-Source fuer beide
-// Stufen (TierCiYamlBuilder Build-/Mess-Batch + TierCmakeGraphBuilder bare-metal-Batch).
-[[nodiscard]] inline std::size_t lane_build_parallelism(std::string const& host) { return host == "amd" ? 24 : 24; }
+// Sec. 62-B Lane-Bau-Parallelitaet Single-Source (S4, 2026-07-23; KON28-01-Nachzug 2026-08-25): die harte parallele
+// Compile-Zahl (COMDARE_BUILD_PARALLEL) je Host-Lane des Build+Mess-Batches. COMDARE_BUILD_PARALLEL ist der Bau-Pool-
+// WORKER-Override ("harte parallele Compile-Zahl", profile_run_entry.hpp:132-135) und UEBERSCHREIBT im Batch-Job den
+// Runner-Wert CMAKE_BUILD_PARALLEL_LEVEL (Cluster scripts/runner-mode.sh heavy) -- deshalb ist die QUELLE dieser Zahl
+// die OWNER-VORGABE des HEAVY-Modus je Host, keine Hardware-Heuristik (KEIN nproc):
+//   prod1/amd    HEAVY_J=16          runner-mode.sh v3 (2026-08-15) Z.44; KON28-01 (Owner 12.08.2026): "Er wird auf
+//                                    16 heruntergestuft, es gab Probleme" (prod1 = 16 Kerne/32 Threads, 9950X3D).
+//   prod2/intel  HEAVY_J=$(nproc)=24 runner-mode.sh Z.45 (i9-12900K, 24 Threads) -- von KON28-01 unberuehrt.
+// Historie der 24: 22.07. T-Wert-Lesart 32/24; 23.07. amd 32 -> 24 (User-GO "AMD worker bitte auf 24 Threads
+// drosseln", Slice-1-Empirie: 32 Worker 19,95 min ~ 24 Worker 19,4 min, 32 aber ~20G Swap-Thrashing); OD-7 26.07.
+// "24 Worker prod1"; KON28-01 12.08. Deckel 24 -> 16. Bis 25.08.2026 stand hier 24 fuer BEIDE Lanes: die Batch-Jobs
+// hebelten damit den Owner-Deckel genau in der Job-Klasse aus, fuer die er gilt (Vortafel-Befund 25.08.2026). Harte
+// Konstanten OHNE Env-Override (Praezedenz kGnBatchSlice): ein Override liesse eine CI-Variable den Deckel still
+// wieder aushebeln. Voll ausschoepfbar, weil P4 (geteilte resource_group ceb-measure-<host>) je Maschine nur EINEN
+// Batch gleichzeitig laufen laesst; das MESSEN selbst bleibt 1-Thread (run_profile-Loop). GETEILTE Single-Source fuer
+// beide Stufen (TierCiYamlBuilder Build-/Mess-Batch + TierCmakeGraphBuilder bare-metal-Batch). Pin:
+// test_experiment_plan_director (LaneBuildParallelismFolgtOwnerHeavyJ, LaneBudgetLiteralsNoNproc).
+inline constexpr std::size_t     kOwnerHeavyJAmd   = 16; // prod1: KON28-01, runner-mode.sh:44 HEAVY_J=16
+inline constexpr std::size_t     kOwnerHeavyJIntel = 24; // prod2: runner-mode.sh:45 HEAVY_J=$(nproc) = 24 Threads
+[[nodiscard]] inline std::size_t lane_build_parallelism(std::string const& host) {
+    return host == "amd" ? kOwnerHeavyJAmd : kOwnerHeavyJIntel;
+}
 
 // E-20/R-15 (21.08.2026): die MESS-PIN-SOLL-MENGE je Host-Lane -- Deklaration der L3-homogenen CPU-Menge, auf
 // der der 1-Thread-Messlauf laufen SOLL. prod1/amd (Zen5 9950X3D) traegt ZWEI ungleiche CCDs: CCD0 = 96 MiB L3
@@ -788,7 +800,7 @@ private:
 // waere ein richtiges Messgeraet am falschen Gegenstand; die Lane bleibt LEER (= UNVERMESSEN, wird in der
 // Emission laut deklariert), bis prod2 vermessen ist. KEIN job-weites taskset: dieselbe Treiber-Invokation
 // BAUT parallel (COMDARE_BUILD_PARALLEL) und MISST 1-Thread -- ein taskset ueber den ganzen Job droesselte
-// den Bau auf die Pin-Menge (24 Worker auf 8 Kernen).
+// den Bau auf die Pin-Menge (16 Worker auf 8 Kernen).
 [[nodiscard]] inline std::string lane_measure_pin_cpus(std::string const& host) {
     return host == "amd" ? "0-7,16-23" : "";
 }
@@ -1501,9 +1513,10 @@ private:
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
         s += "      test -n \"$DRIVER\" -a -x \"$DRIVER\" || { echo \"comdare-messung-driver fehlt\"; exit 1; }\n";
         emit_storage_activation(s); // G4a P-A: Push/Pull scharfschalten (inert ohne COMDARE_STORAGE_CACHE) + Deckel
-        // §62-B Lane-Budget (Bau-Pool-WORKER-Override, KEIN $(nproc)): lane_build_parallelism(host) = 24 (beide Lanes; amd von 32 gedrosselt, RAM-Bound).
+        // Sec. 62-B Lane-Budget (Bau-Pool-WORKER-Override, KEIN $(nproc)): lane_build_parallelism(host) = Owner-HEAVY_J
+        // je Lane (amd 16 KON28-01, intel 24 = nproc prod2), s. Definition oben.
         s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # §62-B Lane-Budget " + host +
-             " (lane_build_parallelism; harte Compile-Worker-Zahl statt der nproc-Heuristik; amd RAM-gedrosselt)\n";
+             " (lane_build_parallelism = Owner-HEAVY_J je Lane, KON28-01; harte Compile-Worker-Zahl, kein nproc)\n";
         s += "      TOTAL=\"${COMDARE_GN_TOTAL:-16}\"   # Default 16 = sicherer Serie-Test; Voll-Bau: "
              "COMDARE_GN_TOTAL=131072\n";
         s += "      SLICE=" + std::to_string(kGnBatchSlice) +
@@ -1789,7 +1802,7 @@ private:
         // §61-MODI: der DLL-Bau laeuft PARALLEL, aber mit dem §62-B-K-Budget-Literal (ersetzt $(nproc)) -- NUR das
         // MESSEN ist 1-Thread (run_profile-Loop). Der Treiber-cmake-Bau bleibt beim Parent-CMAKE_BUILD_PARALLEL_LEVEL-Deckel.
         s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # §62-B Lane-Budget " + host +
-             " (DLL-Bau parallel; Messen 1-Thread, run_profile-Loop; statt nproc-Heuristik; amd RAM-gedrosselt)\n";
+             " (DLL-Bau parallel; Messen 1-Thread, run_profile-Loop; Owner-HEAVY_J je Lane, KON28-01; kein nproc)\n";
         // (platform-Tag) §61/§62 Plattform-Provenienz: die CSV-Spalte "platform" MUSS die MESSENDE Maschine tragen
         // (compile_time_platform_tag trennt amd/intel-x86_64 NICHT). Einmal je Batch (die Lane ist fix je Job).
         s += "      export COMDARE_PLATFORM=\"" + host +

@@ -734,7 +734,7 @@ private:
         // S1 (§62-B Log-Flush, Befund 6h-stumm): geflushtes Bau-Fortschritts-Testat je fertiger Binary (zeit-gated,
         // thread-sicher). Rein auf std::cerr -> golden/CSV-NEUTRAL (kein Mess-Datum, kein binary_id-Byte).
         // #27 (2026-07-23): ZUSAETZLICH zaehl-gated alle n_workers Builds (= K = effective_build_workers = COMDARE_BUILD_
-        // PARALLEL, lane_build_parallelism beide Lanes 24) -> der Job-Log zeigt "alle K Builds" den Slice-Fortschritt
+        // PARALLEL, lane_build_parallelism amd 16/intel 24) -> der Job-Log zeigt "alle K Builds" den Slice-Fortschritt
         // (X/<slice>), auch wenn K Builds schneller als 30s fertig sind. Kombiniert mit dem 30s-Zeit-Gate: was zuerst kommt.
         // E-04-P1 (Trace-Budget): die Kadenz ist ab jetzt env-deckelbar (COMDARE_HEARTBEAT_EVERY) --
         // ungesetzt => n_workers => byte-identisch zum Ist. Nur das Voll-Bau-Profil hebt sie spaeter.
