@@ -115,8 +115,11 @@ TEST(ExperimentPlanDirector, RegistryTrioLoadsThreeArtRegistriesWith18_3_16) {
     EXPECT_EQ(trio->system.engine, "cache_engine_system");
     EXPECT_EQ(trio->measurement.engine, "cache_engine_measurement");
 
-    EXPECT_EQ(trio->organ_axis_count(), 18u)
-        << "Organ-golden: 18 Kompositions-Achsen (isa raus INC-2d, persistence_target rein STRUKT-R ORG-18)";
+    EXPECT_EQ(trio->organ_axis_count(), 19u)
+        << "E-10/ORG-19 (18+1): 18 Kompositions-Achsen + 1 Organ-Meta-Meta (disk_io) im Angebot; der "
+           "binary_id-Nenner bleibt 18 (organ_composition_axis_count)";
+    EXPECT_EQ(trio->organ_composition_axis_count(), 18u)
+        << "der binary_id-Nenner: GENAU die 18 Kompositions-Achsen (H-23 C.1; die Meta-Meta zaehlt NICHT)";
     EXPECT_EQ(trio->system_axis_count(), 3u)
         << "System nach O-8 Schritt 4 (A3-Kern): target_isa/operating_system/external_utils";
     EXPECT_EQ(trio->measurement_category_count(), 16u) << "16 Mess-Kategorien (kMeasurementAxisRegistry)";
@@ -293,7 +296,8 @@ TEST(ExperimentPlanDirector, DirectorAnnotatesPlanHeaderWithRegistryTrio) {
 
     EXPECT_TRUE(cb.header.registries.loaded) << "der Plan-Kopf traegt die 3 Angebots-Quellen";
     EXPECT_EQ(cb.header.registries.organ.engine, "cache_engine");
-    EXPECT_EQ(cb.header.registries.organ.axis_count, 18u);
+    EXPECT_EQ(cb.header.registries.organ.axis_count, 19u) << "E-10: 18 Komposition + 1 Meta-Meta im Angebot";
+    EXPECT_EQ(cb.header.registries.organ.meta_meta_axis_count, 1u) << "E-10 (D-6): genau ORG-19-IO (disk_io)";
     EXPECT_EQ(cb.header.registries.system.engine, "cache_engine_system");
     EXPECT_EQ(cb.header.registries.system.axis_count, 3u); // A3-Kern: 5 -> 3 System-Haupt-Achsen
     EXPECT_EQ(cb.header.registries.measurement.engine, "cache_engine_measurement");
@@ -302,6 +306,8 @@ TEST(ExperimentPlanDirector, DirectorAnnotatesPlanHeaderWithRegistryTrio) {
     director.construct(*tp, text);
     EXPECT_NE(text.text().find("registry_trio loaded=1"), std::string::npos);
     EXPECT_NE(text.text().find("organ=cache_engine"), std::string::npos);
+    EXPECT_NE(text.text().find("organ_axes=18+1_meta_meta"), std::string::npos)
+        << "E-10 Plan-Kopf-Annotation: 18 Komposition + 1 Meta-Meta (deklariertes 18+1-Textdelta, R-5/F-6)";
     EXPECT_NE(text.text().find("measurement=cache_engine_measurement"), std::string::npos);
 }
 
@@ -319,7 +325,8 @@ TEST(ExperimentPlanDirector, ResolverOrganPureProfileZeroRejectsInPlanHead) {
         tlz::read_axis_registry_trio(fs::path{COMDARE_CE_AXIS_REGISTRY}, fs::path{COMDARE_SYSTEM_AXIS_REGISTRY},
                                      fs::path{COMDARE_MEASUREMENT_AXIS_REGISTRY});
     ASSERT_TRUE(trio.has_value());
-    ASSERT_EQ(trio->organ_axis_count(), 18u) << "RegistryTrio 18/3/16 nach A3-Kern";
+    ASSERT_EQ(trio->organ_axis_count(), 19u) << "RegistryTrio 18+1/3/16 nach E-10 (Komposition bleibt 18)";
+    ASSERT_EQ(trio->organ_composition_axis_count(), 18u) << "binary_id-Nenner (E-10 18+1)";
     ASSERT_EQ(trio->system_axis_count(), 3u);
     ASSERT_EQ(trio->measurement_category_count(), 16u);
 

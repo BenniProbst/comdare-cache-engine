@@ -96,7 +96,7 @@
 //        Overlay-Menge ('deckt N von N Overlay-Quellen'); eine Deckungsluecke ist ROT (doppeltes
 //        Netz neben dem unlocked-Pfad, nie Prosa). Die Kategorie-Spalte wird beim --check
 //        GEPRUEFT (Kategorie-Abweichung = ROT; am Objekt belegt, ctest-Koeder T5) und traegt
-//        jetzt die Overlay-Kategorien organ/system/mess/tier_substanz + heuristik.
+//        jetzt die Overlay-Kategorien organ/organ_meta_meta/system/mess/tier_substanz + heuristik.
 //   (D5) MINDEST-NENNER MITGEZOGEN (Fixup-2-D4-Form, s. Konstanten unten): die alte Schwelle
 //        organ>=120 haette unter dem neuen Nenner 712 eine Schrumpfung auf ein Sechstel als
 //        gruen durchgelassen.
@@ -114,7 +114,8 @@
 //              dem '//' nur Weissraum, nach der Zahl nur Weissraum). 0 Marker, >1 Marker oder
 //              unparsbarer Marker (keine Ziffer, Ueberlauf, Restzeichen) => ROT. bump_ok =
 //              Integer echt groesser (streng geparst, kein strtoull-Clamp).
-//   organ, system, mess, tier_substanz (D1): die Quell-Dateien des Overlay-Schnitts, Kategorie je
+//   organ, organ_meta_meta, system, mess, tier_substanz (D1): die Quell-Dateien des Overlay-Schnitts,
+//   Kategorie je
 //              Schnitt-Eintrag (builder/overlay_source_set.hpp). DISCOVERED ist jede regulaere
 //              Datei mit Endung aus kQuellEndungen unter einem verzeichnis-Eintrag (rekursiv)
 //              bzw. mit Praefix-Treffer eines datei_praefix-Eintrags (flach). Endungen aus
@@ -237,11 +238,12 @@ namespace ovl  = ::comdare::cache_engine::builder::overlay;
 // Schwellen weiter; ein Struktur-Verlust (Home leer/umgezogen ohne Schnitt-Nachzug) schlaegt
 // weiterhin IMMER hier bzw. am Schnitt-Pfad-Fehler auf.
 // Die exakten Ist-Zahlen pinnt der ctest (Anker organ-traeger==123 inkl. Synthetik usw.).
-inline constexpr int kMinHeuristikDiscovered = 6;
-inline constexpr int kMinOrganDiscovered     = 600; // Ist 640 (13.08.2026)
-inline constexpr int kMinSystemDiscovered    = 12;  // Ist 16 (13.08.2026)
-inline constexpr int kMinMessDiscovered      = 1;   // Ist 1 (13.08.2026): measurement_tooling-Familie
-inline constexpr int kMinTierDiscovered      = 50;  // Ist 55 (13.08.2026): anatomy/
+inline constexpr int kMinHeuristikDiscovered     = 6;
+inline constexpr int kMinOrganDiscovered         = 600; // Ist 640 (13.08.2026)
+inline constexpr int kMinOrganMetaMetaDiscovered = 1;   // Ist 1 (26.08.2026): organ_axes/organ_meta_meta (E-10)
+inline constexpr int kMinSystemDiscovered        = 12;  // Ist 16 (13.08.2026)
+inline constexpr int kMinMessDiscovered          = 1;   // Ist 1 (13.08.2026): measurement_tooling-Familie
+inline constexpr int kMinTierDiscovered          = 50;  // Ist 55 (13.08.2026): anatomy/
 
 /// Rohe Bytes einer Datei. false = nicht lesbar ODER nicht vollstaendig lesbar.
 /// FAIL-CLOSED (G6c): 'ss << f.rdbuf()' setzt bei einem I/O-Fehler NACH dem Oeffnen keine
@@ -486,6 +488,7 @@ private:
 [[nodiscard]] std::string_view kategorie_text(ovl::Kategorie k) {
     switch (k) {
         case ovl::Kategorie::organ: return "organ";
+        case ovl::Kategorie::organ_meta_meta: return "organ_meta_meta"; // E-10/ORG-19 (26.08.2026)
         case ovl::Kategorie::system: return "system";
         case ovl::Kategorie::mess: return "mess";
         case ovl::Kategorie::tier_substanz: return "tier_substanz";
@@ -892,7 +895,8 @@ struct MessDetail {
     bool        rot  = false;
     char const* form = nullptr;
     for (std::string const& teil : OrganDetail::split_versionen(version)) {
-        if (kategorie == std::string(SystemDetail::kName) || kategorie == "organ") {
+        if (kategorie == std::string(SystemDetail::kName) || kategorie == "organ" ||
+            kategorie == "organ_meta_meta") { // E-10: stempelnde Kategorie -> ZWEIPHASIG wie organ (F-1)
             if (!SystemDetail::literal_zulaessig(teil)) {
                 form = "ZWEIPHASIG hardware-only, ce_owned_version_is_wellformed";
                 rot  = true;
@@ -936,20 +940,24 @@ struct KatZaehler {
 struct BestandZaehler {
     int        heuristik_n = 0;
     KatZaehler organ;
+    KatZaehler organ_meta_meta; // E-10/ORG-19 (26.08.2026): eigene Kategorie zwischen organ und system
     KatZaehler system;
     KatZaehler mess;
     KatZaehler tier;
 
     [[nodiscard]] KatZaehler& fuer(std::string const& kategorie) {
+        if (kategorie == "organ_meta_meta") return organ_meta_meta; // E-10: VOR dem organ-Rueckfall
         if (kategorie == "system") return system;
         if (kategorie == "mess") return mess;
         if (kategorie == "tier_substanz") return tier;
         return organ;
     }
     [[nodiscard]] int overlay_gesamt() const {
-        return organ.discovered + system.discovered + mess.discovered + tier.discovered;
+        return organ.discovered + organ_meta_meta.discovered + system.discovered + mess.discovered + tier.discovered;
     }
-    [[nodiscard]] int overlay_traeger() const { return organ.traeger + system.traeger + mess.traeger + tier.traeger; }
+    [[nodiscard]] int overlay_traeger() const {
+        return organ.traeger + organ_meta_meta.traeger + system.traeger + mess.traeger + tier.traeger;
+    }
 };
 
 /// true = b traegt eine der vier Overlay-Kategorien (Literal-Mechanik); false = heuristik.
@@ -1030,8 +1038,8 @@ void drucke_bestand(BestandZaehler const& z) {
         char const*       name;
         KatZaehler const& kz;
     };
-    for (Zeile const& zl :
-         {Zeile{"organ", z.organ}, Zeile{"system", z.system}, Zeile{"mess", z.mess}, Zeile{"tier_substanz", z.tier}}) {
+    for (Zeile const& zl : {Zeile{"organ", z.organ}, Zeile{"organ_meta_meta", z.organ_meta_meta},
+                            Zeile{"system", z.system}, Zeile{"mess", z.mess}, Zeile{"tier_substanz", z.tier}}) {
         std::fprintf(stdout,
                      "axis_version_lock: BESTAND %s discovered=%d traeger=%d forwarder_prosa=%d multi=%d "
                      "(nenner: Quell-Dateien der %s-Eintraege des Overlay-Schnitts, "
@@ -1047,16 +1055,18 @@ void drucke_bestand(BestandZaehler const& z) {
 /// Mindest-Nenner-Wache (G5a, seit D5 je Kategorie). true = verletzt (Exit-2-Klasse).
 [[nodiscard]] bool nenner_verletzt(BestandZaehler const& z) {
     if (z.heuristik_n >= kMinHeuristikDiscovered && z.organ.discovered >= kMinOrganDiscovered &&
-        z.system.discovered >= kMinSystemDiscovered && z.mess.discovered >= kMinMessDiscovered &&
-        z.tier.discovered >= kMinTierDiscovered)
+        z.organ_meta_meta.discovered >= kMinOrganMetaMetaDiscovered && z.system.discovered >= kMinSystemDiscovered &&
+        z.mess.discovered >= kMinMessDiscovered && z.tier.discovered >= kMinTierDiscovered)
         return false;
     std::fprintf(stderr,
                  "axis_version_lock: ROT Mindest-Nenner unterschritten: heuristik=%d (min %d), organ=%d "
-                 "(min %d), system=%d (min %d), mess=%d (min %d), tier_substanz=%d (min %d) -- leere/"
+                 "(min %d), organ_meta_meta=%d (min %d), system=%d (min %d), mess=%d (min %d), "
+                 "tier_substanz=%d (min %d) -- leere/"
                  "geschrumpfte Homes sind kein Gruen (V-1); nach einer bewussten Umgliederung die Anker "
                  "im Tool nachziehen\n",
-                 z.heuristik_n, kMinHeuristikDiscovered, z.organ.discovered, kMinOrganDiscovered, z.system.discovered,
-                 kMinSystemDiscovered, z.mess.discovered, kMinMessDiscovered, z.tier.discovered, kMinTierDiscovered);
+                 z.heuristik_n, kMinHeuristikDiscovered, z.organ.discovered, kMinOrganDiscovered,
+                 z.organ_meta_meta.discovered, kMinOrganMetaMetaDiscovered, z.system.discovered, kMinSystemDiscovered,
+                 z.mess.discovered, kMinMessDiscovered, z.tier.discovered, kMinTierDiscovered);
     return true;
 }
 
@@ -1132,7 +1142,7 @@ int do_write(fs::path const& root, std::string const& lockfile) {
     out << "# Der volle Pfad ist EXAKT dirname+basename.\n";
     out << "#   heuristik: alle *.hpp unter libs/cache_engine/heuristik; version = Integer der EINEN\n";
     out << "#              dedizierten '// AXIS_ALGO_VERSION: <N>'-Marker-Zeile.\n";
-    out << "#   organ/system/mess/tier_substanz: die Quell-Dateien des Overlay-Schnitts\n";
+    out << "#   organ/organ_meta_meta/system/mess/tier_substanz: die Quell-Dateien des Overlay-Schnitts\n";
     out << "#              (builder/overlay_source_set.hpp -- die Menge, ueber die das Overlay-Glied [7]\n";
     out << "#              des Tier-Fingerprints hasht; Endungen kQuellEndungen, kNichtQuellEndungen\n";
     out << "#              bewusst draussen). version = geordnete LISTE aller algo_version-String-\n";
@@ -1427,10 +1437,11 @@ int do_check(fs::path const& root, std::string const& lockfile) {
     }
     std::fprintf(stdout,
                  "axis_version_lock: GRUEN bestand konsistent -- %zu Dateien (heuristik=%d, organ=%d, "
-                 "system=%d, mess=%d, tier_substanz=%d) -- deckt %d von %d Overlay-Quellen (Schnitt: "
+                 "organ_meta_meta=%d, system=%d, mess=%d, tier_substanz=%d) -- deckt %d von %d "
+                 "Overlay-Quellen (Schnitt: "
                  "builder/overlay_source_set.hpp)\n",
-                 bestand.size(), z.heuristik_n, z.organ.discovered, z.system.discovered, z.mess.discovered,
-                 z.tier.discovered, gedeckt, z.overlay_gesamt());
+                 bestand.size(), z.heuristik_n, z.organ.discovered, z.organ_meta_meta.discovered, z.system.discovered,
+                 z.mess.discovered, z.tier.discovered, gedeckt, z.overlay_gesamt());
     return 0;
 }
 

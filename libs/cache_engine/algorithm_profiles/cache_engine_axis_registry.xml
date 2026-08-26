@@ -125,4 +125,10 @@
   <axis id="persistence_target" slot="T17" category="composition" genus="SearchAlgorithm" baustein_count="1">
     <baustein name="persistence_memory_only" wrapper="MemoryOnlyTarget" type="::comdare::cache_engine::persistence_target::MemoryOnlyTarget" header="organ_axes/persistence_target/axis_persistence_target_memory_only.hpp" enabled="true" golden_wired="true"/>
   </axis>
+  <axis id="disk_io" category="organ_meta_meta" axis_kind="organ_meta_meta" binary_id="never" stage="ct" baustein_count="1">
+    <baustein name="disk_io" wrapper="DiskIoOrganMetaMeta" type="::comdare::cache_engine::organ_meta_meta::DiskIoOrganMetaMeta" enabled="true"/>
+    <sub_axis id="disk_io" parent="disk_io" stage="runtime" value_type="token" option_count="1">
+      <option value="staging"/>
+    </sub_axis>
+  </axis>
 </comdare_axis_registry>

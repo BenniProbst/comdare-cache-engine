@@ -815,6 +815,9 @@ inline constexpr char const* kCacheEngineSelfMarkers[] = {"CacheEngine", "self"}
 struct RegistryContents {
     std::string                                  engine;     // Wurzel @engine ("cache_engine" / "prt_art")
     std::map<std::string, std::set<std::string>> axis_names; // axis-id -> {baustein name}
+    // E-10/ORG-19 (D-6): axis-id -> category-Attribut; ABWESEND zaehlt als "composition" (die 18
+    // Bestands-Eintraege tragen das Attribut bereits; die Abwesenheits-Regel deckt fremde Registries).
+    std::map<std::string, std::string> axis_categories;
 };
 
 // read_axis_registry — liest EINE comdare_axis_registry.xml ueber den common-DOM (KEIN regex/tinyxml2).
@@ -831,6 +834,8 @@ struct RegistryContents {
     for (auto const* axis : root->children_named("axis")) {
         auto& names = rc.axis_names[axis->attr("id")];
         for (auto const* b : axis->children_named("baustein")) names.insert(b->attr("name"));
+        std::string const kat                = axis->attr("category"); // E-10 (D-6)
+        rc.axis_categories[axis->attr("id")] = kat.empty() ? std::string{"composition"} : kat;
     }
     return rc;
 }
@@ -866,8 +871,21 @@ struct RegistryTrio {
     RegistryContents system;      // Wurzel engine="cache_engine_system"
     RegistryContents measurement; // Wurzel engine="cache_engine_measurement"
 
-    // Zahl der Angebots-Achsen je Art (Organ-golden = 17, System = 5).
+    // Zahl der Angebots-Achsen je Art. HISTORIE: "Organ-golden = 17, System = 5"; seit E-10 gilt
+    // Organ = 19 (18 Komposition + 1 Meta-Meta, organ_axis_count zaehlt BEIDE), System = 3.
     [[nodiscard]] std::size_t organ_axis_count() const { return organ.axis_names.size(); }
+    /// E-10/ORG-19 (D-6, 18+1): der binary_id-NENNER -- NUR die category="composition"-Achsen
+    /// (abwesendes category-Attribut zaehlt als composition). organ_axis_count() bleibt das VOLLE
+    /// Angebot (19); kCompositionAxisNames bleibt 18 (H-23 C.1, kein flaches ==19).
+    [[nodiscard]] std::size_t organ_composition_axis_count() const {
+        std::size_t n = 0;
+        for (auto const& [id, names] : organ.axis_names) {
+            static_cast<void>(names);
+            auto const it = organ.axis_categories.find(id);
+            if (it == organ.axis_categories.end() || it->second == "composition") ++n;
+        }
+        return n;
+    }
     [[nodiscard]] std::size_t system_axis_count() const { return system.axis_names.size(); }
     [[nodiscard]] std::size_t measurement_axis_count() const { return measurement.axis_names.size(); }
     // Zahl der Angebots-Bausteine EINER Achse (0, wenn die Achse in dieser Registry fehlt).
@@ -908,6 +926,9 @@ read_axis_registry_trio(std::filesystem::path const& organ_registry, std::filesy
 //   * V-CATEGORY          Ref in trio.system ODER trio.measurement, aber in Organ-Position -> Route-Meldung:
 //                         gehoert ueber die CEB-System-Schicht (build_system_axis_levels), NICHT den 17-Slot-
 //                         Organ-Pfad (binary_id-neutral) -- STUFE §4.4-I1 "System-/Mess-Ref in Organ-Position".
+//   * V-META-META-POSITION Ref ist eine Organ-META-META (category=organ_meta_meta) in Organ-Position ->
+//                         harter Reject (E-10/ORG-19 D-6: eine Meta-Meta permutiert NIE die binary_id;
+//                         18+1-Schnitt, kCompositionAxisNames bleibt 18).
 //   * V-UNREG-AXIS        Ref in KEINER der 3 Angebots-Registries -> harter Reject (Symbol-Analogie: ein
 //                         fehlendes dlsym-Symbol, STUFE §3.C.3 E-RES-V).
 // Die Meldung traegt das STABILE Fehlerklassen-Etikett error_class_label(KonfigXmlParse) (axis_error.hpp, NUR
@@ -919,7 +940,9 @@ read_axis_registry_trio(std::filesystem::path const& organ_registry, std::filesy
 
 /// EIN klassifizierter Reject: V-Code (Detail-String, KEIN axis_error-Enum-Wert) + Ref-Koordinate + Meldung.
 struct ClassifiedReject {
-    std::string code;    // "V-UNREG-AXIS" | "V-CATEGORY" (Detail-Vokabular, NICHT das CompilerCompilerErrorClass-Enum)
+    // "V-UNREG-AXIS" | "V-CATEGORY" | "V-META-META-POSITION" (Detail-Vokabular, NICHT das
+    // CompilerCompilerErrorClass-Enum).
+    std::string code;
     std::string ref;     // die Ref-KOORDINATE (Achsen-Name aus der Anwender-XML)
     std::string message; // die deterministische, menschenlesbare Meldung MIT Koordinate + Fehlerklassen-Etikett
 };
@@ -965,6 +988,20 @@ struct ResolverReport {
         // eigener Registry-<axis> gefuehrt (validate_profile Pruefung (1) behandelt sie separat als Warn-Skip); sie
         // erreichen den is_organ_composition_axis-Guard nie und sind hier ebenso KEIN Reject (build-Verhalten-treu).
         if (ref == "cacheline" || ref == "node_width" || ref == "alloc_hw") continue;
+        // E-10/ORG-19 (D-6): eine Organ-META-META in Organ-POSITION ist kein Kompositions-Slot -- LAUTER
+        // Reject statt stillem Passieren (vor E-10 fiel disk_io als V-UNREG-AXIS; NACH der Registry-
+        // Aufnahme waere ein stilles continue exakt die Blindstelle, die der k4-Koeder pinnt).
+        if (auto const kat = trio.organ.axis_categories.find(ref);
+            kat != trio.organ.axis_categories.end() && kat->second == "organ_meta_meta") {
+            report.ok = false;
+            report.rejects.push_back(ClassifiedReject{
+                "V-META-META-POSITION", ref,
+                "[" + klass + "] V-META-META-POSITION <axis ref=\"" + ref +
+                    "\"> in Organ-Position: die Achse ist eine Organ-Meta-Meta (category=organ_meta_meta, "
+                    "Angebot cache_engine) -- sie permutiert NIE die binary_id (18+1: kCompositionAxisNames "
+                    "bleibt 18) und ist kein Kompositions-Slot."});
+            continue;
+        }
         if (trio.organ.axis_names.count(ref) != 0) continue; // korrekt platziert (Organ-Achse) -> kein Reject
         bool const in_system      = trio.system.axis_names.count(ref) != 0;
         bool const in_measurement = trio.measurement.axis_names.count(ref) != 0;

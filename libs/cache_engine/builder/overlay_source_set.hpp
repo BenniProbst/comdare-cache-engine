@@ -92,7 +92,14 @@ namespace comdare::cache_engine::builder::overlay {
 /// je Kategorie gegen eine ANDERE kanonische Quelle, und der Codegen gibt sie im Manifest aus, damit ein
 /// Leser den Schnitt gegen die Owner-Entscheidung halten kann, ohne den Code zu lesen.
 enum class Kategorie : unsigned char {
-    organ,         ///< die 18 Komposition-Haupt-Achsen (kCompositionAxisNames)
+    organ, ///< die 18 Komposition-Haupt-Achsen (kCompositionAxisNames)
+    /// E-10/ORG-19 (26.08.2026): die Organ-Meta-Meta-Achsen (Klammer-Anhang der Organ-Zeile, Glied [3];
+    /// Heimat organ_axes/organ_meta_meta/). EIGENE Kategorie ZWISCHEN organ und system, weil der Block
+    /// hinter den 18 Organ-Achsen steht und kategorien_stehen_als_bloecke() die ENUM-WERT-Monotonie
+    /// prueft. 18+1-Schnitt: kCompositionAxisNames bleibt 18 -- eine Meta-Meta permutiert NIE die
+    /// binary_id. Nachzug-Pflicht: beide kategorie_text()-Vokabulare (overlay_source_hash_gen +
+    /// axis_version_lock) tragen den neuen Fall im SELBEN Zug (FIX-2/F-1).
+    organ_meta_meta,
     system,        ///< die 3 System-Haupt-Achsen (kSystemAxisOrder)
     mess,          ///< die EINE Mess-Haupt-Achse (measurement_tooling)
     tier_substanz, ///< anatomy/ -- kein Achsen-Eigentum, sondern der gemeinsame Traeger aller Tiere
@@ -165,6 +172,13 @@ inline constexpr auto kOverlaySourceSet = std::to_array<Eintrag>({
     {Kategorie::organ, "queuing_q2", Form::verzeichnis, "organ_axes/axis_q2_queuing", ""},
     {Kategorie::organ, "persistence_target", Form::verzeichnis, "organ_axes/persistence_target", ""},
     {Kategorie::organ, "persistence_target", Form::verzeichnis, "topics/io/axis_persistence_target", ""},
+
+    // -- ORGAN-META-META (E-10/ORG-19, 26.08.2026): 18 Komposition + 1 Meta-Meta ----------------------
+    // Aufnahme-Entscheid D-9/KN-2 (Owner-GO 26.08.): Glied [7] deckt "ALLE SOURCE-CODE-DATEIEN IM
+    // OVERLAY"; eine STEMPELNDE Meta-Meta ausserhalb des Schnitts koennte ihre Implementierung still
+    // aendern -- exakt die Klasse, die das Glied beseitigt. Heute existiert kein gebauter Binary-
+    // Bestand -> die Aufnahme ist kostenlos; nach dem Trigger waere sie ein Voll-Neubau (a.5 B-1).
+    {Kategorie::organ_meta_meta, "disk_io", Form::verzeichnis, "organ_axes/organ_meta_meta", ""},
 
     // -- SYSTEM (3 Achsen, Ordnung == kSystemAxisOrder) -----------------------------------------------
     // S-18/#16 (KON27-01 Home-Prinzip): die drei Achsen wohnen im SYSTEM-Kategorie-Home system_axes/
@@ -307,6 +321,8 @@ template <std::size_t N>
 inline constexpr std::size_t kOrganBloecke  = achsen_bloecke(Kategorie::organ);
 inline constexpr std::size_t kSystemBloecke = achsen_bloecke(Kategorie::system);
 inline constexpr std::size_t kMessBloecke   = achsen_bloecke(Kategorie::mess);
+// E-10/ORG-19: eigener Zaehl-Anker der neuen Kategorie (Wachen unten).
+inline constexpr std::size_t kOrganMetaMetaBloecke = achsen_bloecke(Kategorie::organ_meta_meta);
 
 inline constexpr auto kOrganAchsen  = achsen_in_reihenfolge<kOrganBloecke>(Kategorie::organ);
 inline constexpr auto kSystemAchsen = achsen_in_reihenfolge<kSystemBloecke>(Kategorie::system);
@@ -320,7 +336,8 @@ static_assert(detail::pfade_sind_paarweise_verschieden(),
               "E-E: ein Pfad steht zweimal im Schnitt -- dieselben Bytes gingen doppelt ins Preimage.");
 static_assert(detail::endungen_sind_disjunkt(), "E-E: kQuellEndungen und kNichtQuellEndungen ueberschneiden sich.");
 static_assert(detail::kategorien_stehen_als_bloecke(),
-              "E-E: die Kategorien stehen nicht mehr als Bloecke (organ -> system -> mess -> tier_substanz). "
+              "E-E: die Kategorien stehen nicht mehr als Bloecke (organ -> organ_meta_meta -> system -> mess "
+              "-> tier_substanz). "
               "Die Preimage-Ordnung haengt daran.");
 
 // (2) ORGAN: die Achsen-Ordnung des Schnitts IST kCompositionAxisNames -- Name fuer Name, Position fuer
@@ -338,6 +355,16 @@ static_assert(
     "E-E: die Organ-Ordnung des Schnitts ist AUS DER REIHE zu kCompositionAxisNames gelaufen "
     "(axis_path_serialization.hpp). Beide tragen dieselbe kanonische Ordnung; eine Umsortierung "
     "muss in BEIDEN erfolgen -- und sie aendert die Identitaet jeder Tier-Binary.");
+
+// (2) ORGAN-META-META (E-10/ORG-19, 26.08.2026): 18 Komposition + 1 Meta-Meta -- der 18+1-Schnitt nach
+// H-23 C.1. Die Organ-Wache darueber bleibt auf kCompositionAxisNames (18); die Meta-Meta ist ADDITIV
+// und permutiert NIE die binary_id.
+static_assert(detail::kOrganMetaMetaBloecke == 1,
+              "E-10/ORG-19: 18 Komposition + 1 Meta-Meta -- die Organ-Meta-Meta-Kategorie traegt heute "
+              "GENAU disk_io. Wer ein Glied ergaenzt, zieht Registry-Gen, Lock-Regen und die beiden "
+              "kategorie_text()-Vokabulare (overlay_source_hash_gen/axis_version_lock) im SELBEN Zug nach.");
+static_assert(detail::achsen_in_reihenfolge<1>(Kategorie::organ_meta_meta)[0] == "disk_io",
+              "E-10/ORG-19: die EINE Organ-Meta-Meta-Achse heisst disk_io.");
 
 // (2) SYSTEM: dieselbe Wache gegen kSystemAxisOrder (abi/system_axis_order.hpp), die ihrerseits schon
 // eine Drift-Wache gegen kSystemAxisCodeVersions traegt. Die Kette ist damit geschlossen.
@@ -382,6 +409,9 @@ namespace detail {
             case Kategorie::organ:
                 if (!pfad_liegt_unter(e.pfad, "organ_axes") && !pfad_liegt_unter(e.pfad, "topics")) return false;
                 break;
+            case Kategorie::organ_meta_meta:
+                if (!pfad_liegt_unter(e.pfad, "organ_axes/organ_meta_meta")) return false;
+                break;
             case Kategorie::system:
                 if (e.pfad != "system_axes") return false;
                 break;
@@ -402,7 +432,8 @@ namespace detail {
 } // namespace detail
 static_assert(detail::kategorie_haelt_ihr_home(),
               "S-18/#16 HOME-PIN (KON27-01): ein Schnitt-Eintrag liegt ausserhalb des Homes seiner "
-              "Kategorie (organ: organ_axes/ oder topics/ -- system: system_axes -- mess: mess_axes -- "
+              "Kategorie (organ: organ_axes/ oder topics/ -- organ_meta_meta: organ_axes/organ_meta_meta -- "
+              "system: system_axes -- mess: mess_axes -- "
               "tier_substanz: anatomy). Wer ein Home verschiebt, zieht Schnitt, Waechter-Nenner, "
               "Tripwire-Anker und den Lock-Regen im SELBEN bewussten Change nach.");
 

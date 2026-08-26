@@ -12,7 +12,8 @@
 
 #pragma once
 
-#include <cache_engine/abi/meta_meta_stamp_suffix.hpp>     // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
+#include <cache_engine/abi/meta_meta_stamp_suffix.hpp> // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
+#include <organ_axes/organ_meta_meta/axis_disk_io_organ_meta_meta.hpp> // E-10/ORG-19 S1 (26.08.2026): 1. Glied
 #include <cache_engine/abi/system_axis_code_versions.hpp>  // A2 (G2-4): kSystemAxisCodeVersions (Single-Source)
 #include <cache_engine/measurement/axis_version_stamp.hpp> // AxisVersionEntry + build_axis_version_stamp_line
 #include <system_axes/external_utils_family_axis.hpp>      // A13-M2: ExternalUtilsHub (System-Meta-Meta-Glieder)
@@ -44,11 +45,17 @@ inline constexpr std::size_t kOrganAxisCount = 18;
 /// Meta-Meta-Array + erweiterbarer Compile-Raum-Stempel"): wer eine Organ-Meta-Meta baut
 /// (topics::OrganMetaMetaAxis), traegt sie HIER ein und sie stempelt, ohne dass eine Zeile Emitter-Code
 /// angefasst wird.
+/// E-10/ORG-19 (26.08.2026, Designplan 20260825 Schritt 1b): der Satz "HEUTE LEER" ist SUPERSEDED --
+/// die Vollmenge traegt jetzt GENAU ORG-19-IO (DiskIoOrganMetaMeta). ZWISCHENSTAND-WARNUNG (R-10): bis
+/// Schritt 4 haengt der Anhang weiter TYP-GLOBAL an beiden Zeilen-Quellen -> im S1-S4-Korridor traegt
+/// JEDE Binary den Anhang (test_m_w12/lazy/320-Anker planmaessig ROT = beissender Koeder k9, F-V1a);
+/// dieser Zwischenstand ist ein LANDE-VERBOT. Schritt 4 stellt beide Quellen auf die Selektion JE COMP
+/// um (abi/organ_meta_meta_selection.hpp: organ_meta_metas_of_t<Comp> + Vollmengen-/Duplikatfrei-Wache).
 /// WARUM DIE LISTE HIER (abi/) UND NICHT IN topics/ NEBEN DER WURZEL: MetaMetaMembers ist ein
 /// measurement-Layer-Typ, und topics/ darf nicht auf measurement/ zeigen (Layer-Inversion). Die WURZEL
 /// (topics/organ_meta_meta_axis.hpp) und die LISTE liegen deshalb bewusst getrennt; es gibt trotzdem nur
 /// EINE Liste.
-using OrganMetaMetas = ::comdare::cache_engine::measurement::MetaMetaMembers<>;
+using OrganMetaMetas = ::comdare::cache_engine::measurement::MetaMetaMembers<organ_meta_meta::DiskIoOrganMetaMeta>;
 
 /// organ_stamp_line<Comp>() -- die kOrganAxisVersionLine "achse=algo@X.Y.Z;..." aus den 18 benannten
 /// Achsen-Aliassen einer Composition, in kanonischer compose-Ordnung (== AdHocComposition-Alias-Ordnung
@@ -190,9 +197,11 @@ template <class Comp>
                   "punkt-getrennte Flags, KEIN 'v'-Praefix) oder exakt der dokumentierte Sentinel \"0.0.0\". "
                   "Haeufigste Ursache: ein Alt-Literal der Q3-Form (\"v1.0.0c\").");
     std::string line = build_axis_version_stamp_line(entries);
-    // A13-M2 (OP-11-Rueckbau): der Organ-Meta-Meta-Klammer-Anhang ANS ENDE. abi::OrganMetaMetas ist heute leer
-    // -> append_meta_meta_suffix laesst die Zeile BYTE-IDENTISCH. Der Mechanismus ist damit gebaut, ohne
-    // ein einziges Byte zu bewegen (Beweis: die Organ-Golden-Anker in test_m_w12 blieben unveraendert).
+    // A13-M2 (OP-11-Rueckbau): der Organ-Meta-Meta-Klammer-Anhang ANS ENDE. HISTORIE (bis E-10 S1):
+    // abi::OrganMetaMetas war leer -> no-op (Organ-Golden-Anker unveraendert). SEIT E-10 S1 traegt die
+    // Vollmenge ORG-19-IO und dieser TYP-GLOBALE Anhang stempelt JEDE Binary = deklarierter S1-S4-
+    // Korridor-Zwischenstand (R-10, LANDE-VERBOT; golden-Anker planmaessig ROT als Koeder k9).
+    // Schritt 4 (4a) stellt auf organ_meta_metas_of_t<Comp> um (Selektion JE COMP + Vollmengen-Wache).
     append_meta_meta_suffix(line, meta_meta_stamp_suffix_from_members<OrganMetaMetas>());
     return line;
 }

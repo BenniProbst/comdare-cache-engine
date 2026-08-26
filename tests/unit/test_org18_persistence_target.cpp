@@ -94,6 +94,24 @@ TEST(Org18Deaktivierung, RegistryXmlSpiegeltDenAktivenSatz) {
 }
 
 // =============================================================================
+// E-10/ORG-19 k2-KOEDER (T-1 rot-zuerst, 26.08.2026): die generierte Organ-Registry traegt den
+// 19. Eintrag der NEUEN Kategorie organ_meta_meta (18+1-Form nach H-23 C.1 -- die 18 Kompositions-
+// Achsen bleiben category="composition", der Meta-Meta-Eintrag ist ADDITIV, binary_id="never").
+// Vor Schritt 1e ist dieser Test ROT (Eintrag fehlt in der committeten XML) = der Koeder-Biss.
+TEST(Org19MetaMeta, RegistryXmlTraegtDenMetaMetaEintrag18Plus1) {
+    std::ifstream in{COMDARE_ORG18_AXIS_REGISTRY_XML};
+    ASSERT_TRUE(in) << "Registry-XML nicht lesbar: " << COMDARE_ORG18_AXIS_REGISTRY_XML;
+    std::stringstream ss;
+    ss << in.rdbuf();
+    std::string const xml = ss.str();
+    EXPECT_NE(xml.find("<axis id=\"disk_io\" category=\"organ_meta_meta\""), std::string::npos)
+        << "ORG-19-IO muss als 19. Eintrag der Kategorie organ_meta_meta in der Registry stehen "
+           "(Praezedenz load_framework, measurement_axis_registry.xml:43)";
+    EXPECT_NE(xml.find("binary_id=\"never\""), std::string::npos)
+        << "der Meta-Meta-Eintrag permutiert NIE die binary_id (18+1: kCompositionAxisNames bleibt 18)";
+}
+
+// =============================================================================
 // §2 -- Katalog-Aritaet + die belegte mp_take_c-Falle
 // =============================================================================
 

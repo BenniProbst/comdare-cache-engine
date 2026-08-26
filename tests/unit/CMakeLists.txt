@@ -8231,3 +8231,23 @@ target_include_directories(test_o2_standard_opt_default PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_compile_definitions(test_o2_standard_opt_default PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+
+# E-10/ORG-19 SCHRITT 1 (26.08.2026, Designplan 20260825-DESIGNPLAN-E10-38a2-ORG19 + VERIFY-Fixes):
+# Anlage-Gate der ersten ORGAN-Meta-Meta-Achse disk_io -- Typ/Concept/Vollmenge (abi::OrganMetaMetas),
+# Comp-Selektions-Trait ueber die 18 Slot-Aliase (D-1: KEIN 19. Comp-Member), Carrier-Bindung ==
+# Single-Source (DiskWritebackTarget::name()), FIX-1-Byteform (Tabelle ungewrappt, EIN Renderer
+# wrappt EINMAL) + FIX-7(b)-Versions-Wachen. T-1: vor Schritt 1a/1c compile-rot (Koeder k1).
+comdare_add_test(test_e10_organ_meta_meta_anlage
+    SOURCES test_e10_organ_meta_meta_anlage.cpp)
+target_include_directories(test_e10_organ_meta_meta_anlage PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_e10_organ_meta_meta_anlage PRIVATE Boost::mp11)
+target_compile_definitions(test_e10_organ_meta_meta_anlage PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_e10_organ_meta_meta_anlage PROPERTIES
+    LABELS "e10;org19;organ-meta-meta;stempel;contract;wachen")

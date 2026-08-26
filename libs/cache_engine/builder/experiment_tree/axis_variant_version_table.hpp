@@ -26,10 +26,11 @@
 #include "axis_path_serialization.hpp" // kCompositionAxisNames (Slot-Reihenfolge der algo_sig)
 #include "registry_to_axis_levels.hpp" // axes26::T* Registry-Aliase (dieselbe Quelle wie build_all_axis_levels)
 
-#include <cache_engine/abi/anatomy_version_stamp.hpp>  // A13-M2: abi::OrganMetaMetas (Organ-Meta-Meta-Single-Source)
-#include <cache_engine/abi/meta_meta_stamp_suffix.hpp> // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
-#include <cache_engine/measurement/algo_semver.hpp>    // W12-A: algo_semver_string (X.Y.Z-Voll-Form, NUR fuer Stempel)
-#include <topics/organ_axis_error_classes.hpp>         // E-24 C9 / FK-5: der Fehlerraum-Zwilling der Versions-Wache
+#include <cache_engine/abi/anatomy_version_stamp.hpp>     // A13-M2: abi::OrganMetaMetas (Organ-Meta-Meta-Single-Source)
+#include <cache_engine/abi/meta_meta_stamp_suffix.hpp>    // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
+#include <cache_engine/abi/organ_meta_meta_selection.hpp> // E-10 S1 (FIX-1): ungewrappte Entry-Form je Variante
+#include <cache_engine/measurement/algo_semver.hpp> // W12-A: algo_semver_string (X.Y.Z-Voll-Form, NUR fuer Stempel)
+#include <topics/organ_axis_error_classes.hpp>      // E-24 C9 / FK-5: der Fehlerraum-Zwilling der Versions-Wache
 
 // A13-M3/C3: das Sub-Achsen-Werteset-Segment (Bauplan Section 2) wird nicht mehr HIER gerendert, sondern consteval
 // in abi/subaxis_valueset_segment.hpp -- dieselbe Zeichenfolge speist .algos-Sidecar UND Fingerprint-Preimage.
@@ -58,6 +59,13 @@ struct AxisVariantVersion {
     /// (axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP"; gepinnt in
     /// test_a1_algo_version_pin_alloc_axis), der uebrige Bestand auf "1.0.0.c".
     std::string version;
+    /// E-10 S1 (FIX-1, VERIFY-STEMPEL-IDENTITAET): die UNGEWRAPPTE Organ-Meta-Meta-Entry-Form dieser
+    /// Variante ("disk_io=code@1.0.0.c"; "" = kein Traeger). BEWUSST ohne Klammern: 4b (Schritt 4)
+    /// verkettert die Inner-Entries einer Comp mit ';' und wrappt GENAU EINMAL (Ein-Renderer-Doktrin;
+    /// eine gewrappte Tabelle ergaebe im Mehrtraeger-Fall "[a=..];[b=..]" statt "[a=..;b=..]" -- exakt
+    /// die O-8-Schritt-12-Falle). HEUTE vom compose-Pfad UNGENUTZT (S1 byte-neutral); EnabledTargets =
+    /// {MemoryOnlyTarget} -> alle Eintraege "".
+    std::string meta_meta_entries;
 };
 
 /// assert_version_grammar<W>() -- die GEMEINSAME Flag-Grammatik-Wache EINER registrierten Variante (Owner-Q3/E2
@@ -134,7 +142,8 @@ inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersi
     mp::mp_for_each<mp::mp_transform<mp::mp_identity, List>>([&](auto id) {
         using W = typename decltype(id)::type;
         assert_version_grammar<W>();
-        out.push_back(AxisVariantVersion{axis, std::string{W::name()}, std::string{W::algo_version}});
+        out.push_back(AxisVariantVersion{axis, std::string{W::name()}, std::string{W::algo_version},
+                                         ::comdare::cache_engine::abi::organ_meta_meta_entries_for_variant<W>()});
     });
 }
 
@@ -259,6 +268,16 @@ inline void guard_all_registered_organ_error_classes() {
     return std::string_view{};
 }
 
+/// E-10 S1: Nachschlag der UNGEWRAPPTEN Meta-Meta-Entry-Form einer (axis, variant)-Kombination ("" =
+/// kein Traeger / nicht gefunden). Konsument ist Schritt 4b (compose_organ_stamp_line sammelt je Comp,
+/// fuegt mit ';' und wrappt EINMAL via abi::wrap_meta_meta_entries); bis dahin ungenutzt (byte-neutral).
+[[nodiscard]] inline std::string_view lookup_meta_meta_entries(std::vector<AxisVariantVersion> const& table,
+                                                               std::string_view axis, std::string_view variant) {
+    for (AxisVariantVersion const& e : table)
+        if (e.axis == axis && e.variant == variant) return e.meta_meta_entries;
+    return std::string_view{};
+}
+
 /// Die globalen Sub-Achsen-Werteset-Versionen (Bauplan Section 2): eine Werteset-ERWEITERUNG (z.B. neuer
 /// CacheLineConfig-
 /// Wert) aendert das serialisierte Bit-Layout, ohne dass eine Varianten-algo_version bumpt -> muss in die algo_sig,
@@ -344,8 +363,10 @@ inline void guard_all_registered_organ_error_classes() {
     // A13-M2 (OP-11-Rueckbau, Owner-E2): der Organ-Meta-Meta-Klammer-Anhang ANS ENDE -- an BEIDEN
     // Organ-Zeilen-Quellen (hier der REALE Emitter-Pfad, in abi::organ_stamp_line<Comp>() der Mock-Pfad).
     // Ein Anhang nur auf einer Seite waere exakt die O-8-Schritt-12-Falle ("uebersehener dritter
-    // Ableitungsweg"). abi::OrganMetaMetas ist heute LEER -> die Zeile bleibt BYTE-IDENTISCH (no-op), belegt
-    // durch die unveraenderten 320er-Round-Trip- und CRC-Anker.
+    // Ableitungsweg"). HISTORIE (bis E-10 S1): abi::OrganMetaMetas war LEER -> no-op. SEIT E-10 S1 traegt
+    // die Vollmenge ORG-19-IO; der typ-globale Anhang hier ist der deklarierte S1-S4-Korridor-
+    // Zwischenstand (R-10, LANDE-VERBOT). Schritt 4 (4b) stellt auf die Tabellen-Selektion je Comp um
+    // (lookup_meta_meta_entries in kCompositionAxisNames-Ordnung + EINMAL abi::wrap_meta_meta_entries).
     ::comdare::cache_engine::abi::append_meta_meta_suffix(
         out, ::comdare::cache_engine::abi::meta_meta_stamp_suffix_from_members<
                  ::comdare::cache_engine::abi::OrganMetaMetas>());
