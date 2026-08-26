@@ -79,6 +79,15 @@ endif()
 # Define).
 add_compile_definitions("COMDARE_FACADE_VENDOROPT_ID=\"${_COMDARE_release_opt_id}\"")
 
+# OS-2-GATE (VO3-1(b), Owner-Antwort OS-2 26.08.2026): HARTES Gate gegen eigene Release-Opt-Flags
+# an der Achse vorbei (Vendor/FetchContent/Direktblock). Installation GENAU HIER -- nach der
+# gehissten Quelle, VOR jedem add_subdirectory (die Wache muss die Unterverzeichnisse sehen).
+# MSVC: kein -O-Token-Raum, Gate entfaellt (s. Kommentar oben).
+if(NOT MSVC)
+    include(vo31_optflag_gate)
+    comdare_vo31_optflag_gate_install("${_COMDARE_release_opt}")
+endif()
+
 # Helper: setze Compile-Optionen pro Compiler-Familie
 function(COMDARE_set_default_warnings target)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")

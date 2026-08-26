@@ -1734,6 +1734,18 @@ include(axis_hierarchy_summary)
 comdare_print_axis_hierarchy()
 
 # -----------------------------------------------------------------------------
+# OS-2 / VO3-1(b) (Owner 26.08.2026) -- OPTFLAG-GATE-LAUF ueber den ce-Baum.
+# Expliziter Lauf HIER (vor dem Registrierungs-Abschluss, der die letzte
+# ANWEISUNG dieser Datei bleiben muss); der zweite, per DEFER am Wurzel-Ende
+# geplante Lauf deckt im super-Embed zusaetzlich die super-Ziele (im
+# Standalone ist er ein idempotenter Zweitlauf NACH der Endmarke -- er ist
+# keine Anweisung dieser Datei). Details: cmake/vo31_optflag_gate.cmake.
+# -----------------------------------------------------------------------------
+if(NOT MSVC AND COMMAND comdare_vo31_optflag_gate_run)
+    comdare_vo31_optflag_gate_run("ce-baum")
+endif()
+
+# -----------------------------------------------------------------------------
 # D2 (09.08.2026) -- ABSCHLUSS DES REGISTRIERUNGS-PROTOKOLLS.
 # Muss die LETZTE Anweisung dieser Datei bleiben: erst hier haben alle
 # add_subdirectory()-Zweige ihre bedingten Registrierungs-Bloecke vermerkt.
