@@ -9,10 +9,12 @@
 // Bau (vendoropt-Append im Renderer auskommentiert -> T-B2 rot literal; Kopie bau/mutation/, #111).
 #include <gtest/gtest.h>
 
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 
+#include <cache_engine/abi/anatomy_fingerprint.hpp>
 #include <cache_engine/abi/toolchain_stamp_glied.hpp>
 #include <toolchain_stamp_naht.hpp>
 
@@ -87,4 +89,33 @@ TEST(Vo31VendoroptGlied, TB5ActiveVendoroptAusDerGehisstenQuelle) {
     std::string erwartet{";vendoropt="};
     erwartet += v;
     EXPECT_TRUE(live.ends_with(erwartet)) << "glied='" << live << "'";
+}
+
+// T-B6: Laengen-Pruefpunkt (Bauplan B4(6)): die VOLL belegte Glied-[5]-Form -- alle 14 Felder, inklusive
+// des NEUEN letzten Feldes vendoropt -- bleibt unter dem Preimage-Budget kAnatomyFingerprintToolchainMax.
+// Die Budget-Reihe selbst bleibt UNANGETASTET (Bauplan: messen, Zahl nennen, nie die Reihe bewegen); die
+// gemessene Laenge steht im Log ([VO3-1 T-B6] ...) und im Commit-Text. Rot-Probe: Wegwerf-Mutation des
+// Budget-Vergleichs auf 100 B beisst literal (Kopie bau/mutation/).
+TEST(Vo31VendoroptGlied, TB6VollFormBleibtUnterToolchainBudget) {
+    namespace abi = ::comdare::cache_engine::abi;
+    abi::ToolchainStampParts p{};
+    p.cxx_dialect       = "gcc";
+    p.cxx_realversion   = "15.3.0";
+    p.opt               = "O3";
+    p.opt_flags         = "-O3";
+    p.simd              = "avx512";
+    p.ceb               = "8.0";
+    p.target_isa        = "x86_64";
+    p.telemetry         = "profiler";
+    p.build_type        = "Release";
+    p.gate_contribution = "avx512";
+    p.atomic128         = "cx16";
+    p.atomic128_flags   = "-mcx16";
+    p.cxx_driver        = "g++-15";
+    p.vendoropt         = "O2";
+    std::string const g = abi::render_toolchain_stamp_glied(p);
+    EXPECT_TRUE(g.ends_with(";vendoropt=O2")) << "glied='" << g << "'";
+    EXPECT_LE(g.size(), abi::kAnatomyFingerprintToolchainMax) << "glied='" << g << "'";
+    std::cout << "[VO3-1 T-B6] glied_len=" << g.size() << " budget=" << abi::kAnatomyFingerprintToolchainMax
+              << " glied='" << g << "'\n";
 }
