@@ -192,13 +192,17 @@ static_assert(kZellPfadSegmentOrder[3].substr(0, kZellPfadSegmentOrder[3].size()
 /// auf das, was sie inhaltlich ist: das Glied traegt ZUSAETZLICH die (nur wenn gedeckt behauptete)
 /// Realversion, der Suffix nicht.
 ///
-/// Die glied-eigenen Felder (opt_flags, atomic128 + dessen Flags) haben im Suffix kein Gegenstueck: die
-/// Flags sind per Owner-KERN abend-5 Teil der Haupt-Achsen-DEFINITION und gehoeren damit in die
-/// IDENTITAET, waehrend der Suffix nur die id transportiert.
+/// Die glied-eigenen Felder (opt_flags, atomic128 + dessen Flags, seit VO3-1(b) auch vendoropt) haben
+/// im Suffix kein Gegenstueck: die Flags sind per Owner-KERN abend-5 Teil der Haupt-Achsen-DEFINITION
+/// und gehoeren damit in die IDENTITAET, waehrend der Suffix nur die id transportiert. vendoropt (die
+/// Release-Opt-Stufe der CEB-Bauwelt, X4 25.08.2026) ist Identitaet der BAUWELT, nicht der Tier-Achse
+/// -- der build_version-Suffix bekommt bewusst KEIN '+vendoropt='-Segment (Entscheid D-3: Transport-/
+/// Cache-Pfad bleibt byte-stabil; die Identitaet traegt das Preimage-Glied [5]).
 [[nodiscard]] inline ::comdare::cache_engine::abi::ToolchainStampParts
 toolchain_stamp_parts_from_suffix_parts(SystemVersionSuffixParts const& p, std::string_view cxx_dialect,
                                         std::string_view cxx_realversion, std::string_view opt_flags = {},
-                                        std::string_view atomic128 = {}, std::string_view atomic128_flags = {}) {
+                                        std::string_view atomic128 = {}, std::string_view atomic128_flags = {},
+                                        std::string_view vendoropt = {}) {
     ::comdare::cache_engine::abi::ToolchainStampParts t{};
     t.cxx_dialect       = cxx_dialect;
     t.cxx_realversion   = cxx_realversion;
@@ -213,6 +217,8 @@ toolchain_stamp_parts_from_suffix_parts(SystemVersionSuffixParts const& p, std::
     t.gate_contribution = p.gate_contribution; // VERBATIM
     t.atomic128         = atomic128;           // glied-eigen
     t.atomic128_flags   = atomic128_flags;     // glied-eigen
+    t.vendoropt         = vendoropt;           // glied-eigen (VO3-1(b): CEB-Bauwelt-Opt-Stufe, letzter Param
+                                               // mit Default {} -- Bestands-Aufrufer bleiben unveraendert gueltig)
     return t;
 }
 
@@ -238,12 +244,14 @@ static_assert(kSuffixSegmentOrder[kSuffixSegmentOrder.size() - 2] == std::string
 // gleichzeitig sichtbar sind, ist deshalb dieser.
 //
 // WAS SIE PRUEFT: die ersten acht Glied-Schluessel sind byte-gleich den acht Suffix-Segmenten ohne ihr
-// fuehrendes '+' und ihr abschliessendes '='. Das neunte (atomic128) haengt im Glied HINTEN an und hat im
-// Suffix bewusst kein Gegenstueck -- deshalb Praefix-Deckung statt Gleichheit der Laengen.
-static_assert(kSuffixSegmentOrder.size() + 1 == ::comdare::cache_engine::abi::kToolchainGliedKeyCount,
-              "O-2/C-2: das Toolchain-Glied traegt genau die acht Suffix-Segmente plus atomic128. Wer hier "
-              "ein Segment ergaenzt oder streicht, muss kToolchainGliedKeys im selben Commit nachziehen -- "
-              "sonst behaupten Suffix und Preimage verschiedene Toolchain-Identitaeten.");
+// fuehrendes '+' und ihr abschliessendes '='. Das neunte (atomic128) und das zehnte (vendoropt, seit
+// VO3-1(b) 26.08.2026) haengen im Glied HINTEN an und haben im Suffix bewusst kein Gegenstueck --
+// deshalb Praefix-Deckung statt Gleichheit der Laengen.
+static_assert(kSuffixSegmentOrder.size() + 2 == ::comdare::cache_engine::abi::kToolchainGliedKeyCount,
+              "O-2/C-2: das Toolchain-Glied traegt genau die acht Suffix-Segmente plus atomic128 plus "
+              "vendoropt (beide glied-eigen, ohne Suffix-Gegenstueck). Wer hier ein Segment ergaenzt oder "
+              "streicht, muss kToolchainGliedKeys im selben Commit nachziehen -- sonst behaupten Suffix "
+              "und Preimage verschiedene Toolchain-Identitaeten.");
 static_assert(
     [] {
         // cppcheck-suppress syntaxError  // WERKZEUG-LIMIT, kein Defekt: cppcheck 2.21.0 parst eine
@@ -265,9 +273,9 @@ static_assert(
     "O-2/C-2 DOPPEL-WAHRHEIT: die Suffix-Segment-Ordnung und die Feld-Ordnung des Toolchain-Glieds "
     "sind auseinandergelaufen. Beide beschreiben DIESELBE Toolchain-Wahl -- einmal als Transport, "
     "einmal als Identitaet; eine Drift hiesse, dass eine Binary anders gestempelt als gekeyt ist.");
-static_assert(
-    ::comdare::cache_engine::abi::kToolchainGliedKeys[::comdare::cache_engine::abi::kToolchainGliedKeyCount - 1] ==
-        std::string_view{"atomic128"},
-    "atomic128 ist das GLIED-EIGENE Feld und steht am Ende (kein Suffix-Gegenstueck).");
+static_assert(::comdare::cache_engine::abi::kToolchainGliedKeys[8] == std::string_view{"atomic128"} &&
+                  ::comdare::cache_engine::abi::kToolchainGliedKeys[9] == std::string_view{"vendoropt"},
+              "atomic128 und (seit VO3-1(b)) vendoropt sind die GLIED-EIGENEN Felder und stehen am Ende "
+              "(kein Suffix-Gegenstueck; die Praefix-Deckung der ersten acht bleibt exakt).");
 
 } // namespace comdare::cache_engine::profile_facade

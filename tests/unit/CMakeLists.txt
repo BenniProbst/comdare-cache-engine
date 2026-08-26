@@ -8264,7 +8264,9 @@ target_include_directories(test_vo31_vendoropt_glied PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
-    "${PROJECT_SOURCE_DIR}/libs/common")
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_vo31_vendoropt_glied PRIVATE Boost::mp11)
 comdare_set_platform_defines(test_vo31_vendoropt_glied)
 target_compile_definitions(test_vo31_vendoropt_glied PRIVATE
