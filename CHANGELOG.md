@@ -21,6 +21,12 @@ The format follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
   files (`CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`,
   this file). No source file was touched.
 
+### Changed
+- 2026-08-26 (A5 / D3a rest): `NOTICE` entry 35 and `LICENSE_AUDIT_EXT.md`
+  corrected to the on-disk license of `ext/allocator/A03-michael-lockfree`:
+  LGPL-2.1-or-later per its README (was: "MIT" / "KEINE LICENSE");
+  `REUSE.toml` had already declared it correctly on 2026-08-25.
+
 ## License history (binding text: `LICENSE` Section 9)
 - until 2026-08-01: Apache License 2.0.
 - 2026-08-02 to 2026-08-09: dual Research-and-Teaching / Commercial license.

@@ -182,8 +182,8 @@ SPDX-License-Identifier = "Apache-2.0"
 
 # A03: README "GNU Lesser General Public License ... version 2.1 ... or (at your
 # option) any later version" (Scott Schneider, Christos Antonopoulos, 2007).
-# NOTICE nennt MIT, LICENSE_AUDIT_EXT.md "KEINE LICENSE" -- beides weicht vom
-# Objekt ab (Restposten 25.08.: NOTICE/Audit nachziehen).
+# NOTICE und LICENSE_AUDIT_EXT.md sind am 2026-08-26 ans Objekt nachgezogen
+# (vorher: MIT bzw. "KEINE LICENSE").
 [[annotations]]
 path = "ext/allocator/A03-michael-lockfree/**"
 SPDX-FileCopyrightText = "2007 Scott Schneider, Christos Antonopoulos"

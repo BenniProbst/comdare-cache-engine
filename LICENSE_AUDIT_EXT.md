@@ -14,6 +14,13 @@ im Sinne dieser Lizenz (LICENSE Abschnitt 8) und behaelt seine Originallizenz.
 - Die Quellen-Pfade trugen den Stand vor der Achsen-Umsortierung.
 - Die Zusammenfassung zaehlte A03 doppelt (siehe Anmerkung dort).
 
+**Nachgezogen 2026-08-26 (am Objekt gemessen):**
+- `A03-michael-lockfree` stand hier als "KEINE LICENSE" und im NOTICE als "MIT".
+  Das README des Pakets traegt den LGPL-2.1-or-later-Erlaubnistext (Abschnitt
+  "Copyright & License"; Copyright (C) 2007 Scott Schneider, Christos
+  Antonopoulos). Tabelle, Zusammenfassung und NOTICE-Eintrag 35 sind
+  nachgezogen; REUSE.toml deklarierte den Pfad bereits seit 2026-08-25 korrekt.
+
 ## SOTA-Repos
 
 | Repo | Lizenz | Adapter-Status |
@@ -36,7 +43,7 @@ im Sinne dieser Lizenz (LICENSE Abschnitt 8) und behaelt seine Originallizenz.
 | Repo | Lizenz | Adapter-Status |
 |---|---|---|
 | A01-hoard | Apache-2.0 | ✅ safe |
-| A03-michael-lockfree | KEINE LICENSE | ❌ User muss Autoren anschreiben |
+| A03-michael-lockfree | LGPL-2.1-or-later (README, kein separates LICENSE-File) | wie P29: LGPL, Extraktion als neues Werk (Direktive II); Autoren-Zitation |
 | A04-mimalloc | MIT | ✅ safe |
 | A05-jemalloc | BSD-2 | ✅ safe |
 | A06-tcmalloc | Apache-2.0 | ✅ safe |
@@ -73,8 +80,8 @@ fortbestehende Pflicht ist die Attribution, und die traegt das NOTICE.
 ## Zusammenfassung
 
 - **13 Adapter "safe"** (Apache-2.0/MIT/ISC/BSD-2/BSD-3): koennen autonom aktiviert werden
-- **3 Adapter mit GPL-Risiko** (P04, P07, P29): brauchen User-Bestaetigung oder Plug-in-Architektur
-- **6 Adapter ohne LICENSE** (P06, P25, P30, A03): User muss Autoren anschreiben oder Repos exkludieren
+- **4 Adapter mit Copyleft** (P04, P07 GPL-3; P29, A03 LGPL-2.1+): brauchen User-Bestaetigung oder Plug-in-Architektur
+- **3 Adapter ohne LICENSE** (P06, P25, P30): User muss Autoren anschreiben oder Repos exkludieren
 
 ## V31-Plan-Anpassung (vs Original-Anker)
 
@@ -87,7 +94,7 @@ Echter GPL-Konflikt: P04-CoCo-trie + P07-Wormhole (beide GPL-3, nicht GPL-2).
 3. V31.K2 A04-mimalloc-Adapter (Pilot Allokator, MIT)
 4. V31.K3 weitere SAFE SOTA: P02-HOT, P03-Masstree, P05-START, P10-SuRF, P20-BTreesAreBack
 5. V31.K4 weitere SAFE Allokator: A01-hoard, A05-jemalloc, A06-tcmalloc, A07-snmalloc, A08-scalloc, A10-rpmalloc, A11-lrmalloc, A20-dlmalloc
-6. V31.K5 USER-Pending: P04-CoCo-trie + P07-Wormhole (GPL-3 Bestaetigung), P06+P25+P30+A03 (Autoren anschreiben)
+6. V31.K5 USER-Pending: P04-CoCo-trie + P07-Wormhole (GPL-3 Bestaetigung), P06+P25+P30 (Autoren anschreiben), A03 (LGPL-2.1+, wie P29)
 
 ## Architekt-Direktive II 2026-05-14 (User)
 
@@ -96,7 +103,7 @@ Echter GPL-Konflikt: P04-CoCo-trie + P07-Wormhole (beide GPL-3, nicht GPL-2).
 > Repos ohne Lizenz: formal nur Autoren-Zitation."
 
 **Konsequenz:** Alle 22 ext/-Repos sind fuer V31-Adapter freigegeben.
-GPL-3 (P04, P07), LGPL (P29) und No-LICENSE (P06, P25, P30, A03) brauchen
+GPL-3 (P04, P07), LGPL (P29, A03) und No-LICENSE (P06, P25, P30) brauchen
 keine separate User-Bestaetigung mehr. Vollstaendige Begruendung: NOTICE,
 Abschnitt "Architekt-Direktive II 2026-05-14".
 
@@ -118,6 +125,7 @@ ext/traversal/P10-SuRF/SuRF/LICENSE        # Apache-2.0
 ext/traversal/P20-BTreesAreBack/leanstore/LICENSE # MIT
 ext/traversal/P29-RCU/userspace-rcu/LICENSE.md    # REUSE (LGPL-2.1+ + GPL-2)
 ext/allocator/A01-hoard/LICENSE            # Apache-2.0
+ext/allocator/A03-michael-lockfree/README  # LGPL-2.1-or-later (Erlaubnistext im Abschnitt 'Copyright & License')
 ext/allocator/A04-mimalloc/LICENSE         # MIT
 ext/allocator/A05-jemalloc/COPYING         # BSD-2
 ext/allocator/A06-tcmalloc/LICENSE         # Apache-2.0
