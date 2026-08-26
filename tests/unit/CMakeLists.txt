@@ -8231,3 +8231,44 @@ target_include_directories(test_o2_standard_opt_default PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_compile_definitions(test_o2_standard_opt_default PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+
+# =============================================================================
+# VO3-1(b) GLOBAL O2 + vendoropt-GLIED (Owner-KERN X4 25.08.2026, Bau 26.08.2026,
+# Beweisort backups-workflow/20260825-vo3-1-global-o2/): eigener Block am
+# DATEIENDE (Kollisionsschutz gegen die Bloecke anderer Straenge; Merge-Regel
+# bei Kollision am Dateiende: BEIDE Bloecke behalten).
+#
+# test_vo31_global_o2_flags (T-A): friert die SOLL-Literale "-O2 -DNDEBUG" bzw.
+# "-O3 -DNDEBUG" (COMDARE_OPT_O3-Opt-in) IM TEST ein; die IST-Werte kommen als
+# Configure-Defines herein (T-3: fremder Nenner). T-1 rot-zuerst am IST-Stand
+# d3b5a393 (CMake-Default -O3) bewiesen, gruen durch den B3-FORCE-Dreh.
+comdare_add_test(test_vo31_global_o2_flags
+    SOURCES test_vo31_global_o2_flags.cpp)
+target_compile_definitions(test_vo31_global_o2_flags PRIVATE
+    "COMDARE_VO31_CXX_RELEASE_FLAGS=\"${CMAKE_CXX_FLAGS_RELEASE}\""
+    "COMDARE_VO31_C_RELEASE_FLAGS=\"${CMAKE_C_FLAGS_RELEASE}\""
+    "COMDARE_VO31_OPT_O3=$<BOOL:${COMDARE_OPT_O3}>")
+set_tests_properties(test_vo31_global_o2_flags PROPERTIES
+    LABELS "vo31;flags;koeder;wachen")
+
+# test_vo31_vendoropt_glied (T-B): Feld "vendoropt" (Glied [5], Key [9]) + der
+# tc-Format-Bump "1"->"2". Include-/Link-Satz nach test_lagz1-Vorbild (abi/naht
+# header-only, Boost::mp11). COMDARE_VO31_EXPECT_VENDOROPT ist der FREMDE Nenner
+# fuer T-B5: dieselbe COMDARE_OPT_O3-Fallunterscheidung, die die Release-Flags
+# steuert -- nie aus dem Pruefling (active_vendoropt) selbst abgeschrieben.
+comdare_add_test(test_vo31_vendoropt_glied
+    SOURCES test_vo31_vendoropt_glied.cpp)
+target_include_directories(test_vo31_vendoropt_glied PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_vo31_vendoropt_glied PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_vo31_vendoropt_glied)
+target_compile_definitions(test_vo31_vendoropt_glied PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_VO31_EXPECT_VENDOROPT=\"$<IF:$<BOOL:${COMDARE_OPT_O3}>,O3,O2>\"")
+set_tests_properties(test_vo31_vendoropt_glied PROPERTIES
+    LABELS "vo31;stempel;glied;koeder")
