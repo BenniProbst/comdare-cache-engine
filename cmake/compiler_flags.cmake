@@ -29,6 +29,53 @@ else()
     message(STATUS "Release-Optimierung: -O2 (O2-Standard, Owner-Entscheid 21.08.2026)")
 endif()
 
+# VO3-1(b) (Owner-KERN X4 25.08.2026: "(b) global O2 und nur auf XML Eingangswunsch O3 mit bauen"):
+# die Release-Opt-Stufe wird EINMAL hier am Datei-Top-Level aufgeloest (gehisste Single-Source; die
+# Warn-Funktion unten liest sie per Directory-Scope, KEINE Doppel-Berechnung) und per CACHE-FORCE
+# GLOBAL durchgesetzt -- Haus, Vendor ext/ (mimalloc static.c), FetchContent-Fremdbau (gtest) und
+# super-Embed-Ziele bauen Release mit DERSELBEN Stufe. Beweis der Reichweite: CMake-Reichweiten-
+# Proben A/B/C (backups-workflow/20260825-vo3-1-global-o2/design/probes/): eine NORMALE Variable
+# erreicht die super-Embed-Ziele NICHT und laesst die CMakeCache luegen; nur CACHE ... FORCE macht
+# beides wahr. Deklarierte per-Target-Ausnahme bleibt GENAU test_all19_segment_timer (mess-
+# charakteristisch, tests/unit/CMakeLists.txt) -- das OS-2-Gate (cmake/vo31_optflag_gate.cmake)
+# haelt diese Ausnahmemenge geschlossen.
+if(COMDARE_OPT_O3)
+    set(_COMDARE_release_opt "-O3")
+    set(_COMDARE_release_opt_id "O3")
+else()
+    set(_COMDARE_release_opt "-O2")
+    set(_COMDARE_release_opt_id "O2")
+endif()
+if(NOT MSVC)
+    foreach(_comdare_lang C CXX)
+        set(_comdare_soll "${_COMDARE_release_opt} -DNDEBUG")
+        # Kein stiller Dreh: ein Cache-Wert, der weder die CMake-Vorgabe (-O3 -DNDEBUG) noch das
+        # Haus-Soll ist, wurde von jemandem gesetzt -- er wird LAUT ersetzt, nicht still.
+        if(DEFINED CMAKE_${_comdare_lang}_FLAGS_RELEASE
+           AND NOT CMAKE_${_comdare_lang}_FLAGS_RELEASE STREQUAL "-O3 -DNDEBUG"
+           AND NOT CMAKE_${_comdare_lang}_FLAGS_RELEASE STREQUAL "${_comdare_soll}")
+            message(WARNING
+                "CMAKE_${_comdare_lang}_FLAGS_RELEASE='${CMAKE_${_comdare_lang}_FLAGS_RELEASE}' wird "
+                "durch den Haus-Standard '${_comdare_soll}' ersetzt (VO3-1(b), Owner-KERN X4 "
+                "25.08.2026) -- der offizielle O3-Weg ist COMDARE_OPT_O3=ON.")
+        endif()
+        set(CMAKE_${_comdare_lang}_FLAGS_RELEASE "${_comdare_soll}"
+            CACHE STRING "Release-Flags (VO3-1(b) Haus-Standard, cmake/compiler_flags.cmake)" FORCE)
+    endforeach()
+    message(STATUS
+        "COMDARE: CMAKE_C/CXX_FLAGS_RELEASE = ${_COMDARE_release_opt} -DNDEBUG (global, VO3-1(b))")
+endif()
+# MSVC bleibt unberuehrt: die CMake-Vorgabe (/O2 /Ob2 /DNDEBUG) ist bereits O2-Klasse, ein /O3
+# existiert nicht (WARNING-Punkt (4) oben).
+#
+# A-F1/VO3-1(b): die vendoropt-IDENTITAET (Glied [5], neues Feld 'vendoropt') wird GLOBAL definiert
+# -- genau an der gehissten Quelle, Single-Source mit den Release-Flags. Das Makro steht in KEINEM
+# CT-Preimage (kCeb-/kPlaner-Fingerprint bewegungslos; Beweisauflage: test_d4 + Frozen-Anker im
+# K17); der CT-Slot COMDARE_TOOLCHAIN_STAMP_GLIED bleibt unberuehrt (der reist NUR per Tier-rsp,
+# toolchain_stamp_naht.hpp). Konsument: active_vendoropt() ebendort (#error-Wache bei fehlendem
+# Define).
+add_compile_definitions("COMDARE_FACADE_VENDOROPT_ID=\"${_COMDARE_release_opt_id}\"")
+
 # Helper: setze Compile-Optionen pro Compiler-Familie
 function(COMDARE_set_default_warnings target)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -45,14 +92,11 @@ function(COMDARE_set_default_warnings target)
             NOMINMAX
             WIN32_LEAN_AND_MEAN)
     elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
-        # O2-STANDARD: Release-Opt-Stufe zur Configure-Zeit aufgeloest. COMDARE_OPT_O3 ist eine
-        # Cache-Option (in jedem Scope sichtbar), die Aufloesung ist nie leer -- kein stiller
-        # Compiler-Default -O0 durch eine ungesetzte Variable moeglich.
-        if(COMDARE_OPT_O3)
-            set(_COMDARE_release_opt "-O3")
-        else()
-            set(_COMDARE_release_opt "-O2")
-        endif()
+        # O2-STANDARD: _COMDARE_release_opt ist seit VO3-1(b) (26.08.2026) an den DATEI-TOP-LEVEL
+        # GEHISST (EINE Quelle fuer CACHE-FORCE-Flags, vendoropt-Define und diese per-Target-Stufe);
+        # hier gilt Directory-Scope-Lookup, KEINE Doppel-Berechnung. Die Aufloesung ist weiterhin
+        # nie leer (unbedingtes if/else am Top-Level) -- kein stiller Compiler-Default -O0 moeglich.
+        # Historie: bis 26.08.2026 wurde der Wert hier lokal berechnet (Doku-Doktrin, nichts geloescht).
         # B16/K12 (2026-08-21): die C++-ONLY-Kategorien sind per COMPILE_LANGUAGE:CXX gegatet.
         # Bis B16 traf diese Funktion nur reine C++-Test-Executables und das Gate war unnoetig;
         # mit der Produktions-Deckung erreichte sie erstmals ein Target mit einer C-TU und gcc
