@@ -12,6 +12,16 @@
 # add_subdirectory(P01-ART)   # nach Migration
 # add_subdirectory(P02-HOT)
 # ...
+#
+# VO3-1(b)-DOKTRIN (Owner-KERN X4 25.08.2026; OS-2-Gate 26.08.2026): SELBST-PINNENDE Vendor-Projekte
+# (P02-HOT :21, P10-SuRF :11, P06-B2tree, P20-leanstore, A01-hoard) setzen in ihren Original-CMakeLists
+# eigene -O3-Flags; sie sind NICHT im Bau (nur Include-Pfade, libs/cache_engine/profile_facade/
+# CMakeLists.txt :20-38), und ihr Original-Fremdcode wird NICHT editiert (Original-Compiler-Doktrin,
+# Wurzel-CMakeLists.txt :748). Wer eines per add_subdirectory aktiviert, stellt es unter die VO3-1(b)-
+# Unterstellung (global ${_COMDARE_release_opt} via CACHE-FORCE, cmake/compiler_flags.cmake). Das ist
+# KEIN blosser Vermerk: das OS-2-Gate (cmake/vo31_optflag_gate.cmake) bricht den Configure FATAL, wenn
+# eine TU dieses Baums eigene, nicht-konforme Release-Opt-Flags traegt (Ausnahmen NUR ueber die dortige
+# eingefrorene Allowlist). Aufloesung des Ledger-:518-Wortlauts "inkl. selbst-pinnender Vendor-Projekte".
 
 # V40.A (2026-05-24): Allokator-Achse echt — mimalloc als Vendor-Library
 # V-1 (O-8 Schritt 1): Aktiviert wenn COMDARE_PROVISION_VENDOR_ALLOCATORS=ON.

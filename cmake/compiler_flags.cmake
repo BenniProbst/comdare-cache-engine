@@ -11,6 +11,9 @@
 # Historie: bis 22.08.2026 trug Release hier -O3 (UEBERHOLT; Doku-Doktrin, nichts geloescht).
 # Die Tier-Binary-Emission (build_orchestrator-opt_flag-Kanal / XML-Achse opt_level) ist davon
 # UNBERUEHRT -- ihr beweglicher CEB-Default lebt in system_axes/optimization_level_sub_axis.hpp.
+# [NACHGEFUEHRT VO3-1(b), Owner-KERN X4 25.08.2026: die Release-Flags gelten seither HAUS-WEIT --
+#  inkl. Vendor ext/, FetchContent-Fremdbau und super-Embed -- per CACHE-FORCE (Block unten); die
+#  Bauwelt-Stufe ist als Feld 'vendoropt' des Toolchain-Glieds [5] identitaetswirksam. Historie oben.]
 option(COMDARE_OPT_O3
     "Release-Builds mit -O3 statt des O2-Standards uebersetzen (Opt-in unter Warnung)" OFF)
 if(COMDARE_OPT_O3)
@@ -18,8 +21,8 @@ if(COMDARE_OPT_O3)
         "COMDARE_OPT_O3=ON: Release-Builds tragen -O3 statt des O2-Standards "
         "(Owner-Entscheid 21.08.2026: 'O2 ist Standard fuer alle Builds, O3 wird unter Warnung "
         "angeboten'). KONSEQUENZEN: (1) O3-Artefakte tragen einen ANDEREN Toolchain-Fingerprint "
-        "(Glied [5], build_version '+opt=') -- Messreihen sind mit O2-Standard-Bestand NICHT "
-        "direkt vergleichbar (eigene Mess-Zelle; kein falscher Cache-Skip, fail-closed); "
+        "(Glied [5], Feld 'vendoropt' -- seit VO3-1(b), X4 25.08.2026) -- Messreihen sind mit "
+        "O2-Standard-Bestand NICHT direkt vergleichbar (kein falscher Cache-Skip, fail-closed); "
         "(2) aggressivere Transformationen (u.a. Auto-Vektorisierung) aendern Codegroesse und "
         "Laufzeitcharakteristik; der IEEE-754-Determinismus bleibt bei -O3 erhalten (erst -Ofast "
         "braeche ihn, das bleibt der XML-Achse vorbehalten); (3) binary_id und golden-320 bleiben "

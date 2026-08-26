@@ -134,6 +134,8 @@
 // build_type="Release" -> -O3 -DNDEBUG. Nachgestellt mit DERSELBEN Uebersetzungseinheit, nur die
 // Stufe getauscht: -O0 gruen, -O1 rot, -O2 rot, -O3 rot -- Zeichen fuer Zeichen die CI-Ausgabe,
 // inklusive "Nutzsumme = 48". Es reisst bereits ab -O1, es ist nichts -O3-Eigenes.
+// [NACHGEFUEHRT VO3-1(b), Owner-KERN X4 25.08.2026: seit dem globalen O2-Dreh faehrt die CI-Release-Stufe
+//  -O2 -DNDEBUG; die -O3-Zahlen dieses Blocks sind Historie der O3-Aera -- Messwerte NICHT umgeschrieben.]
 //
 // DER ZAEHLER WAR NICHT BLIND -- das ist die erste der beiden moeglichen Ursachen, und sie ist
 // ausgeschlossen: Abschnitt (1) meldet bei -O3 EXAKT dieselben Zahlen wie bei -O0 (Allokationen = 13,
@@ -191,6 +193,8 @@
 //     /usr/bin/c++ -O3 -DNDEBUG -> (1) 13/524224  (2) gezaehlt = 3  (3) Allokationen = 0
 //                                  (4) gezaehlt = 1, Bytes = <gewuerfelt>   OK: MS-1   RC=0
 //     clang++      -O3 -DNDEBUG -> dieselben Werte                          OK: MS-1   RC=0
+// [NACHGEFUEHRT VO3-1(b), Owner-KERN X4 25.08.2026: seit dem globalen O2-Dreh faehrt die CI-Release-Stufe
+//  -O2 -DNDEBUG; die -O3-Zahlen dieses Blocks sind Historie der O3-Aera -- Messwerte NICHT umgeschrieben.]
 //
 // DER BLINDE ZAEHLER WIRD WEITERHIN ROT, NICHT STILL GRUEN. Das ist keine Absicht auf dem Papier,
 // sondern die Bauform: (1) fordert zahl > 0, (2) fordert genau 3, (4) fordert genau 1 UND die exakte
@@ -219,6 +223,8 @@
 // eine Beobachtbarkeits-Zusage genau zwischen diesen beiden Stufen schon einmal auseinandergefallen
 // ist (s. Block darueber). KEINE bestehende Pruefung wurde entschaerft; es sind nur welche
 // dazugekommen.
+// [NACHGEFUEHRT VO3-1(b), Owner-KERN X4 25.08.2026: seit dem globalen O2-Dreh faehrt die CI-Release-Stufe
+//  -O2 -DNDEBUG; die -O3-Zahlen dieses Blocks sind Historie der O3-Aera -- Messwerte NICHT umgeschrieben.]
 //
 // DER BEFUND. Die Abschnitte (1) bis (9) pruefen die Mess-Arena ausschliesslich NEGATIV oder
 // INDIREKT: (5d) und (5c) fordern, dass etwas NICHT dasteht; (3) liest `belegt`, das aus dem

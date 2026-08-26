@@ -142,6 +142,11 @@ struct OptOfastOption final : OptimizationLevelSubAxis<OptOfastOption> {
 /// ANDEREN Toolchain-Fingerprint, Glied [5] '+opt=' -- nie einen falschen Cache-Skip; binary_id/golden-320
 /// unberuehrt) und in der Haus-Bauwelt per COMDARE_OPT_O3=ON (cmake/compiler_flags.cmake) unter lauter
 /// Configure-WARNING mit Konsequenz-Nennung.
+/// [NACHGEFUEHRT VO3-1(b), Owner-KERN X4 25.08.2026, Bau 26.08.2026: der COMDARE_OPT_O3-Dreh wirkt seither
+///  GLOBAL -- CMAKE_C/CXX_FLAGS_RELEASE per CACHE-FORCE in cmake/compiler_flags.cmake erreichen Haus,
+///  Vendor ext/ (mimalloc), FetchContent-Fremdbau und super-Embed; die BAUWELT-Stufe ist als neues Feld
+///  'vendoropt' des Toolchain-Glieds [5] identitaetswirksam (tc-Format 2). DIESE Achse hier bleibt davon
+///  getrennt die TIER-seitige opt_level-Unterachse (XML-permutierbar, Felder opt/opt_flags im Glied [5]).]
 using DefaultOptLevelOption = OptO2Option;
 
 /// Single-Source der gueltigen opt_level-ids (Reihenfolge = Design-Space-Vokabular). Speist die Profil-Validierung
