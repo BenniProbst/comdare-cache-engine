@@ -8251,3 +8251,20 @@ target_compile_definitions(test_e10_organ_meta_meta_anlage PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_e10_organ_meta_meta_anlage PROPERTIES
     LABELS "e10;org19;organ-meta-meta;stempel;contract;wachen")
+
+# E-10/ORG-19 SCHRITT 2 (26.08.2026, Designplan 20260825-DESIGNPLAN-E10-38a2-ORG19 + VERIFY-Fix FIX-7(a)):
+# erste required-DEKLARATION der Organ-Meta-Meta-Welt -- 18+1-Register (organ_meta_meta_requirement.hpp;
+# required/meaningful der disk_io-Zeile EHRLICH LEER nach KON16-02/KON59-01), constexpr-Aggregations-Kern
+# + Laufzeit-Huelle (simd_organ_requirement.hpp) und 2c-Probe-Register als consteval-Beweis der
+# per-Binary-Wirkung einer NICHT-leeren Zeile (D-4; Grundlage des C-3a-Umschlags in Schritt 3).
+# T-1: vor Schritt 2a/2b compile-rot (Koeder k5); k6 = test_simd_organ_achsen_deckung bleibt gruen.
+comdare_add_test(test_org19_meta_meta_requirement
+    SOURCES test_org19_meta_meta_requirement.cpp)
+target_include_directories(test_org19_meta_meta_requirement PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_compile_definitions(test_org19_meta_meta_requirement PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_org19_meta_meta_requirement PROPERTIES
+    LABELS "e10;org19;organ-meta-meta;requirement;gate;contract")
