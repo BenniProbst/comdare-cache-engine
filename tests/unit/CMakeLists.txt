@@ -8274,3 +8274,21 @@ target_compile_definitions(test_vo31_vendoropt_glied PRIVATE
     "COMDARE_VO31_EXPECT_VENDOROPT=\"$<IF:$<BOOL:${COMDARE_OPT_O3}>,O3,O2>\"")
 set_tests_properties(test_vo31_vendoropt_glied PROPERTIES
     LABELS "vo31;stempel;glied;koeder")
+
+# test_vo31_optflag_gate_probe (OS-2, Owner-Antwort 26.08.2026: HARTES CMake-Gate als eigener
+# Bauschritt): ctest-Treiber (Skript, kein Build-Target) -- konfiguriert die Fixture viermal
+# gegen die ECHTE cmake/compiler_flags.cmake-Strecke; konform muss GRUEN mit Gate-Literal
+# durchlaufen, drei Koeder-Klassen (Direktblock-target_compile_options, Vendor-Subdir-Shadow,
+# Vendor-Quell-Property) muessen FATAL mit Gate-ROT-Literal brechen. Exit-Code UND Literal
+# (cli_smoke-Doktrin); T-1 rot-zuerst am Stand OHNE Gate bewiesen (bau/os2gate/rot-*.log).
+add_test(NAME test_vo31_optflag_gate_probe
+    COMMAND "${CMAKE_COMMAND}"
+        "-DFIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/vo31_optflag_gate_fixture"
+        "-DCE_CMAKE_DIR=${PROJECT_SOURCE_DIR}/cmake"
+        "-DSCRATCH=${CMAKE_CURRENT_BINARY_DIR}/vo31_gate_probe"
+        "-DGENERATOR=${CMAKE_GENERATOR}"
+        "-DCXX=${CMAKE_CXX_COMPILER}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/vo31_optflag_gate_probe.cmake")
+set_tests_properties(test_vo31_optflag_gate_probe PROPERTIES
+    TIMEOUT 300
+    LABELS "vo31;gate;koeder;standalone")
