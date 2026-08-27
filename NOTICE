@@ -333,9 +333,11 @@ Phase5_UML_Detail/_paper_extractions_allocators/A{NN}-*.md`.
     Project       : scotts/michael (Re-Implementation of Maged Michael 2004)
     Source URL    : https://github.com/scotts/michael
     Path          : ext/A03-michael-lockfree/
-    License       : MIT (per repository README; original Maged Michael IBM
-                    paper is the algorithm source — IBM patent applies)
-    Copyright     : Re-implementation by Scott Schneider et al.
+    License       : LGPL-2.1-or-later (per repository README, section
+                    'Copyright & License'; original Maged Michael IBM
+                    paper is the algorithm source - IBM patent applies)
+    Copyright     : (C) 2007 Scott Schneider, Christos Antonopoulos
+                    (re-implementation authors per README)
     Reference     : M.M. Michael (2004). Scalable Lock-Free Dynamic Memory
                     Allocation. PLDI 2004.
     Comdare role  : Lock-free CAS-based allocator (AA4); Anchor structure +
@@ -601,13 +603,13 @@ Implikationen fuer die einzelnen Lizenz-Klassen:
     Copies" nicht — wir untersuchen / verwenden Software-Bestandteile,
     nicht das geschuetzte Originalwerk als Ganzes.
 
-  LGPL-2.1+ (P29-RCU/userspace-rcu)
+  LGPL-2.1+ (P29-RCU/userspace-rcu, A03-michael-lockfree)
   ──────────────────────────────────
     Analog. Die LGPL-Vorgabe "dynamic linking" ist eine Mindestbedingung
     fuer typische C-Software, nicht eine Beschraenkung fuer
     Permutations-Achsen-Extraktion in einem Forschungswerk.
 
-  No-LICENSE (P06-B2tree, P25-Mahling, P30-HazardPointers, A03-michael-lockfree)
+  No-LICENSE (P06-B2tree, P25-Mahling, P30-HazardPointers)
   ──────────────────────────────────────────────────────────────────────────────
     Formal-rechtlich besteht ein Copyright. Die Pflicht erschoepft sich
     in der Autoren-Zitation (siehe NOTICE Eintraege oben + thesis-
