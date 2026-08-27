@@ -509,16 +509,27 @@ inline constexpr bool kGenusStampbar<anatomy::AnatomyGenus::View, C> = ViewStamp
 template <class C>
 inline constexpr bool kGenusStampbar<anatomy::AnatomyGenus::Adapter, C> = AdapterStampbar<C>;
 
+/// ContainerOrganMetaMetas -- die Organ-Meta-Meta-Menge der Container-/Hybrid-Organ-Zeilen: BEWUSST LEER und
+/// BEWUSST NICHT abi::OrganMetaMetas. Jene ist die VOLLMENGE der SearchAlgorithm-Anatomie (E-10/ORG-19, Zug
+/// bau/e10-38a2-org19, landet VOR diesem Zug): ab E-10 S4 ist sie nicht mehr leer (DiskIoOrganMetaMeta), und
+/// organ_stamp_line<Comp> waehlt daraus JE COMP ueber den persistence_target-Slot. Keine Container-Anatomie
+/// (Set/Sequence/View/Adapter) und kein Hybrid fuehrt diesen Slot -- eine Kopplung an die Vollmenge haette nach
+/// der E-10-Landung jede dieser Zeilen stumm um ';[disk_io=...]' verlaengert (Segmentzahl != Aritaet, Stempel-
+/// Blindstelle ohne Traeger). Ein Meta-Meta-Glied einer Container-Gattung traegt sich HIER ein, mit eigener
+/// Selektion je Komposition (W4/W7-Posten), nie ueber die SA-Vollmenge. F-1 der Fremd-Refutation 27.08.2026
+/// (Koeder-Beweis: ~/backups-workflow/20260826-stempel-teil2/refutation/, koeder-f1.diff + rot-f1/gruen-f1).
+using ContainerOrganMetaMetas = ::comdare::cache_engine::measurement::MetaMetaMembers<>;
+
 namespace detail {
 /// Die EINE Zeilenbildung ueber ein Eintrags-Array: Form-Wache (FLAG-GRAMMATIK v2, dieselbe wie an der
-/// SA-Organ-Zeile) + build_axis_version_stamp_line + Organ-Meta-Meta-Klammer-Anhang (heute leer, no-op).
+/// SA-Organ-Zeile) + build_axis_version_stamp_line + Organ-Meta-Meta-Klammer-Anhang aus ContainerOrganMetaMetas
+/// (leer per Deklaration, s. oben -- append_meta_meta_suffix laesst die Zeile dann BYTE-IDENTISCH).
 template <std::size_t N>
 [[nodiscard]] std::string
 organ_zeile_aus(std::array<::comdare::cache_engine::measurement::AxisVersionEntry, N> const& entries) {
     std::string line = ::comdare::cache_engine::measurement::build_axis_version_stamp_line(entries);
     ::comdare::cache_engine::abi::append_meta_meta_suffix(
-        line, ::comdare::cache_engine::abi::meta_meta_stamp_suffix_from_members<
-                  ::comdare::cache_engine::abi::OrganMetaMetas>());
+        line, ::comdare::cache_engine::abi::meta_meta_stamp_suffix_from_members<ContainerOrganMetaMetas>());
     return line;
 }
 } // namespace detail

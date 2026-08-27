@@ -261,6 +261,31 @@ TEST(Stempel2ModulEmitter, OrganZeilenJeGattungTragenAlleSlotsInAliasReihenfolge
     EXPECT_EQ(zaehle(cg::adapter_organ_stamp_line<MockAdapter>(), ";") + 1, cg::kAdapterModulStrategie.makro_aritaet);
 }
 
+// F-1 (Fremd-Refutation 27.08.2026): die Container-/Hybrid-Organ-Zeilen sind von der SearchAlgorithm-VOLLMENGE
+// abi::OrganMetaMetas ENTKOPPELT. E-10/ORG-19 (bau/e10-38a2-org19, landet VOR diesem Zug) fuellt jene Vollmenge
+// (DiskIoOrganMetaMeta) und waehlt JE COMP ueber den persistence_target-Slot -- keine Container-Anatomie fuehrt
+// diesen Slot, der Hybrid auch nicht. Eine Kopplung an die Vollmenge haette nach der E-10-Landung jede dieser
+// Zeilen stumm um ';[disk_io=...]' verlaengert (Segmentzahl != Aritaet, Blindstelle). Koeder-Beweis im Beweisort
+// ~/backups-workflow/20260826-stempel-teil2/refutation/ (koeder-f1.diff simuliert die Vollmenge: rot-f1 = 3 Tests
+// rot mit '[simd=code@1.0.0.c]'-Anhang; nach der Entkopplung gruen unter demselben Koeder).
+TEST(Stempel2ModulEmitter, ContainerUndHybridOrganZeilenSindVonDerSaVollmengeEntkoppelt) {
+    for (std::string const& l : {cg::set_organ_stamp_line<MockSet>(), cg::sequence_organ_stamp_line<MockSeq>(),
+                                 cg::view_organ_stamp_line<MockView>(), cg::adapter_organ_stamp_line<MockAdapter>()}) {
+        EXPECT_EQ(l.find('['), std::string::npos) << "Klammer-Anhang aus einer fremden Vollmenge: " << l;
+        EXPECT_EQ(l.find(']'), std::string::npos) << l;
+    }
+    // Die Zeile IST die Achsen-Zeile (build_axis_version_stamp_line), ohne jeden Anhang -- literal gepinnt.
+    EXPECT_EQ(cg::view_organ_stamp_line<MockView>(),
+              "memory_layout=m0@1.2.3.c;value_handle=m1@1.2.3.c;extent_policy=m2@1.2.3.c;layout_policy=m3@1.2.3.c;"
+              "accessor_policy=m4@1.2.3.c");
+    hy::HybridTierConfig cfg;
+    cfg.enabled   = true;
+    cfg.genus     = ana::AnatomyGenus::Set;
+    cfg.max_docks = 1;
+    EXPECT_EQ(cg::hybrid_organ_stamp_line(cfg), "reroute_ziel=Set@1.0.0.c")
+        << "die Hybrid-Organ-Zeile traegt genau das Reroute-Ziel, keinen Meta-Meta-Anhang";
+}
+
 // (D) -----------------------------------------------------------------------------------------
 TEST(Stempel2ModulEmitter, EingangIstDasD1Verdict) {
     EXPECT_TRUE(
