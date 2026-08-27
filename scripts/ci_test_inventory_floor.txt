@@ -40,6 +40,28 @@
 # nicht die Commit-Granularitaet -- er erzwingt Floor-Datei und Registrierung
 # im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
+# -- NACHZUG 2026-08-27 (STEMPEL-TEIL-2-BRANCH bau/stempel-teil2: B-7/RN-78 Emitter-Haelfte unter
+#    Weiche A, ZWEI NEUE REGISTRIERUNGEN; Change = dieser Branch, Beweisort
+#    ~/backups-workflow/20260826-stempel-teil2/floor/) ------------------------------------------
+# 547/543/541 loest 545/541/539 ab. Der Zuwachs ist +2 in JEDER Klasse und stammt
+# vollstaendig aus diesem Branch (beide unbedingt registriert, Block am Dateiende von
+# tests/unit/CMakeLists.txt):
+#     test_stempel2_modul_emitter    (L4-Andock-Flaeche + L2-Hybrid-Emitter host-seitig, comdare_add_test)
+#     test_stempel2_vertragspaare    (C2-Vertragspaare je Gattung, echter dlopen-Weg, comdare_add_test)
+# GEMESSEN, NICHT GERECHNET (KON58-13/A-F3): alle drei Sprossen an DIESEM Baum LIVE erhoben
+# (build-k17-gcc-rel, Abnahme-Form MIT COMDARE_CE_PRUEFLINGE, J-1 SIEBEN Werkzeuge, RECONFIGURE,
+# Vollbau all+facade+comdare_tests, RECONFIGURE2); Zaehlbasis "Total Tests: N", Gegenprobe
+# Listenlaenge == Total. ZWEI-SEITIGE comm-GEGENPROBE (LC_ALL=C, beide Richtungen): avx512f->avx2
+# verliert exakt die dokumentierten VIER, avx2->basis exakt die ZWEI, beide Gegenrichtungen LEER;
+# die 2 Neuen stehen in ALLEN DREI Namensmengen je genau 1x -> +2 auf allen Sprossen, Abstaende
+# -4/-2 unveraendert. WIEDERHERSTELLUNG 'cmake -U' auf BEIDE Variablen: Total wieder 547,
+# Namensliste BYTE-GLEICH. MESSHOST prod1, GCC 15.3, Ninja, 2026-08-27. Messlog: floor-treppe.log +
+# ctestN-*/namen-* im Beweisort oben.
+# LANDE-AUFLAGE (E-10-E-3-Regel "LANDUNG HARMONISIERT VERTRAEGE"): diese Zahlen gelten am BRANCH-Tip
+# (Basis d3b5a393 = 545/541/539); beim Landen ist die Floor-Datei RELATIV zu harmonisieren
+# (Vorgaenger-Floor + 2) und am Merge-Endstand LIVE nachzumessen -- der Konflikt an dieser Datei
+# ist dann ERWARTET, kein Unfall.
+#
 # -- NACHZUG 2026-08-22 ABEND (W2-LANDE-ZUG-ENDSTAND 5ddda4e5: 10-Straenge-Merge, ZWANZIG NEUE
 #    REGISTRIERUNGEN; Change = Lande-Merge + dieser Anker-Nachzug im SELBEN Push, Board #131) --
 # 544/540/538 loest 524/520/518 ab. Der Zuwachs ist +20 in JEDER Klasse und stammt
@@ -809,6 +831,6 @@
 #   Tests. WIE GEMESSEN, NICHT GERECHNET: build-l1 (COMDARE_CE_PRUEFLINGE gesetzt),
 #   cmake-Refresh RC=0, 'ctest -N'-Schlusszeile literal "Total Tests: 545".
 #   Messlog: ~/.claude/jobs/5a19728e/tmp/o2merge-reconf.log (Kopie folgt im Beweisort).
-avx512f 545
-avx2 541
-basis 539
+avx512f 547
+avx2 543
+basis 541
