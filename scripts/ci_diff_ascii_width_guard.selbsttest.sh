@@ -59,6 +59,7 @@
 #     Quotierung: core.quotePath=false            12     12, nicht 15
 #     Quotierung: awk streift Klammerung ab       15     15, nicht 12
 #     breite_frei_grund(): *.xml NUR Breite       16     16; ASCII-Haelfte: 17
+#     skip_grund(): Lizenztext LICENSES/*.txt      19     19, nicht 20/21
 # Zu Fall 13 gehoert Fall 14 als GEGENEINGANG: derselbe Verstoss OHNE die
 # Provenance-Datei muss gemeldet werden. Ohne ihn waere Fall 13 auch von einer
 # Wache zu bestehen, die pauschal alles unter ext/ ueberspringt.
@@ -66,6 +67,9 @@
 # Datei-Klasse MUSS beissen -- sonst waere 16 auch von einer dritten
 # VOLL-Ausnahme in skip_grund() zu bestehen) und der bestehende Fall 6
 # (dieselbe Ueberlaenge in .cpp MUSS beissen -- pinnt die Endungs-Bindung).
+# Zu Fall 19 gehoeren ZWEI Gegeneingaenge (27.08.2026): Fall 20 (derselbe Text
+# AUSSERHALB von LICENSES/ MUSS beissen -- pinnt den Pfad) und Fall 21 (eine .sh
+# IN LICENSES/ MUSS beissen -- pinnt die Endung).
 #
 # ZAHLEN IN DIESEM KOPF TRAGEN IHREN ANKER (Stand + Kommando) oder sie stehen
 # nicht hier. Eine nackte Zahl ueber einen lebenden Gegenstand verjaehrt zwischen
@@ -593,6 +597,70 @@ _st_erw=$(printf '%s\n%s\n' \
     "probe_daten.xml")
 ( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
 st_bewerte "18 xml-Kombi ueberlang+non-ASCII bleibt ROT" 1 "$_st_erw" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
+# --- Fall 19: die LIZENZTEXT-Ausnahme haelt -- LICENSES/*.txt bleibt ungeprueft, aber benannt ---
+# BEFUND, DER DIESEN FALL ERZWINGT (2026-08-27, ce-Lande-Zug lande/identitaet-2708, am Objekt
+# gemessen): der REUSE-3.3-Einzug (bau/a5-reuse) brachte 28 wortgetreue Lizenztexte unter
+# LICENSES/*.txt; das kumulative Gate ueber d3b5a393..60d997a6 meldete darin 795 Verstoesse
+# (190 Nicht-ASCII, 605 Breite) in 18 Rechtstexten, die niemand umbrechen darf. skip_grund()
+# traegt seither eine DRITTE Schicht: LICENSES/*.txt. Sie ist von (a) *.md und (b) Vendor-
+# Provenance UNABHAENGIG: der Koeder liegt in einer .txt, ohne Provenance-Datei daneben --
+# streicht man die Lizenztext-Zeile, wird dieser Fall rot, 11-14 bleiben gruen.
+# Wie in Fall 13 liegt eine saubere .sh daneben, damit der Nenner nicht null ist.
+st_neues_repo
+mkdir -p "${_st_repo}/LICENSES" || st_abbruch "mkdir LICENSES (Fall 19) fehlgeschlagen."
+printf 'Lizenztext-Koeder %s %s\n' "$_st_kennzeichen" "$_st_na" \
+    > "${_st_repo}/LICENSES/LicenseRef-Koeder.txt"
+printf '%s\n' "$(od -An -N70 -tx1 /dev/urandom | tr -d ' \n')" \
+    >> "${_st_repo}/LICENSES/LicenseRef-Koeder.txt"
+printf '# saubere Shell-Zeile, reines ASCII (%s)\n' "$_st_kennzeichen" \
+    > "${_st_repo}/scripts/probe_lizenz.sh"
+git -C "$_st_repo" add -- LICENSES scripts/probe_lizenz.sh \
+    || st_abbruch "git add (Fall 19) fehlgeschlagen."
+_st_erw=$(printf '%s\n%s\n' \
+    "1 Zusatzzeilen in selbst verfasstem Code geprueft" \
+    "- LICENSES/LicenseRef-Koeder.txt  [Lizenztext LICENSES/*.txt, REUSE 3.3 wortgetreu]")
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
+st_bewerte "19 Lizenztext-Ausnahme haelt" 0 "$_st_erw" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
+# --- Fall 20: GEGENEINGANG (Pfad) -- derselbe Lizenztext AUSSERHALB von LICENSES/ MUSS beissen ---
+# Ohne diesen Fall waere Fall 19 auch von einer Wache zu bestehen, die pauschal alle *.txt
+# ueberspringt -- die Rueckkehr der Whitelist-Aera (bis 10.08.2026 fiel *.txt lautlos heraus).
+# Bis auf den PFAD identisch mit Fall 19: dieselbe Datei, derselbe gewuerfelte Koeder.
+st_neues_repo
+mkdir -p "${_st_repo}/docs/lizenzen" || st_abbruch "mkdir docs/lizenzen (Fall 20) fehlgeschlagen."
+printf 'Lizenztext-Koeder %s %s\n' "$_st_kennzeichen" "$_st_na" \
+    > "${_st_repo}/docs/lizenzen/LicenseRef-Koeder.txt"
+printf '%s\n' "$(od -An -N70 -tx1 /dev/urandom | tr -d ' \n')" \
+    >> "${_st_repo}/docs/lizenzen/LicenseRef-Koeder.txt"
+printf '# saubere Shell-Zeile, reines ASCII (%s)\n' "$_st_kennzeichen" \
+    > "${_st_repo}/scripts/probe_lizenz.sh"
+git -C "$_st_repo" add -- docs scripts/probe_lizenz.sh \
+    || st_abbruch "git add (Fall 20) fehlgeschlagen."
+_st_erw=$(printf '%s\n%s\n%s\n' \
+    "NICHT-ASCII" \
+    ">120-SPALTEN" \
+    "docs/lizenzen/LicenseRef-Koeder.txt")
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
+st_bewerte "20 ausserhalb LICENSES/ beisst es" 1 "$_st_erw" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
+# --- Fall 21: GEGENEINGANG (Endung) -- eine .sh IN LICENSES/ MUSS beissen ---
+# Pinnt die Endungs-Bindung der dritten Schicht: LICENSES/ ist KEIN Blanket-Verzeichnis, nur
+# der wortgetreue Lizenztext (*.txt) ist frei; eigener Code dort bleibt geprueft.
+st_neues_repo
+mkdir -p "${_st_repo}/LICENSES" || st_abbruch "mkdir LICENSES (Fall 21) fehlgeschlagen."
+printf '# Koeder %s %s\n' "$_st_kennzeichen" "$_st_na" > "${_st_repo}/LICENSES/koeder_wrapper.sh"
+printf '# %s\n' "$(od -An -N70 -tx1 /dev/urandom | tr -d ' \n')" >> "${_st_repo}/LICENSES/koeder_wrapper.sh"
+git -C "$_st_repo" add -- LICENSES || st_abbruch "git add (Fall 21) fehlgeschlagen."
+_st_erw=$(printf '%s\n%s\n%s\n' \
+    "NICHT-ASCII" \
+    ">120-SPALTEN" \
+    "LICENSES/koeder_wrapper.sh")
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
+st_bewerte "21 .sh in LICENSES/ beisst es" 1 "$_st_erw" "$?" "$_st_out"
 rm -rf "$_st_repo"
 
 rm -f "$_st_out" "$_st_muster_datei" "$_st_diff"
