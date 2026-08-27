@@ -809,6 +809,54 @@
 #   Tests. WIE GEMESSEN, NICHT GERECHNET: build-l1 (COMDARE_CE_PRUEFLINGE gesetzt),
 #   cmake-Refresh RC=0, 'ctest -N'-Schlusszeile literal "Total Tests: 545".
 #   Messlog: ~/.claude/jobs/5a19728e/tmp/o2merge-reconf.log (Kopie folgt im Beweisort).
-avx512f 545
-avx2 541
-basis 539
+# NACHZUG 27.08.2026 (E-10/#38a2 + #86 ORG-19 BAU-ZUG bau/e10-38a2-org19, Schritt 5 = Konsolidierung;
+#    Designplan 20260825-DESIGNPLAN-E10-38a2-ORG19 (b) Schritt 5 + K-12; Board #133): 549/545/543
+# loest 545/541/539 ab. Der Zuwachs ist +4 in JEDER Klasse und stammt vollstaendig aus den Schritten 1-4
+# dieses Zugs (Registrierung in S1 3f360d85 / S2 502a5979 / S3 826cad5c / S4 819ce542, Floor-Nachzug in
+# DIESEM Change = derselbe Push-Bereich, #39-Doktrin "alle drei Sprossen im SELBEN Change"):
+#   test_e10_organ_meta_meta_anlage   (S1 k1: ORG-19-IO-Anlage, Vollmenge abi::OrganMetaMetas, Comp-Trait,
+#                                      Vollmengen-/Duplikatfrei-Wache + Mutanten-Probe; comdare_add_test)
+#   test_org19_meta_meta_requirement  (S2 k5: 18+1-Requirement-Register, disk_io ehrlich LEER, 2c-Probe;
+#                                      comdare_add_test)
+#   test_e10_gate_per_binary          (S3 k8: gate_for_binary = DER EINE Helfer, rsp-Byteprobe 320 ids x 3
+#                                      Routen, D1-Klassen; add_test, plain-main)
+#   test_e10_organ_stamp_je_comp      (S4 k9: Organ-Anhang JE COMP an beiden Zeilen-Quellen, Flotte 666 Z.
+#                                      byte-identisch, IO-Anhang, Zwei-Traeger-Form; add_test, gtest)
+# ALLE VIER UNBEDINGT registriert (2x comdare_add_test + 2x add_test auf oberster Ebene, if-Tiefe 0 per
+# Klammerzaehlung ueber tests/unit/CMakeLists.txt; kein ISA-Gate, kein opt-in-Label; Zugangs-Diff
+# d3b5a393..819ce542 traegt 0 Treffer auf COMDARE_HOST_RUNS/COMDARE_CE_PRUEFLINGE) => +4 auf allen drei
+# Sprossen; die Sprossenabstaende -4 und -2 bleiben unveraendert.
+# WIE GEMESSEN, NICHT GERECHNET (KON58-13), ALLE DREI SPROSSEN LIVE an DIESEM Baum: Worktree
+# /home/comdare/wt-ce-e10 @ 819ce542, Baum build-gcc-rel (gcc Release, Ninja) in CI-FORM (Reconfigure MIT
+# -DCOMDARE_CE_PRUEFLINGE=<repo>/tests/pruefling_fixture, J-1-SIEBEN-Werkzeuge gebaut, RECONFIGURE:
+# Registrierungs-Protokoll 0x UEBERSPRUNGEN), 'ctest -N'-Schlusszeile literal "Total Tests: 549";
+# avx2/basis per cmake erzwungen (-DCOMDARE_HOST_RUNS_AVX512F=0 -> 545; zusaetzlich
+# -DCOMDARE_HOST_RUNS_AVX2=0 -> 543); jede Namensliste mit Gegenprobe Listenlaenge == Total
+# (549/549, 545/545, 543/543).
+# ZWEI-SEITIGE GEGENPROBE am Objekt, LC_ALL=C comm in BEIDE Richtungen:
+#     avx512f -> avx2  verliert exakt die dokumentierten VIER
+#                      (test_ap5_simd_extension_coherence, test_buildvariant_dll_real,
+#                       test_simd_add_u64_carry_avx512, test_simd_field_sum_dispatch_avx512)
+#     avx2    -> basis verliert exakt die ZWEI
+#                      (test_simd_add_u64_carry_avx2, test_simd_field_sum_dispatch_avx2)
+#     beide Gegenrichtungen LEER -- kein verstecktes -N/+M; KEINER der vier E-10-Namen in einer
+#     Verlustliste (je genau 4 in allen drei Namensmengen, je genau 1x).
+# Danach 'cmake -U' auf BEIDE Variablen: Wiederherstellung BYTE-GLEICH (Total wieder 549, sortierte
+# Namensliste cmp ohne Ausgabe, beide Cache-Schalter wieder INTERNAL=1).
+# GATE-5-KOEDER (T-1 rot-zuerst): VOR diesem Nachzug meldete scripts/pre_push_lande_gates.sh --nur=floor
+# literal "Inventur 549 UEBER Anker 545 -- Floor-Nachzug fehlt (#39 ...)" (Exit 1), danach
+# "GATE [5/6] GRUEN: 549 == 549 (exakt)." (Exit 0).
+# ALT-LISTEN-GEGENPROBE (fremder Nenner, V-7): LC_ALL=C comm der 549er-Namensliste gegen die CI-Form-Liste
+# der Basis d3b5a393 (545, fremde Messung 27.08. 17:41Z, ~/backups-workflow/20260827-lande-reif/komplex-fix/
+# floor/namen-basis-d3b5a393.txt) = exakt die VIER Neuen, 0 verschwunden, 545 gemeinsam; gegen den vo3-1-Tip
+# (548, 20260825-vo3-1-global-o2/bau/floor/namen-avx512f.txt) = nur die 4 Neuen hier, nur die 3 vo31-Tests
+# dort, 545 gemeinsam.
+# MESSHOST prod1, GCC 15.3.0 (/usr/bin/g++), Ninja, 2026-08-27. Messlogs:
+# ~/backups-workflow/20260825-e10-designplan/bau/s5-floor/ (floor-treppe.log, ctestN-*.log, namen-*.txt,
+# conf-*.out) + bau/t1-rot/R11-s5-floor-gate5-rot.log + bau/s5-gruen/.
+# LANDE-HINWEIS (Plan (e) E-3, LANDUNG HARMONISIERT VERTRAEGE): am Lande-Merge-Stand gilt RELATIV
+# "letzter gelandeter Anker + 4" (Vorgaenger-Zuege vo3-1 548/544/542, pmc-dtlb-koeder 546/542/540 fuehren
+# eigene Nachzuege; der Lead harmonisiert im Merge-Commit und misst EINMAL live).
+avx512f 549
+avx2 545
+basis 543
