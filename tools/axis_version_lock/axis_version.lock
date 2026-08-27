@@ -8,7 +8,7 @@
 # Der volle Pfad ist EXAKT dirname+basename.
 #   heuristik: alle *.hpp unter libs/cache_engine/heuristik; version = Integer der EINEN
 #              dedizierten '// AXIS_ALGO_VERSION: <N>'-Marker-Zeile.
-#   organ/system/mess/tier_substanz: die Quell-Dateien des Overlay-Schnitts
+#   organ/organ_meta_meta/system/mess/tier_substanz: die Quell-Dateien des Overlay-Schnitts
 #              (builder/overlay_source_set.hpp -- die Menge, ueber die das Overlay-Glied [7]
 #              des Tier-Fingerprints hasht; Endungen kQuellEndungen, kNichtQuellEndungen
 #              bewusst draussen). version = geordnete LISTE aller algo_version-String-
@@ -1171,6 +1171,9 @@ organ - libs/cache_engine/organ_axes/node/concepts/
 organ - libs/cache_engine/organ_axes/node/concepts/
     axis_04_node_type_concept.hpp
     05b93432fd6d942b6155f3b0186f633e5d60492b83e829ca86f9815c2af1163a
+organ_meta_meta - libs/cache_engine/organ_axes/organ_meta_meta/
+    axis_disk_io_organ_meta_meta.hpp
+    bf39c2351e9f21c09ffd09f3f0d316a61246af9a1e6b4272fb48ef863a4d3ae8
 organ 1.0.0.c libs/cache_engine/organ_axes/path_compression/
     axis_02_path_compression_byte_wise.hpp
     977a2685bac0d87200cb8a978da1eda4cd07901cebd7e9aeb243677873e96c96
