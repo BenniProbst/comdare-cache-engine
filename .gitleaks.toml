@@ -67,23 +67,33 @@ regexes = [
 # Quelle: entwurf-gitleaks-regel-private-key-base64.toml (Bloecke woertlich uebernommen).
 [[rules]]
 id = "private-key-base64-32byte"
-description = "Nackter 32-Byte-Schluessel (WireGuard/X25519/Ed25519/PSK) als 44-Zeichen-base64 nach 'Private Key:', 'PrivateKey =', 'private_key=', 'PresharedKey ='"
-regex = '''(?i)(?:private[ _-]?key|privatekey|preshared[ _-]?key|presharedkey|psk)\b[^\n\r]{0,20}?[:=][ \t]*[`'"]?([A-Za-z0-9+/]{43}=)(?:[`'"\s,;)\]}]|$)'''
+description = """\
+    Nackter 32-Byte-Schluessel (WireGuard/X25519/Ed25519/PSK) als 44-Zeichen-base64 nach 'Private \
+    Key:', 'PrivateKey =', 'private_key=', 'PresharedKey ='"""
+regex = """\
+    (?i)(?:private[ _-]?key|privatekey|preshared[ _-]?key|presharedkey|psk)\\b\
+    [^\\n\\r]{0,20}?[:=][ \\t]*[`'"]?([A-Za-z0-9+/]{43}=)(?:[`'"\\s,;)\\]}]|$)"""
 secretGroup = 1
 entropy = 4.0
 keywords = ["private", "preshared", "psk"]
 
 [[rules]]
 id = "private-key-base64-64byte"
-description = "Nackter 64-Byte-Schluessel (Ed25519-Secret-Key libsodium, NaCl-Box-Paare) als 88-Zeichen-base64 nach Private-Key-/Secret-Key-Wort"
-regex = '''(?i)(?:private[ _-]?key|privatekey|secret[ _-]?key|secretkey)\b[^\n\r]{0,20}?[:=][ \t]*[`'"]?([A-Za-z0-9+/]{86}==)(?:[`'"\s,;)\]}]|$)'''
+description = """\
+    Nackter 64-Byte-Schluessel (Ed25519-Secret-Key libsodium, NaCl-Box-Paare) als 88-Zeichen-base64 \
+    nach Private-Key-/Secret-Key-Wort"""
+regex = """\
+    (?i)(?:private[ _-]?key|privatekey|secret[ _-]?key|secretkey)\\b\
+    [^\\n\\r]{0,20}?[:=][ \\t]*[`'"]?([A-Za-z0-9+/]{86}==)(?:[`'"\\s,;)\\]}]|$)"""
 secretGroup = 1
 entropy = 4.0
 keywords = ["private", "secret"]
 
 [[rules]]
 id = "wireguard-conf-privatekey"
-description = "WireGuard-/wg-quick-Konfigurationszeile PrivateKey = / PresharedKey = (Datei-Form, auch ohne Wort 'private' im Umfeld)"
+description = """\
+    WireGuard-/wg-quick-Konfigurationszeile PrivateKey = / PresharedKey = (Datei-Form, auch ohne \
+    Wort 'private' im Umfeld)"""
 regex = '''(?m)^[ \t]*(?:PrivateKey|PresharedKey)[ \t]*=[ \t]*([A-Za-z0-9+/]{43}=)[ \t]*$'''
 secretGroup = 1
 entropy = 4.0

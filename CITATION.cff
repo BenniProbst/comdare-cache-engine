@@ -4,7 +4,11 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below; for the research, cite the thesis (preferred-citation)."
 type: software
 title: "comdare-cache-engine"
-abstract: "Active Cache-Aware Hardware Adaptation Cache Engine for Trie-Based Index Structures: a C++23 framework that permutes search-algorithm, allocator, prefetch and hardware axes at compile time, builds the resulting tier binaries and measures them; Framework module of the diploma thesis of Benjamin-Elias Probst (Technische Universitaet Dresden, 2026)."
+abstract: >-
+  Active Cache-Aware Hardware Adaptation Cache Engine for Trie-Based Index Structures: a C++23
+  framework that permutes search-algorithm, allocator, prefetch and hardware axes at compile time,
+  builds the resulting tier binaries and measures them; Framework module of the diploma thesis of
+  Benjamin-Elias Probst (Technische Universitaet Dresden, 2026).
 authors:
   - family-names: Probst
     given-names: Benjamin-Elias
@@ -36,4 +40,10 @@ preferred-citation:
     city: Dresden
     country: DE
   year: 2026
-notes: "Licensed under the Comdare Research License, Version 1.0 (SPDX: LicenseRef-Comdare-Research-1.0): source-available, free for research at an institution, separate written license for business and individual use, Apache-2.0 from the Change Date 2031-08-10. Rights holder: BEP Venture UG (haftungsbeschraenkt), owner of the registered trademark Comdare. Third-party code under ext/ keeps its own licenses (NOTICE, LICENSE_AUDIT_EXT.md, REUSE.toml)."
+notes: >-
+  Licensed under the Comdare Research License, Version 1.0 (SPDX:
+  LicenseRef-Comdare-Research-1.0): source-available, free for research at an institution,
+  separate written license for business and individual use, Apache-2.0 from the Change Date
+  2031-08-10. Rights holder: BEP Venture UG (haftungsbeschraenkt), owner of the registered
+  trademark Comdare. Third-party code under ext/ keeps its own licenses (NOTICE,
+  LICENSE_AUDIT_EXT.md, REUSE.toml).

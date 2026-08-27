@@ -31,7 +31,11 @@ version = 1
 SPDX-PackageName = "comdare-cache-engine"
 SPDX-PackageSupplier = "Organization: BEP Venture UG (haftungsbeschraenkt)"
 SPDX-PackageDownloadLocation = "https://github.com/BenniProbst/comdare-cache-engine"
-SPDX-PackageComment = "Active Cache-Aware Hardware Adaptation Cache Engine for Trie-Based Index Structures. Eigencode unter der Comdare Research License 1.0 (LICENSE; Change Date 2031-08-10, danach Apache-2.0). Fremdcode unter ext/ behaelt seine eigene Lizenz (LICENSE Abschnitt 8, NOTICE, LICENSE_AUDIT_EXT.md)."
+SPDX-PackageComment = """\
+    Active Cache-Aware Hardware Adaptation Cache Engine for Trie-Based Index Structures. Eigencode \
+    unter der Comdare Research License 1.0 (LICENSE; Change Date 2031-08-10, danach Apache-2.0). \
+    Fremdcode unter ext/ behaelt seine eigene Lizenz (LICENSE Abschnitt 8, NOTICE, \
+    LICENSE_AUDIT_EXT.md)."""
 
 # -- 1. EIGENCODE --------------------------------------------------------------
 [[annotations]]
@@ -136,7 +140,9 @@ SPDX-License-Identifier = "MIT"
 # B2-Tree / BART: privat erhalten (TUM Database Group, 08.05.2026), keine Lizenzdatei.
 [[annotations]]
 path = "ext/traversal/P06-B2tree/**"
-SPDX-FileCopyrightText = "Josef Schmeisser, Maximilian E. Schuele, Viktor Leis, Thomas Neumann, Alfons Kemper (Technische Universitaet Muenchen)"
+SPDX-FileCopyrightText = """\
+    Josef Schmeisser, Maximilian E. Schuele, Viktor Leis, Thomas Neumann, Alfons Kemper (Technische \
+    Universitaet Muenchen)"""
 SPDX-License-Identifier = "LicenseRef-Third-Party-No-License-File"
 
 [[annotations]]
