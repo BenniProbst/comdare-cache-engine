@@ -45,7 +45,7 @@ class ProgressHeartbeat {
 public:
     /// #27 (2026-07-23): `every_n` = zusaetzliches ZAEHL-Gate (0 = aus, byte-identisch zum Vor-#27-Verhalten). Ist es
     /// gesetzt, emittiert JEDE every_n-te Einheit ein Testat -- kombiniert mit dem Zeit-Gate (`interval`): was zuerst
-    /// kommt. Der Bau-Loop setzt every_n = die Compile-Worker-Zahl K (lane_build_parallelism, beide Lanes 24) -> der
+    /// kommt. Der Bau-Loop setzt every_n = die Compile-Worker-Zahl K (lane_build_parallelism: amd 16/intel 24) -> der
     /// Job-Log zeigt "alle K Builds" den Slice-Fortschritt (User-Wunsch beim Zuschauen), auch wenn K Builds < 30s dauern.
     explicit ProgressHeartbeat(std::string_view phase, std::size_t total, std::ostream& os = std::cerr,
                                std::chrono::seconds interval = std::chrono::seconds{30}, std::size_t every_n = 0)

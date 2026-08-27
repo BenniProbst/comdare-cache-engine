@@ -23,10 +23,12 @@
 #       Einzel-Gate ist ein PROBE-Modus: die nicht gefahrenen Gates werden am
 #       Ende AUSDRUECKLICH als NICHT GEFAHREN ausgewiesen, nie still gruen.
 #   Umgebung:
-#       COMDARE_PRE_PUSH_BUILD_DIR  Bau-Baum fuer das Floor-Gate
-#                                   (Default build/gcc-release).
-#       COMDARE_AXIS_LOCK_BIN       axis_version_lock-Binary (sonst Suche in
-#                                   den vier build/<cc>-<cfg>-Baeumen).
+#       COMDARE_PRE_PUSH_BUILD_DIR  Bau-Baum fuer das Floor-Gate: PFLICHT, sobald das
+#                                   Floor-Gate faehrt (KEIN Default seit H-1 25.08.2026,
+#                                   s. [5/6]); zugleich erste Suchstelle fuer [4/6].
+#       COMDARE_AXIS_LOCK_BIN       axis_version_lock-Binary (sonst Suche erst im
+#                                   genannten Baum, dann in den vier Preset-Baeumen
+#                                   build/<cc>-<cfg>).
 #       COMDARE_GITLEAKS            gitleaks-Binary (sonst ~/.local/bin, PATH).
 #
 # KEIN HOOK-INSTALL: dieses Skript ist das WERKZEUG. Ob und wie es als
@@ -71,6 +73,12 @@
 #         (Wert 1 = ja, leer = nein, alles andere ABBRUCH -- Kurzform der
 #         Leiter aus ci_test_coverage_guard.sh; die dortigen Tiefenproben
 #         _COMPILED/_EXITCODE fahren weiter NUR dort, s. GRENZEN unten).
+#         Der Baum wird GENANNT (COMDARE_PRE_PUSH_BUILD_DIR, kein Default: H-1)
+#         und muss drei Proben bestehen -- Cache + CTestTestfile vorhanden,
+#         konfiguriert aus DIESEM Checkout (CMAKE_HOME_DIRECTORY), keine
+#         getrackte CMake-Datei juenger als seine Registrierung. Sein
+#         Testing/Temporary/LastTest.log bleibt byteidentisch (ctest -N wuerde
+#         es sonst zum 121-Byte-Stub machen, RV-03).
 #   [6/6] TABU-CRC-PROBE, dreiteilig: (a) der CRC64-Anker 0x56F1B721C72DC10E
 #         steht GENAU EINMAL in libs/cache_engine/profile_facade/
 #         source_catalog.hpp (kNewGolden131072Crc64); (b) die fuenf TABU-Dateien
@@ -305,16 +313,19 @@ if faehrt lock; then
     if [ -n "$LB" ]; then
         [ -x "$LB" ] || abbruch "COMDARE_AXIS_LOCK_BIN='$LB' ist nicht ausfuehrbar"
     else
+        # Suchreihenfolge: erst der GENANNTE Baum (COMDARE_PRE_PUSH_BUILD_DIR, H-1), dann die vier
+        # Preset-Baeume aus CMakePresets.json (build/<cc>-<cfg>). Nichts davon ist ein Default-Urteil:
+        # fehlt das Werkzeug ueberall, ist das ABBRUCH, kein Gruen.
         _gesehen=""
-        for _k in build/gcc-release/tools/axis_version_lock/comdare_axis_version_lock \
-                  build/clang-release/tools/axis_version_lock/comdare_axis_version_lock \
-                  build/gcc-debug/tools/axis_version_lock/comdare_axis_version_lock \
-                  build/clang-debug/tools/axis_version_lock/comdare_axis_version_lock; do
+        _baeume="build/gcc-release build/clang-release build/gcc-debug build/clang-debug"
+        [ -z "${COMDARE_PRE_PUSH_BUILD_DIR:-}" ] || _baeume="$COMDARE_PRE_PUSH_BUILD_DIR $_baeume"
+        for _b in $_baeume; do
+            _k="$_b/tools/axis_version_lock/comdare_axis_version_lock"
             _gesehen="$_gesehen $_k"
             [ -x "$_k" ] && { LB="$_k"; break; }
         done
         [ -n "$LB" ] || abbruch "kein comdare_axis_version_lock-Binary gefunden. Gesucht:$_gesehen. \
-Bauen: cmake --build build/gcc-release --target comdare_axis_version_lock (EXCLUDE_FROM_ALL), \
+Bauen: cmake --build <bau-baum> --target comdare_axis_version_lock (EXCLUDE_FROM_ALL), \
 oder COMDARE_AXIS_LOCK_BIN setzen"
     fi
     echo "WERKZEUG: $LB"
@@ -348,9 +359,45 @@ if faehrt floor; then
     echo "============================================================================="
     echo " [5/6] FLOOR-SCANNER (ctest -N gegen scripts/ci_test_inventory_floor.txt, EXAKT)"
     echo "============================================================================="
-    BD="${COMDARE_PRE_PUSH_BUILD_DIR:-build/gcc-release}"
-    [ -d "$BD" ] || abbruch "Bau-Baum '$BD' fehlt (COMDARE_PRE_PUSH_BUILD_DIR setzen)"
+    # H-1 (25.08.2026, Raeumung Q3): KEIN Default-Baum mehr. Der alte Default build/gcc-release war der Preset-
+    # Pfad (CMakePresets.json binaryDir); am Objekt stand dort zuletzt ein ALT-Baum (2168f60c) neben dem echten
+    # Floor-Gate-Baum build/a25-gcc-release (d3b5a393) -- ein Lauf ohne Variable haette den ALTEN gezaehlt und bei
+    # 545 == 545 GRUEN gemeldet: ein richtiges Messgeraet am falschen Gegenstand (V6.6). Deshalb NENNT der
+    # Aufrufer den Baum, und der Baum muss beweisbar der Gegenstand DIESES Pushs sein (drei Proben unten). Kein
+    # Raten ("juengster Baum"): die Baum-Namen der Landungen (build-l1, build-b10, build/a25-...) folgen keinem Glob.
+    BD="${COMDARE_PRE_PUSH_BUILD_DIR:-}"
+    if [ -z "$BD" ]; then
+        _kand=""
+        for _c in build/*/CMakeCache.txt build-*/CMakeCache.txt; do
+            [ -f "$_c" ] && _kand="$_kand ${_c%/CMakeCache.txt}"
+        done
+        abbruch "COMDARE_PRE_PUSH_BUILD_DIR ist nicht gesetzt -- es gibt KEINEN Default-Baum mehr (H-1, 25.08.2026). \
+Den Bau-Baum des Floor-Gates ausdruecklich nennen: \
+COMDARE_PRE_PUSH_BUILD_DIR=<baum> sh scripts/pre_push_lande_gates.sh ... \
+-- konfigurierte Baeume in diesem Checkout (HINWEIS, nichts wird gewaehlt):${_kand:- keiner}"
+    fi
+    [ -d "$BD" ] || abbruch "Bau-Baum '$BD' fehlt (COMDARE_PRE_PUSH_BUILD_DIR zeigt ins Leere)"
     [ -f "$BD/CMakeCache.txt" ] || abbruch "'$BD/CMakeCache.txt' fehlt -- ohne Cache keine Host-Klasse"
+    [ -f "$BD/CTestTestfile.cmake" ] || abbruch "'$BD/CTestTestfile.cmake' fehlt -- kein konfigurierter Test-Baum"
+    # PROBE 1 (Gegenstand): der Baum wurde aus DIESEM Checkout konfiguriert. Der Baum eines anderen Worktrees
+    # zaehlt DESSEN Registrierung -- am 25.08.2026 am Objekt: ein Worktree-Lauf gegen den Hauptklon-Baum meldete
+    # 545 == 545 GRUEN, ohne dass eine Zeile des Worktrees je gezaehlt worden waere.
+    _home=$(sed -n 's/^CMAKE_HOME_DIRECTORY:INTERNAL=//p' "$BD/CMakeCache.txt" | sed -n '1p')
+    [ -n "$_home" ] || abbruch "CMAKE_HOME_DIRECTORY fehlt in '$BD/CMakeCache.txt' -- Herkunft des Baums unbestimmbar"
+    _home_r=$(cd "$_home" 2>/dev/null && pwd -P) || abbruch "Quellpfad '$_home' des Baums '$BD' existiert nicht mehr"
+    _root_r=$(pwd -P)
+    [ "$_home_r" = "$_root_r" ] || abbruch "Bau-Baum '$BD' gehoert zu einem ANDEREN Checkout: konfiguriert aus \
+$_home_r, Repo-Wurzel ist $_root_r -- eine fremde Registrierung ist kein Gegenstand dieses Pushs"
+    # PROBE 2 (Frische): keine getrackte CMake-Datei ist juenger als die Registrierung des Baums. ctest -N liest
+    # NUR den letzten Configure; Ninja nimmt dieselbe mtime-Regel fuer seinen Re-Configure. Juengere Datei => erst
+    # 'cmake <baum>' fahren, dann das Gate -- sonst zaehlt es eine Registrierung, die die Spitze so nicht mehr hat.
+    git ls-files -z -- 'CMakeLists.txt' '*/CMakeLists.txt' '*.cmake' > "$TMPD/cmake_dateien.z" \
+        || abbruch "git ls-files (CMake-Dateien) scheitert -- Frische-Probe unmoeglich"
+    [ -s "$TMPD/cmake_dateien.z" ] || abbruch "keine getrackten CMake-Dateien -- Frische-Probe unmoeglich"
+    _juenger=$(xargs -0 -r sh -c 'find "$@" -newer "$0" -print 2>/dev/null' "$BD/CTestTestfile.cmake" \
+        < "$TMPD/cmake_dateien.z" | head -5)
+    [ -z "$_juenger" ] || abbruch "Registrierung in '$BD' ist AELTER als CMake-Dateien des Checkouts (max. 5 gezeigt): \
+$(echo "$_juenger" | tr '\n' ' ')-- erst 'cmake $BD' (Re-Configure), dann das Gate"
     FLOORF="scripts/ci_test_inventory_floor.txt"
     [ -f "$FLOORF" ] || abbruch "$FLOORF fehlt"
 
@@ -383,16 +430,31 @@ if faehrt floor; then
     [ -n "$ANKER" ] || abbruch "keine Zeile fuer Klasse '$KLASSE' in $FLOORF"
     case "$ANKER" in *[!0-9]*) abbruch "Anker '$ANKER' fuer '$KLASSE' ist keine Ganzzahl" ;; esac
 
+    # BEWEIS-SCHUTZ: ctest -N ueberschreibt Testing/Temporary/LastTest.log mit einem 121-Byte-Stub (am Objekt
+    # 25.08.2026, cmake 4.3.4; RV-03) -- das Vollauf-Protokoll des Baums waere danach eine Falsch-Null. Sichern,
+    # zaehlen, byteidentisch zurueck; gab es keins, bleibt auch keins (der Stub wird entfernt).
+    _ltl="$BD/Testing/Temporary/LastTest.log"
+    _ltl_da=0
+    if [ -f "$_ltl" ]; then
+        cp -p "$_ltl" "$TMPD/LastTest.log.vorher" || abbruch "LastTest.log nicht sicherbar -- Gate faehrt nicht"
+        _ltl_da=1
+    fi
     set +e
     ( cd "$BD" && ctest -N ) > "$TMPD/ctestn.log" 2>&1
     _rc=$?
     set -e
+    if [ "$_ltl_da" -eq 1 ]; then
+        cp -p "$TMPD/LastTest.log.vorher" "$_ltl" || abbruch "LastTest.log nicht wiederherstellbar: $_ltl"
+    else
+        rm -f "$_ltl"
+    fi
     [ "$_rc" -eq 0 ] || abbruch "ctest -N in '$BD' scheitert (Exit $_rc): $(tail -2 "$TMPD/ctestn.log" | tr '\n' ' ')"
     IST=$(sed -n 's/^Total Tests: \([0-9][0-9]*\)$/\1/p' "$TMPD/ctestn.log" | sed -n '1p')
     [ -n "$IST" ] || abbruch "'Total Tests: N' nicht in der ctest-Ausgabe -- Inventur unlesbar"
     [ "$IST" -gt 0 ] || abbruch "ctest-Inventur 0 -- leerer Bau-Baum ist kein gruener Bau-Baum"
 
-    echo "NENNER: Inventur $IST (ctest -N, $BD) gegen Anker $ANKER (Klasse $KLASSE, $FLOORF)."
+    echo "NENNER: Inventur $IST (ctest -N, $BD, konfiguriert aus $_home_r)"
+    echo "        gegen Anker $ANKER (Klasse $KLASSE, $FLOORF)."
     if [ "$IST" -lt "$ANKER" ]; then
         gate_rot "[5/6] FLOOR-SCANNER" "Inventur $IST UNTER Anker $ANKER -- $((ANKER - IST)) Test(s) verschwunden"
     elif [ "$IST" -gt "$ANKER" ]; then
