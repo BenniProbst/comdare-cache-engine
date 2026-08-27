@@ -189,7 +189,12 @@ static_assert(!any_organ_declares_required()); // heutiger Stand: ALLE leer -> G
 static_assert(produktions_required_aggregat_ist_heute_leer(),
               "E-10: weder die 18 Kompositions-Zeilen noch die disk_io-Meta-Meta-Zeile deklarieren "
               "required -- ein Wert hier waere erfunden (nie raten); erst eine echte Deklaration "
-              "aktiviert das Gate, dann mit eigenem Minor.");
+              "aktiviert das Gate, dann mit eigenem Minor. WER DIESEN ANKER NACHZIEHT (S3-Auflage): "
+              "der Glied-[5]-/build_version-Suffix-Kanal traegt den Gate-Beitrag heute als per-Perm "
+              "durchgereichte LEERE Invariante (profile_run_entry/experiment_run_entry perm_gate; "
+              "profile_run_facade :584/:1478) -- eine echte required-Deklaration erzwingt dort die "
+              "per-Binary-Glied-Bildung, sonst stempelt die Perm falsch (die per-Job-CompileFn der "
+              "Fassade bricht dann fail-closed).");
 
 namespace detail {
 

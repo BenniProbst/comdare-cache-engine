@@ -8268,3 +8268,31 @@ target_compile_definitions(test_org19_meta_meta_requirement PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_org19_meta_meta_requirement PROPERTIES
     LABELS "e10;org19;organ-meta-meta;requirement;gate;contract")
+
+# E-10/ORG-19 SCHRITT 3 (26.08.2026, Designplan 20260825-DESIGNPLAN-E10-38a2-ORG19 + LEAD-AUFLAGE
+# F-V1 Variante a): Koeder k8 -- gate_for_binary = DER EINE Helfer des per-Binary-Gate-Wegs
+# (C-3a-UMSCHLAG, simd_build_gate.hpp). Beweise: Produktions-Register leer je Route, Probe-Register-
+# Literale {-mavx2}/"gate=[-mavx2]" per Binary (Traeger-Selektion), rsp-Byte-Probe ueber ALLE 320
+# golden-ids x 3 Routen (F-V1a-ERSATZ der lazy==Katalog-Abnahme im S1-S4-Korridor), D1-Klassen je
+# einmal literal. Include-/Define-/Katalog-Satz WORTGLEICH zu test_lazy_adhoc_source_gen (dieselbe
+# umbrella-schwere Katalog-Kante fuer die 320er-ids); plain-main (kein gtest), wie dort.
+# T-1: vor Schritt 3a compile-rot (Symbol gate_for_binary fehlt; Koeder k8).
+add_executable(test_e10_gate_per_binary
+    "test_e10_gate_per_binary.cpp")
+target_compile_features(test_e10_gate_per_binary PRIVATE cxx_std_23)
+target_include_directories(test_e10_gate_per_binary PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_e10_gate_per_binary PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_e10_gate_per_binary)
+target_compile_definitions(test_e10_gate_per_binary PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+comdare_attach_generated_catalog(test_e10_gate_per_binary)
+add_test(NAME test_e10_gate_per_binary COMMAND test_e10_gate_per_binary)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e10_gate_per_binary)
+set_tests_properties(test_e10_gate_per_binary PROPERTIES LABELS "e10;org19;gate;per-binary;contract")

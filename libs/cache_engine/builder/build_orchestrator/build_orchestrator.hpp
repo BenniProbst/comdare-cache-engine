@@ -798,11 +798,14 @@ private:
                 r.algo_sig  = algos;
 
                 // Section 40.a-E4: flag-genaues Bau-Gate (Pruef-Dock) an der CEB-Bau-Delegation. Aus der Organ-
-                // Signatur (spec.axes) wird die per-Binary-Anforderung aggregiert; solange kein Organ required-
-                // Flags deklariert (heutiger Stand ALLER Organe), ist sie LEER -> Zulassung trivial -> KEINE
-                // Wirkung (byte-/golden-neutral). Aktiviert: Section 37 "Organ <= Maschinen-Signatur" wird HIER
-                // durchgesetzt (Verletzung -> D1 HardwareErweiterungFehlt, Log + weiter; kein Compile) -- der
-                // per-Perm-Flag-Kanal (Fassade) bleibt unberuehrt, keine Doppelung.
+                // Signatur (spec.axes) wird die per-Binary-Anforderung aggregiert -- seit E-10 Schritt 3 (26.08.
+                // 2026) INKL. der Organ-Meta-Meta-Zeile des Traeger-Paares (18+1-Register: 18er-Tabelle in
+                // simd_organ_requirement.hpp + organ_meta_meta_requirement.hpp; der (achse,wert)-WERT waehlt die
+                // Meta-Meta-Zeile mit aus). Solange KEINES der beiden Register required-Flags deklariert
+                // (heutiger Stand), ist sie LEER -> Zulassung trivial -> KEINE Wirkung (byte-/golden-neutral).
+                // Aktiviert: Section 37 "Organ <= Maschinen-Signatur" wird HIER durchgesetzt (Verletzung -> D1
+                // HardwareErweiterungFehlt, Log + weiter; kein Compile) -- der per-JOB-Flag-Kanal der Fassade
+                // (E-10 3c: gate_for_binary aus job.binary_id) bleibt unberuehrt, keine Doppelung.
                 if (auto const gate_req = ::comdare::cache_engine::measurement::aggregate_required_for_axes(spec.axes);
                     !gate_req.empty()) {
                     if (auto const gate_err = ::comdare::cache_engine::measurement::admit_organ_on_machine(

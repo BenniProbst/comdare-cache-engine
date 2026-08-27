@@ -20,21 +20,27 @@ namespace meas = comdare::cache_engine::measurement;
 
 namespace {
 
-/// SPIEGEL der Fassaden-Naht (profile_run_facade.cpp:528-541 / :1003-1016), wie in C-3b: EIN
-/// flags-String, opt zuerst, dann march, dann die Gate-Extras angehaengt. Damit ist der rsp-Zeilen-
-/// Vergleich hier derselbe Text, den die Fassade baut.
-[[nodiscard]] std::string rsp_zeile(std::string const& opt, std::string const& march) {
+/// SPIEGEL der Fassaden-Naht, wie in C-3b -- SEIT E-10 SCHRITT 3c die PER-JOB-Form (profile_run_facade
+/// compile_for_perm, per-Job-CompileFn): EIN flags-String, opt zuerst, dann march, dann die Gate-Extras
+/// aus gate_for_binary ueber die (achse,wert)-Paare der Binary (job.binary_id -> ceb_parse_path).
+/// Damit ist der rsp-Zeilen-Vergleich hier derselbe Text, den die Fassade je Job baut.
+[[nodiscard]] std::string rsp_zeile(std::string const& opt, std::string const& march,
+                                    std::vector<std::pair<std::string, std::string>> const& binary_axes) {
     std::string flags = opt;
     if (!march.empty()) {
         flags += ' ';
         flags += march;
     }
-    for (auto const& mf : meas::gate_extra_march_flags_for_build(meas::route_of_march_flag(march))) {
+    for (auto const& mf : meas::gate_for_binary(binary_axes, meas::route_of_march_flag(march)).flags) {
         flags += ' ';
         flags += mf;
     }
     return flags;
 }
+
+/// Die (achse,wert)-Demo-Signatur einer MemoryOnly-Flotten-Binary (per-Binary-Eingang seit E-10 3a).
+std::vector<std::pair<std::string, std::string>> const kMemoryOnlyDemoAxes{
+    {"search_algo", "k_ary"}, {"persistence_target", "persistence_memory_only"}};
 
 struct RouteFall {
     char const* name;
@@ -57,8 +63,10 @@ TEST(C3aScharfschaltung, OhneCebBelegungIstDasGateInert) {
     EXPECT_TRUE(meas::active_machine_signature().empty())
         << "Ohne belegte Maschinen-Deklaration darf NIE eine Signatur herausfallen.";
     for (auto const& r : kRouten)
-        EXPECT_TRUE(meas::gate_extra_march_flags_for_build(meas::route_of_march_flag(r.march)).empty()) << r.name;
-    EXPECT_FALSE(meas::gate_contributes_anything());
+        EXPECT_TRUE(meas::gate_for_binary(kMemoryOnlyDemoAxes, meas::route_of_march_flag(r.march)).flags.empty())
+            << r.name;
+    EXPECT_FALSE(meas::gate_contributes_for(meas::organ_required_for_axes(kMemoryOnlyDemoAxes),
+                                            meas::organ_meaningful_for_axes(kMemoryOnlyDemoAxes)));
 }
 
 TEST(C3aScharfschaltung, DerNotAusIstScharfGeschaltetAberVorhanden) {
@@ -85,24 +93,30 @@ TEST(C3aScharfschaltung, ScharfMitEchterIdentitaetUndTROTZDEMKeineFlags) {
 
     // UND TROTZDEM: null Gate-Flags auf ALLEN Routen. Das ist die Byte-Neutralitaets-Aussage.
     for (auto const& r : kRouten) {
-        auto const flags = meas::gate_extra_march_flags_for_build(meas::route_of_march_flag(r.march));
+        auto const flags = meas::gate_for_binary(kMemoryOnlyDemoAxes, meas::route_of_march_flag(r.march)).flags;
         EXPECT_TRUE(flags.empty()) << "Route " << r.name << " liefert unerwartet " << flags.size() << " Flags.";
     }
-    EXPECT_FALSE(meas::gate_contributes_anything());
+    EXPECT_FALSE(meas::gate_contributes_for(meas::organ_required_for_axes(kMemoryOnlyDemoAxes),
+                                            meas::organ_meaningful_for_axes(kMemoryOnlyDemoAxes)));
 }
 
 TEST(C3aScharfschaltung, DerGrundIstDieLEEREOrganSeite) {
     // Der Beleg, WARUM es byte-neutral ist -- nicht Abschaltung, sondern der dominante Schalter.
     EXPECT_FALSE(meas::any_organ_declares_required())
         << "simd_organ_requirement.hpp:88 ist der Anker: alle 9 Organ-Klassen tragen kRequiredNone.";
-    EXPECT_TRUE(meas::active_organ_required().empty());
-    // Gegenprobe, dass NICHT einfach alles leer gestubbt wurde: die Sinnhaftigkeits-Vereinigung ist ECHT.
+    // E-10 3e: der dominante Schalter ist die PER-BINARY-Aggregation (18+1) -- leer fuer jede Binary.
+    EXPECT_TRUE(meas::organ_required_for_axes(kMemoryOnlyDemoAxes).empty());
+    // Gegenprobe, dass NICHT einfach alles leer gestubbt wurde: die Sinnhaftigkeits-Vereinigung ist ECHT
+    // (Vollmengen-Auskunft bleibt; die per-Binary-Obergrenze der Demo-Achsen ist ebenfalls nicht leer).
     EXPECT_FALSE(meas::active_organ_meaningful().empty())
         << "Hook 2 ist wirklich gefuellt (Vereinigung der Matrix), nicht gestubbt.";
     EXPECT_EQ(meas::kSensibilityUnion.size(), meas::active_organ_meaningful().size());
+    EXPECT_FALSE(meas::organ_meaningful_for_axes(kMemoryOnlyDemoAxes).empty())
+        << "per-Binary-Obergrenze: search_algo traegt 4 Katalog-Flags.";
     // Und pruef_dock kehrt trotz echter Signatur und echter Obergrenze bei leerem required sofort um.
-    auto const r = meas::pruef_dock(meas::active_organ_required(), meas::active_organ_meaningful(),
-                                    meas::Prod1Zen5Signature::signature(), meas::SimdRoute::Avx512);
+    auto const req  = meas::organ_required_for_axes(kMemoryOnlyDemoAxes);
+    auto const mean = meas::organ_meaningful_for_axes(kMemoryOnlyDemoAxes);
+    auto const r    = meas::pruef_dock(req, mean, meas::Prod1Zen5Signature::signature(), meas::SimdRoute::Avx512);
     EXPECT_EQ(r.state, meas::SimdGateState::NotApplicable);
     EXPECT_EQ(r.effective_count, 0u);
 }
@@ -114,13 +128,13 @@ TEST(C3aScharfschaltung, RspZeilenSindMitScharfemGateZeichengleich) {
     // Referenz: die Zeile OHNE jeden Gate-Beitrag (opt + optional march).
     meas::reset_active_machine_declaration_for_test();
     std::vector<std::string> ohne;
-    for (auto const& r : kRouten) ohne.emplace_back(rsp_zeile("-O3", r.march));
+    for (auto const& r : kRouten) ohne.emplace_back(rsp_zeile("-O3", r.march, kMemoryOnlyDemoAxes));
 
     // Jetzt scharf schalten und dieselben Zeilen erneut bauen.
     ASSERT_EQ(meas::set_active_machine_declaration("amd_zen5_avx512", "ddr5_2x32"),
               meas::MachineDeclarationSetResult::Gesetzt);
     for (std::size_t i = 0; i < std::size(kRouten); ++i) {
-        std::string const mit = rsp_zeile("-O3", kRouten[i].march);
+        std::string const mit = rsp_zeile("-O3", kRouten[i].march, kMemoryOnlyDemoAxes);
         EXPECT_EQ(mit, ohne[i]) << "rsp-Zeile driftet auf Route " << kRouten[i].name;
     }
     // Und die erwarteten Literale, damit der Test auch bei doppeltem Fehler nicht still gruen wird.
@@ -158,7 +172,8 @@ TEST(C3aScharfschaltung, IdentitaetsTextIstHeuteLEER) {
     ASSERT_EQ(meas::set_active_machine_declaration("amd_zen5_avx512", "ddr5_2x32"),
               meas::MachineDeclarationSetResult::Gesetzt);
     for (auto const& r : kRouten)
-        EXPECT_TRUE(meas::gate_contribution_identity_text(meas::route_of_march_flag(r.march)).empty())
+        EXPECT_TRUE(
+            meas::gate_for_binary(kMemoryOnlyDemoAxes, meas::route_of_march_flag(r.march)).identity_text.empty())
             << "Route " << r.name << ": kein Beitrag => kein Segment.";
 }
 

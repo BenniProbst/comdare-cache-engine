@@ -38,8 +38,10 @@
 
 #include <array>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace meas = comdare::cache_engine::measurement;
@@ -247,7 +249,11 @@ TEST(MetaMetaHalbordnung, NurDasFreigabeGateIstInertNichtDieSimdAchse) {
     //     dieser Test war die Tripwire dafuer und hat korrekt gebrochen. Der Ist-Stand ist jetzt:
     //     required LEER (der dominante Schalter, Organ-Seite), meaningful ECHT gefuellt (Vereinigung
     //     der Sinnhaftigkeits-Matrix), machine_signature leer SOLANGE die CEB nichts belegt hat.
-    EXPECT_TRUE(meas::active_organ_required().empty());
+    // E-10 3e: Hook 1 ist seit Schritt 3 PER BINARY (organ_required_for_axes; der globale Hook ist
+    // entfernt) -- die Aggregation der Demo-Binary ist leer, die Vollmengen-Auskunft Hook 2 bleibt echt.
+    std::vector<std::pair<std::string, std::string>> const demo_axes{{"search_algo", "k_ary"},
+                                                                     {"persistence_target", "persistence_memory_only"}};
+    EXPECT_TRUE(meas::organ_required_for_axes(demo_axes).empty());
     EXPECT_FALSE(meas::active_organ_meaningful().empty())
         << "C-3a fuellt Hook 2 mit der echten Vereinigung -- leer waere hier ein Rueckschritt.";
     EXPECT_TRUE(meas::active_machine_signature().empty())
@@ -258,15 +264,16 @@ TEST(MetaMetaHalbordnung, NurDasFreigabeGateIstInertNichtDieSimdAchse) {
     //     bei :109 sofort mit NotApplicable zurueck -- UNABHAENGIG davon, welche Maschinen-Signatur
     //     eingesetzt wird. Deshalb waere das blosse Fuellen von :187 ein No-Op (Bauplan D2.3).
     EXPECT_FALSE(meas::any_organ_declares_required());
-    auto const mit_echter_signatur = meas::pruef_dock(meas::active_organ_required(), meas::active_organ_meaningful(),
-                                                      meas::Prod1Zen5Signature::signature(), meas::SimdRoute::Avx512);
+    auto const mit_echter_signatur =
+        meas::pruef_dock(meas::organ_required_for_axes(demo_axes), meas::organ_meaningful_for_axes(demo_axes),
+                         meas::Prod1Zen5Signature::signature(), meas::SimdRoute::Avx512);
     EXPECT_EQ(mit_echter_signatur.state, meas::SimdGateState::NotApplicable)
         << "Belegt: eine ECHTE Signatur allein schaltet das Gate NICHT scharf.";
     EXPECT_EQ(mit_echter_signatur.effective_count, 0u);
 
     // (3) Folglich steuert das Gate heute NULL Flags bei -- auf allen drei Routen.
     for (auto route : {meas::SimdRoute::NoExtension, meas::SimdRoute::Avx2, meas::SimdRoute::Avx512})
-        EXPECT_TRUE(meas::gate_extra_march_flags_for_build(route).empty());
+        EXPECT_TRUE(meas::gate_for_binary(demo_axes, route).flags.empty());
 }
 
 // =================================================================================================

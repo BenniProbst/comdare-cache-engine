@@ -13,7 +13,8 @@
 //   (3) AbgelehntAbweichend (zwei <machine> mit gleichem hint, verschiedenem Tupel): klassifizierter
 //       Fehler-Log (konfig_xml_parse), KEIN Abbruch, Erstbelegung bleibt.
 //   (4) C-3a-SPIEGEL: die rsp-Zeilen sind BYTE-GLEICH zu vorher -- scharf ist kein Byte-Ereignis,
-//       weil die Organ-required-Seite leer ist (C-3a-Tripwire simd_build_gate.hpp:272-278).
+//       weil die Organ-required-Seite leer ist (C-3a-Tripwire simd_build_gate.hpp:272-278; seit E-10
+//       Schritt 3 (26.08.2026) zum C-3a-UMSCHLAG gedreht: per-Binary-Aggregat 18+1, gate_for_binary).
 //   (5) T-6 SCHWESTERSTELLEN: ALLE 9 Organ-Klassen, BEIDE Dialekte (Gpp/Clang), BEIDE deklarierten
 //       Maschinen-Klassen (prod1/prod2) plus ein nicht deklarierter Hostname.
 //
@@ -39,6 +40,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #ifndef COMDARE_EXPERIMENT_KERN_SEAM_FIXTURE
@@ -58,15 +60,21 @@ namespace pf   = ::comdare::cache_engine::profile_facade;
     return ep->machines;
 }
 
+/// Die (achse,wert)-Demo-Signatur einer MemoryOnly-Flotten-Binary (per-Binary-Eingang seit E-10 3a).
+std::vector<std::pair<std::string, std::string>> const kMemoryOnlyDemoAxes{
+    {"search_algo", "k_ary"}, {"persistence_target", "persistence_memory_only"}};
+
 /// SPIEGEL der Fassaden-rsp-Zeile (Muster test_c3a_gate_scharfschaltung.cpp:27-37): opt zuerst, dann
 /// march, dann die Gate-Extras. Byte-Gleichheit HIER ist Byte-Gleichheit der Fassaden-Zeile.
+/// E-10 Schritt 3c: die Gate-Extras kommen PER BINARY aus gate_for_binary (per-Job-CompileFn der
+/// Fassade, job.binary_id -> ceb_parse_path); hier ueber die Demo-Achsen einer MemoryOnly-Binary.
 [[nodiscard]] std::string rsp_zeile(std::string const& opt, std::string const& march, meas::SimdDialect d) {
     std::string flags = opt;
     if (!march.empty()) {
         flags += ' ';
         flags += march;
     }
-    for (auto const& mf : meas::gate_extra_march_flags_for_build(meas::route_of_march_flag(march), d)) {
+    for (auto const& mf : meas::gate_for_binary(kMemoryOnlyDemoAxes, meas::route_of_march_flag(march), d).flags) {
         flags += ' ';
         flags += mf;
     }
@@ -199,7 +207,7 @@ TEST(S3OrdnungFreigabe, RspZeilenBleibenByteGleichUeberAlleKlassenRoutenDialekte
                     << " -- scharf MUSS byte-neutral sein (C-3a).";
                 ++i;
             }
-        EXPECT_EQ(meas::gate_contribution_identity_text(meas::SimdRoute::Avx512), std::string{})
+        EXPECT_EQ(meas::gate_for_binary(kMemoryOnlyDemoAxes, meas::SimdRoute::Avx512).identity_text, std::string{})
             << "leeres gate-Segment ist die wahre Aussage (host=" << host << ").";
     }
     meas::reset_active_machine_declaration_for_test();
@@ -209,7 +217,8 @@ TEST(S3OrdnungFreigabe, Alle9OrganKlassenBleibenNotApplicableAufBeidenDialekten)
     auto const machines = kern_seam_machines();
     ASSERT_FALSE(machines.empty());
     // Mit prod1-Belegung UND mit prod2-Belegung: das Gate bleibt je Organ-Klasse NotApplicable,
-    // weil die required-Menge leer ist (C-3a-Tripwire haelt sie compile-hart leer).
+    // weil die required-Menge leer ist (seit E-10 Schritt 3 halten der C-3a-UMSCHLAG und der Anker
+    // produktions_required_aggregat_ist_heute_leer sie compile-hart leer -- 18+1-Register per Binary).
     for (auto const& mc : machines) {
         meas::reset_active_machine_declaration_for_test();
         std::ostringstream log;

@@ -357,10 +357,14 @@ struct RunExperimentResult {
             // gebildet und geht in den Bau-Kanal. Dieser Pfad schreibt kein Lager zurueck (kein
             // Fingerprint-Provider), deshalb steht hier nur die Bau-Haelfte -- aber sie MUSS stehen: sonst
             // truege eine hier gebaute Binary das run-konstante Glied und kollidierte ueber opt-Stufen hinweg.
+            // E-10 SCHRITT 3d (SPIEGEL): Beitrag aus DEM EINEN Helfer gate_for_binary; leere Achsen-Menge =
+            // compile-hart verriegelte Invariante (kein Binary-Kontext an der Perm-Ebene; die per-Job-
+            // CompileFn der Fassade bildet die Flags echt per Binary und bricht fail-closed bei Drift --
+            // s. den ausfuehrlichen 3d-Kommentar in profile_run_entry.hpp an der Schwesterstelle).
             std::string const perm_simd_segment =
                 (simd_id == std::string{cm::SimdNoExtOption::simd_id()}) ? std::string{} : simd_id;
             std::string const perm_gate =
-                cm::gate_contribution_identity_text(cm::route_of_simd_id(simd_id), cm::SimdDialect::Gpp);
+                cm::gate_for_binary({}, cm::route_of_simd_id(simd_id), cm::SimdDialect::Gpp).identity_text;
             ::comdare::cache_engine::profile_facade::PermToolchainAchsen perm_achsen{};
             perm_achsen.opt               = opt_id;
             perm_achsen.opt_flags         = opt_flag;
