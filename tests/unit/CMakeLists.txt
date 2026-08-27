@@ -8231,3 +8231,22 @@ target_include_directories(test_o2_standard_opt_default PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_compile_definitions(test_o2_standard_opt_default PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+
+# =============================================================================
+# E07/dtlb-KOEDER GESCHICHTSUNABHAENGIGKEIT (Diagnose 25.08.2026, Beweisort
+# backups-workflow/20260825-diagnose-e07/): eigener Block am DATEIENDE
+# (Kollisionsschutz gegen die Bloecke anderer Straenge).
+#
+# test_pmc_koeder_geschichtsunabhaengig: die Host-Erkennung (planner/pmc_host_probe.hpp)
+# viermal im selben Prozess + je Event acht Koeder-Fenster (measurement/pmc_event_biss.hpp)
+# muessen identisch urteilen. T-1 rot zuerst am alten 128-KiB-Koeder (20/20 Prozesse
+# ungleich). BEWUSST OHNE 'pmc'-Substring im Label (ctest -LE pmc ist ein REGEX-Filter,
+# s. test_pmc_startup_pruefung-Block); ohne Zugriff/verdraengter PMU skippt der Test
+# ausdruecklich mit Grund. Header-only-Pruefling (Probe + Kern), kein Zusatz-Link.
+comdare_add_test(test_pmc_koeder_geschichtsunabhaengig
+    SOURCES test_pmc_koeder_geschichtsunabhaengig.cpp)
+target_include_directories(test_pmc_koeder_geschichtsunabhaengig PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+set_tests_properties(test_pmc_koeder_geschichtsunabhaengig PROPERTIES
+    LABELS "fail_loud;koeder;geschichtsunabhaengig;probe;wachen")

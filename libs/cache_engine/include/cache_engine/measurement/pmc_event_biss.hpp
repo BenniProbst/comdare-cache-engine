@@ -35,43 +35,74 @@
 #if defined(__linux__)
 #include <linux/perf_event.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 
 #include <cstring>
-#include <vector>
 #endif
 
 namespace comdare::cache_engine::measurement {
 
-/// Der KOEDER. Ein Pointer-Chase ueber einen Puffer weit jenseits jeder L1-Groesse, mit grosser Schrittweite,
-/// damit L1D-Read-Misses, Last-Level-Misses UND DTLB-Misses real anfallen. Die Kette ist eine Permutation
-/// (jeder Slot genau einmal), also nicht vom Prefetcher vorherzusehen, und der Rueckgabewert wird vom
-/// Aufrufer verbraucht -- sonst optimierte der Compiler den ganzen Koeder weg und der Zaehler saehe nichts.
+/// GEOMETRIE des Koeders -- EINE Quelle fuer den Kern, seine Selbst-Beweise und die Tests (T-3: die Tests
+/// frieren ihre eigenen Literale ein und pruefen sie GEGEN diese Konstanten, nie umgekehrt).
+///   kPmcKoederBytes   64 MiB  -- groesser als jeder heutige L2 und groesser als der L3-Anteil eines Kerns;
+///                               der Chase faellt bis in den Hauptspeicher durch.
+///   kPmcKoederSchritt 4096 B  -- je Kettenglied eine EIGENE 4-KiB-Seite: die Kette laeuft ueber
+///                               kPmcKoederSlots = 16384 verschiedene Seiten, mehr als jeder L2-DTLB haelt
+///                               (Zen 5: 4096 Eintraege, Golden-Cove-STLB: 2048). Jeder Sprung ist damit ein
+///                               Page-Walk -- gleich, ob die Seiten frisch oder warm sind.
+inline constexpr std::size_t kPmcKoederBytes   = 64u * 1024u * 1024u;
+inline constexpr std::size_t kPmcKoederSchritt = 4096u;
+inline constexpr std::size_t kPmcKoederSlots   = kPmcKoederBytes / kPmcKoederSchritt;
+static_assert(kPmcKoederSlots == 16384u, "pmc_koeder: 64 MiB / 4096 B = 16384 Kettenglieder (Geometrie-Anker).");
+static_assert(kPmcKoederSlots > 4096u,
+              "pmc_koeder: die Kette MUSS mehr Seiten beruehren, als der groesste bekannte L2-DTLB (4096 Eintraege) "
+              "halten kann -- sonst beisst der DTLB-Koeder nur ueber die Erstberuehrung frischer Seiten "
+              "(Geschichtsabhaengigkeit, #114-Re-Run 25.08.2026).");
+
+/// Der KOEDER. Ein Pointer-Chase ueber 64 MiB, ein Kettenglied je 4-KiB-Seite, damit L1D-Read-Misses,
+/// Last-Level-Misses UND DTLB-Misses real anfallen. Die Kette ist eine Permutation (jeder Slot genau einmal),
+/// also nicht vom Prefetcher vorherzusehen, und der Rueckgabewert wird vom Aufrufer verbraucht -- sonst
+/// optimierte der Compiler den ganzen Koeder weg und der Zaehler saehe nichts.
 /// KEIN Zufall aus /dev/urandom: die Kette muss REPRODUZIERBAR beissen, sonst wackelt die Erkennung.
+///
+/// SEITEN DIREKT VOM KERNEL, KEIN ALLOKATOR-ZUSTAND (Befund 25.08.2026, #114-Re-Run; Beweisort
+/// backups-workflow/20260825-diagnose-e07/, src_diag/b10_k5_diag3_koeder.cpp): bis dahin stand hier
+/// `std::vector<std::size_t> kette(kSlots, 0)` mit kSlots = 64 MiB / 4096 -- also 16384 ELEMENTE zu 8 Byte
+/// = 128 KiB = 32 Seiten, nicht 64 MiB. Diese Arbeitsmenge passt in jeden DTLB; die dtlb_misses (Page-Walks)
+/// kamen ausschliesslich aus der Erstberuehrung FRISCHER Seiten: Aufruf 1 (anon-mmap, 1/33 Seiten resident)
+/// 197 Walks, Aufruf 3 (glibc gab denselben Heap-Chunk zurueck, 33/33 resident) 4, Aufruf 4: 0. Die
+/// Erkennung hing an der Allokator-Geschichte des Prozesses (im selben Prozess events=3/4, dann 2/4; unter
+/// Last 160/300 Prozesspaare ungleich). Deshalb: (a) die Geometrie wie deklariert -- ein Kettenglied je
+/// Seite ueber 64 MiB; (b) mmap statt Heap, damit kein Allokator-Zustand die Seiten vorwaermt, und
+/// MADV_NOHUGEPAGE, damit "je Sprung eine neue Seite" auch unter THP=always wahr bleibt (eine 2-MiB-Seite
+/// deckte 512 Glieder mit EINEM TLB-Eintrag). Gemessen (prod1, Zen 5, dtlb_misses je Fenster): warme Seiten
+/// 74k Walks (1.6-1.9 ms), frische Seiten 110k-133k (10-14 ms); vorher 0-209.
+/// Scheitert mmap (ENOMEM), liefert der Koeder den Werkzeugfehler-Sentinel, den pmc_event_beisst fail-closed
+/// als "kein Biss, kein Wiederholungsgrund" liest.
 [[nodiscard]] inline std::uint64_t pmc_koeder_pointer_chase() noexcept {
 #if defined(__linux__)
-    // 64 MiB: groesser als jeder heutige L2 und groesser als der L3-Anteil eines Kerns -- der Chase faellt
-    // damit bis in den Hauptspeicher durch. 4096 Byte Schrittweite trifft je Sprung eine neue Seite und
-    // erzeugt so auch DTLB-Misses.
-    constexpr std::size_t    kBytes  = 64u * 1024u * 1024u;
-    constexpr std::size_t    kStride = 4096u;
-    constexpr std::size_t    kSlots  = kBytes / kStride;
-    std::vector<std::size_t> kette(kSlots, 0);
-    // Ein einfacher, deterministischer Zyklus ueber alle Slots: Schrittweite teilerfremd zu kSlots.
-    constexpr std::size_t kSchritt = 4099u; // Primzahl, teilerfremd zu kSlots (2^14)
+    void* const roh = ::mmap(nullptr, kPmcKoederBytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (roh == MAP_FAILED) return 0xFFFFFFFFFFFFFFFFULL;
+    (void)::madvise(roh, kPmcKoederBytes, MADV_NOHUGEPAGE);
+    auto* const           basis       = static_cast<std::size_t*>(roh);
+    constexpr std::size_t kElemJeSlot = kPmcKoederSchritt / sizeof(std::size_t); // Slot i bei basis[i * kElemJeSlot]
+    // Ein einfacher, deterministischer Zyklus ueber alle Slots: Schrittweite teilerfremd zu kPmcKoederSlots.
+    constexpr std::size_t kSchritt = 4099u; // Primzahl, teilerfremd zu kPmcKoederSlots (2^14)
     std::size_t           pos      = 0;
-    for (std::size_t i = 0; i < kSlots; ++i) {
-        std::size_t const next = (pos + kSchritt) % kSlots;
-        kette[pos]             = next;
-        pos                    = next;
+    for (std::size_t i = 0; i < kPmcKoederSlots; ++i) {
+        std::size_t const next   = (pos + kSchritt) % kPmcKoederSlots;
+        basis[pos * kElemJeSlot] = next;
+        pos                      = next;
     }
     std::uint64_t summe = 0;
     std::size_t   p     = 0;
-    for (std::size_t i = 0; i < kSlots * 4; ++i) {
-        p = kette[p];
+    for (std::size_t i = 0; i < kPmcKoederSlots * 4; ++i) {
+        p = basis[p * kElemJeSlot];
         summe += p;
     }
+    (void)::munmap(roh, kPmcKoederBytes);
     return summe;
 #else
     return 0;
