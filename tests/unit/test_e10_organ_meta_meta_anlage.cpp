@@ -111,6 +111,12 @@ struct LokaleProbeMetaMeta final : cet::OrganMetaMetaAxis<LokaleProbeMetaMeta> {
     [[nodiscard]] static constexpr std::string_view sub_axis_label() noexcept { return "probe_mm"; }
     static constexpr std::string_view               axis_code_version = "1.0.0.c";
 };
+// Die Probe ist selbst WOHLGEFORMT (Concept + FIX-7(b)-Versions-Wachen wie ORG-19-IO oben): sie faellt NUR an
+// der Vollmengen-Wache -- K13: der Biss kommt aus dem richtigen Grund, nicht aus einer kaputten Probe. (S6-
+// Warnungs-Review 27.08.2026: clang-22 -Wunused-const-variable an axis_code_version; die Wachen WERTEN es aus.)
+static_assert(cet::OrganMetaMetaAxisConcept<LokaleProbeMetaMeta>);
+static_assert(meas::meta_meta_version_wohlgeformt<LokaleProbeMetaMeta>());
+static_assert(meas::meta_meta_version_cpu_pflicht<LokaleProbeMetaMeta>());
 static_assert(!abi::organ_meta_meta_subsumiert<abi::OrganMetaMetas, meas::MetaMetaMembers<LokaleProbeMetaMeta>>::value,
               "Biss-Beweis: ein Glied ausserhalb der Vollmenge faellt an der Wache");
 // Kreuzprobe gegen die Halbordnungs-Quelle (meta_meta_identity.hpp subsumes_v via mp_list-Sicht):
