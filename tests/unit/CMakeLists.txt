@@ -8296,3 +8296,30 @@ comdare_attach_generated_catalog(test_e10_gate_per_binary)
 add_test(NAME test_e10_gate_per_binary COMMAND test_e10_gate_per_binary)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e10_gate_per_binary)
 set_tests_properties(test_e10_gate_per_binary PROPERTIES LABELS "e10;org19;gate;per-binary;contract")
+
+# E-10/ORG-19 SCHRITT 4 (27.08.2026, Designplan 20260825-DESIGNPLAN-E10-38a2-ORG19 + VERIFY-Fix FIX-1 (iv);
+# Objekt-Entscheide S4-1/S4-2 in STAND-BAU): Koeder k9 -- der Organ-Meta-Meta-Anhang JE COMP an BEIDEN
+# Zeilen-Quellen (abi::organ_stamp_line<Comp> Mock-Pfad / ex::compose_organ_stamp_line Emitter-Pfad):
+# Flotten-Form literal byte-identisch zur Vor-Zug-Form (golden-320 id #0, 666 Z.), IO-Traeger
+# ";[disk_io=code@1.0.0.c]", Mock == Emitter-Pfad (Tabelle test-lokal um den Registry-Disk-Typ erweitert),
+# Flotten-Worst-Case 721 / IO 747 <= kAnatomyFingerprintOrganMax 768, Zwei-Traeger-Ein-Gruppen-Form
+# "[a=..;b=..]" (FIX-1, R-11 Slot-Ordnung). Include-/Link-Menge == test_m_w12_stamp_bausteine (dieselbe
+# Stempel-Flaeche) + Registries (axis_variant_version_table, heap-schwer, mp11).
+# T-1: im S1-S4-Korridor (typ-globaler Anhang, R-10) laufzeit-rot (Koeder k9); nach Schritt 4a/4b gruen.
+add_executable(test_e10_organ_stamp_je_comp "test_e10_organ_stamp_je_comp.cpp")
+target_compile_features(test_e10_organ_stamp_je_comp PRIVATE cxx_std_23)
+target_include_directories(test_e10_organ_stamp_je_comp PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_e10_organ_stamp_je_comp PRIVATE gtest gtest_main Boost::mp11)
+comdare_set_platform_defines(test_e10_organ_stamp_je_comp)
+target_compile_definitions(test_e10_organ_stamp_je_comp PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_e10_organ_stamp_je_comp COMMAND test_e10_organ_stamp_je_comp)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e10_organ_stamp_je_comp)
+set_tests_properties(test_e10_organ_stamp_je_comp PROPERTIES LABELS "e10;org19;organ-meta-meta;stempel;contract")
