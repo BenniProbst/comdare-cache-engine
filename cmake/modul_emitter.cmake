@@ -134,5 +134,6 @@ function(comdare_stempel2_vertragspaar_fixtures)
         set("${ARG_TARGETS_OUT}" "${_targets}" PARENT_SCOPE)
     endif()
     message(STATUS
-        "comdare_stempel2_vertragspaar_fixtures: 13 Vertragspaar-Module (Build-Zeit-Emission, output=${ARG_OUTPUT_DIR})")
+        "comdare_stempel2_vertragspaar_fixtures: 13 Vertragspaar-Module (Build-Zeit-Emission, "
+        "output=${ARG_OUTPUT_DIR})")
 endfunction()
