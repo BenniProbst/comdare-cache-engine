@@ -8250,3 +8250,68 @@ target_include_directories(test_pmc_koeder_geschichtsunabhaengig PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 set_tests_properties(test_pmc_koeder_geschichtsunabhaengig PROPERTIES
     LABELS "fail_loud;koeder;geschichtsunabhaengig;probe;wachen")
+
+# =============================================================================
+# (LANDE-HARMONISIERUNG 27.08.2026, lande/identitaet-2708: Dateiende-Kollision der Bloecke
+#  bau/pmc-dtlb-koeder x bau/vo3-1-global-o2 -- BEIDE Bloecke behalten, Reihenfolge = Lande-
+#  Reihenfolge konform -> pmc-dtlb-koeder -> vo3-1; Floor-Datei RELATIV +3 = 549/545/543,
+#  PROVISORISCH, LIVE-Messung im Komplex-Fix.)
+# VO3-1(b) GLOBAL O2 + vendoropt-GLIED (Owner-KERN X4 25.08.2026, Bau 26.08.2026,
+# Beweisort backups-workflow/20260825-vo3-1-global-o2/): eigener Block am
+# DATEIENDE (Kollisionsschutz gegen die Bloecke anderer Straenge; Merge-Regel
+# bei Kollision am Dateiende: BEIDE Bloecke behalten).
+#
+# test_vo31_global_o2_flags (T-A): friert die SOLL-Literale "-O2 -DNDEBUG" bzw.
+# "-O3 -DNDEBUG" (COMDARE_OPT_O3-Opt-in) IM TEST ein; die IST-Werte kommen als
+# Configure-Defines herein (T-3: fremder Nenner). T-1 rot-zuerst am IST-Stand
+# d3b5a393 (CMake-Default -O3) bewiesen, gruen durch den B3-FORCE-Dreh.
+comdare_add_test(test_vo31_global_o2_flags
+    SOURCES test_vo31_global_o2_flags.cpp)
+target_compile_definitions(test_vo31_global_o2_flags PRIVATE
+    "COMDARE_VO31_CXX_RELEASE_FLAGS=\"${CMAKE_CXX_FLAGS_RELEASE}\""
+    "COMDARE_VO31_C_RELEASE_FLAGS=\"${CMAKE_C_FLAGS_RELEASE}\""
+    "COMDARE_VO31_OPT_O3=$<BOOL:${COMDARE_OPT_O3}>")
+set_tests_properties(test_vo31_global_o2_flags PROPERTIES
+    LABELS "vo31;flags;koeder;wachen")
+
+# test_vo31_vendoropt_glied (T-B): Feld "vendoropt" (Glied [5], Key [9]) + der
+# tc-Format-Bump "1"->"2". Include-/Link-Satz nach test_lagz1-Vorbild (abi/naht
+# header-only, Boost::mp11). COMDARE_VO31_EXPECT_VENDOROPT ist der FREMDE Nenner
+# fuer T-B5: dieselbe COMDARE_OPT_O3-Fallunterscheidung, die die Release-Flags
+# steuert -- nie aus dem Pruefling (active_vendoropt) selbst abgeschrieben.
+comdare_add_test(test_vo31_vendoropt_glied
+    SOURCES test_vo31_vendoropt_glied.cpp)
+target_include_directories(test_vo31_vendoropt_glied PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_vo31_vendoropt_glied PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_vo31_vendoropt_glied)
+target_compile_definitions(test_vo31_vendoropt_glied PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_VO31_EXPECT_VENDOROPT=\"$<IF:$<BOOL:${COMDARE_OPT_O3}>,O3,O2>\"")
+set_tests_properties(test_vo31_vendoropt_glied PROPERTIES
+    LABELS "vo31;stempel;glied;koeder")
+
+# test_vo31_optflag_gate_probe (OS-2, Owner-Antwort 26.08.2026: HARTES CMake-Gate als eigener
+# Bauschritt): ctest-Treiber (Skript, kein Build-Target) -- konfiguriert die Fixture viermal
+# gegen die ECHTE cmake/compiler_flags.cmake-Strecke; konform muss GRUEN mit Gate-Literal
+# durchlaufen, drei Koeder-Klassen (Direktblock-target_compile_options, Vendor-Subdir-Shadow,
+# Vendor-Quell-Property) muessen FATAL mit Gate-ROT-Literal brechen. Exit-Code UND Literal
+# (cli_smoke-Doktrin); T-1 rot-zuerst am Stand OHNE Gate bewiesen (bau/os2gate/rot-*.log).
+add_test(NAME test_vo31_optflag_gate_probe
+    COMMAND "${CMAKE_COMMAND}"
+        "-DFIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/vo31_optflag_gate_fixture"
+        "-DCE_CMAKE_DIR=${PROJECT_SOURCE_DIR}/cmake"
+        "-DSCRATCH=${CMAKE_CURRENT_BINARY_DIR}/vo31_gate_probe"
+        "-DGENERATOR=${CMAKE_GENERATOR}"
+        "-DCXX=${CMAKE_CXX_COMPILER}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/vo31_optflag_gate_probe.cmake")
+set_tests_properties(test_vo31_optflag_gate_probe PROPERTIES
+    TIMEOUT 300
+    LABELS "vo31;gate;koeder;standalone")

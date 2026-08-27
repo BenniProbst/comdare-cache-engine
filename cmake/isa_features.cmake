@@ -179,6 +179,10 @@ function(comdare_apply_optimization_level_flags target level)
         endif()
     elseif(level MATCHES "^(O0|O1|O2|O3|Ofast)$")
         target_compile_options(${target} PRIVATE "-${level}")
+        # OS-2 (VO3-1(b), 26.08.2026): jede ueber DIESE Funktion gesetzte Stufe ist die DEKLARIERTE
+        # Haelfte einer Ausnahme; das Gate (cmake/vo31_optflag_gate.cmake) prueft sie gegen seine
+        # eingefrorene Allowlist -- eine Seite ohne die andere ist FATAL (kein stiller Seitenweg).
+        set_property(GLOBAL APPEND PROPERTY COMDARE_VO31_OPTFLAG_DEKLARIERT "${target}=-${level}")
     else()
         message(WARNING "[Compiler-Compiler-Fehler: compile_kombination] comdare_apply_optimization_level_flags(${target} ${level}): "
             "unbekannte opt_level-Stufe (erwartet O0/O1/O2/O3/Ofast) — Permutation uebersprungen (Default-Opt), Pipeline laeuft weiter.")
