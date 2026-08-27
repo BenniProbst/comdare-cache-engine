@@ -861,6 +861,22 @@
 #   Werkzeuge, RECONFIGURE, all, comdare_tests, RECONFIGURE2, 'ctest -N' Total + Listenlaenge==Total,
 #   comm beidseitig, 'cmake -U'-Wiederherstellung) LIVE nachzumessen; der Messbefund ERGAENZT
 #   diesen Vermerk (nichts loeschen). Beweisort ~/backups-workflow/20260827-lande-reif/ce-landung/.
+#   [UEBERHOLT 27.08.2026 durch den MESSBEFUND unten -- der Vermerk bleibt als Historie stehen.]
+# MESSBEFUND 27.08.2026 (Komplex-Fix A2.1b Stufe 2, lande/identitaet-2708 @ cc85bb91; Beweisort
+#   ~/backups-workflow/20260827-lande-reif/komplex-fix/floor/): 549/545/543 GEMESSEN, NICHT GERECHNET --
+#   das Provisorium ist damit BESTAETIGT (Wertzeilen unveraendert). Volle Treppe am Baum build-k17-gcc-rel
+#   (Abnahme-Form MIT -DCOMDARE_CE_PRUEFLINGE, J-1 SIEBEN Werkzeuge, RECONFIGURE, Vollbau all+facade+
+#   comdare_tests, RECONFIGURE2; gcc-15.3 Release, Ninja, prod1): 'ctest -N' Total 549, Gegenprobe
+#   Listenlaenge==Total 549/549; -DCOMDARE_HOST_RUNS_AVX512F=0 -> 545/545; zusaetzlich
+#   -DCOMDARE_HOST_RUNS_AVX2=0 -> 543/543. comm beidseitig (LC_ALL=C): avx512f->avx2 verliert exakt die
+#   dokumentierten VIER, avx2->basis exakt die ZWEI, beide Gegenrichtungen leer; die vier Lande-Neuen
+#   (test_pmc_koeder_geschichtsunabhaengig, test_vo31_global_o2_flags, test_vo31_vendoropt_glied,
+#   test_vo31_optflag_gate_probe) stehen in allen drei Klassen je genau 1x. 'cmake -U' auf BEIDE
+#   Variablen: Total wieder 549, Namensliste BYTE-GLEICH, beide Cache-Schalter wieder INTERNAL=1.
+#   GEGENPROBE BASIS d3b5a393 in derselben Abnahme-Form (temporaerer Worktree, J-1 + RECONFIGURE):
+#   Total 545 == Basis-Anker 545; comm HEAD vs Basis: nur-HEAD = exakt die vier Lande-Neuen, nur-Basis
+#   leer, 545 gemeinsam. Voller ctest der Zelle: '100% tests passed, 0 tests failed out of 549'.
+#   Messlog: floor-treppe.log + ctestN-*/namen-* + ctestN-basis-d3b5a393.log im Beweisort oben.
 avx512f 549
 avx2 545
 basis 543
