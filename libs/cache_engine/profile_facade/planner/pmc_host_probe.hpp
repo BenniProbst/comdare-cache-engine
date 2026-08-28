@@ -52,6 +52,11 @@
 // genau so, wie es der Satz "die Kette muss REPRODUZIERBAR beissen" verbietet. event_beisst() misst
 // deshalb die Gueltigkeit des Fensters mit (read_format TIME_ENABLED|TIME_RUNNING) und wiederholt leere
 // Fenster gedeckelt, bevor es urteilt; erst ein gelaufenes Fenster entscheidet, fail-closed bleibt.
+// ZWEITE PRAEZISIERUNG (CI 16260, Job 385992, prod2/GenuineIntel): auch ein TEIL-Fenster ist keine
+// Messung -- der Kern (measurement/pmc_event_biss.hpp) urteilt die 0 seither nur aus einem VOLL
+// gelaufenen Fenster eines GEPINNTEN Events (alles-oder-nichts) und weist den Fenster-Verlauf als
+// PmcBissFenster aus; dieser Befund traegt ihn je Event im Feld fenster_vektor (Multiplex-Beweis
+// sichtbar statt verschluckt).
 //
 // FAIL-CLOSED, ausdruecklich: unbekannter Vendor => unbrauchbar, auch wenn Zaehler oeffnen. Nicht-Linux =>
 // unbrauchbar (leere Event-Liste). Probe nicht gefahren => unbrauchbar. In KEINEM dieser Faelle wird PMC
@@ -71,6 +76,7 @@
 //
 // header-only, C++23. ASCII-only.
 
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -99,6 +105,9 @@ struct PmcHostBefund {
     std::size_t events_geprueft = 0;    ///< NENNER: |kPmcEvents|
     std::size_t events_gebissen = 0;    ///< ZAEHLER: davon geoeffnet UND mit Wert > 0 nach dem Koeder
     std::string biss_vektor;            ///< je Event "<name>=<0|1>", ';'-getrennt -- die Aussage, nicht die Zahl
+    std::string fenster_vektor;         ///< je Event "<name>=<gefahren>:<leer>:<teilzeit>:<unplanbar>:<v|->"
+                                        ///< (v = ein VOLL gemessenes Fenster trug das Urteil; CI 16260).
+                                        ///< Leer, wenn die Strategie keinen Fenster-Verlauf liefert (Fakes).
     std::string fehlgrund;              ///< bei Unbrauchbar IMMER nicht-leer (fail-loud)
 
     /// Die Vendor-id fuer Stempel und CMake-Argument. Bei Unbrauchbar LEER -- es gibt keinen Default-Vendor.
@@ -148,6 +157,11 @@ struct PmcHostBefund {
             s += " grund=";
             s += fehlgrund;
         }
+        if (!fenster_vektor.empty()) {
+            s += " fenster=[";
+            s += fenster_vektor;
+            s += "]"; // Fenster-Verlauf je Event (CI 16260): Nicht-Messung sichtbar, nie stille 0
+        }
         s += " beweist-nicht=runner-host";
         return s;
     }
@@ -184,6 +198,14 @@ struct RealePmcHostStrategie {
     [[nodiscard]] static bool event_beisst(::comdare::cache_engine::measurement::PmcEventSpec const& ev) noexcept {
         return ::comdare::cache_engine::measurement::pmc_event_beisst(ev);
     }
+
+    /// Dieselbe Probe MIT Fenster-Verlauf (CI 16260): der Kern zaehlt leere/Teil-/unplanbare Fenster und
+    /// ob ein VOLLES Fenster das Urteil trug. probe_pmc_host erkennt diese Signatur per requires und
+    /// traegt den Verlauf in den Befund (fenster_vektor); Fake-Strategien ohne sie bleiben unveraendert.
+    [[nodiscard]] static bool event_beisst(::comdare::cache_engine::measurement::PmcEventSpec const& ev,
+                                           ::comdare::cache_engine::measurement::PmcBissFenster&     fenster) noexcept {
+        return ::comdare::cache_engine::measurement::pmc_event_beisst(ev, &fenster);
+    }
 };
 
 /// probe_pmc_host<Strategie>() -- DIE Erkennung. Ein Aufruf je Planer-Lauf.
@@ -208,9 +230,27 @@ template <class Strategie = RealePmcHostStrategie>
         return b;
     }
 
-    // Der Biss-Vektor -- immer vollstaendig, immer benannt.
+    // Der Biss-Vektor -- immer vollstaendig, immer benannt. Liefert die Strategie einen Fenster-Verlauf
+    // (requires-Detection auf die Zweitsignatur, s. RealePmcHostStrategie), wandert er als
+    // fenster_vektor in den Befund: die Nicht-Messung (leer/Teilzeit/unplanbar) ist damit von der
+    // ehrlichen 0 unterscheidbar (CI 16260, Job 385992). Fakes ohne Zweitsignatur: Feld bleibt leer.
+    constexpr bool kStrategieMitFenster = requires(cme::PmcEventSpec const& e, cme::PmcBissFenster& f) {
+        { Strategie::event_beisst(e, f) } -> std::convertible_to<bool>;
+    };
     for (std::size_t i = 0; i < cme::kPmcEventCount; ++i) {
-        bool const beisst = Strategie::event_beisst(cme::kPmcEvents[i]);
+        bool beisst = false;
+        if constexpr (kStrategieMitFenster) {
+            cme::PmcBissFenster fenster{};
+            beisst = Strategie::event_beisst(cme::kPmcEvents[i], fenster);
+            if (i != 0) b.fenster_vektor += ';';
+            b.fenster_vektor += std::string{cme::kPmcEvents[i].name};
+            b.fenster_vektor += '=';
+            b.fenster_vektor += std::to_string(fenster.gefahren) + ':' + std::to_string(fenster.leer) + ':' +
+                                std::to_string(fenster.teilzeit) + ':' + std::to_string(fenster.unplanbar) +
+                                (fenster.voll_fenster ? ":v" : ":-");
+        } else {
+            beisst = Strategie::event_beisst(cme::kPmcEvents[i]);
+        }
         if (beisst) ++b.events_gebissen;
         if (i != 0) b.biss_vektor += ';';
         b.biss_vektor += std::string{cme::kPmcEvents[i].name};

@@ -25,6 +25,17 @@
 // (keine stille gruene Null). Genauso bei einer verdraengten PMU (0/N nach dem Fenster-Deckel): das ist die
 // deklarierte Multiplexing-Klasse (CI 16073/382856), nicht die Geschichts-Klasse dieses Tests.
 //
+// NACHTRAG (CI 16260, Job 385992, prod2/GenuineIntel): dieser Test biss im Feld -- Erhebung 2 von 4 kam
+// auf events=2/4 (cache_misses_l3_ll=0; dtlb_misses=0), Fenster 8 der dtlb-Sonde urteilte anders als
+// Fenster 1. Ursache am Objekt: der Kern las ein TEIL-Fenster (0 < t_running < t_enabled, PMU-Rotation
+// unter Belegung: 4 GP-Counter je Thread unter HT + NMI-Watchdog + CI-Nachbarn) mit Wert 0 als ehrliche
+// Absage; dtlb_misses=0 ueber einen voll gemessenen 16384-Seiten-Chase ist physikalisch unmoeglich
+// (groesster bekannter L2-DTLB/STLB: 4096 Eintraege) -- die 0 stammte aus nicht gemessener Fenster-Zeit.
+// HEILUNG im Kern (measurement/pmc_event_biss.hpp): gepinntes Event (alles-oder-nichts-Scheduling),
+// frischer fd je Fenster, die 0 urteilt NUR aus einem VOLL gelaufenen Fenster, und der Fenster-Verlauf
+// steht als PmcBissFenster/fenster_vektor im Befund. Die Assertions dieses Tests sind UNVERAENDERT --
+// die Wache bleibt scharf, keine Vendor-Ausnahme.
+//
 // ASCII-only.
 
 #include <gtest/gtest.h>

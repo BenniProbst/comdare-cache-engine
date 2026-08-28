@@ -22,6 +22,16 @@
 // muss REPRODUZIERBAR beissen" verbietet. pmc_event_beisst() misst deshalb die Gueltigkeit des Fensters
 // mit (read_format TIME_ENABLED|TIME_RUNNING) und wiederholt leere Fenster gedeckelt, bevor es urteilt;
 // erst ein gelaufenes Fenster entscheidet, fail-closed bleibt.
+// ZWEITE PRAEZISIERUNG (CI 16260, Job 385992, prod2/GenuineIntel): auch ein TEIL-Fenster ist KEINE
+// Messung. "irgendwie gelaufen" (0 < t_running < t_enabled) genuegt nicht -- auf prod2 (4 GP-Counter je
+// Thread unter HT, NMI-Watchdog, CI-Nachbarn) bekam ein Event Hardware-Zeit NUR ausserhalb des Chase,
+// las ehrlich 0 und wurde als "ehrliche Absage" verbucht: im SELBEN Prozess kippte der Befund zwischen
+// events=4/4 und 2/4 (dtlb_misses=0 in einem voll gemessenen 16384-Seiten-Chase ist physikalisch
+// unmoeglich -- die 0 stammte aus einem nicht gemessenen Fenster-Anteil). Deshalb urteilt die 0 seither
+// NUR aus einem VOLL gelaufenen Fenster (t_running == t_enabled), das Event ist GEPINNT (alles-oder-
+// nichts-Scheduling: voll auf der PMU oder ERROR-Zustand, keine Teil-Fenster), jedes Fenster bekommt
+// einen FRISCHEN fd (keine kumulative Zeit-Ambiguitaet, ERROR endet mit dem Fenster), und der Verlauf
+// steht dem Aufrufer als PmcBissFenster zur Verfuegung (Multiplex-Beweis ausgewiesen statt verschluckt).
 //
 // PLATTFORM: Nicht-Linux liefert unbedingt false (kein perf_event_open) -- fail-closed, keine Behauptung.
 //
@@ -109,67 +119,115 @@ static_assert(kPmcKoederSlots > 4096u,
 #endif
 }
 
-/// FENSTER-DECKEL der Leer-Fenster-Wiederholung (s. pmc_event_beisst). Klein und endlich: ein Host, dessen
-/// PMU ueber so viele Koeder-Fenster hinweg keinem einzigen Event Hardware-Zeit gibt, ist ehrlich
-/// unbrauchbar (fail-closed) -- der Deckel schuetzt nur gegen das transiente Multiplexing-Loch.
+/// FENSTER-DECKEL der Wiederholung ungueltiger Fenster (leer, Teilzeit, unplanbar; s. pmc_event_beisst).
+/// Klein und endlich: ein Host, dessen PMU ueber so viele Koeder-Fenster hinweg keinem einzigen Event
+/// ein VOLLES Fenster gibt, ist ehrlich unbrauchbar (fail-closed) -- der Deckel schuetzt nur gegen das
+/// transiente Multiplexing-/Belegungs-Loch.
 inline constexpr unsigned kPmcKoederFenster = 5u;
 
-/// Oeffnet EIN Event self-monitoring (pid=0, cpu=-1, exclude_kernel -- exakt die Anforderungsform der
-/// realen Quelle), laesst den Koeder laufen, liest zurueck. true NUR, wenn der Zaehler geoeffnet hat UND
-/// ein GELAUFENES Fenster einen Wert > 0 traegt (K13: der Koeder MUSS beissen).
+/// STATISTIK EINER BISS-PROBE (CI 16260, Job 385992): der Fenster-Verlauf, damit der Aufrufer eine
+/// ehrliche 0 (voll gemessenes Fenster ohne Biss) von einer NICHT-MESSUNG (PMU verdraengt oder belegt)
+/// unterscheiden kann. Ohne diese Unterscheidung truegen beide Faelle dieselbe nackte 0 -- genau daran
+/// kippte prod2 im selben Prozess zwischen events=4/4 und 2/4.
+struct PmcBissFenster {
+    unsigned gefahren     = 0;     ///< gefahrene Koeder-Fenster insgesamt (<= kPmcKoederFenster)
+    unsigned leer         = 0;     ///< Fenster ganz ohne Hardware-Zeit (t_running == 0)
+    unsigned teilzeit     = 0;     ///< Fenster mit 0 < t_running < t_enabled und Wert 0 -- Multiplex-BEWEIS
+    unsigned unplanbar    = 0;     ///< Fenster, in denen das gepinnte Event nie auf die PMU kam (read == EOF)
+    bool     voll_fenster = false; ///< true, wenn ein VOLL gelaufenes Fenster das Urteil getragen hat
+};
+
+/// Oeffnet EIN Event self-monitoring (pid=0, cpu=-1, exclude_kernel -- die Event-IDENTITAET (type,
+/// config) ist exakt die Anforderungsform der realen Quelle), laesst den Koeder laufen, liest zurueck.
+/// true NUR, wenn der Zaehler geoeffnet hat UND ein Fenster einen Wert > 0 traegt (K13: der Koeder MUSS
+/// beissen).
 ///
-/// FENSTER-LEERE IST KEINE MESSUNG (CI 16073, Job 382856): unter PMU-Multiplexing (fremde perf-Nutzer
-/// auf dem Kern, z. B. parallele ctest-Nachbarn der CI-Zelle) kann der Zaehler oeffnen und im ganzen
-/// Koeder-Fenster keine Hardware-Zeit bekommen -- read() liefert dann 0, obwohl das Event auf diesem
-/// Host funktioniert. Derselbe Runner sah so in EINEM Job events=3/4, 4/4 und 2/4: die Erkennung
-/// wackelte lauf-zu-lauf, was der Probe-Kopf ausdruecklich verbietet. Deshalb misst die Probe ihre
-/// eigene Gueltigkeit mit (read_format TIME_ENABLED|TIME_RUNNING):
-///   zeit_gelaufen == 0 => Fenster leer, es GIBT keine Messung => naechstes Koeder-Fenster
-///                        (gedeckelt auf kPmcKoederFenster; wert/zeiten kumulieren ueber den fd);
-///   zeit_gelaufen  > 0 => es WURDE gemessen: wert > 0 ist der Biss, wert == 0 die ehrliche Absage
-///                        (das Event zaehlt auf diesem Host nicht) -- kein weiterer Versuch.
-/// Nach dem Deckel gilt fail-closed (kein Biss): eine dauerhaft verdraengte PMU wird nie behauptet.
-[[nodiscard]] inline bool pmc_event_beisst(PmcEventSpec const& ev) noexcept {
+/// FENSTER-GUELTIGKEIT (CI 16073/382856 + CI 16260/385992): weder ein leeres NOCH ein Teil-Fenster ist
+/// eine Messung. Unter PMU-Multiplexing/-Belegung (NMI-Watchdog, fremde perf-Nutzer, parallele
+/// ctest-Nachbarn) kann ein Event ein Fenster ganz verpassen (t_running == 0) ODER nur einen Anteil
+/// bekommen (0 < t_running < t_enabled) -- im Teil-Fenster kann die 0 schlicht heissen, dass der Chase
+/// gerade nicht beobachtet wurde (prod2: dtlb_misses=0 ueber 16384 Seiten). Deshalb je Fenster:
+///   attr.pinned = 1                 => alles-oder-nichts: das Event sitzt VOLL auf der PMU oder faellt
+///                                      in den ERROR-Zustand (read() == EOF); Teil-Fenster verschwinden
+///                                      strukturell. Die Scheduling-Prioritaet aendert die Event-
+///                                      Identitaet nicht (type/config unveraendert).
+///   FRISCHER fd je Fenster          => Zeiten/Werte sind Fenster-lokal (keine Kumulation), und ein
+///                                      ERROR-Zustand endet mit dem Fenster statt am fd zu kleben.
+///   wert > 0                        => BISS (ein gezaehlter Wert ist positiv beweisend) -- fertig.
+///   wert == 0, t_running == t_enabled > 0 => VOLL gemessen und nicht gebissen: die ehrliche Absage --
+///                                      fertig, kein weiterer Versuch.
+///   t_running == 0                  => LEERES Fenster, keine Messung -> naechstes Fenster.
+///   0 < t_running < t_enabled       => TEIL-Fenster (Multiplex-Beweis), keine Messung -> naechstes
+///                                      Fenster (mit pinned nur als Randlage erreichbar; dennoch
+///                                      klassifiziert, nie als 0 verbucht).
+///   read() == EOF                   => Fenster UNPLANBAR (pinned-ERROR: PMU belegt) -> naechstes Fenster.
+/// Alles gedeckelt auf kPmcKoederFenster; nach dem Deckel gilt fail-closed (kein Biss): eine dauerhaft
+/// verdraengte oder belegte PMU wird nie behauptet. Werkzeugfehler (open/read scheitert hart, mmap-
+/// Sentinel) bleiben fail-closed und sind KEIN Wiederholungsgrund.
+///
+/// `fenster` (optional) erhaelt den Verlauf (PmcBissFenster) -- der Aufrufer kann damit die ehrliche 0
+/// von der Nicht-Messung unterscheiden und den Multiplex-Beweis ausweisen (V-1: Nenner statt nackter
+/// Zahl).
+[[nodiscard]] inline bool pmc_event_beisst(PmcEventSpec const& ev, PmcBissFenster* fenster = nullptr) noexcept {
 #if defined(__linux__)
-    struct ::perf_event_attr attr;
-    std::memset(&attr, 0, sizeof(attr)); // Muellbits in Reserve-Feldern => EINVAL; immer memset
-    attr.size           = sizeof(attr);
-    attr.type           = ev.type;
-    attr.config         = ev.config;
-    attr.disabled       = 1;
-    attr.exclude_kernel = 1;
-    attr.exclude_hv     = 1;
-    attr.read_format    = PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING;
-    long const fd       = ::syscall(__NR_perf_event_open, &attr, /*pid=*/0, /*cpu=*/-1, /*group_fd=*/-1,
-                                    /*flags=*/0UL);
-    if (fd < 0) return false;
-    int const f = static_cast<int>(fd);
     struct LeseForm { // read_format-Layout ohne PERF_FORMAT_GROUP: Wert, dann die zwei Zeiten
         std::uint64_t wert;
         std::uint64_t zeit_aktiv;    // TIME_ENABLED: Event war logisch eingeschaltet
         std::uint64_t zeit_gelaufen; // TIME_RUNNING: Event sass real auf der PMU
     };
-    bool biss = false;
-    for (unsigned fenster = 0; fenster < kPmcKoederFenster; ++fenster) {
-        (void)::ioctl(f, PERF_EVENT_IOC_ENABLE, 0);
+    PmcBissFenster stat;
+    bool           biss = false;
+    for (unsigned f = 0; f < kPmcKoederFenster; ++f) {
+        struct ::perf_event_attr attr;
+        std::memset(&attr, 0, sizeof(attr)); // Muellbits in Reserve-Feldern => EINVAL; immer memset
+        attr.size           = sizeof(attr);
+        attr.type           = ev.type;
+        attr.config         = ev.config;
+        attr.disabled       = 1;
+        attr.exclude_kernel = 1;
+        attr.exclude_hv     = 1;
+        attr.pinned         = 1; // alles-oder-nichts-Scheduling (s. Kopf); Event ist sein eigener Leader
+        attr.read_format    = PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING;
+        long const fd       = ::syscall(__NR_perf_event_open, &attr, /*pid=*/0, /*cpu=*/-1, /*group_fd=*/-1,
+                                        /*flags=*/0UL);
+        if (fd < 0) break; // oeffnet nicht (ENOENT/EACCES/...): fail-closed, kein Wiederholungsgrund
+        int const fdi = static_cast<int>(fd);
+        ++stat.gefahren;
+        (void)::ioctl(fdi, PERF_EVENT_IOC_ENABLE, 0);
         std::uint64_t const koeder = pmc_koeder_pointer_chase();
-        (void)::ioctl(f, PERF_EVENT_IOC_DISABLE, 0);
-        LeseForm   lf{};
-        bool const ok = ::read(f, &lf, sizeof(lf)) == static_cast<::ssize_t>(sizeof(lf));
+        (void)::ioctl(fdi, PERF_EVENT_IOC_DISABLE, 0);
+        LeseForm        lf{};
+        ::ssize_t const n = ::read(fdi, &lf, sizeof(lf));
+        (void)::close(fdi);
         // koeder wird verbraucht, damit der Pointer-Chase nicht wegoptimiert wird (er ist der ganze
-        // Punkt). Werkzeugfehler (read schlaegt fehl) ist fail-closed und KEIN Wiederholungsgrund.
-        if (!ok || koeder == 0xFFFFFFFFFFFFFFFFULL) break;
+        // Punkt). Werkzeugfehler (mmap-Sentinel, harter read-Fehler) sind fail-closed, kein Retry.
+        if (koeder == 0xFFFFFFFFFFFFFFFFULL) break;
+        if (n == 0) { // EOF: pinned-ERROR -- das Event kam in diesem Fenster nie auf die PMU
+            ++stat.unplanbar;
+            continue;
+        }
+        if (n != static_cast<::ssize_t>(sizeof(lf))) break; // harter Lesefehler: Werkzeugfehler
         if (lf.wert > 0) {
-            biss = true; // ein gelaufenes Fenster hat gezaehlt -- der Koeder hat gebissen
+            biss              = true; // gezaehlt ist gezaehlt -- der Koeder hat gebissen
+            stat.voll_fenster = lf.zeit_gelaufen == lf.zeit_aktiv;
             break;
         }
-        if (lf.zeit_gelaufen > 0) break; // gemessen und NICHT gebissen: die ehrliche 0 steht
-        // zeit_gelaufen == 0: Fenster leer (Multiplexing-Verdraengung) -- naechstes Fenster.
+        if (lf.zeit_gelaufen == 0) { // leeres Fenster: keine Messung
+            ++stat.leer;
+            continue;
+        }
+        if (lf.zeit_gelaufen < lf.zeit_aktiv) { // Teil-Fenster: Multiplex-Beweis, KEINE Messung
+            ++stat.teilzeit;
+            continue;
+        }
+        stat.voll_fenster = true; // voll gelaufen und 0 gezaehlt: die ehrliche Absage steht
+        break;
     }
-    (void)::close(f);
+    if (fenster != nullptr) *fenster = stat;
     return biss;
 #else
     (void)ev;
+    if (fenster != nullptr) *fenster = PmcBissFenster{};
     return false;
 #endif
 }
