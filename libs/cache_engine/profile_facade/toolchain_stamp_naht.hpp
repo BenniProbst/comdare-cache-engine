@@ -374,6 +374,32 @@ namespace detail {
 /// (Mechanik und Praezedenz: der `na`-Zellwert der W10-C4-Naht).
 [[nodiscard]] inline bool tier_realversion_ist_bekannt() { return !active_tier_realversion().empty(); }
 
+// -- VO3-1(b) (Owner-KERN X4 25.08.2026): DIE vendoropt-QUELLE DES GLIED-[5]-FELDES --------------------
+//
+// WAS ES IST: die Release-Opt-Stufe der CEB-BAUWELT (global O2; -O3 nur als COMDARE_OPT_O3-Opt-in unter
+// Configure-WARNING) -- also die Stufe, mit der Vendor-Archive (mimalloc static.c), FetchContent-Fremdbau
+// und die Facade selbst uebersetzt sind. Sie ist NICHT die opt_level-Unter-Achse der Tier-Binary (die
+// reist weiter per XML/Planer ueber den opt_flag-Kanal in die Felder opt/opt_flags): zwei Baue derselben
+// Tier-Permutation gegen eine O3- bzw. O2-Vendor-Welt sind verschiedene Artefakte und muessen verschieden
+// fingerprinten -- sonst stiller Skip (Falscher-Skip-Klasse abi/toolchain_stamp_glied.hpp, Kopf).
+//
+// QUELLE: das GLOBALE Configure-Define COMDARE_FACADE_VENDOROPT_ID aus cmake/compiler_flags.cmake --
+// Single-Source mit den CACHE-FORCE-Release-Flags (gehisste Stelle, A-F1). #error statt Default: ein
+// stiller ""-Default waere eine leere Identitaets-Aussage genau der Klasse, die dieses Feld schliesst.
+// Das Makro steht in KEINEM CT-Preimage (kCebFingerprint/kPlanerFingerprint bewegungslos; K17-Beweis
+// test_d4 + Frozen-Anker); der CT-Slot COMDARE_TOOLCHAIN_STAMP_GLIED reist weiter NUR per Tier-rsp.
+#ifndef COMDARE_FACADE_VENDOROPT_ID
+#error "VO3-1: COMDARE_FACADE_VENDOROPT_ID fehlt -- cmake/compiler_flags.cmake definiert sie global (A-F1)"
+#endif
+static_assert(std::string_view{COMDARE_FACADE_VENDOROPT_ID} == std::string_view{"O2"} ||
+                  std::string_view{COMDARE_FACADE_VENDOROPT_ID} == std::string_view{"O3"},
+              "VO3-1: COMDARE_FACADE_VENDOROPT_ID muss 'O2' oder 'O3' sein (id zu _COMDARE_release_opt)");
+
+/// active_vendoropt() -- der Wert des vendoropt-Feldes (Glied [5], Key [9]). Konstant je Bauwelt.
+[[nodiscard]] inline constexpr std::string_view active_vendoropt() noexcept {
+    return std::string_view{COMDARE_FACADE_VENDOROPT_ID};
+}
+
 /// compose_toolchain_stamp_glied_for_perm(achsen) -- DER EINE Renderer-Weg des Glieds [5].
 ///
 /// Die Felder kommen aus der EINEN Suffix-Quelle (SystemVersionSuffixParts + der Konverter
@@ -415,8 +441,10 @@ namespace detail {
     // eine geerbte Version war immer eine Aussage ueber den falschen Compiler.
     std::string const   realversion = active_tier_realversion(); // leer == unbekannt (fail-closed)
     Atomic128Wahl const a128        = active_atomic128_wahl();
-    return ::comdare::cache_engine::abi::render_toolchain_stamp_glied(
-        toolchain_stamp_parts_from_suffix_parts(p, dialekt, realversion, achsen.opt_flags, a128.id, a128.flags));
+    // VO3-1(b): vendoropt kommt aus DERSELBEN Configure-Quelle wie die Release-Flags (A-F1) und speist
+    // ueber DIESEN EINEN Aufruf Perm-Pfad UND Laufzeit-Zwilling (Doktrin oben) -- keine zweite Wahrheit.
+    return ::comdare::cache_engine::abi::render_toolchain_stamp_glied(toolchain_stamp_parts_from_suffix_parts(
+        p, dialekt, realversion, achsen.opt_flags, a128.id, a128.flags, active_vendoropt()));
 }
 
 /// compose_live_toolchain_stamp_glied() -- der RUN-KONSTANTE Wert des Glieds [5] (keine System-Achsen).

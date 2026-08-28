@@ -1,0 +1,49 @@
+# CITATION.cff -- Citation File Format 1.2.0 (https://citation-file-format.github.io/)
+# ASCII-only. The license is a custom one (not on the SPDX list): license-url instead of license.
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below; for the research, cite the thesis (preferred-citation)."
+type: software
+title: "comdare-cache-engine"
+abstract: >-
+  Active Cache-Aware Hardware Adaptation Cache Engine for Trie-Based Index Structures: a C++23
+  framework that permutes search-algorithm, allocator, prefetch and hardware axes at compile time,
+  builds the resulting tier binaries and measures them; Framework module of the diploma thesis of
+  Benjamin-Elias Probst (Technische Universitaet Dresden, 2026).
+authors:
+  - family-names: Probst
+    given-names: Benjamin-Elias
+    affiliation: "Technische Universitaet Dresden"
+  - name: "BEP Venture UG (haftungsbeschraenkt)"
+    alias: "Comdare"
+    country: DE
+license-url: "https://github.com/BenniProbst/comdare-cache-engine/blob/development/LICENSE"
+repository-code: "https://github.com/BenniProbst/comdare-cache-engine"
+keywords:
+  - cache engine
+  - trie
+  - adaptive radix tree
+  - index structures
+  - memory allocator
+  - prefetching
+  - hardware adaptation
+  - C++23
+preferred-citation:
+  type: thesis
+  title: "Active Cache-Aware Hardware Adaptation: Cache Engine for Trie-Based Index Structures"
+  authors:
+    - family-names: Probst
+      given-names: Benjamin-Elias
+      affiliation: "Technische Universitaet Dresden"
+  thesis-type: "Diplomarbeit"
+  institution:
+    name: "Technische Universitaet Dresden"
+    city: Dresden
+    country: DE
+  year: 2026
+notes: >-
+  Licensed under the Comdare Research License, Version 1.0 (SPDX:
+  LicenseRef-Comdare-Research-1.0): source-available, free for research at an institution,
+  separate written license for business and individual use, Apache-2.0 from the Change Date
+  2031-08-10. Rights holder: BEP Venture UG (haftungsbeschraenkt), owner of the registered
+  trademark Comdare. Third-party code under ext/ keeps its own licenses (NOTICE,
+  LICENSE_AUDIT_EXT.md, REUSE.toml).

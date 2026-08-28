@@ -2200,9 +2200,10 @@ TEST(TierCiYamlBuilder, TraceHygieneAndTimeout) {
     EXPECT_EQ(count_occurrences(yaml, "  timeout: 7d"), 4u) << "timeout: 7d an allen 4 Batch-Jobs";
 }
 
-// (S4-d) LaneBudgetLiteralsNoNproc: beide Batch-Typen exportieren COMDARE_BUILD_PARALLEL als Lane-Budget-Literal
-//        (User-Drosselung 23.07. mit GO: amd von 32 auf 24 wegen RAM-Bound/Swap-Thrashing-Evidenz, intel bleibt 24 =>
-//        BEIDE Lanes 24), NIE $(nproc). Die fruehere 32/24-T-Wert-Lesart ist RAM-korrigiert.
+// (S4-d) LaneBudgetLiteralsNoNproc: beide Batch-Typen exportieren COMDARE_BUILD_PARALLEL als Lane-Budget-Literal,
+//        NIE $(nproc). Historie: 23.07. amd 32 -> 24 (User-GO, RAM-Bound/Swap-Evidenz); KON28-01 (Owner 12.08.2026):
+//        HEAVY-Worker-Deckel prod1 24 -> 16 ("es gab Probleme") = Cluster scripts/runner-mode.sh HEAVY_J=16 (prod1);
+//        prod2/intel bleibt HEAVY_J=$(nproc)=24 (i9-12900K, 24 Threads). => amd 16, intel 24 (Nachzug 25.08.2026).
 TEST(TierCiYamlBuilder, LaneBudgetLiteralsNoNproc) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
@@ -2211,14 +2212,29 @@ TEST(TierCiYamlBuilder, LaneBudgetLiteralsNoNproc) {
     director.construct(*tp, tb);
     std::string const& yaml = tb.text();
 
-    // BEIDE Lanes (amd+intel) x 2 Batch-Typen (Build + Mess) => 4x das Lane-Literal "24".
-    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=\"24\""), 4u)
-        << "beide Lanes 24 (amd von 32 gedrosselt, RAM-Bound) x Build+Mess = 4";
+    // Je Export-Zeile das Literal UND die Lane (Label "Lane-Budget <host>" hinter dem Export) lesen: amd x 2
+    // Batch-Typen (Build + Mess) => {"16","16"}, intel x 2 => {"24","24"}. Ein vertauschtes Paar ginge als
+    // blosse 2+2-Zaehlung durch -- deshalb wird je Lane gebunden.
+    auto const lane_budgets = [&yaml](std::string const& lane) {
+        std::vector<std::string> out;
+        std::string const        key = "export COMDARE_BUILD_PARALLEL=\"";
+        for (std::size_t pos = yaml.find(key); pos != std::string::npos; pos = yaml.find(key, pos + key.size())) {
+            std::size_t const eol  = yaml.find('\n', pos);
+            std::string const line = yaml.substr(pos, eol == std::string::npos ? std::string::npos : eol - pos);
+            if (line.find("Lane-Budget " + lane + " ") == std::string::npos) continue;
+            std::size_t const q = line.find('"', key.size());
+            out.push_back(line.substr(key.size(), q == std::string::npos ? std::string::npos : q - key.size()));
+        }
+        return out;
+    };
+    EXPECT_EQ(lane_budgets("amd"), (std::vector<std::string>{"16", "16"}))
+        << "amd: Owner-HEAVY_J 16 (KON28-01, runner-mode.sh prod1) x Build+Mess";
+    EXPECT_EQ(lane_budgets("intel"), (std::vector<std::string>{"24", "24"}))
+        << "intel: HEAVY_J=$(nproc)=24 (runner-mode.sh prod2) x Build+Mess";
+    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=\""), 4u) << "genau 4 Export-Zeilen (2 Lanes x 2)";
     EXPECT_EQ(yaml.find("$(nproc)"), std::string::npos) << "kein $(nproc) (harte Lane-Budget-Literale)";
     EXPECT_EQ(yaml.find("COMDARE_BUILD_PARALLEL=\"32\""), std::string::npos)
-        << "amd 32 auf 24 gedrosselt (RAM-Bound/Swap-Evidenz 23.07.)";
-    EXPECT_EQ(yaml.find("COMDARE_BUILD_PARALLEL=\"16\""), std::string::npos)
-        << "der alte konservative K-Wert 16 ist ersetzt";
+        << "amd 32 auf 24 gedrosselt (RAM-Bound/Swap-Evidenz 23.07.), seit KON28-01 auf 16";
 }
 
 // (DRINGEND, 2026-07-23 Resume-CI-Fix) BatchJobsCarryGnOutPersistenceFlags: BEIDE STUFE-2-Batch-Typen (Build + Mess)
@@ -3654,10 +3670,11 @@ TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
     EXPECT_NE(yaml.find("-DCMAKE_BUILD_TYPE=Release"), std::string::npos) << "measure => statisch Release (j2)";
     EXPECT_EQ(yaml.find("COMDARE_MEASURE_BUILD_TYPE"), std::string::npos) << "kein Runtime-Build-Typ-Branch mehr (j2)";
     EXPECT_EQ(yaml.find("COMDARE_BUILD_TYPE=\"Debug\""), std::string::npos) << "measure=Default => kein +bt-Signal (i)";
-    // S4-§62-B Lane-Budget (User-Drosselung 23.07. mit GO: amd 32->24 wegen RAM-Bound/Swap, intel bleibt 24 => beide
-    // Lanes 24): DLL-Bau parallel mit dem Lane-Literal (24), NICHT mehr $(nproc) und NICHT =1. Beide Lanen praesent.
-    EXPECT_NE(yaml.find("export COMDARE_BUILD_PARALLEL=\"24\""), std::string::npos) << "Lane-Budget 24 (beide Lanes)";
-    EXPECT_EQ(yaml.find("export COMDARE_BUILD_PARALLEL=\"32\""), std::string::npos) << "amd 32 auf 24 gedrosselt";
+    // S4-Lane-Budget: DLL-Bau parallel mit dem Lane-Literal je Host (amd 16 = Owner-HEAVY_J KON28-01, intel 24 =
+    // HEAVY_J nproc prod2), NICHT mehr $(nproc) und NICHT =1. Beide Lanen praesent.
+    EXPECT_NE(yaml.find("export COMDARE_BUILD_PARALLEL=\"16\""), std::string::npos) << "amd-Lane-Budget 16 (KON28-01)";
+    EXPECT_NE(yaml.find("export COMDARE_BUILD_PARALLEL=\"24\""), std::string::npos) << "intel-Lane-Budget 24 (nproc)";
+    EXPECT_EQ(yaml.find("export COMDARE_BUILD_PARALLEL=\"32\""), std::string::npos) << "amd 32 seit 23.07. gedrosselt";
     EXPECT_EQ(yaml.find("$(nproc)"), std::string::npos) << "§62-B: Lane-Budget-T-Wert-Literale ersetzen $(nproc)";
     EXPECT_EQ(yaml.find("export COMDARE_BUILD_PARALLEL=1"), std::string::npos);
     // (h) per-Host-Lanes: amd + intel + Host-Tags (prod1+prod2 messen parallel).
@@ -4355,4 +4372,15 @@ TEST(TierCiYamlBuilder, PinPflichtDeklarationR15ImMessBatch) {
     EXPECT_EQ(yaml.find("taskset"), std::string::npos)
         << "kein job-weites taskset (der parallele DLL-Bau liefe sonst auf der Pin-Menge)";
     EXPECT_EQ(yaml.find("numactl"), std::string::npos) << "kein numactl-Praefix (prod1 ist 1 NUMA-Node)";
+}
+
+// KON28-01-PIN (T-1, 25.08.2026): lane_build_parallelism ist die Single-Source des Lane-Budgets, das die Batch-Jobs als
+// COMDARE_BUILD_PARALLEL exportieren -- und damit den Runner-Wert (CMAKE_BUILD_PARALLEL_LEVEL aus runner-mode.sh heavy)
+// UEBERSCHREIBEN. Die Zahl MUSS deshalb der Owner-Vorgabe folgen, nicht einer Hardware-Heuristik: prod1/amd HEAVY_J=16
+// (Owner 12.08.2026 "Er wird auf 16 heruntergestuft, es gab Probleme"; Cluster scripts/runner-mode.sh v3 Z.44),
+// prod2/intel HEAVY_J=$(nproc)=24 (Z.45; i9-12900K = 24 Threads). Vor dem Nachzug stand hier 24 fuer BEIDE Lanen
+// (Drosselung 23.07., vor KON28-01) -- dieser Test war damit ROT (Koeder-Beleg im Lande-Dossier).
+TEST(ExperimentPlanDirector, LaneBuildParallelismFolgtOwnerHeavyJ) {
+    EXPECT_EQ(planner::lane_build_parallelism("amd"), 16u) << "prod1/amd: KON28-01 HEAVY_J 24 -> 16";
+    EXPECT_EQ(planner::lane_build_parallelism("intel"), 24u) << "prod2/intel: HEAVY_J=$(nproc)=24";
 }

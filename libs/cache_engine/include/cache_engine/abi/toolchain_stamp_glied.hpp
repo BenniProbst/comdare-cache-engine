@@ -28,6 +28,9 @@
 // hoehere Schicht beide Header sehen darf (abi/ zieht nie profile_facade/). atomic128 haengt hinten an: es
 // ist eine Toolchain-Unter-Achse mit eigener Flag-Materialisierung, die im build_version-Suffix nie ein
 // Segment hatte -- als LETZTES Feld bleibt die Praefix-Deckung mit der Suffix-Ordnung exakt.
+// [NACHGEFUEHRT VO3-1(b), 26.08.2026: seit dem vendoropt-Feld haengen ZWEI glied-eigene Felder hinten an
+// (atomic128, danach vendoropt als neues letztes Feld/Key [9]); die Praefix-Deckung der ersten acht
+// Suffix-Segmente bleibt exakt -- der Satz darueber beschreibt den Stand bis 26.08.2026.]
 //
 // DOKTRIN: header-only C++23, ASCII-Kommentare, keine Laufzeit-Erhebung (die WERTE kommen von der CEB
 // herein; dieser Header rendert nur).
@@ -52,7 +55,10 @@ namespace comdare::cache_engine::abi {
 /// Format-Version des Toolchain-Glieds, unabhaengig von kAnatomyFingerprintFormat. Bumpen, sobald sich
 /// Trennzeichen, Feldauswahl oder Feld-Reihenfolge aendern. Ein Bump ist per Konstruktion ein
 /// Fingerprint-Bruch (das Glied steht im Preimage) und erzwingt damit Neubau statt stiller Fehl-Vergleiche.
-inline constexpr std::string_view kToolchainStampGliedFormat = "1";
+/// Historie: "1" bis 26.08.2026; "2" seit VO3-1(b) (Owner-KERN X4 25.08.2026): NEUES letztes Feld
+/// 'vendoropt' ANGEHAENGT (FELDAUSWAHL-Aenderung -> Bump-Pflicht nach genau dieser Doktrin; das
+/// deklarierte Byte-Ereignis -- jede Tier-Binary faellt fail-closed auf Neubau, kein stiller Skip).
+inline constexpr std::string_view kToolchainStampGliedFormat = "2";
 
 // -- NB/CX-3: DIE COMPILER-REAL-VERSIONS-ERHEBUNG, COMPILE-TIME ----------------------------------------
 //
@@ -243,10 +249,11 @@ static_assert(
 
 /// Die Feld-SCHLUESSEL des Glieds, in Renderer-Reihenfolge. Die ersten acht sind byte-gleich
 /// profile_facade::kSuffixSegmentOrder ohne '+' und '=' -- bewiesen dort per static_assert (die Wache kann
-/// nur in der hoeheren Schicht stehen, abi/ darf profile_facade/ nicht sehen).
-inline constexpr std::size_t                                           kToolchainGliedKeyCount = 9;
+/// nur in der hoeheren Schicht stehen, abi/ darf profile_facade/ nicht sehen). atomic128 und (seit
+/// VO3-1(b), 26.08.2026) vendoropt haengen HINTEN an -- glied-eigen, ohne Suffix-Gegenstueck.
+inline constexpr std::size_t                                           kToolchainGliedKeyCount = 10;
 inline constexpr std::array<std::string_view, kToolchainGliedKeyCount> kToolchainGliedKeys     = {
-    "cxx", "opt", "ext", "ceb", "target", "tel", "bt", "gate", "atomic128"};
+    "cxx", "opt", "ext", "ceb", "target", "tel", "bt", "gate", "atomic128", "vendoropt"};
 
 /// Die Glieder des Toolchain-Stempels. LEER heisst IMMER "kein Segment" -- exakt die Regel von
 /// SystemVersionSuffixParts (system_version_suffix.hpp:59-70). Der Aufrufer fuellt nur, was er wirklich weiss;
@@ -276,6 +283,9 @@ inline constexpr std::array<std::string_view, kToolchainGliedKeyCount> kToolchai
 /// ZWEI MASSNAHMEN, beide noetig (die erste allein schuetzt nur diesen einen Einschub):
 ///   (1) cxx_driver steht am FELD-ENDE. Ein NEUES Feld verschiebt damit kein bestehendes mehr -- das ist
 ///       die Ordnungs-Regel, nach der neue Felder ab jetzt angehaengt werden, nicht eingeschoben.
+///       [VO3-1(b), 26.08.2026: genau nach dieser Regel ist vendoropt ANGEHAENGT worden -- cxx_driver
+///       ist damit nicht mehr das LETZTE Feld; die Regel selbst (anhaengen, nie einschieben) traegt
+///       unveraendert weiter, die Wache darunter prueft jetzt 14 Marker.]
 ///   (2) Die Feld-ORDNUNG ist ab hier BEWIESEN, nicht vereinbart: der static_assert unter dem Struct
 ///       belegt jedes Feld positionell mit einem eigenen Marker und liest es benannt zurueck. Wer ein
 ///       Feld einschiebt, umsortiert oder entfernt, bricht COMPILE-HART mit Namen -- statt einen
@@ -294,16 +304,20 @@ struct ToolchainStampParts {
     std::string_view atomic128{};         ///< atomic128-id ("cx16"/"no_cx16")
     std::string_view atomic128_flags{};   ///< die konkreten Flags dieser Option ("-mcx16")
     std::string_view cxx_driver{};        ///< NB2-1: der TIER-Treiber-Tag ("g++-16"), Pflicht wenn Dialekt gesetzt
+    std::string_view vendoropt{};         ///< VO3-1(b): Release-Opt-Stufe der CEB-BAUWELT ("O2"/"O3") --
+                                          ///< Vendor-/Hausbau-Identitaet (mimalloc-Archiv, Facade), NICHT die
+                                          ///< opt_level-Unter-Achse der Tier-Binary (die steht in opt/opt_flags)
 };
 
 /// NB-3/T2-D: die Feld-Ordnungs-Wache (Punkt (2) oben). Sie belegt das Aggregat POSITIONELL und prueft
 /// jedes Feld BENANNT zurueck -- die einzige Form, die eine Verschiebung wirklich bemerkt.
 static_assert(
     [] {
-        ToolchainStampParts const p{"d", "r", "o", "of", "s", "c", "t", "tel", "bt", "g", "a", "af", "drv"};
+        ToolchainStampParts const p{"d", "r", "o", "of", "s", "c", "t", "tel", "bt", "g", "a", "af", "drv", "vo"};
         return p.cxx_dialect == "d" && p.cxx_realversion == "r" && p.opt == "o" && p.opt_flags == "of" &&
                p.simd == "s" && p.ceb == "c" && p.target_isa == "t" && p.telemetry == "tel" && p.build_type == "bt" &&
-               p.gate_contribution == "g" && p.atomic128 == "a" && p.atomic128_flags == "af" && p.cxx_driver == "drv";
+               p.gate_contribution == "g" && p.atomic128 == "a" && p.atomic128_flags == "af" && p.cxx_driver == "drv" &&
+               p.vendoropt == "vo";
     }(),
     "NB-3/T2-D: die Feld-Ordnung von ToolchainStampParts hat sich verschoben. Das Aggregat ist positionell "
     "initialisierbar -- eine Verschiebung belegt bei jedem Bestands-Aufrufer STILL die falschen Felder und "
@@ -453,6 +467,7 @@ inline constexpr std::string_view kToolchainGliedTransportZeichen = " \t\v\f\\\"
     if (!toolchain_wert_ist_wohlgeformt(p.gate_contribution)) return "gate_contribution";
     if (!toolchain_wert_ist_wohlgeformt(p.atomic128)) return "atomic128";
     if (!toolchain_wert_ist_wohlgeformt(p.atomic128_flags)) return "atomic128_flags";
+    if (!toolchain_wert_ist_wohlgeformt(p.vendoropt)) return "vendoropt"; // VO3-1(b): neues Feld, gleiche Wache
     return {};
 }
 
@@ -526,8 +541,9 @@ inline void toolchain_append_axis(std::string& out, std::string_view key, std::s
 ///
 /// Form (Beispiel, voll belegt). Der Stempel ist EINE Zeile -- er steht hier nur des 120-Spalten-Limits
 /// wegen auf zwei Zeilen; die beiden Haelften gehoeren OHNE Trenner und OHNE Leerzeichen aneinander:
-///   tc=1;cxx=gcc:g++-16@1.0.0.c;opt=O3{-O3}@1.0.0.c;ext=avx512;ceb=8.0;bt=Debug;
-///   gate=avx512;atomic128=cx16{-mcx16}@1.0.0.c
+///   tc=2;cxx=gcc:g++-16@1.0.0.c;opt=O3{-O3}@1.0.0.c;ext=avx512;ceb=8.0;bt=Debug;
+///   gate=avx512;atomic128=cx16{-mcx16}@1.0.0.c;vendoropt=O2
+/// (bis 26.08.2026 "tc=1;..." ohne vendoropt-Segment -- Historie, s. Format-Anker oben)
 ///
 /// ALLE Felder leer => "" (die Identitaet). Das ist kein Sonderfall, sondern dieselbe Zusage wie beim
 /// Overlay-Glied und beim Zellwert-Set: ein nicht injizierter Wert veraendert das Preimage NICHT.
@@ -592,6 +608,13 @@ inline void toolchain_append_axis(std::string& out, std::string_view key, std::s
 /// DURCHGESETZT (V2, die Wache im Renderer) -- die zwei Saetze stuetzen sich nicht gegenseitig, jeder
 /// allein wuerde reichen.
 ///
+/// [UEBERHOLT SEIT VO3-1(b) (Owner-KERN X4 25.08.2026), NACHGEFUEHRT 26.08.2026 -- Doku-Doktrin,
+/// nichts geloescht: die Format-Kennung ist jetzt tc=2, weil ein NEUES Feld 'vendoropt' ANGEHAENGT
+/// wurde (FELDAUSWAHL-Aenderung -- exakt der Fall, fuer den die Bump-Doktrin am Format-Anker den Bump
+/// verlangt). Der T2-E-Schluss galt dem NB2-1-FORMWECHSEL des cxx-Feldes OHNE Feldauswahl-Aenderung
+/// und bleibt fuer DIESE Frage richtig; die Frozen-Vektoren bleiben unveraendert (reine
+/// Hash-Konsistenz-Anker in tc=1-Form, Doktrin oben).]
+///
 /// EHRLICHE RESTAUSSAGE: ein Bestands-Artefakt, das die Alt-Form noch TRAEGT (eine vor NB2-1 gebaute
 /// Binary mit eingebautem Define), hasht schlicht anders und mismatcht beim Skip-Gate -- also ein Neubau,
 /// die fail-closed Richtung. Es gibt keinen Weg, auf dem es faelschlich als aktuell gilt.
@@ -625,7 +648,8 @@ inline void toolchain_append_axis(std::string& out, std::string_view key, std::s
             "STILL verworfen -- das Glied behauptete dann eine andere Toolchain als die gebaute. Entweder "
             "das Bezugsfeld nachreichen oder das abhaengige Feld weglassen.");
     std::string felder;
-    // Reihenfolge == kToolchainGliedKeys == kSuffixSegmentOrder (+ atomic128 am Ende).
+    // Reihenfolge == kToolchainGliedKeys == kSuffixSegmentOrder (+ atomic128, seit VO3-1(b) + vendoropt
+    // am Ende -- beide glied-eigen, ohne Suffix-Gegenstueck).
     if (!p.cxx_dialect.empty()) {
         // NB2-1 (R1)/(R2): <dialekt>[-<realversion>]:<treiber-tag>. cxx_driver ist an dieser Stelle
         // garantiert nicht leer -- die Abhaengigkeits-Diagnose oben hat das schon fail-loud gesichert.
@@ -660,6 +684,10 @@ inline void toolchain_append_axis(std::string& out, std::string_view key, std::s
     detail::toolchain_append(felder, kToolchainGliedKeys[7], p.gate_contribution);
     detail::toolchain_append_axis(felder, kToolchainGliedKeys[8], p.atomic128, p.atomic128_flags,
                                   kToolchainAxisVersions[2].version);
+    // VO3-1(b): vendoropt als EINFACHES Feld (wie simd/ceb/bt -- keine Achsen-Version): die Release-
+    // Opt-Stufe der CEB-BAUWELT. LEER => kein Segment (Altform-Vertraeglichkeit exakt nach der
+    // T2-E-Restaussage unten: Alt-Artefakte mismatchen fail-closed am Skip-Gate, kein falscher Skip).
+    detail::toolchain_append(felder, kToolchainGliedKeys[9], p.vendoropt);
     if (felder.empty()) return {}; // IDENTITAET: kein injizierter Wert => kein Byte im Preimage
     std::string out{"tc="};
     out += kToolchainStampGliedFormat;

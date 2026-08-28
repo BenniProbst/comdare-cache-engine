@@ -1122,9 +1122,11 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
     // Rechte-Lage kann sich zwischen zwei Syscalls aendern) und die Emission in sich widerspruechlich
     // machen. Der Befund reist ab hier als Wert im Plan-Kopf.
     //
-    // KOSTEN: ein Pointer-Chase ueber 64 MiB je Event, einmal je Planer-Lauf (gemessen ~20 ms auf prod1
-    // fuer alle vier). Gegen einen Planer-Lauf, der danach eine mehrtaegige Messstrecke emittiert, ist
-    // das nichts -- und es ist der Preis dafuer, dass der Koeder wirklich BEISST statt nur zu oeffnen.
+    // KOSTEN: ein Pointer-Chase ueber 64 MiB je Event, einmal je Planer-Lauf (gemessen 25.08.2026 auf prod1
+    // nach der Koeder-Korrektur: 30-57 ms fuer alle vier; die "~20 ms" vom 10.08. galten dem damals real nur
+    // 128 KiB grossen Koeder, s. measurement/pmc_event_biss.hpp). Gegen einen Planer-Lauf, der danach eine
+    // mehrtaegige Messstrecke emittiert, ist das nichts -- und es ist der Preis dafuer, dass der Koeder
+    // wirklich BEISST statt nur zu oeffnen.
     {
         // COMDARE_PMC_PROBE_AUS=true -- STOERGROESSEN-RIEGEL an der EINEN Erhebungsstelle: die
         // Host-Probe wird NICHT gefahren, der Befund ist der definierte Nicht-Erhebungs-Zustand

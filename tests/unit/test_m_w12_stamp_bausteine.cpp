@@ -1143,7 +1143,7 @@ TEST(MW12StampBausteine, O2ToolchainStampGliedRendersAxesWithFlagsAndVersions) {
     // nie der Tag. Genau ein ':' im Feld -- daran haengt die Zerlegbarkeit (NB2-1-Klebepunkt-Regel).
     EXPECT_EQ(std::count(g.begin(), g.end(), ':'), 1) << "glied='" << g << "'";
     // Der Kopf traegt die Glied-Format-Version; die uebrigen Felder stehen als schlichte Paare.
-    EXPECT_TRUE(g.starts_with("tc=1;")) << "glied='" << g << "'";
+    EXPECT_TRUE(g.starts_with("tc=2;")) << "glied='" << g << "'";
     EXPECT_NE(g.find(";ext=avx512"), std::string::npos);
     EXPECT_NE(g.find(";ceb=8.0"), std::string::npos);
     EXPECT_NE(g.find(";bt=Debug"), std::string::npos);
@@ -1896,7 +1896,7 @@ TEST(MW12StampBausteine, NbCx2ToolchainRendererIstInjektiv) {
     f.cxx_driver      = "g++-13";
     EXPECT_EQ(abi::toolchain_stamp_parts_diagnose(e), std::string_view{"cxx_dialect"});
     EXPECT_THROW((void)abi::render_toolchain_stamp_glied(e), std::invalid_argument);
-    EXPECT_EQ(abi::render_toolchain_stamp_glied(f), std::string{"tc=1;cxx=gcc-13.2.0:g++-13@1.0.0.c"});
+    EXPECT_EQ(abi::render_toolchain_stamp_glied(f), std::string{"tc=2;cxx=gcc-13.2.0:g++-13@1.0.0.c"});
 
     // (4) '@' und '\n' sind ebenso STRUKTUR bzw. Domain-Separator.
     abi::ToolchainStampParts g{};
@@ -1929,11 +1929,12 @@ TEST(MW12StampBausteine, Nb21CxxFeldIstInjektivJeTreiberTag) {
 
     // (1) DER BEFUND SELBST: zwei Treiber, ueber deren Version nichts gedeckt ist. Am Vor-Stand ergaben
     //     beide "tc=1;cxx=gcc@1.0.0.c" -- also denselben Fingerprint fuer zwei verschiedene Compiler.
+    //     (Vor-NB2-1-Zitat; der Glied-KOPF traegt seit VO3-1(b) 26.08.2026 "tc=2" -- Pins = LIVE-Form.)
     std::string const g17 = glied_fuer("g++-17", {});
     std::string const g18 = glied_fuer("g++-18", {});
     EXPECT_NE(g17, g18) << "g17='" << g17 << "' g18='" << g18 << "'";
-    EXPECT_EQ(g17, std::string{"tc=1;cxx=gcc:g++-17@1.0.0.c"});
-    EXPECT_EQ(g18, std::string{"tc=1;cxx=gcc:g++-18@1.0.0.c"});
+    EXPECT_EQ(g17, std::string{"tc=2;cxx=gcc:g++-17@1.0.0.c"});
+    EXPECT_EQ(g18, std::string{"tc=2;cxx=gcc:g++-18@1.0.0.c"});
 
     // (2) Ein Tag OHNE Endziffern nennt keine Version -- er ist trotzdem unterscheidbar.
     EXPECT_NE(glied_fuer("/usr/bin/c++", {}), glied_fuer("g++", {}));
@@ -2313,6 +2314,8 @@ TEST(MW12StampBausteine, T2cUnbekanntHeisstNichtSkipFaehig) {
 // Die Auflage lautete: ERST VERIFIZIEREN, ob die Alt-Form (cxx ohne Treiber-Tag) und die Neu-Form
 // kollidieren koennen -- und NUR falls ja, ein Format-Bump (den der Frozen-Vektor in END-Form teuer
 // macht). Dieser Test fuehrt die Verifikation, statt sie zu behaupten.
+// [VO3-1(b) 26.08.2026: der SPAETERE Bump auf tc=2 kam NICHT aus dieser Frage, sondern aus dem NEUEN
+// Feld vendoropt (Feldauswahl-Aenderung, Bump-Doktrin) -- die V1-V3-Beweise gelten unveraendert.]
 TEST(MW12StampBausteine, T2eTc1AltNeuKollidiertNicht) {
     namespace abi = ::comdare::cache_engine::abi;
 
@@ -2349,9 +2352,11 @@ TEST(MW12StampBausteine, T2eTc1AltNeuKollidiertNicht) {
     EXPECT_EQ(abi::toolchain_stamp_parts_diagnose(boese), std::string_view{"cxx_driver"});
     EXPECT_THROW((void)abi::render_toolchain_stamp_glied(boese), std::invalid_argument);
 
-    // (V4) SCHLUSS: tc=1 bleibt -- die Format-Kennung wurde NICHT gebumpt.
-    EXPECT_EQ(abi::kToolchainStampGliedFormat, std::string_view{"1"});
-    EXPECT_TRUE(g.starts_with("tc=1;"));
+    // (V4) SCHLUSS (Stand T2-E): tc=1 blieb -- die Format-Kennung wurde DAMALS nicht gebumpt.
+    //      [UEBERHOLT seit VO3-1(b) (X4 25.08.2026): tc=2 wegen des NEUEN Feldes vendoropt
+    //      (Feldauswahl-Bump-Doktrin am Format-Anker); die Pins tragen den lebenden Stand.]
+    EXPECT_EQ(abi::kToolchainStampGliedFormat, std::string_view{"2"});
+    EXPECT_TRUE(g.starts_with("tc=2;"));
 }
 
 // -- NB/CX-1: DIE RT-INJEKTIVITAETS-WACHE DER INJIZIERTEN GLIEDER --------------------------------------

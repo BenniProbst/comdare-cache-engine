@@ -40,6 +40,31 @@
 # nicht die Commit-Granularitaet -- er erzwingt Floor-Datei und Registrierung
 # im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
+# -- NACHZUG 2026-08-26 (VO3-1(b)-BRANCH bau/vo3-1-global-o2: GLOBAL O2 + vendoropt-Glied +
+#    OS-2-Gate, DREI NEUE REGISTRIERUNGEN; Change = dieser Branch, Beweisort
+#    ~/backups-workflow/20260825-vo3-1-global-o2/bau/floor/) ---------------------------------
+# 548/544/542 loest 545/541/539 ab. Der Zuwachs ist +3 in JEDER Klasse und stammt
+# vollstaendig aus diesem Branch (alle drei unbedingt registriert, Block am Dateiende
+# von tests/unit/CMakeLists.txt):
+#     test_vo31_global_o2_flags      (T-A: globale Release-Flag-Wache, comdare_add_test)
+#     test_vo31_vendoropt_glied      (T-B: Glied-[5]-Feld vendoropt + tc=2, comdare_add_test)
+#     test_vo31_optflag_gate_probe   (OS-2: Gate-Koeder-Treiber, add_test -P Skript)
+# GEMESSEN, NICHT GERECHNET (KON58-13/A-F3): alle drei Sprossen an DIESEM Baum LIVE erhoben
+# (build-k17-gcc-rel, Abnahme-Form MIT COMDARE_CE_PRUEFLINGE, J-1 SIEBEN Werkzeuge,
+# RECONFIGURE, Vollbau all+facade+comdare_tests, RECONFIGURE2); Zaehlbasis "Total Tests: N",
+# Gegenprobe Listenlaenge == Total (548/548, 544/544, 542/542). ZWEI-SEITIGE comm-GEGENPROBE
+# (LC_ALL=C, beide Richtungen): avx512f->avx2 verliert exakt die dokumentierten VIER,
+# avx2->basis exakt die ZWEI, beide Gegenrichtungen LEER; die 3 Neuen stehen in ALLEN DREI
+# Namensmengen je genau 1x -> +3 auf allen Sprossen, Abstaende -4/-2 unveraendert.
+# WIEDERHERSTELLUNG 'cmake -U' auf BEIDE Variablen: Total wieder 548, Namensliste BYTE-GLEICH,
+# beide Cache-Schalter wieder INTERNAL=1. MESSHOST prod1, GCC, Ninja, 2026-08-26.
+# Messlog: floor-treppe.log + ctestN-*/namen-* im Beweisort oben.
+# LANDE-AUFLAGE (VERIFY-LANDBARKEIT W1 / E-10-E-3-Regel "LANDUNG HARMONISIERT VERTRAEGE"):
+# diese Zahlen gelten am BRANCH-Tip (Basis d3b5a393 = 545/541/539); beim Landen ist die
+# Floor-Datei RELATIV zu harmonisieren (Vorgaenger-Floor + 3; nach bau/pmc-dtlb-koeder
+# 546/542/540 -> Lande-Endstand 549/545/543) und am Merge-Endstand LIVE nachzumessen --
+# der Konflikt an dieser Datei ist dann ERWARTET, kein Unfall.
+#
 # -- NACHZUG 2026-08-22 ABEND (W2-LANDE-ZUG-ENDSTAND 5ddda4e5: 10-Straenge-Merge, ZWANZIG NEUE
 #    REGISTRIERUNGEN; Change = Lande-Merge + dieser Anker-Nachzug im SELBEN Push, Board #131) --
 # 544/540/538 loest 524/520/518 ab. Der Zuwachs ist +20 in JEDER Klasse und stammt
@@ -809,6 +834,49 @@
 #   Tests. WIE GEMESSEN, NICHT GERECHNET: build-l1 (COMDARE_CE_PRUEFLINGE gesetzt),
 #   cmake-Refresh RC=0, 'ctest -N'-Schlusszeile literal "Total Tests: 545".
 #   Messlog: ~/.claude/jobs/5a19728e/tmp/o2merge-reconf.log (Kopie folgt im Beweisort).
+# NACHZUG 25.08.2026 (E07/dtlb-KOEDER-Strang bau/pmc-dtlb-koeder, Diagnose #114-Re-Run; Beweisort
+# backups-workflow/20260825-diagnose-e07/): 546/542/540 loest 545/541/539 ab.
+# KONTO, EIN Name in EINEM Zug (Registrierung und Floor-Zeile im SELBEN Commit, #39-Doktrin):
+#   test_pmc_koeder_geschichtsunabhaengig (Host-Erkennung 4x im selben Prozess + je Event 8 Koeder-
+#     Fenster identisch + Geometrie-Anker 64 MiB / 4096 B / 16384 Seiten; T-1 rot zuerst am alten
+#     128-KiB-Koeder 5/5 Laeufe rc=1, gruen nach dem Fix 5/5; DIESER Change) -- UNBEDINGT registriert
+#     (comdare_add_test auf oberster Ebene am CMakeLists-DATEIENDE, kein ISA-Gate, kein opt-in-Label)
+#     => +1 auf allen drei Sprossen (die im Kopf festgehaltene +1-Regel unbedingter Tests).
+# WIE GEMESSEN, NICHT GERECHNET: avx512f ist die Klasse dieser Maschine (prod1) und wurde LIVE abgelesen --
+# gcc-release, volle Treppe (Frisch-Configure MIT -DCOMDARE_CE_PRUEFLINGE, J-1 SIEBEN Werkzeuge, RECONFIGURE),
+# 'ctest -N'-Schlusszeile literal "Total Tests: 546" (Baum /home/comdare/wt-ce-pmckoeder/build/gcc-release,
+# 25.08.2026 14:38Z). avx2/basis: beide Klassen per cmake erzwungen (-DCOMDARE_HOST_RUNS_AVX512F=0 -> 542;
+# zusaetzlich -DCOMDARE_HOST_RUNS_AVX2=0 -> 540), danach 'cmake -U' auf BEIDE Variablen; Messlog:
+# ~/backups-workflow/20260825-diagnose-e07/logs/floor/ (Sprossenabstaende -4 und -2 unveraendert).
+# LANDE-HARMONISIERUNG 27.08.2026 (Identitaets-Kette lande/identitaet-2708, Merge 3/4:
+#   bau/vo3-1-global-o2 01dc3122 auf den Vorgaenger bau/pmc-dtlb-koeder 20d6dd2c; der
+#   Konflikt an dieser Datei war ERWARTET, s. VO3-1-Nachzug im Kopf dieser Datei): der
+#   VO3-1-Strang-Block nennt 548/544/542 RELATIV zur Basis d3b5a393 (545/541/539, also +3);
+#   am Lande-Stand gilt der Vorgaenger-Anker 546/542/540 (pmc-dtlb-koeder, +1) plus dieselben
+#   drei unbedingten VO3-1-Registrierungen (test_vo31_global_o2_flags, test_vo31_vendoropt_glied,
+#   test_vo31_optflag_gate_probe) => 549/545/543.
+#   PROVISORISCH, LIVE-Messung im Komplex-Fix: diese Zahlen sind RELATIV harmonisiert (Vorgaenger
+#   + Delta), NICHT gemessen. KON58-13/A-F3 verlangt die Messung -- die drei Sprossen sind am
+#   Merge-Endstand mit der vollen Treppe (Frisch-Configure MIT -DCOMDARE_CE_PRUEFLINGE, J-1 SIEBEN
+#   Werkzeuge, RECONFIGURE, all, comdare_tests, RECONFIGURE2, 'ctest -N' Total + Listenlaenge==Total,
+#   comm beidseitig, 'cmake -U'-Wiederherstellung) LIVE nachzumessen; der Messbefund ERGAENZT
+#   diesen Vermerk (nichts loeschen). Beweisort ~/backups-workflow/20260827-lande-reif/ce-landung/.
+#   [UEBERHOLT 27.08.2026 durch den MESSBEFUND unten -- der Vermerk bleibt als Historie stehen.]
+# MESSBEFUND 27.08.2026 (Komplex-Fix A2.1b Stufe 2, lande/identitaet-2708 @ cc85bb91; Beweisort
+#   ~/backups-workflow/20260827-lande-reif/komplex-fix/floor/): 549/545/543 GEMESSEN, NICHT GERECHNET --
+#   das Provisorium ist damit BESTAETIGT (Wertzeilen unveraendert). Volle Treppe am Baum build-k17-gcc-rel
+#   (Abnahme-Form MIT -DCOMDARE_CE_PRUEFLINGE, J-1 SIEBEN Werkzeuge, RECONFIGURE, Vollbau all+facade+
+#   comdare_tests, RECONFIGURE2; gcc-15.3 Release, Ninja, prod1): 'ctest -N' Total 549, Gegenprobe
+#   Listenlaenge==Total 549/549; -DCOMDARE_HOST_RUNS_AVX512F=0 -> 545/545; zusaetzlich
+#   -DCOMDARE_HOST_RUNS_AVX2=0 -> 543/543. comm beidseitig (LC_ALL=C): avx512f->avx2 verliert exakt die
+#   dokumentierten VIER, avx2->basis exakt die ZWEI, beide Gegenrichtungen leer; die vier Lande-Neuen
+#   (test_pmc_koeder_geschichtsunabhaengig, test_vo31_global_o2_flags, test_vo31_vendoropt_glied,
+#   test_vo31_optflag_gate_probe) stehen in allen drei Klassen je genau 1x. 'cmake -U' auf BEIDE
+#   Variablen: Total wieder 549, Namensliste BYTE-GLEICH, beide Cache-Schalter wieder INTERNAL=1.
+#   GEGENPROBE BASIS d3b5a393 in derselben Abnahme-Form (temporaerer Worktree, J-1 + RECONFIGURE):
+#   Total 545 == Basis-Anker 545; comm HEAD vs Basis: nur-HEAD = exakt die vier Lande-Neuen, nur-Basis
+#   leer, 545 gemeinsam. Voller ctest der Zelle: '100% tests passed, 0 tests failed out of 549'.
+#   Messlog: floor-treppe.log + ctestN-*/namen-* + ctestN-basis-d3b5a393.log im Beweisort oben.
 # NACHZUG 27.08.2026 (E-10/#38a2 + #86 ORG-19 BAU-ZUG bau/e10-38a2-org19, Schritt 5 = Konsolidierung;
 #    Designplan 20260825-DESIGNPLAN-E10-38a2-ORG19 (b) Schritt 5 + K-12; Board #133): 549/545/543
 # loest 545/541/539 ab. Der Zuwachs ist +4 in JEDER Klasse und stammt vollstaendig aus den Schritten 1-4
@@ -857,6 +925,32 @@
 # LANDE-HINWEIS (Plan (e) E-3, LANDUNG HARMONISIERT VERTRAEGE): am Lande-Merge-Stand gilt RELATIV
 # "letzter gelandeter Anker + 4" (Vorgaenger-Zuege vo3-1 548/544/542, pmc-dtlb-koeder 546/542/540 fuehren
 # eigene Nachzuege; der Lead harmonisiert im Merge-Commit und misst EINMAL live).
-avx512f 549
-avx2 545
-basis 543
+# LANDE-HARMONISIERUNG 28.08.2026 (E-10-Zug bau/e10-38a2-org19, SCHRITT 7: Merge origin/development
+#   e5cc566d [Identitaets-Kette lande/identitaet-2708 GELANDET] in den E-10-Branch, Designplan (e) E-3
+#   "LANDUNG HARMONISIERT VERTRAEGE" + R-9; der Konflikt an dieser Datei war ERWARTET und deklariert,
+#   s. LANDE-HINWEIS im E-10-NACHZUG oben): beide Seiten trugen 549/545/543 fuer VERSCHIEDENE Vierergruppen
+#   (Lande-Kette: test_pmc_koeder_geschichtsunabhaengig + drei test_vo31_*; E-10: die vier E-10-Namen oben);
+#   die UNION am Merge-Stand ist 545 + 4 + 4 => 553/549/547. Beide Vermerk-Bloecke bleiben stehen
+#   (Reihenfolge = Lande-Reihenfolge; nichts geloescht).
+# WIE GEMESSEN, NICHT GERECHNET (KON58-13), ALLE DREI SPROSSEN LIVE am MERGE-STAND (Worktree
+#   /home/comdare/wt-ce-e10, Merge-Arbeitsbaum b582f779 x e5cc566d, Baum build-gcc-rel in CI-FORM:
+#   COMDARE_CE_PRUEFLINGE + J-1 SIEBEN Werkzeuge + RECONFIGURE, Registrierungs-Protokoll 0x UEBERSPRUNGEN):
+#   'ctest -N'-Schlusszeile literal "Total Tests: 553"; avx2 per -DCOMDARE_HOST_RUNS_AVX512F=0 -> 549;
+#   basis zusaetzlich -DCOMDARE_HOST_RUNS_AVX2=0 -> 547; je Gegenprobe Listenlaenge == Total
+#   (553/553, 549/549, 547/547); LC_ALL=C comm beidseitig: avx512f->avx2 verliert exakt die dokumentierten
+#   VIER, avx2->basis exakt die ZWEI, beide Gegenrichtungen LEER; alle ACHT neuen Namen (4 E-10 + 4 Lande)
+#   je genau 1x in allen drei Klassen; 'cmake -U' Restore: Total wieder 553, Namensliste BYTE-GLEICH,
+#   beide Cache-Schalter wieder INTERNAL=1.
+# ALT-LISTEN-GEGENPROBE (fremde Nenner, beidseitig): gegen die E-10-eigene 549er-Liste (s6-k17/floor/
+#   namen-avx512f.txt @ b582f779) = nur-HEAD exakt die 4 Lande-Neuen, Gegenrichtung leer, 549 gemeinsam;
+#   gegen die Komplex-Fix-549er-Liste (20260827-lande-reif/komplex-fix/floor/namen-avx512f.txt @ Lande-
+#   Stand) = nur-HEAD exakt die 4 E-10-Neuen, Gegenrichtung leer, 549 gemeinsam.
+# GATE-5-KOEDER (T-1 rot-zuerst): VOR diesem Nachzug am Merge-Arbeitsbaum literal "ROT am GATE [5/6]
+#   FLOOR-SCANNER -- Inventur 553 UEBER Anker 549 -- Floor-Nachzug fehlt (#39: alle drei Sprossen im
+#   SELBEN Change)" (Exit 1) + coverage_guard "FEHLER: FLOOR-NACHZUG FEHLT" -- danach GRUEN (exakt).
+# MESSHOST prod1, GCC 15.3.0 (/usr/bin/g++), Ninja, 2026-08-28. Messlogs:
+#   ~/backups-workflow/20260825-e10-designplan/bau/s7-floor/ (treppe/floor-treppe.log, ctestN-*.log,
+#   namen-*.txt, alt-listen-gegenprobe.log, reconf-merge-stand.out) + bau/t1-rot/R17-s7-floor-gate5-rot.log.
+avx512f 553
+avx2 549
+basis 547

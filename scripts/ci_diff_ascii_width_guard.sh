@@ -61,10 +61,12 @@
 #   * Sie prueft nur den DIFF-BEREICH, nicht den Gesamtbestand -- Alt-Zeilen,
 #     die nur durch reines Whitespace-Reformatieren zu "+"-Zeilen werden,
 #     zaehlt sie trotzdem (kein `git diff -w`); das ist Aufrufer-Sache.
-#   * Sie prueft ALLES ausser zwei ausdruecklich benannten VOLL-Ausnahmen (s.
+#   * Sie prueft ALLES ausser drei ausdruecklich benannten VOLL-Ausnahmen (s.
 #     skip_grund() unten): deutsche Doku-Prosa (*.md) traegt per Sprachdoktrin
-#     korrekte Umlaute, und Vendor-Baeume mit COMDARE-VENDOR-PROVENANCE.md sind
-#     fremder Quelltext, den niemand umschreiben darf. Dazu EINE NUR-BREITEN-
+#     korrekte Umlaute, Vendor-Baeume mit COMDARE-VENDOR-PROVENANCE.md sind
+#     fremder Quelltext, den niemand umschreiben darf, und LICENSES/*.txt sind
+#     wortgetreue Lizenztexte (REUSE 3.3; dritte Ausnahme seit 27.08.2026,
+#     Begruendung unten in skip_grund()). Dazu EINE NUR-BREITEN-
 #     Ausnahme (16.08.2026, Begruendung unten im eigenen Abschnitt): *.xml wird
 #     auf ASCII geprueft, aber nicht auf Spaltenbreite. Ausgenommene Zeilen werden
 #     trotzdem GEZAEHLT und ihre Dateien NAMENTLICH samt GRUND gemeldet, damit
@@ -681,8 +683,10 @@ awk -v vendor_roots="$_ce_vendor_roots" '
     }
     # BLACKLIST statt Endungs-WHITELIST (10.08.2026, s. Kopf). Rueckgabe: die
     # leere Zeichenkette heisst GEPRUEFT, jede andere ist der GRUND der Ausnahme
-    # und wird im Nenner je Datei mitgedruckt. Genau ZWEI Gruende sind zulaessig;
-    # wer einen dritten braucht, aendert diese Funktion und begruendet ihn hier.
+    # und wird im Nenner je Datei mitgedruckt. Genau DREI Gruende sind zulaessig
+    # (der dritte, LICENSES/*.txt, seit 27.08.2026 -- Begruendung unten in der
+    # Funktion); wer einen weiteren braucht, aendert diese Funktion und
+    # begruendet ihn hier.
     #
     # WARUM DIE RICHTUNG ZAEHLT: eine Whitelist muss jede zu pruefende Endung
     # kennen und schweigt ueber jede neue -- sie faellt zur falschen Seite aus.
@@ -703,6 +707,20 @@ awk -v vendor_roots="$_ce_vendor_roots" '
         # Das ist die urspruengliche und weiterhin richtige Begruendung -- sie
         # galt nie fuer Quelltext, der nur zufaellig nicht auf der Liste stand.
         if (ext == ".md") return "Doku-Prosa *.md, Sprachdoktrin"
+        # LIZENZTEXT-AUSNAHME (27.08.2026, ce-Lande-Zug lande/identitaet-2708, am Objekt
+        # gemessen): der REUSE-3.3-Einzug (bau/a5-reuse, 8c861759) brachte 28 Lizenztexte
+        # LICENSES/*.txt; das kumulative Gate ueber den Landebereich d3b5a393..60d997a6
+        # (21 Commits, 4374 geprueft) meldete 804 Verstoesse in 21 Dateien, davon 795 in 18
+        # dieser Lizenztexte (190 Nicht-ASCII + 605 Breite) -- WORTGETREUE Rechtstexte
+        # (SPDX-Listentexte GPL/LGPL/CC-BY/Apache, die Comdare-eigenen LicenseRef-EULAs mit
+        # Umlauten), die niemand umbrechen oder transliterieren darf: ihre Richtigkeit
+        # prueft reuse lint (Spec 3.3), nicht diese Wache. Die uebrigen 9 (eigene Dateien
+        # .gitleaks.toml/REUSE.toml/CITATION.cff) wurden UMBROCHEN, nicht ausgenommen.
+        # NUR das Wurzel-Verzeichnis LICENSES/ und NUR *.txt: derselbe Text ausserhalb
+        # (Selbsttest-Fall 20) und eine .sh in LICENSES/ (Fall 21) beissen weiter; Fall 19
+        # pinnt die Ausnahme selbst. NICHT still: die Datei wird im Verdikt MIT GRUND genannt.
+        if (substr(fname, 1, 9) == "LICENSES/" && ext == ".txt")
+            return "Lizenztext LICENSES/*.txt, REUSE 3.3 wortgetreu"
         return ""
     }
     # NUR-BREITEN-AUSNAHME (16.08.2026, Begruendung im Kopf): *.xml. Rueckgabe
@@ -898,8 +916,9 @@ echo "NENNER (nie eine nackte Null):"
 echo "  ${_ce_scoped} Zusatzzeilen in selbst verfasstem Code geprueft, davon ${_ce_ascii} Nicht-ASCII,"
 echo "  davon ${_ce_width} ueber 120 Spalten."
 echo "  ${_ce_added} Zusatzzeilen insgesamt im Diff; ${_ce_skipped} davon uebersprungen."
-echo "  GEPRUEFT WIRD ALLES; VOLL ausgenommen sind genau zwei Klassen, je Datei"
-echo "  unten mit GRUND benannt: Doku-Prosa *.md und Vendor-Baeume. *.xml ist NUR"
+echo "  GEPRUEFT WIRD ALLES; VOLL ausgenommen sind genau drei Klassen, je Datei"
+echo "  unten mit GRUND benannt: Doku-Prosa *.md, Vendor-Baeume und Lizenztexte"
+echo "  LICENSES/*.txt (REUSE 3.3, seit 27.08.2026). *.xml ist NUR"
 echo "  von der BREITEN-Regel frei (16.08.2026, s. Kopf) und bleibt ASCII-geprueft."
 echo "  Die frueher hier gedruckte Sammelbezeichnung \"(Doku-Prosa/Sonstiges)\" war"
 echo "  irrefuehrend -- darunter lagen 143 getrackte *.sh mit 10.084 Zeilen Quelltext."
