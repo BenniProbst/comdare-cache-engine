@@ -87,6 +87,10 @@ struct PlanRegistrySource {
     std::string engine; // comdare_axis_registry @engine (cache_engine / cache_engine_system / ..._measurement)
     std::size_t axis_count     = 0; // Zahl der Angebots-Achsen
     std::size_t baustein_count = 0; // Zahl der Angebots-Bausteine (Summe ueber die Achsen)
+    // E-10/ORG-19 (D-6): davon *_meta_meta-Achsen (Organ heute 1: disk_io). Der Plan-Kopf rendert die
+    // Organ-Quelle als "<komposition>+<meta_meta>_meta_meta" -- das DEKLARIERTE 18+1-Textdelta (R-5/F-6;
+    // kein E07-Pflicht-Literal pinnt diese Zeile, A-12 der Stempel-Lens).
+    std::size_t meta_meta_axis_count = 0;
 };
 
 /// Der Plan-Kopf annotiert mit den DREI Angebots-Quellen (Ledger §28/§30: Mess->Planer / System->CEB / Organ->Tier).
@@ -443,7 +447,8 @@ inline void emit_ci_dual_clang_twin(std::string& s, PmcHostBefund const& pmc_bef
 //      source_kind=<thesis|experiment>
 //      profile_id=<id>
 //      profile axes=<n> values=<m>          (v1.1: profil-seitige Substanz, additiv)
-//      registry_trio loaded=<0|1> organ=<engine> organ_axes=<n> organ_offers=<n> system=... measurement=...
+//      registry_trio loaded=<0|1> organ=<engine> organ_axes=<komposition>+<mm>_meta_meta (E-10 18+1)
+//                    organ_offers=<n> system=... measurement=...
 //      perm_count=<n>
 //      perm <i> opt=<id> simd=<id> opt_flag=<f> march_flag=<f> build_version_suffix=<s>
 //        step <j> kind=<k> label=<l> merge=<m> binary_id=<b> series=<s> pruefling_type=<p> lebewesen=<le>
@@ -460,8 +465,9 @@ public:
         out_ += "profile axes=" + std::to_string(h.profile_axis_count) +
                 " values=" + std::to_string(h.profile_value_count) + "\n";
         out_ += "registry_trio loaded=" + std::string(h.registries.loaded ? "1" : "0") +
-                " organ=" + nz(h.registries.organ.engine) +
-                " organ_axes=" + std::to_string(h.registries.organ.axis_count) +
+                " organ=" + nz(h.registries.organ.engine) + " organ_axes=" +
+                std::to_string(h.registries.organ.axis_count - h.registries.organ.meta_meta_axis_count) + "+" +
+                std::to_string(h.registries.organ.meta_meta_axis_count) + "_meta_meta" +
                 " organ_offers=" + std::to_string(h.registries.organ.baustein_count) +
                 " system=" + nz(h.registries.system.engine) +
                 " system_axes=" + std::to_string(h.registries.system.axis_count) +
@@ -1979,7 +1985,12 @@ make_planer_block_reservation(std::string owner_uuid, std::size_t seq, std::stri
 [[nodiscard]] inline PlanRegistrySource make_plan_registry_source(tlz::RegistryContents const& rc) {
     std::size_t bausteine = 0;
     for (auto const& [axis, names] : rc.axis_names) bausteine += names.size();
-    return PlanRegistrySource{rc.engine, rc.axis_names.size(), bausteine};
+    // E-10 (D-6): *_meta_meta-Kategorien zaehlen (organ_meta_meta heute 1; die Mess-Registry traegt
+    // measurement_meta_meta=load_framework -- gerendert wird der Aufriss NUR fuer die Organ-Quelle).
+    std::size_t meta_metas = 0;
+    for (auto const& [axis, kat] : rc.axis_categories)
+        if (kat.size() >= 10 && kat.compare(kat.size() - 10, 10, "_meta_meta") == 0) ++meta_metas;
+    return PlanRegistrySource{rc.engine, rc.axis_names.size(), bausteine, meta_metas};
 }
 [[nodiscard]] inline PlanRegistryTrioAnnotation make_plan_registry_annotation(tlz::RegistryTrio const& trio) {
     PlanRegistryTrioAnnotation a;

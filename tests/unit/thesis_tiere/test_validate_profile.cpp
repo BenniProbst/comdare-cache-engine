@@ -286,8 +286,11 @@ std::optional<tlz::RegistryTrio> real_trio() {
 TEST(ResolveAxisRefsAgainstTrio, RealTrioIs18_3_16WithCanonicalAxes) {
     auto const trio = real_trio();
     ASSERT_TRUE(trio.has_value()) << "die 3 committeten Art-Registries muessen als comdare_axis_registry lesbar sein";
-    EXPECT_EQ(trio->organ_axis_count(), 18u)
-        << "Organ-golden: 18 Kompositions-Achsen (isa raus INC-2d; persistence_target dazu STRUKT-R ORG-18)";
+    EXPECT_EQ(trio->organ_axis_count(), 19u)
+        << "E-10/ORG-19 (18+1 nach H-23 C.1): 18 Kompositions-Achsen + 1 Organ-Meta-Meta (disk_io) im "
+           "Angebot; der binary_id-Nenner bleibt 18 (organ_composition_axis_count)";
+    EXPECT_EQ(trio->organ_composition_axis_count(), 18u)
+        << "der binary_id-Nenner: GENAU die 18 Kompositions-Achsen (organ_composition_axis_count, D-6)";
     EXPECT_EQ(trio->system_axis_count(), 3u)
         << "A3 (O-8 Schritt 4): GENAU DREI System-Haupt-Achsen (target_isa, operating_system, "
            "external_utils). compiler und scheduling sind Unter-Achsen geworden, load_framework hat den "
@@ -330,6 +333,24 @@ TEST(ResolveAxisRefsAgainstTrio, MisplacedSystemAxisIsVCategoryWithCoordinate) {
     EXPECT_NE(rep.rejects[0].message.find("target_isa"), std::string::npos) << "Koordinate in der Meldung";
     EXPECT_NE(rep.rejects[0].message.find("build_system_axis_levels"), std::string::npos) << "Routing-Ziel benannt";
     EXPECT_NE(rep.rejects[0].message.find("cache_engine_system"), std::string::npos) << "Angebots-Registry benannt";
+}
+
+// (P2b) E-10/ORG-19 k4-KOEDER (T-1 rot-zuerst, 26.08.2026): eine ORGAN-META-META-Achse (disk_io) in
+//       Organ-POSITION ist kein Kompositions-Slot -- der Resolver muss LAUT rejecten statt still zu
+//       passieren (D-6: Reject-Code V-META-META-POSITION). Vor Schritt 1e steht disk_io in KEINER
+//       Registry -> V-UNREG-AXIS statt V-META-META-POSITION = ROT (Koeder-Biss).
+TEST(ResolveAxisRefsAgainstTrio, MetaMetaRefInOrganPositionRejectsLoud) {
+    auto const trio = real_trio();
+    ASSERT_TRUE(trio.has_value());
+    tlz::ResolverReport const rep = tlz::resolve_axis_refs_against_trio({"disk_io"}, *trio);
+    EXPECT_TRUE(rep.resolved);
+    EXPECT_FALSE(rep.ok);
+    ASSERT_EQ(rep.rejects.size(), 1u);
+    EXPECT_EQ(rep.rejects[0].code, "V-META-META-POSITION")
+        << "disk_io ist eine Organ-Meta-Meta (category=organ_meta_meta) und darf nicht als "
+           "Kompositions-Achse aufgeloest werden";
+    EXPECT_EQ(rep.rejects[0].ref, "disk_io");
+    EXPECT_NE(rep.rejects[0].message.find("organ_meta_meta"), std::string::npos);
 }
 
 // (P3) POSITIV: ein organ-reines Profil (nur Organ-Achsen + Organ-Sonderzweig-Unter-Achsen) -> 0 Rejects, ok=true.

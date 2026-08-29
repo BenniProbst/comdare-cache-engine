@@ -12,6 +12,14 @@
 // unveraendert; heute deklariert kein Organ required-Flags). Erst ein Organ, das required-Flags deklariert,
 // aktiviert das Gate.
 //
+// E-10/ORG-19 SCHRITT 3 (26.08.2026, Designplan 20260825-DESIGNPLAN-E10-38a2-ORG19), supersedierend zum
+// Absatz oben: die Organ-Seite des Docks wird PER BINARY gebildet, nicht mehr global. Der fruehere
+// globale Hook active_organ_required() (leere Vereinigung ueber alle Organ-Klassen) ist ENTFERNT; an
+// seine Stelle treten organ_required_for_axes/organ_meaningful_for_axes (Aggregation ueber die
+// (achse,wert)-Paare EINER Binary, 18+1-Register inkl. Organ-Meta-Meta) und gate_for_binary = DER EINE
+// Helfer fuer Orchestrator-Admission, CompileFn-Naht (job.binary_id -> ceb_parse_path) und den
+// Glied-[5]-/Suffix-Kanal. Der C-3a-TRIPWIRE ist zur POSITIVEN Zusage gedreht (Umschlag unten).
+//
 // FEHLERKLASSEN (an das bestehende measurement/axis_error.hpp angedockt, KEINE neue Taxonomie): eine Verletzung
 // ist D1 CompilerCompilerErrorClass (Log, Experiment misst weiter -- kein Abbruch):
 //   - HardwareErweiterungFehlt: required-Flag NICHT in der Maschinen-Signatur (Section 37: Organ <= Freigabe verletzt).
@@ -41,6 +49,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace comdare::cache_engine::measurement {
@@ -255,27 +264,31 @@ inline void reset_active_machine_declaration_for_test() {
     s.latched.store(false, std::memory_order_release);
 }
 
-// -- Hook 1/3: die AKTIVEN Organ-Anforderungen ----------------------------------------------------
-// Die Fassaden-Naht kennt KEINEN Organ-Kontext (sie sieht nur opt_flag + march_flag), der per-Binary
-// genaue Weg liegt allein im Orchestrator (aggregate_required_for_axes ueber spec.axes). Dieser Hook
-// ist deshalb die VEREINIGUNG ueber alle Organ-Klassen. Sie ist heute nachweislich LEER -- und solange
-// sie leer ist, IST {} exakt die Vereinigung. Der Tripwire darunter erzwingt, dass diese Gleichung gilt.
-[[nodiscard]] inline std::span<SimdFeatureFlag const> active_organ_required() noexcept { return {}; }
-
-namespace detail {
-[[nodiscard]] consteval std::size_t organ_required_union_size() {
-    std::size_t n = 0;
-    for (auto const& e : kSimdOrganRequirement) n += e.required.size();
-    return n;
+// -- Hook 1/3: die Organ-Anforderungen PER BINARY (E-10 Schritt 3a) -------------------------------
+// HISTORIE (supersedierend fortgeschrieben, nie geloescht): bis E-10 stand hier der globale Hook
+// active_organ_required() -- die leere VEREINIGUNG ueber alle Organ-Klassen, compile-hart bewacht vom
+// C-3a-TRIPWIRE ("jede Binary bekaeme die Flags, auch die, die das Organ gar nicht nutzt"). Seit dem
+// 18+1-Register (organ_meta_meta_requirement.hpp) waere ein globaler Hook genau die Klasse Fehler, die
+// der Tripwire ankuendigte: ein IO-Traeger-Glied stempelte/gatete JEDE Binary. Der Hook ist deshalb
+// ENTFERNT (kein Alias, kein Wrapper -- jeder Aufrufer bricht LAUT) und durch die per-Binary-Formen
+// ersetzt: die Aggregation laeuft ueber die (achse,wert)-Paare EINER Binary (Kern in
+// simd_organ_requirement.hpp, vereinigt 18er-Tabelle UND Meta-Meta-Zeile des Traeger-Paares).
+[[nodiscard]] inline std::vector<SimdFeatureFlag>
+organ_required_for_axes(std::span<std::pair<std::string, std::string> const> binary_axes) {
+    return aggregate_required_for_axes(binary_axes);
 }
-} // namespace detail
-static_assert(detail::organ_required_union_size() == 0,
-              "C-3a-TRIPWIRE: ein Organ deklariert jetzt required-Flags, damit ist active_organ_required() "
-              "als leere Vereinigung FALSCH. Die globalen Hooks sind eine VEREINIGUNG ueber alle "
-              "Organ-Klassen -- jede Binary bekaeme die Flags, auch die, die das Organ gar nicht nutzt. "
-              "Per-Binary-Genauigkeit noetig: der Orchestrator-Weg (build_orchestrator.hpp "
-              "aggregate_required_for_axes, Bauplan D3.4 UNBERUEHRT) braucht VOR der ersten "
-              "required-Deklaration einen eigenen Owner-Paket-Entscheid.");
+[[nodiscard]] inline std::vector<SimdFeatureFlag>
+organ_meaningful_for_axes(std::span<std::pair<std::string, std::string> const> binary_axes) {
+    return aggregate_meaningful_for_axes(binary_axes);
+}
+
+static_assert(detail::probe_per_binary_aggregation_ist_exakt(),
+              "C-3a-UMSCHLAG (25.08.2026): die required-Vereinigung wird PER BINARY ueber "
+              "aggregate_required_for_axes gebildet (Orchestrator-Admission, CompileFn-Naht, "
+              "Laufzeit-Zwilling aus EINEM Helfer gate_for_binary); die consteval-Probe belegt: "
+              "Achsen MIT Meta-Meta-Traeger -> Probe-Menge, OHNE -> leer. Ein globaler Hook "
+              "existiert nicht mehr. (TRIPWIRE-UMSCHLAG-Muster: zur POSITIVEN Zusage gedreht, "
+              "nicht geloescht.)");
 
 // -- Hook 2/3: die Sinnhaftigkeits-Obergrenze -----------------------------------------------------
 // Anders als die required-Seite ist die Sinnhaftigkeits-Matrix NICHT leer. Die Vereinigung wird daher
@@ -311,6 +324,9 @@ namespace detail {
 /// Die Vereinigung der Sinnhaftigkeits-Mengen aller Organ-Klassen (dedupliziert, compile-time).
 inline constexpr auto kSensibilityUnion = detail::make_sensibility_union();
 
+/// E-10 Schritt 3a: BLEIBT als VOLLMENGEN-Auskunft (die globale Obergrenze ueber alle Organ-Klassen),
+/// wird aber am Dock nicht mehr verwendet -- die Dock-Eingabe ist seit E-10 die per-Binary-Obergrenze
+/// organ_meaningful_for_axes (Hook 2/3 per Binary, Sinnhaftigkeit der Achsen DIESER Binary).
 [[nodiscard]] inline std::span<SimdFeatureFlag const> active_organ_meaningful() noexcept {
     if constexpr (!kSimdGateArmed) return {};
     return kSensibilityUnion;
@@ -337,10 +353,13 @@ inline constexpr auto kSensibilityUnion = detail::make_sensibility_union();
 
 // Die einzelnen -m-Flags, die das Gate an der CompileFn-Naht fuer die gegebene Grob-Route beisteuert.
 // Freigegeben -> die effektiven Flags; NotApplicable/Abgelehnt -> LEER (CompileFn byte-identisch). Heute stets leer.
-[[nodiscard]] inline std::vector<std::string> gate_extra_march_flags_for_build(SimdRoute   route,
-                                                                               SimdDialect dialect = SimdDialect::Gpp) {
-    SimdGateResult const r =
-        pruef_dock(active_organ_required(), active_organ_meaningful(), active_machine_signature(), route, dialect);
+// E-10 Schritt 3a: die alte parameterlose Form (globale Hooks) ist ENTFERNT -- required/meaningful kommen
+// als PER-BINARY-Aggregate herein (organ_required_for_axes/organ_meaningful_for_axes der Binary-Achsen).
+[[nodiscard]] inline std::vector<std::string>
+gate_extra_march_flags_for_build(std::span<SimdFeatureFlag const> organ_required,
+                                 std::span<SimdFeatureFlag const> organ_meaningful, SimdRoute route,
+                                 SimdDialect dialect = SimdDialect::Gpp) {
+    SimdGateResult const r = pruef_dock(organ_required, organ_meaningful, active_machine_signature(), route, dialect);
     return effective_march_flags(r, dialect);
 }
 
@@ -377,6 +396,15 @@ inline constexpr auto kSensibilityUnion = detail::make_sensibility_union();
 // Segment ist damit die wahre Aussage "das Gate hat nichts beigetragen", nicht eine fehlende Aussage.
 // Wer den Wert befuellen will, braucht laut Tripwire-Text zuerst den Owner-Paket-Entscheid.]
 //
+// [E-10/ORG-19 SCHRITT 3 (26.08.2026), supersedierend zum Absatz direkt darueber: active_organ_required()
+// und der alte Tripwire existieren nicht mehr -- der Umschlag oben ist die POSITIVE per-Binary-Zusage.
+// Die FLAGS entstehen seither PER BINARY in der per-Job-CompileFn (job.binary_id -> ceb_parse_path ->
+// gate_for_binary); der Glied-[5]-/Suffix-WERT bleibt per Perm DURCHGEREICHT (T2-B-Naht-Doktrin) und
+// traegt die leere INVARIANTE des EINEN Helfers: er ist fuer JEDE Binary compile-hart identisch leer
+// (produktions_required_aggregat_ist_heute_leer, simd_organ_requirement.hpp). Die erste ECHTE
+// required-Deklaration bricht dort den Bau und erzwingt den per-Binary-Nachzug des Glied-Kanals;
+// zusaetzlich bricht die per-Job-CompileFn fail-closed, wenn ihr Beitrag nicht im Glied steht.]
+//
 // STABILITAET: die Ausgabe ist SORTIERT (nach cpuinfo-Namen), damit sie nicht von der Katalog- oder
 // Signatur-Reihenfolge abhaengt -- eine Stempel-Variable darf nicht wackeln, wenn jemand eine
 // Tabellen-Zeile verschiebt. LEERER String = das Gate hat nichts beigetragen (heutiger Stand).
@@ -394,17 +422,65 @@ inline constexpr auto kSensibilityUnion = detail::make_sensibility_union();
     return out;
 }
 
-[[nodiscard]] inline std::string gate_contribution_identity_text(SimdRoute   route,
+// E-10 Schritt 3a: parametrisierte Form (per-Binary-Aggregate herein; alte Route-only-Form ENTFERNT).
+[[nodiscard]] inline std::string gate_contribution_identity_text(std::span<SimdFeatureFlag const> organ_required,
+                                                                 std::span<SimdFeatureFlag const> organ_meaningful,
+                                                                 SimdRoute                        route,
                                                                  SimdDialect dialect = SimdDialect::Gpp) {
-    return format_gate_contribution(gate_extra_march_flags_for_build(route, dialect));
+    return format_gate_contribution(gate_extra_march_flags_for_build(organ_required, organ_meaningful, route, dialect));
 }
 
-/// Traegt das Gate auf IRGENDEINER Route etwas bei? Die eine Frage, die der Stempel-/Sidecar-Weg
-/// stellen muss, bevor er ein Segment anlegt. Heute: nein.
-[[nodiscard]] inline bool gate_contributes_anything(SimdDialect dialect = SimdDialect::Gpp) {
+/// Traegt das Gate fuer DIESE per-Binary-Aggregate auf irgendeiner Route etwas bei? Die eine Frage,
+/// die der Stempel-/Sidecar-Weg stellen muss, bevor er ein Segment anlegt. Heute: nein.
+/// E-10 Schritt 3a: ersetzt gate_contributes_anything() (globale Hooks; ENTFERNT).
+[[nodiscard]] inline bool gate_contributes_for(std::span<SimdFeatureFlag const> organ_required,
+                                               std::span<SimdFeatureFlag const> organ_meaningful,
+                                               SimdDialect                      dialect = SimdDialect::Gpp) {
     for (auto route : {SimdRoute::NoExtension, SimdRoute::Avx2, SimdRoute::Avx512})
-        if (!gate_extra_march_flags_for_build(route, dialect).empty()) return true;
+        if (!gate_extra_march_flags_for_build(organ_required, organ_meaningful, route, dialect).empty()) return true;
     return false;
+}
+
+// =================================================================================================
+// E-10/ORG-19 SCHRITT 3 -- gate_for_binary: DER EINE HELFER DES PER-BINARY-GATE-WEGS
+// =================================================================================================
+// Aus den (achse,wert)-Paaren EINER Binary (job.binary_id -> ex::ceb_parse_path) werden required und
+// meaningful per Binary aggregiert (18+1-Register: 18er-Tabelle + Organ-Meta-Meta-Zeile des
+// Traeger-Paares) und durch das Pruef-Dock zu {flags, identity_text} verdichtet. Flags und Text
+// stammen aus DEMSELBEN Aufruf -- CompileFn-Naht (rsp-Zeile), Glied [5] und build_version-Suffix
+// koennen damit nicht auseinanderlaufen. Heute (beide Register ohne required) sind beide Felder fuer
+// JEDE Binary leer -> byte-neutral; nur der RECHENWEG ist per Binary (Designplan a.5 B-3).
+struct SimdGateBinaryContribution {
+    std::vector<std::string> flags;         ///< die -m-Flags fuer die per-Job-Compile-/rsp-Zeile
+    std::string              identity_text; ///< "gate=[...]" oder "" (Glied-[5]-/Suffix-Segment)
+};
+
+/// Kern mit injizierbarem Meta-Meta-Register UND injizierbarer Maschinen-Signatur -- fuer die
+/// CT-/Test-Probe (2c-Probe-Register, Prod-Signaturen) OHNE Host-Bindung. Produktion: Huelle unten.
+[[nodiscard]] inline SimdGateBinaryContribution
+gate_for_binary_in(std::span<OrganMetaMetaRequirement const>            meta_meta_register,
+                   std::span<SimdFeatureFlag const>                     machine_signature,
+                   std::span<std::pair<std::string, std::string> const> binary_axes, SimdRoute route,
+                   SimdDialect dialect = SimdDialect::Gpp) {
+    std::vector<std::pair<std::string_view, std::string_view>> sichten;
+    sichten.reserve(binary_axes.size());
+    for (auto const& [axis, value] : binary_axes) sichten.emplace_back(axis, value);
+    SimdFlagMenge const        req  = aggregate_required_for_axes_kern(sichten, meta_meta_register);
+    SimdFlagMenge const        mean = aggregate_meaningful_for_axes_kern(sichten, meta_meta_register);
+    SimdGateResult const       r    = pruef_dock(req.als_span(), mean.als_span(), machine_signature, route, dialect);
+    SimdGateBinaryContribution out;
+    out.flags         = effective_march_flags(r, dialect);
+    out.identity_text = format_gate_contribution(out.flags);
+    return out;
+}
+
+/// DIE Produktions-Form: Produktions-Register (kOrganMetaMetaRequirement) + aktive Maschinen-Signatur.
+/// Aufrufer: Orchestrator-Admission (aggregate direkt), per-Job-CompileFn der Fassade (Schritt 3c),
+/// Glied-[5]-/Suffix-Kanal (leere-Achsen-INVARIANTE, s. Kommentar am 70.9-Block oben).
+[[nodiscard]] inline SimdGateBinaryContribution
+gate_for_binary(std::span<std::pair<std::string, std::string> const> binary_axes, SimdRoute route,
+                SimdDialect dialect = SimdDialect::Gpp) {
+    return gate_for_binary_in(kOrganMetaMetaRequirement, active_machine_signature(), binary_axes, route, dialect);
 }
 
 // -- Wohlgeformtheit + State-Pattern-Uebergaenge (alles compile-time) -----------------------------

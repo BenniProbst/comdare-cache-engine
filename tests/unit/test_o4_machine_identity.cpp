@@ -223,8 +223,11 @@ TEST(O4MachineIdentity, GateZustandNachC3a) {
     // URSPRUENGLICH hiess dieser Test "DieDreiGateStubsBleibenLeer" und war die Abgrenzung von O-4
     // gegen C-3a. Er war als TRIPWIRE gebaut und hat bei der Scharfschaltung korrekt gebrochen --
     // das ist kein Defekt, sondern der beabsichtigte Zweck. Nachgezogen auf den C-3a-Stand:
-    EXPECT_TRUE(meas::active_organ_required().empty())
-        << "Die Organ-Seite bleibt der dominante Schalter und ist leer (simd_organ_requirement.hpp:88).";
+    // E-10 3e: der globale Hook ist entfernt -- die per-Binary-Aggregation der Demo-Binary ist leer.
+    std::vector<std::pair<std::string, std::string>> const demo_axes{{"search_algo", "k_ary"},
+                                                                     {"persistence_target", "persistence_memory_only"}};
+    EXPECT_TRUE(meas::organ_required_for_axes(demo_axes).empty())
+        << "Die Organ-Seite bleibt der dominante Schalter und ist leer (18+1-Register, per Binary).";
     EXPECT_FALSE(meas::active_organ_meaningful().empty())
         << "C-3a fuellt die Sinnhaftigkeits-Obergrenze mit der echten Vereinigung.";
     // O-4s eigentliche Zusage haelt weiter: OHNE belegte Maschinen-Deklaration keine Signatur.

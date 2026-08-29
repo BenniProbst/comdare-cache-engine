@@ -25,8 +25,9 @@
 //   Kanal A (LEBEND, per Permutation): permutation_codegen_tool.cpp:43-45 simd_flags() -> :477-483
 //     target_compile_options(perm_<id> PRIVATE ... -mavx2 | -mavx512f); zusaetzlich
 //     cmake/isa_features.cmake (AVX2-/AVX512-Zweige).
-//   Kanal B (INERT, per Organ-Anforderung): das Section-37-Freigabe-Gate ueber
-//     gate_extra_march_flags_for_build (simd_build_gate.hpp:189-196).
+//   Kanal B (INERT, per Organ-Anforderung): das Section-37-Freigabe-Gate -- historisch ueber
+//     gate_extra_march_flags_for_build (simd_build_gate.hpp:189-196); SEIT E-10 SCHRITT 3 (26.08.2026)
+//     PER BINARY ueber gate_for_binary (job.binary_id -> ceb_parse_path -> 18+1-Aggregat -> Pruef-Dock).
 // Kanal B liefert bei Scharfschaltung das VOLLE Freigabe-Maximum (Signatur GESCHNITTEN Sinnhaftigkeit
 // GESCHNITTEN Route), Kanal A genau EIN Flag je Route. Die Schnittmenge ist LEER -- es waere also keine
 // Dopplung, sondern eine ANDERE Flag-Menge und damit anderer Code. Genau deshalb ist der Beleg, dass
@@ -43,31 +44,45 @@
 #include <array>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace meas = comdare::cache_engine::measurement;
 
 namespace {
 
+/// Die (achse,wert)-Demo-Signatur einer MemoryOnly-Flotten-Binary -- der per-Binary-Eingang des
+/// Gate-Wegs seit E-10 Schritt 3 (in der Fassade: job.binary_id -> ceb_parse_path).
+std::vector<std::pair<std::string, std::string>> const kMemoryOnlyDemoAxes{
+    {"search_algo", "k_ary"}, {"persistence_target", "persistence_memory_only"}};
+
 /// SPIEGEL der Fassaden-Naht. Wortgetreue Nachbildung der Konkatenation aus
 /// profile_facade/profile_run_facade.cpp:528-541 (Pfad 1) bzw. :1003-1016 (Pfad 2) -- beide Pfade sind
-/// im Ist ZEICHENGLEICH aufgebaut:
+/// im Ist ZEICHENGLEICH aufgebaut (HISTORISCHE per-Perm-Form bis E-10):
 ///     std::string flags = dbg ? debug_flags_for_toolchain() : opt_flag;
 ///     if (!march_flag.empty()) { flags += ' '; flags += march_flag; }
 ///     for (auto const& mf : gate_extra_march_flags_for_build(route_of_march_flag(march_flag)))
 ///         { flags += ' '; flags += mf; }
 ///     return make_gpp_compile_fn(inc, def, cxx, libs, flags, fno);
+/// E-10 SCHRITT 3c (26.08.2026), supersedierend: die Gate-Extras entstehen PER JOB innerhalb der
+/// per-Job-CompileFn (job.binary_id -> ceb_parse_path -> gate_for_binary(axes, route).flags) und
+/// werden an DIESELBE flags-Zeile gehaengt:
+///     std::string job_flags = basis_flags;                 // opt (+ ' ' + march), per Perm gebildet
+///     for (auto const& mf : gate.flags) { job_flags += ' '; job_flags += mf; }
+///     return make_gpp_compile_fn(inc, defines, cxx, libs, std::move(job_flags), fno)(job);
 /// Der Rueckgabewert ist EIN `flags`-String, der als EIN Argument an make_gpp_compile_fn geht -- also
 /// EINE Compile-/rsp-Zeile. Diese Funktion ist bewusst ein Spiegel und kein Aufruf: die Fassade ist
 /// Lane-F-Sperrmenge und darf fuer den Beleg nicht angefasst werden.
-[[nodiscard]] std::string facade_compile_line(std::string const& opt_flag, std::string const& march_flag,
-                                              bool dbg = false, std::string const& debug_flags = "-O0 -g") {
+[[nodiscard]] std::string
+facade_compile_line(std::string const& opt_flag, std::string const& march_flag, bool dbg = false,
+                    std::string const&                                      debug_flags = "-O0 -g",
+                    std::vector<std::pair<std::string, std::string>> const& binary_axes = kMemoryOnlyDemoAxes) {
     std::string flags = dbg ? debug_flags : opt_flag;
     if (!march_flag.empty()) {
         flags += ' ';
         flags += march_flag;
     }
-    for (auto const& mf : meas::gate_extra_march_flags_for_build(meas::route_of_march_flag(march_flag))) {
+    for (auto const& mf : meas::gate_for_binary(binary_axes, meas::route_of_march_flag(march_flag)).flags) {
         flags += ' ';
         flags += mf;
     }
@@ -265,6 +280,7 @@ TEST(C3bKanalMerge, OrchestratorIstRejectOnly) {
     static_assert(std::is_same_v<decltype(verdikt), std::optional<meas::CompilerCompilerErrorClass> const>,
                   "Reject-only: der Orchestrator-Pfad gibt eine Fehlerklasse zurueck, nie Flags.");
     EXPECT_FALSE(verdikt.has_value());
-    // Gegenprobe, dass die Emission woanders liegt: die Fassaden-Funktion liefert Strings.
-    EXPECT_TRUE(meas::gate_extra_march_flags_for_build(meas::SimdRoute::Avx512).empty());
+    // Gegenprobe, dass die Emission woanders liegt: der per-Binary-Helfer der Fassaden-Naht liefert
+    // Strings (E-10 3a: gate_for_binary statt der entfernten Route-only-Form).
+    EXPECT_TRUE(meas::gate_for_binary(kMemoryOnlyDemoAxes, meas::SimdRoute::Avx512).flags.empty());
 }

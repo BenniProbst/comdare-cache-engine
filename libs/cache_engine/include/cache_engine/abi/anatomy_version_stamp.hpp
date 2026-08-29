@@ -12,7 +12,9 @@
 
 #pragma once
 
-#include <cache_engine/abi/meta_meta_stamp_suffix.hpp>     // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
+#include <cache_engine/abi/meta_meta_stamp_suffix.hpp> // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
+#include <organ_axes/organ_meta_meta/axis_disk_io_organ_meta_meta.hpp> // E-10/ORG-19 S1 (26.08.2026): 1. Glied
+#include <cache_engine/abi/organ_meta_meta_selection.hpp>              // E-10 S4 (27.08.2026): Selektion JE COMP (4a)
 #include <cache_engine/abi/system_axis_code_versions.hpp>  // A2 (G2-4): kSystemAxisCodeVersions (Single-Source)
 #include <cache_engine/measurement/axis_version_stamp.hpp> // AxisVersionEntry + build_axis_version_stamp_line
 #include <system_axes/external_utils_family_axis.hpp>      // A13-M2: ExternalUtilsHub (System-Meta-Meta-Glieder)
@@ -44,11 +46,22 @@ inline constexpr std::size_t kOrganAxisCount = 18;
 /// Meta-Meta-Array + erweiterbarer Compile-Raum-Stempel"): wer eine Organ-Meta-Meta baut
 /// (topics::OrganMetaMetaAxis), traegt sie HIER ein und sie stempelt, ohne dass eine Zeile Emitter-Code
 /// angefasst wird.
+/// E-10/ORG-19 (26.08.2026, Designplan 20260825 Schritt 1b): der Satz "HEUTE LEER" ist SUPERSEDED --
+/// die Vollmenge traegt jetzt GENAU ORG-19-IO (DiskIoOrganMetaMeta). ZWISCHENSTAND-WARNUNG (R-10): bis
+/// Schritt 4 haengt der Anhang weiter TYP-GLOBAL an beiden Zeilen-Quellen -> im S1-S4-Korridor traegt
+/// JEDE Binary den Anhang (test_m_w12/lazy/320-Anker planmaessig ROT = beissender Koeder k9, F-V1a);
+/// dieser Zwischenstand ist ein LANDE-VERBOT. Schritt 4 stellt beide Quellen auf die Selektion JE COMP
+/// um (abi/organ_meta_meta_selection.hpp: organ_meta_metas_of_t<Comp> + Vollmengen-/Duplikatfrei-Wache).
+/// E-10 SCHRITT 4a (27.08.2026): VOLLZOGEN -- der Anhang kommt JE COMP aus organ_meta_metas_of_t<Comp>.
+/// DIESE Liste ist seither die VOLLMENGE = Wachen-Obermenge jeder Comp-Selektion (Vollmengen-Wache in
+/// organ_stamp_line) und die Quelle des Registry-Generators (18+1) -- NICHT mehr der Stempel-Anhang selbst.
+/// Der R-10-Korridor ist damit geschlossen: MemoryOnly-Comps (die Flotte) stempeln byte-identisch zur
+/// Vor-Zug-Form, ein IO-Traeger bekommt seinen Anhang (Beweis test_e10_organ_stamp_je_comp, k9).
 /// WARUM DIE LISTE HIER (abi/) UND NICHT IN topics/ NEBEN DER WURZEL: MetaMetaMembers ist ein
 /// measurement-Layer-Typ, und topics/ darf nicht auf measurement/ zeigen (Layer-Inversion). Die WURZEL
 /// (topics/organ_meta_meta_axis.hpp) und die LISTE liegen deshalb bewusst getrennt; es gibt trotzdem nur
 /// EINE Liste.
-using OrganMetaMetas = ::comdare::cache_engine::measurement::MetaMetaMembers<>;
+using OrganMetaMetas = ::comdare::cache_engine::measurement::MetaMetaMembers<organ_meta_meta::DiskIoOrganMetaMeta>;
 
 /// organ_stamp_line<Comp>() -- die kOrganAxisVersionLine "achse=algo@X.Y.Z;..." aus den 18 benannten
 /// Achsen-Aliassen einer Composition, in kanonischer compose-Ordnung (== AdHocComposition-Alias-Ordnung
@@ -71,6 +84,9 @@ using OrganMetaMetas = ::comdare::cache_engine::measurement::MetaMetaMembers<>;
 /// RF-7 BLEIBT GUELTIG: je Achsen-Typ EINE Array-Zeile. Eine Organ-Meta-Meta stempelt im ORGAN-Realm und
 /// NIE zeilen-fremd; load_framework bleibt in der Mess-Zeile, die System-Meta-Metas in der System-Zeile.
 /// HEUTE: abi::OrganMetaMetas ist LEER -> der Anhang ist leer -> diese Zeile ist BYTE-IDENTISCH (no-op).
+/// SUPERSEDED (E-10 S1/S4, 26./27.08.2026): die Vollmenge traegt ORG-19-IO; die Zeile bleibt fuer
+/// MemoryOnly-Comps trotzdem byte-identisch, weil der Anhang JE COMP aus den 18 Slot-Aliasen selektiert
+/// wird (organ_meta_metas_of_t<Comp>, abi/organ_meta_meta_selection.hpp) und nicht aus der Vollmenge.
 ///
 /// GELTUNGSBEREICH (W12-A, Live-Code-Befund): die REALEN AdHocComposition-Achsen-Typen sind STRATEGIE-Typen
 /// (z.B. ObservableComposedContainer<...>) und tragen KEIN name()/algo_version -- nur die Registry-WRAPPER
@@ -190,10 +206,28 @@ template <class Comp>
                   "punkt-getrennte Flags, KEIN 'v'-Praefix) oder exakt der dokumentierte Sentinel \"0.0.0\". "
                   "Haeufigste Ursache: ein Alt-Literal der Q3-Form (\"v1.0.0c\").");
     std::string line = build_axis_version_stamp_line(entries);
-    // A13-M2 (OP-11-Rueckbau): der Organ-Meta-Meta-Klammer-Anhang ANS ENDE. abi::OrganMetaMetas ist heute leer
-    // -> append_meta_meta_suffix laesst die Zeile BYTE-IDENTISCH. Der Mechanismus ist damit gebaut, ohne
-    // ein einziges Byte zu bewegen (Beweis: die Organ-Golden-Anker in test_m_w12 blieben unveraendert).
-    append_meta_meta_suffix(line, meta_meta_stamp_suffix_from_members<OrganMetaMetas>());
+    // A13-M2 (OP-11-Rueckbau): der Organ-Meta-Meta-Klammer-Anhang ANS ENDE. HISTORIE (bis E-10 S1):
+    // abi::OrganMetaMetas war leer -> no-op (Organ-Golden-Anker unveraendert). S1-S4-KORRIDOR (26./27.08.2026):
+    // der Anhang hing TYP-GLOBAL an der Vollmenge und stempelte JEDE Binary (R-10, LANDE-VERBOT; Koeder k9
+    // und test_m_w12-Anker planmaessig ROT, Beleg bau/t1-rot/R8).
+    // E-10 SCHRITT 4a (27.08.2026): SELEKTION JE COMP -- die Glieder kommen aus den 18 Slot-Aliasen DIESER
+    // Composition (abi/organ_meta_meta_selection.hpp; D-1: Traeger = Strategie-Typ, KEIN 19. Comp-Member).
+    // MemoryOnly-Comps liefern die leere Liste -> wrap leer -> append no-op -> die Flotte all_axes_golden ist
+    // BYTE-IDENTISCH zur Vor-Zug-Form (N-1); ein IO-Traeger bekommt ";[disk_io=code@1.0.0.c]". Der reale
+    // Emitter-Pfad (compose_organ_stamp_line, 4b) liefert fuer dieselbe Composition DENSELBEN String.
+    using Selektion = organ_meta_metas_of_t<Comp>;
+    // VOLLMENGEN-WACHE (Plan 1c/4a): jede Comp-Selektion ist Teilmenge der EINEN Vollmenge abi::OrganMetaMetas.
+    // Ein Glied, das nur an einem Strategie-Typ haengt und NICHT in der Vollmenge steht, stempelte sonst am
+    // Registry-Generator (18+1), am Requirement-Register und am Lock vorbei. Biss-Beleg: bau/t1-rot/R10.
+    static_assert(organ_meta_meta_subsumiert<OrganMetaMetas, Selektion>::value,
+                  "E-10 (4a) VOLLMENGEN-WACHE: diese Composition bindet eine Organ-Meta-Meta, die NICHT in "
+                  "abi::OrganMetaMetas steht -- wer ein Glied einhaengt, traegt es ZUERST in die Vollmenge ein "
+                  "(anatomy_version_stamp.hpp), sonst stempelt es an Registry, 18+1-Register und Lock vorbei.");
+    // DUPLIKATFREI-WACHE (FIX-1 iii): zwei Slots duerfen dasselbe Glied nicht doppelt stempeln.
+    static_assert(organ_meta_metas_sind_duplikatfrei<Selektion>::value,
+                  "E-10 (4a) DUPLIKATFREI-WACHE: dieselbe Organ-Meta-Meta haengt an ZWEI Slots dieser "
+                  "Composition -- ein Glied stempelt genau einmal je Organ-Zeile.");
+    append_meta_meta_suffix(line, meta_meta_stamp_suffix_from_members<Selektion>());
     return line;
 }
 

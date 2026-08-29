@@ -90,10 +90,12 @@
 // Der Quellbaum wird ausschliesslich GELESEN; golden-/TABU-Fixtures werden nicht beruehrt.
 //
 // ANKER MIT NENNER (Riegel-Schaerfung ii, Fixup 3 mitgezogen): heuristik discovered == 6;
-// organ >= 600 / system >= 12 / mess >= 1 / tier_substanz >= 50 (die Tool-Mindest-Nenner);
+// organ >= 600 / organ_meta_meta == 1 (E-10/ORG-19, 26.08.2026: die stempelnde Kategorie zwischen
+// organ und system, heute GENAU disk_io) / system >= 12 / mess >= 1 / tier_substanz >= 50
+// (die Tool-Mindest-Nenner);
 // organ traeger == 123 EXAKT (122 Bestand + 1 Synthetik, 13.08.2026) -- wer einen Traeger
 // hinzufuegt/entfernt, zieht diesen Anker BEWUSST nach; die GRUEN-Zeile muss 'deckt N von N'
-// mit N == Summe der vier Kategorie-Zaehler tragen (Deckungs-Beleg, nie Suggestion). Alles
+// mit N == Summe der fuenf Kategorie-Zaehler tragen (Deckungs-Beleg, nie Suggestion). Alles
 // geparst aus den BESTAND-Zeilen der Tool-Ausgabe, nie aus einer eigenen Zweit-Zaehlung (eine
 // Zaehlung, eine Wahrheit). Der CT-Zaehler kAllRegisteredOrganVariantCount wird daneben NUR
 // GELOGGT und nie gleichgesetzt: Datei != Variante (eine Datei kann mehrere Varianten tragen,
@@ -325,25 +327,31 @@ int main(int argc, char** argv) {
     // organ traeger EXAKT 123 = 122 Bestand + 1 Synthetik -- ein neuer/entfernter Traeger zieht
     // diesen Anker BEWUSST nach, das ist sein Zweck).
     long const h_disc = parse_counter(w.output, "BESTAND heuristik", "discovered");
-    long const o_disc = parse_counter(w.output, "BESTAND organ", "discovered");
-    long const o_trae = parse_counter(w.output, "BESTAND organ", "traeger");
-    long const s_disc = parse_counter(w.output, "BESTAND system", "discovered");
-    long const m_disc = parse_counter(w.output, "BESTAND mess", "discovered");
-    long const t_disc = parse_counter(w.output, "BESTAND tier_substanz", "discovered");
+    // Marker MIT Schluss-Leerzeichen: "BESTAND organ " trifft nicht die organ_meta_meta-Zeile (E-10).
+    long const o_disc  = parse_counter(w.output, "BESTAND organ ", "discovered");
+    long const o_trae  = parse_counter(w.output, "BESTAND organ ", "traeger");
+    long const mm_disc = parse_counter(w.output, "BESTAND organ_meta_meta ", "discovered");
+    long const s_disc  = parse_counter(w.output, "BESTAND system", "discovered");
+    long const m_disc  = parse_counter(w.output, "BESTAND mess", "discovered");
+    long const t_disc  = parse_counter(w.output, "BESTAND tier_substanz", "discovered");
     std::printf("ANKER: heuristik discovered=%ld (soll ==6), organ discovered=%ld (soll >=600, davon "
-                "traeger=%ld soll ==123), system=%ld (soll >=12), mess=%ld (soll >=1), "
-                "tier_substanz=%ld (soll >=50)\n",
-                h_disc, o_disc, o_trae, s_disc, m_disc, t_disc);
+                "traeger=%ld soll ==123), organ_meta_meta=%ld (soll ==1, E-10), system=%ld (soll >=12), "
+                "mess=%ld (soll >=1), tier_substanz=%ld (soll >=50)\n",
+                h_disc, o_disc, o_trae, mm_disc, s_disc, m_disc, t_disc);
     if (h_disc != 6) return fehler(4, "Anker heuristik==6 verfehlt", w);
     if (o_disc < 600) return fehler(4, "Anker organ>=600 verfehlt", w);
     if (o_trae != 123) return fehler(4, "Anker organ traeger==123 verfehlt (bewusst nachziehen)", w);
+    // E-10/ORG-19: die Organ-Meta-Meta-Kategorie traegt heute GENAU eine Datei (disk_io); ein zweites
+    // Glied zieht diesen Anker BEWUSST nach (wie der 123er-Traeger-Anker -- das ist sein Zweck).
+    if (mm_disc != 1) return fehler(4, "Anker organ_meta_meta==1 verfehlt (E-10; bewusst nachziehen)", w);
     if (s_disc < 12) return fehler(4, "Anker system>=12 verfehlt", w);
     if (m_disc < 1) return fehler(4, "Anker mess>=1 verfehlt", w);
     if (t_disc < 50) return fehler(4, "Anker tier_substanz>=50 verfehlt", w);
 
     // Schritt 5: Roundtrip -- der frisch geschriebene Lock prueft gruen. Fixup 3 (D4): die
     // GRUEN-Zeile muss die Deckung BELEGEN ('deckt N von N Overlay-Quellen') und N muss die
-    // Summe der vier Kategorie-Zaehler sein -- Vollstaendigkeit gemessen, nie suggeriert.
+    // Summe der fuenf Kategorie-Zaehler sein (E-10: organ_meta_meta dazu) -- Vollstaendigkeit
+    // gemessen, nie suggeriert.
     ToolRun c0 = run_tool("--check");
     if (c0.exit_code != 0) return fehler(5, "Roundtrip --check muss Exit 0 liefern", c0);
     {
@@ -356,9 +364,9 @@ int main(int argc, char** argv) {
             return fehler(5, "GRUEN-Zeile ohne 'deckt N von N'-Deckungs-Beleg", c0);
         }
         std::printf("DECKUNG: %ld von %ld Overlay-Quellen (soll: gleich UND == %ld)\n", deckt_a, deckt_b,
-                    o_disc + s_disc + m_disc + t_disc);
+                    o_disc + mm_disc + s_disc + m_disc + t_disc);
         if (deckt_a != deckt_b) return fehler(5, "Deckungs-Beleg meldet eine Luecke im gruenen Lauf", c0);
-        if (deckt_a != o_disc + s_disc + m_disc + t_disc)
+        if (deckt_a != o_disc + mm_disc + s_disc + m_disc + t_disc)
             return fehler(5, "Deckungs-Nenner != Summe der Kategorie-Zaehler", c0);
     }
 

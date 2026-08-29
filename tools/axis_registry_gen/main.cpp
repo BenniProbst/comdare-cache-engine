@@ -58,6 +58,8 @@
 #include <builder/codegen/adhoc_emitter.hpp>                   // strip_all_elaborated (F24: geteilter Helfer)
 #include <builder/codegen/type_name.hpp>                       // type_name<W>() (FQ-Typ, compile-time)
 #include <builder/experiment_tree/registry_to_axis_levels.hpp> // axes26::T* (Enabled*/StaticAxisVariants*)
+#include <cache_engine/abi/anatomy_version_stamp.hpp>          // E-10 S1: abi::OrganMetaMetas (Quelle des 19. Eintrags)
+#include <topics/organ_meta_meta_axis.hpp>                     // E-10 S1: AxisKind-Anker der Meta-Meta-Emission
 
 #include <boost/mp11.hpp>
 
@@ -301,6 +303,36 @@ int main(int argc, char** argv) {
         }
         f << "  </axis>\n";
     }
+    // -- E-10/ORG-19 (26.08.2026, Schritt 1e): der Organ-Meta-Meta-Eintrag NACH den Kompositions-Achsen
+    //    (in der committeten Default-XML = direkt hinter T17; --with-extra-axes schiebt seine ext-Bloecke
+    //    davor, wird aber nie committet). Reflektiert aus abi::OrganMetaMetas (CT-Single-Source, NIE
+    //    handgeschrieben); Attribut-Form nach der measurement-Praezedenz (load_framework: category/
+    //    axis_kind/binary_id=\"never\"/stage=\"ct\"). binary_id=\"never\": eine Meta-Meta permutiert NIE die
+    //    binary_id (18+1-Schnitt, kCompositionAxisNames bleibt 18).
+    std::size_t meta_meta_count = 0;
+    ::comdare::cache_engine::measurement::for_each_meta_meta(
+        ::comdare::cache_engine::abi::OrganMetaMetas{}, [&](auto tag) {
+            using M = typename decltype(tag)::type;
+            // Das axis_kind-Etikett ist ein Literal (keine Enum-Namen-Reflexion in C++23), aber an den
+            // REALEN Enum-Wert compile-gekoppelt (Muster measurement_axis_registry_gen/main.cpp).
+            static_assert(M::axis_kind() == ::comdare::cache_engine::topics::AxisKind::organ_meta_meta,
+                          "E-10: das emittierte axis_kind-Literal 'organ_meta_meta' und der reale "
+                          "Achsen-Typ sind auseinandergelaufen.");
+            ++meta_meta_count;
+            std::string const mm_type = "::" + cg::strip_all_elaborated(cg::type_name<M>());
+            f << "  <axis id=\"" << xml_escape(std::string{M::do_axis_label()})
+              << "\" category=\"organ_meta_meta\" axis_kind=\"organ_meta_meta\" binary_id=\"never\""
+              << " stage=\"ct\" baustein_count=\"1\">\n";
+            f << "    <baustein name=\"" << xml_escape(std::string{M::sub_axis_label()}) << "\" wrapper=\""
+              << xml_escape(short_name(mm_type)) << "\" type=\"" << xml_escape(mm_type) << "\" enabled=\"true\"/>\n";
+            f << "    <sub_axis id=\"" << xml_escape(std::string{M::sub_axis_label()}) << "\" parent=\""
+              << xml_escape(std::string{M::do_axis_label()}) << "\" stage=\"runtime\" value_type=\"token\""
+              << " option_count=\"" << M::kSubAxisOptions.size() << "\">\n";
+            for (std::string_view const opt : M::kSubAxisOptions)
+                f << "      <option value=\"" << xml_escape(std::string{opt}) << "\"/>\n";
+            f << "    </sub_axis>\n";
+            f << "  </axis>\n";
+        });
     f << "</comdare_axis_registry>\n";
     f.flush();
     if (!f) {
@@ -308,7 +340,8 @@ int main(int argc, char** argv) {
         return 4;
     }
 
-    std::cout << "axis_registry_gen: " << axes.size() << " Achsen, " << total << " Bausteine -> " << out_path << "\n";
+    std::cout << "axis_registry_gen: " << axes.size() << " Achsen + " << meta_meta_count << " Meta-Meta, " << total
+              << " Bausteine -> " << out_path << "\n";
     for (auto const& ax : axes) {
         std::size_t golden = 0;
         for (auto const& b : ax.bausteine)

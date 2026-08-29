@@ -8315,3 +8315,95 @@ add_test(NAME test_vo31_optflag_gate_probe
 set_tests_properties(test_vo31_optflag_gate_probe PROPERTIES
     TIMEOUT 300
     LABELS "vo31;gate;koeder;standalone")
+
+# E-10/ORG-19 SCHRITT 1 (26.08.2026, Designplan 20260825-DESIGNPLAN-E10-38a2-ORG19 + VERIFY-Fixes):
+# Anlage-Gate der ersten ORGAN-Meta-Meta-Achse disk_io -- Typ/Concept/Vollmenge (abi::OrganMetaMetas),
+# Comp-Selektions-Trait ueber die 18 Slot-Aliase (D-1: KEIN 19. Comp-Member), Carrier-Bindung ==
+# Single-Source (DiskWritebackTarget::name()), FIX-1-Byteform (Tabelle ungewrappt, EIN Renderer
+# wrappt EINMAL) + FIX-7(b)-Versions-Wachen. T-1: vor Schritt 1a/1c compile-rot (Koeder k1).
+comdare_add_test(test_e10_organ_meta_meta_anlage
+    SOURCES test_e10_organ_meta_meta_anlage.cpp)
+target_include_directories(test_e10_organ_meta_meta_anlage PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_e10_organ_meta_meta_anlage PRIVATE Boost::mp11)
+target_compile_definitions(test_e10_organ_meta_meta_anlage PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_e10_organ_meta_meta_anlage PROPERTIES
+    LABELS "e10;org19;organ-meta-meta;stempel;contract;wachen")
+
+# E-10/ORG-19 SCHRITT 2 (26.08.2026, Designplan 20260825-DESIGNPLAN-E10-38a2-ORG19 + VERIFY-Fix FIX-7(a)):
+# erste required-DEKLARATION der Organ-Meta-Meta-Welt -- 18+1-Register (organ_meta_meta_requirement.hpp;
+# required/meaningful der disk_io-Zeile EHRLICH LEER nach KON16-02/KON59-01), constexpr-Aggregations-Kern
+# + Laufzeit-Huelle (simd_organ_requirement.hpp) und 2c-Probe-Register als consteval-Beweis der
+# per-Binary-Wirkung einer NICHT-leeren Zeile (D-4; Grundlage des C-3a-Umschlags in Schritt 3).
+# T-1: vor Schritt 2a/2b compile-rot (Koeder k5); k6 = test_simd_organ_achsen_deckung bleibt gruen.
+comdare_add_test(test_org19_meta_meta_requirement
+    SOURCES test_org19_meta_meta_requirement.cpp)
+target_include_directories(test_org19_meta_meta_requirement PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_compile_definitions(test_org19_meta_meta_requirement PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_org19_meta_meta_requirement PROPERTIES
+    LABELS "e10;org19;organ-meta-meta;requirement;gate;contract")
+
+# E-10/ORG-19 SCHRITT 3 (26.08.2026, Designplan 20260825-DESIGNPLAN-E10-38a2-ORG19 + LEAD-AUFLAGE
+# F-V1 Variante a): Koeder k8 -- gate_for_binary = DER EINE Helfer des per-Binary-Gate-Wegs
+# (C-3a-UMSCHLAG, simd_build_gate.hpp). Beweise: Produktions-Register leer je Route, Probe-Register-
+# Literale {-mavx2}/"gate=[-mavx2]" per Binary (Traeger-Selektion), rsp-Byte-Probe ueber ALLE 320
+# golden-ids x 3 Routen (F-V1a-ERSATZ der lazy==Katalog-Abnahme im S1-S4-Korridor), D1-Klassen je
+# einmal literal. Include-/Define-/Katalog-Satz WORTGLEICH zu test_lazy_adhoc_source_gen (dieselbe
+# umbrella-schwere Katalog-Kante fuer die 320er-ids); plain-main (kein gtest), wie dort.
+# T-1: vor Schritt 3a compile-rot (Symbol gate_for_binary fehlt; Koeder k8).
+add_executable(test_e10_gate_per_binary
+    "test_e10_gate_per_binary.cpp")
+target_compile_features(test_e10_gate_per_binary PRIVATE cxx_std_23)
+target_include_directories(test_e10_gate_per_binary PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_e10_gate_per_binary PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_e10_gate_per_binary)
+target_compile_definitions(test_e10_gate_per_binary PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+comdare_attach_generated_catalog(test_e10_gate_per_binary)
+add_test(NAME test_e10_gate_per_binary COMMAND test_e10_gate_per_binary)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e10_gate_per_binary)
+set_tests_properties(test_e10_gate_per_binary PROPERTIES LABELS "e10;org19;gate;per-binary;contract")
+
+# E-10/ORG-19 SCHRITT 4 (27.08.2026, Designplan 20260825-DESIGNPLAN-E10-38a2-ORG19 + VERIFY-Fix FIX-1 (iv);
+# Objekt-Entscheide S4-1/S4-2 in STAND-BAU): Koeder k9 -- der Organ-Meta-Meta-Anhang JE COMP an BEIDEN
+# Zeilen-Quellen (abi::organ_stamp_line<Comp> Mock-Pfad / ex::compose_organ_stamp_line Emitter-Pfad):
+# Flotten-Form literal byte-identisch zur Vor-Zug-Form (golden-320 id #0, 666 Z.), IO-Traeger
+# ";[disk_io=code@1.0.0.c]", Mock == Emitter-Pfad (Tabelle test-lokal um den Registry-Disk-Typ erweitert),
+# Flotten-Worst-Case 721 / IO 747 <= kAnatomyFingerprintOrganMax 768, Zwei-Traeger-Ein-Gruppen-Form
+# "[a=..;b=..]" (FIX-1, R-11 Slot-Ordnung). Include-/Link-Menge == test_m_w12_stamp_bausteine (dieselbe
+# Stempel-Flaeche) + Registries (axis_variant_version_table, heap-schwer, mp11).
+# T-1: im S1-S4-Korridor (typ-globaler Anhang, R-10) laufzeit-rot (Koeder k9); nach Schritt 4a/4b gruen.
+add_executable(test_e10_organ_stamp_je_comp "test_e10_organ_stamp_je_comp.cpp")
+target_compile_features(test_e10_organ_stamp_je_comp PRIVATE cxx_std_23)
+target_include_directories(test_e10_organ_stamp_je_comp PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_e10_organ_stamp_je_comp PRIVATE gtest gtest_main Boost::mp11)
+comdare_set_platform_defines(test_e10_organ_stamp_je_comp)
+target_compile_definitions(test_e10_organ_stamp_je_comp PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_e10_organ_stamp_je_comp COMMAND test_e10_organ_stamp_je_comp)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e10_organ_stamp_je_comp)
+set_tests_properties(test_e10_organ_stamp_je_comp PROPERTIES LABELS "e10;org19;organ-meta-meta;stempel;contract")

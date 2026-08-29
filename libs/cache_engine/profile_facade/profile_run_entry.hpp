@@ -1335,10 +1335,18 @@ struct RunProfileResult {
                 // aus march_flag (wortgleiche Regel wie bei den Zellwerten oben). Der Gate-Beitrag wird HIER
                 // gebildet, weil ihn ab jetzt zwei Verbraucher teilen (Glied und Suffix); er stand vorher
                 // weiter unten und waere sonst ein zweites Mal berechnet worden.
+                // E-10 SCHRITT 3d (26.08.2026): der Beitrag kommt aus DEM EINEN per-Binary-Helfer
+                // gate_for_binary (die per-Route-Form der globalen Hooks ist ENTFERNT). Diese Perm-Ebene
+                // kennt keine binary_id; die LEERE Achsen-Menge ist die compile-hart verriegelte
+                // INVARIANTE "der Beitrag ist heute fuer JEDE Binary dieser Perm leer" (produktions_
+                // required_aggregat_ist_heute_leer, simd_organ_requirement.hpp). Die per-Job-CompileFn
+                // der Fassade (3c) bildet die FLAGS echt per Binary und bricht fail-closed, wenn ihr
+                // Beitrag nicht in diesem Glied steht -- die erste echte required-Deklaration erzwingt
+                // den per-Binary-Nachzug DIESES Kanals (T2-B: Wert wird durchgereicht, nie rueckgerechnet).
                 std::string const perm_simd_segment =
                     (simd_id == std::string{cm::SimdNoExtOption::simd_id()}) ? std::string{} : simd_id;
                 std::string const perm_gate =
-                    cm::gate_contribution_identity_text(cm::route_of_simd_id(simd_id), cm::SimdDialect::Gpp);
+                    cm::gate_for_binary({}, cm::route_of_simd_id(simd_id), cm::SimdDialect::Gpp).identity_text;
                 ::comdare::cache_engine::profile_facade::PermToolchainAchsen perm_achsen{};
                 perm_achsen.opt               = opt_id;
                 perm_achsen.opt_flags         = opt_flag;

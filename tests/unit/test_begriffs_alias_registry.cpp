@@ -21,10 +21,20 @@
 namespace nm = comdare::cache_engine::naming;
 namespace ms = comdare::cache_engine::measurement;
 
-// -- Nenner fremd: SIEBEN Erst-Eintraege (design91-v2 M13: node4 + w/ma/mi-Gruppe [w, compare,
-// ma, mi] + Verbund-Uebergang [Phase, Achsen-Token]) -- 1 + 4 + 2 = 7 als eigenes Literal.
-TEST(BegriffsAliasRegistry, SiebenErstEintraege) {
-    ASSERT_EQ(nm::kBegriffsAliasCount, static_cast<std::size_t>(1 + 4 + 2));
+// -- Nenner fremd: ACHT Eintraege (design91-v2 M13: node4 + w/ma/mi-Gruppe [w, compare, ma, mi] +
+// Verbund-Uebergang [Phase, Achsen-Token] + E-10 disk_io/festplatten_io) -- 1 + 4 + 2 + 1 = 8 als
+// eigenes Literal.
+TEST(BegriffsAliasRegistry, AchtEintraege) {
+    ASSERT_EQ(nm::kBegriffsAliasCount, static_cast<std::size_t>(1 + 4 + 2 + 1));
+}
+
+// -- E-10/ORG-19 (Schritt 1f): "Festplatten IO" (Owner-Wort) ist LESE-Form von disk_io -- nie
+// Schreibform (KON120-02 D-07). kanon_of ist consteval: der Rueckweg bricht compile-time, nie still.
+TEST(BegriffsAliasRegistry, DiskIoTraegtDenFestplattenIoAlias) {
+    auto const* z = nm::begriffs_alias_zeile("organ_meta_meta_achse", "festplatten_io");
+    ASSERT_NE(z, nullptr);
+    EXPECT_EQ(z->kanon, std::string_view{"disk_io"});
+    EXPECT_EQ(nm::kanon_of("organ_meta_meta_achse", "festplatten_io"), std::string_view{"disk_io"});
 }
 
 // -- node4 gegen den GEBAUTEN Baustein-Tag (keine Abschrift: der Vergleich laeuft gegen das

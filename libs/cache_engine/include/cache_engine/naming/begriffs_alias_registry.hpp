@@ -64,8 +64,8 @@ struct BegriffsAlias {
     std::string_view quelle = {}; ///< Owner-/KON-Quelle des Eintrags
 };
 
-// Single-Source: ein 8. Erst-Eintrag bricht hier compile-time (statt still 7 zu bleiben).
-inline constexpr std::size_t kBegriffsAliasCount = 7;
+// Single-Source: ein 9. Eintrag bricht hier compile-time (statt still 8 zu bleiben).
+inline constexpr std::size_t kBegriffsAliasCount = 8;
 
 /// DIE Registry (Erst-Eintraege des W2-D-Skeletts, Reihenfolge = design91-v2 M13).
 inline constexpr std::array<BegriffsAlias, kBegriffsAliasCount> kBegriffsAliasRegistry{{
@@ -79,6 +79,10 @@ inline constexpr std::array<BegriffsAlias, kBegriffsAliasCount> kBegriffsAliasRe
     // 3. Verbund-Uebergang (V-11R, vollzogen im #15-Umfeld; Registry traegt den Uebergang)
     {"Verbund1_CeOnly", "Stufe1_CeOnly", "verbund_phase", kArtUebergang, "V-11R"},
     {"union", "fulljoin", "verbund_achsen_token", kArtUebergang, "V-11R"},
+    // 4. E-10/ORG-19 (Schritt 1f, 26.08.2026): Owner-Wort "Festplatten IO" (L43879/L46020) als
+    //    LESE-Form der Organ-Meta-Meta-Achse disk_io (KON120-02 D-07: Alias ist LESE-Form, nie
+    //    Schreibform -- Serialisierung/Registry/Stempel tragen IMMER "disk_io").
+    {"disk_io", "festplatten_io", "organ_meta_meta_achse", kArtAlias, "L43879/L46020+KON120-02 D-07"},
 }};
 
 /// constexpr-Suche (RT-tauglich, z.B. fuer Fehlermeldungs-Texte): nullptr fuer unbekannte

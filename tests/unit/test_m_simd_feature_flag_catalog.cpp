@@ -143,11 +143,14 @@ TEST(MSimdBuildGate, CoarseRouteTooNarrowIsCompileKombination) {
 }
 
 TEST(MSimdBuildGate, CompileFnSeamIsInertTodayForEveryRoute) {
-    // Die CompileFn-Naht-Konsumtion (profile_run_facade compile_for_perm) haengt HEUTE fuer JEDE Route
-    // NICHTS an -- kein Organ deklariert required-Flags -> NotApplicable -> leere Flag-Liste (byte-identisch).
-    EXPECT_TRUE(m::active_organ_required().empty());
+    // Die CompileFn-Naht-Konsumtion (profile_run_facade compile_for_perm, seit E-10 3c per Job aus
+    // job.binary_id) haengt HEUTE fuer JEDE Route NICHTS an -- kein Register deklariert required ->
+    // NotApplicable -> leere Flag-Liste (byte-identisch).
+    std::vector<std::pair<std::string, std::string>> const naht_axes{{"search_algo", "k_ary"},
+                                                                     {"persistence_target", "persistence_memory_only"}};
+    EXPECT_TRUE(m::organ_required_for_axes(naht_axes).empty());
     for (auto const route : {m::SimdRoute::NoExtension, m::SimdRoute::Avx2, m::SimdRoute::Avx512})
-        EXPECT_TRUE(m::gate_extra_march_flags_for_build(route).empty());
+        EXPECT_TRUE(m::gate_for_binary(naht_axes, route).flags.empty());
     // Route-Ableitung aus dem Grob-march-Flag (Naht-Eingang):
     EXPECT_EQ(m::route_of_march_flag("-mavx512f"), m::SimdRoute::Avx512);
     EXPECT_EQ(m::route_of_march_flag("-mavx2"), m::SimdRoute::Avx2);

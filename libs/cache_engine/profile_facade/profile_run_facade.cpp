@@ -43,7 +43,8 @@
 #include <builder/ceb_version_stamp.hpp> // G4b-2/E3: kCebFingerprint (die 128-hex-CEB-SHA512 fuer ceb_key_sha512)
 #include <builder/build_orchestrator/build_orchestrator.hpp>
 #include <builder/experiment_tree/axis_variant_version_table.hpp> // Bauplan §4/§5: AlgoSigFn aus compose_algo_signature
-#include <builder/experiment_tree/registry_to_axis_levels.hpp>    // P5: build_all_axis_levels (EnabledStrategies)
+#include <builder/experiment_tree/ceb_generator.hpp> // E-10 3c: ex::ceb_parse_path (job.binary_id -> (achse,wert))
+#include <builder/experiment_tree/registry_to_axis_levels.hpp> // P5: build_all_axis_levels (EnabledStrategies)
 #include <builder/workload_driver/load_profile_parser.hpp>
 
 #include <algorithm>
@@ -580,8 +581,13 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     // Scharfschaltung in der Identitaet sichtbar werden. C-3a ist scharf, der Text existierte fertig
     // und hatte NULL Produktions-Konsumenten -- hier ist er. Leerer Beitrag => KEIN Segment (heute der
     // Normalfall, also byte-neutral); OP-7: das Segment steht am ENDE der Ordnung.
+    // E-10 Schritt 3c: der Beitrag kommt aus DEM EINEN per-Binary-Helfer gate_for_binary. Diese
+    // lauf-konstante Suffix-Stelle kennt keine binary_id; die LEERE Achsen-Menge ist die compile-hart
+    // verriegelte INVARIANTE "der Beitrag ist heute fuer JEDE Binary leer" (produktions_required_
+    // aggregat_ist_heute_leer, simd_organ_requirement.hpp -- die erste echte required-Deklaration
+    // bricht dort den Bau und erzwingt den per-Binary-Nachzug dieses Kanals).
     std::string const gate =
-        cm::gate_contribution_identity_text(cm::route_of_simd_id(simd_policy), cm::SimdDialect::Gpp);
+        cm::gate_for_binary({}, cm::route_of_simd_id(simd_policy), cm::SimdDialect::Gpp).identity_text;
     parts.gate_contribution = gate;
     return pf::compose_system_version_suffix(parts);
 }
@@ -722,43 +728,63 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
         a.system_cell_operating_system = std::string{pf::kSystemCellBuildOsFamily};
         // T2-B: die Basis-Defines kommen OHNE das Glied [5] herein -- der per-Perm-Wert wird unten an
         // genau EINER Stelle angehaengt (sonst zwei konkurrierende Defines, s. perm_stamp_glied_defines).
-        a.compile_for_perm =
-            [inc = perm_include_dirs(),
-             def = perm_compile_flags(nullptr, /*mit_toolchain_glied=*/false, args.build_version), cxx = cxx_compiler(),
-             libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
-             dbg = facade_build_type_is_debug()](std::string const& opt_flag, std::string const& march_flag,
-                                                 ::comdare::cache_engine::abi::SystemCellValues cell_values,
-                                                 pf::PermToolchainGliedWert const&              toolchain_glied) {
-                // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march (die
-                // [d,e,f]-ISA-Identitaet) und die Gate-Flags bleiben erhalten. dbg==false => flags==opt_flag =>
-                // byte-identisch zum Ist-Compile-Kanal.
-                std::string flags =
-                    dbg ? ex::debug_flags_for_toolchain() : opt_flag; // opt-b-Kanal: eine rsp-Zeile (opt + -march)
-                if (!march_flag.empty()) {
-                    flags += ' ';
-                    flags += march_flag;
+        a.compile_for_perm = [inc = perm_include_dirs(),
+                              def = perm_compile_flags(nullptr, /*mit_toolchain_glied=*/false, args.build_version),
+                              cxx = cxx_compiler(), libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
+                              dbg = facade_build_type_is_debug()](
+                                 std::string const& opt_flag, std::string const& march_flag,
+                                 ::comdare::cache_engine::abi::SystemCellValues cell_values,
+                                 pf::PermToolchainGliedWert const&              toolchain_glied) {
+            // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march (die
+            // [d,e,f]-ISA-Identitaet) und die Gate-Flags bleiben erhalten. dbg==false => flags==opt_flag =>
+            // byte-identisch zum Ist-Compile-Kanal.
+            std::string flags =
+                dbg ? ex::debug_flags_for_toolchain() : opt_flag; // opt-b-Kanal: eine rsp-Zeile (opt + -march)
+            if (!march_flag.empty()) {
+                flags += ' ';
+                flags += march_flag;
+            }
+            // Section 40.a-E4 / E-10 SCHRITT 3c (26.08.2026): flag-genaues Bau-Gate an der CompileFn-Naht.
+            // Die Gate-Flags entstehen NICHT mehr per Perm aus globalen Hooks (Form ENTFERNT), sondern
+            // PER BINARY INNERHALB der per-Job-CompileFn unten: job.binary_id -> ex::ceb_parse_path ->
+            // gate_for_binary (DER EINE Helfer; Aggregation 18+1 inkl. Organ-Meta-Meta-Traeger-Zeile).
+            // Heute deklariert kein Register required -> gate.flags leer -> rsp byte-identisch zum
+            // per-Perm-Stand; nur der RECHENWEG ist per Binary (Designplan a.5 B-3).
+            // W10-C4: das Zellwert-Define reist als EIGENES Argument im defines-Kanal (eine rsp-Zeile), nicht
+            // in der opt/-march-Zeile -- es ist eine Praeprozessor-Definition, keine Codegen-Flag. Leere
+            // Wertform => leeres Argument => gar kein Define => byte-identischer Bau.
+            std::vector<std::string> perm_defines = def;
+            if (std::string arg = pf::system_cell_values_define_arg(cell_values.value); !arg.empty())
+                perm_defines.push_back(std::move(arg));
+            // T2-B: das PER-PERM-Glied [5]. Derselbe String, den der Laufzeit-Zwilling dieser Iteration
+            // bekommt (die Schleife bildet ihn EINMAL und reicht ihn zweimal weiter) -- deshalb kann die
+            // Tier-Binary keinen anderen Fingerprint einkompiliert bekommen als den, den die CEB erwartet.
+            if (std::string arg = pf::toolchain_stamp_glied_define_arg(toolchain_glied.value); !arg.empty())
+                perm_defines.push_back(std::move(arg));
+            // E-10 3c: per-Job-CompileFn. DRIFT-VERRIEGELUNG (fail-closed): liefert gate_for_binary fuer
+            // einen Job einen Beitrag, der NICHT im per-Perm durchgereichten Glied [5] steht, bricht der
+            // Job LAUT ab, statt eine Binary mit falschem Stempel zu bauen (das per-Perm-Glied traegt die
+            // compile-hart bewiesene leere Invariante; s. produktions_required_aggregat_ist_heute_leer).
+            return ex::CompileFn{[inc, defines = std::move(perm_defines), cxx, libs, basis_flags = std::move(flags),
+                                  fno, march_flag, glied_wert = toolchain_glied.value](ex::BuildJob const& job) -> int {
+                namespace cmg = ::comdare::cache_engine::measurement;
+                auto const gate =
+                    cmg::gate_for_binary(ex::ceb_parse_path(job.binary_id), cmg::route_of_march_flag(march_flag));
+                if (!gate.identity_text.empty() && glied_wert.find(gate.identity_text) == std::string::npos) {
+                    std::cerr << "[E-10 3c] Stempel-Drift verhindert: gate-Beitrag '" << gate.identity_text
+                              << "' der binary_id=" << job.binary_id
+                              << " steht nicht im per-Perm-Glied [5] -- Glied-/Suffix-Kanal muss je Binary "
+                                 "nachgezogen werden (simd_organ_requirement.hpp, S3-Auflage). Kein Bau.\n";
+                    return 125; // fail-closed: kein Binary mit falschem Stempel
                 }
-                // Section 40.a-E4: flag-genaues Bau-Gate an der CompileFn-Naht. Default-permissiv -- solange kein
-                // Organ required-Flags deklariert, ist die aktive Anforderung leer -> Pruef-Dock NotApplicable ->
-                // KEINE Zusatz-Flags (byte-identisch zum Ist). Aktiviert, sobald Organe required-Flags erklaeren.
-                for (auto const& mf : ::comdare::cache_engine::measurement::gate_extra_march_flags_for_build(
-                         ::comdare::cache_engine::measurement::route_of_march_flag(march_flag))) {
-                    flags += ' ';
-                    flags += mf;
+                std::string job_flags = basis_flags;
+                for (auto const& mf : gate.flags) {
+                    job_flags += ' ';
+                    job_flags += mf;
                 }
-                // W10-C4: das Zellwert-Define reist als EIGENES Argument im defines-Kanal (eine rsp-Zeile), nicht
-                // in der opt/-march-Zeile -- es ist eine Praeprozessor-Definition, keine Codegen-Flag. Leere
-                // Wertform => leeres Argument => gar kein Define => byte-identischer Bau.
-                std::vector<std::string> perm_defines = def;
-                if (std::string arg = pf::system_cell_values_define_arg(cell_values.value); !arg.empty())
-                    perm_defines.push_back(std::move(arg));
-                // T2-B: das PER-PERM-Glied [5]. Derselbe String, den der Laufzeit-Zwilling dieser Iteration
-                // bekommt (die Schleife bildet ihn EINMAL und reicht ihn zweimal weiter) -- deshalb kann die
-                // Tier-Binary keinen anderen Fingerprint einkompiliert bekommen als den, den die CEB erwartet.
-                if (std::string arg = pf::toolchain_stamp_glied_define_arg(toolchain_glied.value); !arg.empty())
-                    perm_defines.push_back(std::move(arg));
-                return ex::make_gpp_compile_fn(inc, std::move(perm_defines), cxx, libs, flags, fno);
-            };
+                return ex::make_gpp_compile_fn(inc, defines, cxx, libs, std::move(job_flags), fno)(job);
+            }};
+        };
     } else {
         a.build_version = args.build_version + system_axes_version_suffix(tp_ptr); // Einzel-Pfad byte-identisch
         // B-9/golden-102: auch hier die REINE Basis (der statische Suffix ist via Glied [5] Identitaet).
@@ -1361,14 +1387,10 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
             flags += ' ';
             flags += march_flag;
         }
-        // Section 40.a-E4: flag-genaues Bau-Gate an der CompileFn-Naht. Default-permissiv -- solange kein Organ
-        // required-Flags deklariert, ist die aktive Anforderung leer -> Pruef-Dock NotApplicable -> KEINE
-        // Zusatz-Flags (byte-identisch zum Ist). Aktiviert, sobald Organe required-Flags erklaeren.
-        for (auto const& mf : ::comdare::cache_engine::measurement::gate_extra_march_flags_for_build(
-                 ::comdare::cache_engine::measurement::route_of_march_flag(march_flag))) {
-            flags += ' ';
-            flags += mf;
-        }
+        // Section 40.a-E4 / E-10 SCHRITT 3c (SPIEGEL der Profil-Naht): die Gate-Flags entstehen PER BINARY
+        // INNERHALB der per-Job-CompileFn unten (job.binary_id -> ex::ceb_parse_path -> gate_for_binary,
+        // DER EINE Helfer); die alte per-Perm-Bildung aus globalen Hooks ist ENTFERNT. Heute deklariert
+        // kein Register required -> gate.flags leer -> rsp byte-identisch (Rechenweg per Binary, B-3).
         // W10-C4 (SPIEGEL der Profil-Naht): das Zellwert-Define als eigenes Argument im defines-Kanal.
         std::vector<std::string> perm_defines = def;
         if (std::string arg = pf::system_cell_values_define_arg(cell_values.value); !arg.empty())
@@ -1376,7 +1398,26 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
         // T2-B (SPIEGEL): das PER-PERM-Glied [5] aus derselben Schleifen-Iteration wie der Zwilling.
         if (std::string arg = pf::toolchain_stamp_glied_define_arg(toolchain_glied.value); !arg.empty())
             perm_defines.push_back(std::move(arg));
-        return ex::make_gpp_compile_fn(inc, std::move(perm_defines), cxx, libs, flags, fno);
+        // E-10 3c (SPIEGEL): per-Job-CompileFn mit Drift-Verriegelung (fail-closed; s. Profil-Naht).
+        return ex::CompileFn{[inc, defines = std::move(perm_defines), cxx, libs, basis_flags = std::move(flags), fno,
+                              march_flag, glied_wert = toolchain_glied.value](ex::BuildJob const& job) -> int {
+            namespace cmg = ::comdare::cache_engine::measurement;
+            auto const gate =
+                cmg::gate_for_binary(ex::ceb_parse_path(job.binary_id), cmg::route_of_march_flag(march_flag));
+            if (!gate.identity_text.empty() && glied_wert.find(gate.identity_text) == std::string::npos) {
+                std::cerr << "[E-10 3c] Stempel-Drift verhindert: gate-Beitrag '" << gate.identity_text
+                          << "' der binary_id=" << job.binary_id
+                          << " steht nicht im per-Perm-Glied [5] -- Glied-/Suffix-Kanal muss je Binary "
+                             "nachgezogen werden (simd_organ_requirement.hpp, S3-Auflage). Kein Bau.\n";
+                return 125; // fail-closed: kein Binary mit falschem Stempel
+            }
+            std::string job_flags = basis_flags;
+            for (auto const& mf : gate.flags) {
+                job_flags += ' ';
+                job_flags += mf;
+            }
+            return ex::make_gpp_compile_fn(inc, defines, cxx, libs, std::move(job_flags), fno)(job);
+        }};
     };
     a.compiler_tag = cxx_compiler(); // +cxx=-Provenienz im per-Perm-build_version
     // W10-C4: die beiden lauf-konstanten System-Zellen (SPIEGEL der Profil-Naht). Dieser Pfad kennt keine
@@ -1473,11 +1514,13 @@ int print_cache_key_facade(std::string const& base_build_version, std::ostream& 
     // kSuffixSegmentOrder-Position). Dieser CI-Key-Druck bildet die Perm-Reihenfolge nach und MUSS es deshalb
     // ebenfalls setzen -- sonst faltete cache_key_prefix es hier ans ENDE und die CI zeigte auf einen Bucket,
     // den kein Push je befuellt (Key-Drift genau der Klasse, gegen die dieser Druck ueberhaupt gebaut wurde).
-    std::string const ceb   = pf::ceb_contract_version_text();
-    parts.ceb               = ceb;
-    std::string const bt    = tlz::build_type_version_value(); // (i) +bt=Debug nur bei COMDARE_BUILD_TYPE=Debug
-    parts.build_type        = bt;
-    std::string const gate  = cm::gate_contribution_identity_text(cm::route_of_simd_id(simd), cm::SimdDialect::Gpp);
+    std::string const ceb = pf::ceb_contract_version_text();
+    parts.ceb             = ceb;
+    std::string const bt  = tlz::build_type_version_value(); // (i) +bt=Debug nur bei COMDARE_BUILD_TYPE=Debug
+    parts.build_type      = bt;
+    // E-10 3c: aus DEM EINEN Helfer; leere Achsen-Menge = compile-hart verriegelte Invariante
+    // (kein Binary-Kontext an dieser lauf-konstanten Stelle; s. Kommentar an der Suffix-Stelle oben).
+    std::string const gate  = cm::gate_for_binary({}, cm::route_of_simd_id(simd), cm::SimdDialect::Gpp).identity_text;
     parts.gate_contribution = gate; // OP-7: am ENDE; leer => kein Segment
     std::string const       suffix = pf::compose_system_version_suffix(parts);
     at::ArtifactCache const cache = at::ArtifactCache::from_env(); // +mtool aus COMDARE_MEASUREMENT_COMBO, +ceb aus ABI

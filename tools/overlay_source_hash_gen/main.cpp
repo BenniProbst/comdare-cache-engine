@@ -150,6 +150,7 @@ void anhaengen(std::vector<std::uint8_t>& senke, fs::path const& datei) {
 [[nodiscard]] std::string kategorie_text(ovl::Kategorie k) {
     switch (k) {
         case ovl::Kategorie::organ: return "organ";
+        case ovl::Kategorie::organ_meta_meta: return "organ_meta_meta"; // E-10/ORG-19 (26.08.2026)
         case ovl::Kategorie::system: return "system";
         case ovl::Kategorie::mess: return "mess";
         case ovl::Kategorie::tier_substanz: return "tier_substanz";
