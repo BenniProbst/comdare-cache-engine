@@ -37,12 +37,12 @@ namespace ana    = ::comdare::cache_engine::anatomy;
 namespace {
 
 struct Fixture {
-    char const*       name;            ///< Fixture-Name (== Unterverzeichnis des Werkzeugs, == manifest.txt Spalte 1)
-    char const*       pfad;            ///< $<TARGET_FILE:...> des gebauten SHARED-Moduls
-    ana::AnatomyGenus genus;           ///< erwartetes Genus der Instanz (Hybrid: das ZIEL-Genus, Weg C)
-    bool              gestempelt;      ///< Positiv-/Negativ-Seite des Paares
-    char const*       organ_soll;      ///< ein Token, das die Organ-Zeile tragen MUSS (gespeist, nicht erfunden)
-    std::size_t       organ_eintraege; ///< Zahl der Haupt-Achsen-Segmente der Organ-Zeile (Blindstellen-Wache)
+    char const*       name = nullptr; ///< Fixture-Name (== Unterverzeichnis des Werkzeugs, == manifest.txt Spalte 1)
+    char const*       pfad = nullptr; ///< $<TARGET_FILE:...> des gebauten SHARED-Moduls
+    ana::AnatomyGenus genus;          ///< erwartetes Genus der Instanz (Hybrid: das ZIEL-Genus, Weg C)
+    bool              gestempelt = false;   ///< Positiv-/Negativ-Seite des Paares
+    char const*       organ_soll = nullptr; ///< ein Token, das die Organ-Zeile tragen MUSS (gespeist, nicht erfunden)
+    std::size_t       organ_eintraege = 0;  ///< Zahl der Haupt-Achsen-Segmente der Organ-Zeile (Blindstellen-Wache)
 };
 
 constexpr Fixture kFixtures[] = {

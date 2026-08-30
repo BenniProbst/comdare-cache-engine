@@ -118,7 +118,7 @@ inline constexpr std::array<std::string_view, 2> kContainerIncludes{"builder/cod
 struct ManifestZeile {
     std::string fixture;
     std::string relpfad;
-    bool        gestempelt;
+    bool        gestempelt = false;
     std::string genus;
     std::string makro;
 };
