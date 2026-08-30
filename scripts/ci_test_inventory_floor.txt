@@ -40,6 +40,28 @@
 # nicht die Commit-Granularitaet -- er erzwingt Floor-Datei und Registrierung
 # im SELBEN Change; sichtbar im Diff bleibt der Nachzug trotzdem.
 #
+# -- NACHZUG 2026-08-27 (STEMPEL-TEIL-2-BRANCH bau/stempel-teil2: B-7/RN-78 Emitter-Haelfte unter
+#    Weiche A, ZWEI NEUE REGISTRIERUNGEN; Change = dieser Branch, Beweisort
+#    ~/backups-workflow/20260826-stempel-teil2/floor/) ------------------------------------------
+# 547/543/541 loest 545/541/539 ab. Der Zuwachs ist +2 in JEDER Klasse und stammt
+# vollstaendig aus diesem Branch (beide unbedingt registriert, Block am Dateiende von
+# tests/unit/CMakeLists.txt):
+#     test_stempel2_modul_emitter    (L4-Andock-Flaeche + L2-Hybrid-Emitter host-seitig, comdare_add_test)
+#     test_stempel2_vertragspaare    (C2-Vertragspaare je Gattung, echter dlopen-Weg, comdare_add_test)
+# GEMESSEN, NICHT GERECHNET (KON58-13/A-F3): alle drei Sprossen an DIESEM Baum LIVE erhoben
+# (build-k17-gcc-rel, Abnahme-Form MIT COMDARE_CE_PRUEFLINGE, J-1 SIEBEN Werkzeuge, RECONFIGURE,
+# Vollbau all+facade+comdare_tests, RECONFIGURE2); Zaehlbasis "Total Tests: N", Gegenprobe
+# Listenlaenge == Total. ZWEI-SEITIGE comm-GEGENPROBE (LC_ALL=C, beide Richtungen): avx512f->avx2
+# verliert exakt die dokumentierten VIER, avx2->basis exakt die ZWEI, beide Gegenrichtungen LEER;
+# die 2 Neuen stehen in ALLEN DREI Namensmengen je genau 1x -> +2 auf allen Sprossen, Abstaende
+# -4/-2 unveraendert. WIEDERHERSTELLUNG 'cmake -U' auf BEIDE Variablen: Total wieder 547,
+# Namensliste BYTE-GLEICH. MESSHOST prod1, GCC 15.3, Ninja, 2026-08-27. Messlog: floor-treppe.log +
+# ctestN-*/namen-* im Beweisort oben.
+# LANDE-AUFLAGE (E-10-E-3-Regel "LANDUNG HARMONISIERT VERTRAEGE"): diese Zahlen gelten am BRANCH-Tip
+# (Basis d3b5a393 = 545/541/539); beim Landen ist die Floor-Datei RELATIV zu harmonisieren
+# (Vorgaenger-Floor + 2) und am Merge-Endstand LIVE nachzumessen -- der Konflikt an dieser Datei
+# ist dann ERWARTET, kein Unfall.
+#
 # -- NACHZUG 2026-08-26 (VO3-1(b)-BRANCH bau/vo3-1-global-o2: GLOBAL O2 + vendoropt-Glied +
 #    OS-2-Gate, DREI NEUE REGISTRIERUNGEN; Change = dieser Branch, Beweisort
 #    ~/backups-workflow/20260825-vo3-1-global-o2/bau/floor/) ---------------------------------
@@ -951,6 +973,29 @@
 # MESSHOST prod1, GCC 15.3.0 (/usr/bin/g++), Ninja, 2026-08-28. Messlogs:
 #   ~/backups-workflow/20260825-e10-designplan/bau/s7-floor/ (treppe/floor-treppe.log, ctestN-*.log,
 #   namen-*.txt, alt-listen-gegenprobe.log, reconf-merge-stand.out) + bau/t1-rot/R17-s7-floor-gate5-rot.log.
-avx512f 553
-avx2 549
-basis 547
+# LANDE-HARMONISIERUNG 30.08.2026 (STEMPEL-TEIL-2-Zug bau/stempel-teil2 @ bb5b6949, neutraler Zug
+#   HINTER E-10, Board #147 + E-10-Dossier L-9: Merge --no-ff in lande/e10-2908 auf origin/development
+#   5e03c2cc; der Konflikt an dieser Datei war ERWARTET und deklariert, s. STEMPEL-TEIL-2-NACHZUG im
+#   Kopf dieser Datei): der Strang-Block nennt 547/543/541 RELATIV zur Basis d3b5a393 (545/541/539,
+#   also +2); am Lande-Endstand gilt der E-10-Anker 553/549/547 plus dieselben zwei unbedingten
+#   Registrierungen (test_stempel2_modul_emitter, test_stempel2_vertragspaare) => 555/551/549.
+#   Beide Vermerk-Bloecke bleiben stehen (nichts geloescht).
+# WIE GEMESSEN, NICHT GERECHNET (KON58-13), ALLE DREI SPROSSEN LIVE am MERGE-ARBEITSBAUM (Worktree
+#   /home/comdare/wt-ce-lande4, Merge 5e03c2cc x bb5b6949 aufgeloest im Arbeitsbaum, Baum
+#   build-k17-vorbau in CI-FORM: COMDARE_CE_PRUEFLINGE + J-1 SIEBEN Werkzeuge + RECONFIGURE + Vollbau
+#   all+facade+comdare_tests + RECONFIGURE2, Registrierungs-Protokoll 0x UEBERSPRUNGEN):
+#   'ctest -N'-Schlusszeile literal "Total Tests: 555"; avx2 per -DCOMDARE_HOST_RUNS_AVX512F=0 -> 551;
+#   basis zusaetzlich -DCOMDARE_HOST_RUNS_AVX2=0 -> 549; je Gegenprobe Listenlaenge == Total
+#   (555/555, 551/551, 549/549); LC_ALL=C comm beidseitig: avx512f->avx2 verliert exakt die
+#   dokumentierten VIER, avx2->basis exakt die ZWEI, beide Gegenrichtungen LEER; alle ZEHN neuen
+#   Namen der Aera (4 E-10 + 4 Lande + 2 Stempel-2) je genau 1x in allen drei Klassen; 'cmake -U'
+#   Restore: Total wieder 555, Namensliste BYTE-GLEICH, beide Cache-Schalter wieder INTERNAL=1.
+# GATE-5-KOEDER (T-1 rot-zuerst): VOR diesem Nachzug am Merge-Arbeitsbaum literal "ROT am GATE [5/6]
+#   FLOOR-SCANNER -- Inventur 555 UEBER Anker 553 -- Floor-Nachzug fehlt (#39: alle drei Sprossen im
+#   SELBEN Change)" (Exit 1) -- danach GRUEN (exakt).
+# MESSHOST prod1, GCC 15.3.0 (/usr/bin/g++), Ninja, 2026-08-30. Messlogs:
+#   ~/backups-workflow/20260829-lande-e10-stempel2/stempel2-landung/floor/ (treppe_st2.sh Tag 'vorbau',
+#   ctestN-vorbau-*.log, namen-vorbau-*.txt, t1-vorbau-*.log) + STAND.md ebenda.
+avx512f 555
+avx2 551
+basis 549

@@ -8407,3 +8407,57 @@ target_compile_definitions(test_e10_organ_stamp_je_comp PRIVATE
 add_test(NAME test_e10_organ_stamp_je_comp COMMAND test_e10_organ_stamp_je_comp)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e10_organ_stamp_je_comp)
 set_tests_properties(test_e10_organ_stamp_je_comp PROPERTIES LABELS "e10;org19;organ-meta-meta;stempel;contract")
+
+# =============================================================================
+# STEMPEL TEIL 2 (B-7/RN-78 EMITTER-HAELFTE, WEICHE A; H-23 TEIL B L2/L3/L4; Board #147,
+# Owner 26.08.2026 13:00Z "vergessenen Stempel Teil 2 ... mit implementieren vor dem Trigger"):
+# eigener Block am DATEIENDE (Kollisionsschutz gegen die Bloecke anderer Straenge).
+#
+# (1) Die 13 C2-VERTRAGSPAAR-FIXTURES: comdare-modul-emitter (apps/modul_emitter, die CLI der
+#     L4-Andock-Flaeche) emittiert sie zur BUILD-Zeit, cmake/modul_emitter.cmake baut sie als
+#     SHARED-Module (Begruendung der Build-Zeit-Form statt Configure-2-Pass: dort im Kopf).
+include(modul_emitter)
+set(_stempel2_fixture_dir "${PROJECT_BINARY_DIR}/generated/stempel2_vertragspaare")
+comdare_stempel2_vertragspaar_fixtures(
+    OUTPUT_DIR    "${_stempel2_fixture_dir}"
+    AXIS_GEN_DIRS ${COMDARE_ALL_AXIS_GENERATED_DIRS}
+    TARGETS_OUT   _stempel2_fixture_targets)
+
+# (2) test_stempel2_modul_emitter: die Andock-Flaeche + der Hybrid-Emitter auf der Host-Seite
+#     (Textform, Strategie-Daten, Organ-Zeilen, D1-Eingang, Emitter-Vertrag ueber die REALE
+#     SetPermutationEngine, Hybrid-Zustaende + XML-Speisung + F-17-Wache). Include-/Link-Satz:
+#     comdare::ce_hybrid (Hybrid-Speisung + Stempel-Kette), builder/ fuer die Admission, Achsen-
+#     Generate fuer anatomy_version_stamp (wie test_hy_a2_stempel_kette).
+comdare_add_test(test_stempel2_modul_emitter
+    SOURCES test_stempel2_modul_emitter.cpp)
+target_link_libraries(test_stempel2_modul_emitter PRIVATE comdare::ce_hybrid)
+target_include_directories(test_stempel2_modul_emitter PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+set_tests_properties(test_stempel2_modul_emitter PROPERTIES
+    LABELS "stempel2;emitter;weiche-a;f17;hybrid;wachen;koeder")
+
+# (3) test_stempel2_vertragspaare: die 13 Fixtures ueber den ECHTEN dlopen-Weg -- gestempelt laedt
+#     (status_ok + gespeiste Organ-Zeile + Genus), stempellos faellt EXAKT auf status 13
+#     (Praezedenz test_q2_identitaets_riegel / perm_a11_ohne_stempel). Loader-only, kein Umbrella.
+comdare_add_test(test_stempel2_vertragspaare
+    SOURCES test_stempel2_vertragspaare.cpp)
+target_link_libraries(test_stempel2_vertragspaare PRIVATE comdare::anatomy_module_loader)
+target_compile_definitions(test_stempel2_vertragspaare PRIVATE
+    "COMDARE_STEMPEL2_FIXTURE_DIR=\"${_stempel2_fixture_dir}\""
+    COMDARE_STEMPEL2_SA_GESTEMPELT="$<TARGET_FILE:stempel2_sa_gestempelt>"
+    COMDARE_STEMPEL2_SA_STEMPELLOS="$<TARGET_FILE:stempel2_sa_stempellos>"
+    COMDARE_STEMPEL2_SET_GESTEMPELT="$<TARGET_FILE:stempel2_set_gestempelt>"
+    COMDARE_STEMPEL2_SET_STEMPELLOS="$<TARGET_FILE:stempel2_set_stempellos>"
+    COMDARE_STEMPEL2_SEQUENCE_GESTEMPELT="$<TARGET_FILE:stempel2_sequence_gestempelt>"
+    COMDARE_STEMPEL2_SEQUENCE_STEMPELLOS="$<TARGET_FILE:stempel2_sequence_stempellos>"
+    COMDARE_STEMPEL2_VIEW_GESTEMPELT="$<TARGET_FILE:stempel2_view_gestempelt>"
+    COMDARE_STEMPEL2_VIEW_STEMPELLOS="$<TARGET_FILE:stempel2_view_stempellos>"
+    COMDARE_STEMPEL2_ADAPTER_GESTEMPELT="$<TARGET_FILE:stempel2_adapter_gestempelt>"
+    COMDARE_STEMPEL2_ADAPTER_STEMPELLOS="$<TARGET_FILE:stempel2_adapter_stempellos>"
+    COMDARE_STEMPEL2_HYBRID_SA_GESTEMPELT="$<TARGET_FILE:stempel2_hybrid_sa_gestempelt>"
+    COMDARE_STEMPEL2_HYBRID_SET_GESTEMPELT="$<TARGET_FILE:stempel2_hybrid_set_gestempelt>"
+    COMDARE_STEMPEL2_HYBRID_STEMPELLOS="$<TARGET_FILE:stempel2_hybrid_stempellos>")
+add_dependencies(test_stempel2_vertragspaare ${_stempel2_fixture_targets})
+set_tests_properties(test_stempel2_vertragspaare PROPERTIES
+    LABELS "stempel2;vertragspaare;a11;status13;dlopen;contract;koeder")
