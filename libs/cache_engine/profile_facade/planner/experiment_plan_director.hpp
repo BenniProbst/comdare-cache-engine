@@ -1300,8 +1300,13 @@ class TierCiYamlBuilder final : public IPlanBuilder {
 public:
     void begin_plan(PlanHeader const& h) override {
         header_ = h;
+        // E-1-FIX-R1 S-5 (Bewertung O-04, 01.09.2026): Kopf praezisiert -- "host-unabhaengig" gilt AUSSER der
+        // deklarierten PMC-Befund-Klasse ('# PMC-BEFUND'-Zeilen + PMC-Defines der cmake-Zeilen; Laufzeit-Sonde
+        // perf_event_open+cpuid des emittierenden Hosts, Owner-Ausnahme I-PMC-2 10.08.2026). Vorher stand das
+        // unbedingt neben 4 Sonde-Zeilen. ASCII-Nachzug im selben Literal: S4-Par.62-B-Batch (Diff-Hygiene).
         out_ += "# comdare CEB-emitted tier child-pipeline (TierCiYamlBuilder v2, STUFE 2 = System-Achsen-Stufe, "
-                "S4-§62-B-Batch) -- GENERIERT, deterministisch, host-unabhaengig.\n";
+                "S4-Par.62-B-Batch) -- GENERIERT, deterministisch; host-unabhaengig ausser der PMC-Befund-Klasse "
+                "('# PMC-BEFUND'-Zeilen + PMC-Defines = Laufzeit-Sonde des emittierenden Hosts).\n";
         out_ += "# source_kind=" + h.source_kind + " profile_id=" + h.profile_id +
                 " measurement_combo_count=" + std::to_string(h.measurement_combo_count) +
                 " perm_count=" + std::to_string(h.perm_count) + " batch_slice=" + std::to_string(kGnBatchSlice) +
@@ -1732,8 +1737,10 @@ private:
         std::string const build_type_env =
             header_.build_semantic.cmake_build_type == "Debug" ? "COMDARE_BUILD_TYPE=\"Debug\" " : std::string{};
         std::string s;
+        // E-1-FIX-R1 S-2 (Bewertung O-16, 01.09.2026): Vorbestands-Paragraph-Zeichen dieser JOB-Kopf-Zeile auf
+        // ASCII 'Par.62-B' gezogen -- die emittierte Zeile mischte sonst zwei Notationen (neu 'Par.41' + alt).
         s += "# JOB measure-batch host=" + host + " ceb=" + combo_legend_ +
-             " (STUFE 3 Batch, §62-B: O(Maschinen); realer Mess-Vollzug aller " + host +
+             " (STUFE 3 Batch, Par.62-B: O(Maschinen); realer Mess-Vollzug aller " + host +
              "-Lane-Perms; smoke|full=Auto-Run / sonst rules-Skip when:never = 320er-Par.41-Gate, POST-Entscheid)\n";
         s += "\"" + job + "\":\n";
         s += "  stage: measure\n";
