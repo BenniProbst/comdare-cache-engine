@@ -1222,10 +1222,13 @@ private:
         // EMISSIONSZEIT aus der Planer-Env LITERAL eingebrannt -- NICHT NAME: "$NAME": diese Selbst-Referenz wertet
         // GitLab im Child als 'circular variable reference' aus (config_error, leeres failed-Child; Befund Struktur-
         // Smoke 12628/12663). Leer/ungesetzt => Zeile ENTFAELLT (eine leere YAML-Variable ueberschriebe im Grandchild
-        // die 'nicht gesetzt'-Semantik: die STUFE-3-Mess-Rule '$COMDARE_MEASURE_PROFILE == "smoke"'-Auto-Run bzw. den
-        // ${COMDARE_GN_TOTAL:-16}-Fallback des Tier-Baus). Deterministische Reihenfolge; KLASSE: nur Werte/Basenames,
-        // nie $CI_PROJECT_DIR. Die Env setzt die super-YAML (Schicht 4): GN_TOTAL=131072 im Voll-Bau; MEASURE_PROFILE=
-        // smoke + METHODIK-Basename im Smoke. Leerer variables:-Block wird ausgelassen. KEIN pipeline_variables (Isolation).
+        // die 'nicht gesetzt'-Semantik: die Stufe-2-Mess-Rules smoke|full => Auto-Run / sonst `when: never`, die
+        // Marken-Wache `$COMDARE_MEASURE_PROFILE != null` -- eine LEER geforwardete Marke instanziierte die Wache =
+        // HART ROT + Fail-fast (E-1-FIX-R2 S-8; ci/lint 19.1.4 K4-leer: 3 Jobs inkl. Wache, gemessen 01.09.2026)
+        // -- bzw. den ${COMDARE_GN_TOTAL:-16}-Fallback des Tier-Baus). Deterministische Reihenfolge; KLASSE: nur
+        // Werte/Basenames, nie $CI_PROJECT_DIR. Die Env setzt die super-YAML (Schicht 4): GN_TOTAL=131072 im Voll-Bau;
+        // MEASURE_PROFILE=smoke + METHODIK-Basename im Smoke. Leerer variables:-Block wird ausgelassen. KEIN
+        // pipeline_variables (Isolation).
         std::string vars;
         append_forward_var_literal(vars, "COMDARE_GN_TOTAL");
         append_forward_var_literal(vars, "COMDARE_MEASURE_PROFILE");
@@ -1286,6 +1289,9 @@ private:
 //      "measure:[a,b,c]:batch:<host>"     -- EIN Mess-Batch je Host: misst alle Lane-Perms real (EIN CSV je Zelle
 //         nach measure_out/<slug>/perm<idx>). NUR MESS-Testate tragen alle drei Klammern zelle=[a,b,c][d,e,f][g,h,i].
 //         rules: smoke=>Auto-Run, sonst when:manual (320er-§41-Gate).
+//         E-1-DESIGN-FIX 01.09.2026 (Alt-Satz = Historie): smoke|full => Auto-Run, sonst rules-Skip `when: never`
+//         (der Job entsteht nicht); NIE when:manual (Zombie 288/16275, 69,8 h), NIE allow_failure; ungueltige
+//         Marke => eigener Wache-Job "measure:marke-wache" (end_plan, HART ROT statt stiller Null).
 //    P4 (§62-B): Build-Batch und Mess-Batch teilen je Maschine die resource_group "ceb-measure-<host>" (GitLab
 //    serialisiert sie nativ) -- so laeuft je Maschine hoechstens EIN Batch, das Lane-Budget (je 24) ist voll
 //    ausschoepfbar. timeout: 7d (GN-11-Mehrtaegigkeit); Trace-Hygiene: Treiber-Detail je Scheibe/Perm in
@@ -1297,18 +1303,28 @@ class TierCiYamlBuilder final : public IPlanBuilder {
 public:
     void begin_plan(PlanHeader const& h) override {
         header_ = h;
+        // E-1-FIX-R1 S-5 (Bewertung O-04, 01.09.2026): Kopf praezisiert -- "host-unabhaengig" gilt AUSSER der
+        // deklarierten PMC-Befund-Klasse ('# PMC-BEFUND'-Zeilen + PMC-Defines der cmake-Zeilen; Laufzeit-Sonde
+        // perf_event_open+cpuid des emittierenden Hosts, Owner-Ausnahme I-PMC-2 10.08.2026). Vorher stand das
+        // unbedingt neben 4 Sonde-Zeilen. ASCII-Nachzug im selben Literal: S4-Par.62-B-Batch (Diff-Hygiene).
         out_ += "# comdare CEB-emitted tier child-pipeline (TierCiYamlBuilder v2, STUFE 2 = System-Achsen-Stufe, "
-                "S4-§62-B-Batch) -- GENERIERT, deterministisch, host-unabhaengig.\n";
+                "S4-Par.62-B-Batch) -- GENERIERT, deterministisch; host-unabhaengig ausser der PMC-Befund-Klasse "
+                "('# PMC-BEFUND'-Zeilen + PMC-Defines = Laufzeit-Sonde des emittierenden Hosts).\n";
         out_ += "# source_kind=" + h.source_kind + " profile_id=" + h.profile_id +
                 " measurement_combo_count=" + std::to_string(h.measurement_combo_count) +
                 " perm_count=" + std::to_string(h.perm_count) + " batch_slice=" + std::to_string(kGnBatchSlice) +
                 " host_lanes=amd,intel\n";
         out_ += "#\n";
-        out_ += "# Ledger §42.b/§56 + §62-B-Batch (CEB-Rolle 'tier ci'): NUR die STUFE-2-Sicht, O(Maschinen).\n";
+        // E-1-FIX-R2 S-9 (Bewertung r2, 01.09.2026): Emissions-Literale ASCII-only ('Par.' statt Paragraph-Zeichen);
+        // Pin: Test Stufe2EmissionIstAsciiOnly (0 Byte > 0x7F in der Voll-Emission).
+        out_ += "# Ledger Par.42.b/Par.56 + Par.62-B-Batch (CEB-Rolle 'tier ci'): NUR die STUFE-2-Sicht, "
+                "O(Maschinen).\n";
         out_ += "#   tier:build-batch:<host>       -- EIN Build+Pruef-Batch je Host (iteriert intern Perms x 4096er-"
-                "Scheiben; Testate je Schritt zelle=[d,e,f][g,h,i]; Haupt-only, §42.b).\n";
-        out_ += "#   measure:[a,b,c]:batch:<host>  -- EIN Mess-Batch je Host (smoke=>Auto / sonst when:manual, "
-                "320er-§41-Gate; MESS-Testate zelle=[a,b,c][d,e,f][g,h,i]).\n";
+                "Scheiben; Testate je Schritt zelle=[d,e,f][g,h,i]; Haupt-only, Par.42.b).\n";
+        // E-1-DESIGN-FIX 01.09.2026: emittierter Kopf-Kommentar nachgezogen (vorher "smoke=>Auto / sonst when:manual").
+        out_ += "#   measure:[a,b,c]:batch:<host>  -- EIN Mess-Batch je Host (smoke|full => Auto-Run, sonst rules-Skip "
+                "when:never; 320er-Par.41-Gate = POST-Entscheid; ungueltige Marke => measure:marke-wache HART ROT, "
+                "Fail-fast via needs optional der Build-Batches; MESS-Testate zelle=[a,b,c][d,e,f][g,h,i]).\n";
         out_ += "stages:\n";
         out_ += "  - tier-build\n";
         out_ += "  - measure\n";
@@ -1363,7 +1379,11 @@ public:
             out_ += emit_batch_measure_job(h, bucket);
         }
     }
-    void end_plan(PlanHeader const&) override {}
+    // E-1-DESIGN-FIX (2026-09-01, Refute F2): Marken-Wache EINMAL je Stufe-2-YAML (nach allen CEB-Bloecken, eigener
+    // "# JOB "-Kopf). Jeder Wert der Mess-Marke ausser smoke|full ist ein Tippfehler des POST -> HART ROT statt
+    // stillem Bau-Lauf (Owner 09.08.: Fehler sichtbar melden, nie stille Null). Ohne Marke bzw. bei smoke|full
+    // entsteht der Job nicht (rules-Skip). Reines Literal, kein Env => byte-deterministisch (Test Byte-Determinismus).
+    void end_plan(PlanHeader const&) override { out_ += emit_marke_wache_job(); }
 
     [[nodiscard]] std::string const&                        text() const noexcept { return out_; }
     [[nodiscard]] PlanHeader const&                         header() const noexcept { return header_; }
@@ -1472,7 +1492,7 @@ private:
         // Batch-KOPF (Kommentar, einmal je Job): CEB-Identitaet [a,b,c] + Host-Lane. §62-B-NACHTRAG: [a,b,c] ist
         // die CEB-Ebene und steht NUR im KOPF, NICHT je Schritt.
         s += "# JOB tier-build-batch host=" + host + " ceb=" + combo_legend_ +
-             " (STUFE 2 Batch, §62-B: O(Maschinen); Build+Pruef aller " + host +
+             " (STUFE 2 Batch, Par.62-B: O(Maschinen); Build+Pruef aller " + host + // S-9: ASCII 'Par.'
              "-Lane-Perms; Testate je Schritt [d,e,f][g,h,i], ceb=[a,b,c] nur KOPF)\n";
         s += "\"" + job + "\":\n";
         s += "  stage: tier-build\n";
@@ -1486,10 +1506,26 @@ private:
         s += "  timeout: 7d            # GN-11-Mehrtaegigkeit (Runner-maximum_timeout >= 7d ist Infra-Vorbedingung)\n";
         emit_gn_out_persistence_variables(
             s); // Resume-CI-Fix: gn_out/build ueberleben den Checkout-Clean (dll_is_current)
+        // E-1-FIX-R2 S-10 (Bewertung r2, 01.09.2026) FAIL-FAST: optionale needs-Kante auf die Marken-Wache. Marke
+        // gueltig/ungesetzt => die Wache entsteht nicht (rules-Skip) => `optional: true` laesst die Kante entfallen,
+        // der Batch startet wie bisher (ci/lint K0/K1/K2 = 2/4/4 Jobs, 0 Fehler). Ungueltige Marke => die Wache
+        // (stage tier-build) faellt sofort => beide Build-Batches SKIPPED => Grandchild failed SOFORT statt erst nach
+        // bis zu 7 d Bau (strategy:depend der Bruecken spiegelt den Endstatus). Pin: Test B (Kante je Build-Batch,
+        // 0 je Mess-Batch, 0 in der Wache); ci/lint K0-ff/K1-ff/K3-ff = 2/4/3 Jobs (bau/fixr2/lint-vorprobe-*).
+        s += "  needs:\n";
+        s += "    - job: \"measure:marke-wache\"\n";
+        s += "      optional: true   # E-1-FIX-R2 S-10 Fail-fast: Wache fehlt (Marke gueltig/ungesetzt) => Kante "
+             "entfaellt; Wache faellt => Batch skipped\n";
         s += "  script:\n";
         // S2-NACHT: der Prolog verdrahtet COMDARE_GOLDEN_N_PROFILE auf das AKTIVE Profil (header_.profile_basename).
         emit_child_submodule_prolog(s, header_.profile_basename); // W10-Nacharbeit 2: manueller ce-Submodul-Klon
         s += "    - cd Code\n";
+        // E-1-DESIGN-FIX (2026-09-01, Refute F2): Kopf-Echo der Mess-Marke -- reine Sichtbarkeit (rc immer 0, kein
+        // Gate). Ohne Marke entsteht der Mess-Batch dieser Lane nicht (rules-Skip in emit_batch_measure_job); der
+        // Leser des Build-Logs sieht das HIER statt einer stillen Luecke (Owner 09.08. L23088).
+        s += "    - 'test -n \"${COMDARE_MEASURE_PROFILE:-}\" && echo \"MESS-MARKE: COMDARE_MEASURE_PROFILE="
+             "$COMDARE_MEASURE_PROFILE -> Mess-Batch folgt diesem Build-Batch\" || echo \"Mess-Batch nicht "
+             "instanziiert: COMDARE_MEASURE_PROFILE ungesetzt (Bau-/Kalibrierlauf ohne Mess-Absicht)\"'\n";
         // S5-P1: CMAKE_BUILD_TYPE aus der aufgeloesten Run-Methodik (measure => "Release"); Default byte-identisch zu HEAD.
         // W2: der CEB-NEUBAU im Batch-Job-Kontext traegt die Combo COMPILE-hart -- HIER entstehen die Stempel real
         // (die CEB generiert in diesem Job die DLL-Quellen); ohne den Define bliebe die Haertung Fiktion.
@@ -1521,12 +1557,12 @@ private:
         emit_storage_activation(s); // G4a P-A: Push/Pull scharfschalten (inert ohne COMDARE_STORAGE_CACHE) + Deckel
         // Sec. 62-B Lane-Budget (Bau-Pool-WORKER-Override, KEIN $(nproc)): lane_build_parallelism(host) = Owner-HEAVY_J
         // je Lane (amd 16 KON28-01, intel 24 = nproc prod2), s. Definition oben.
-        s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # §62-B Lane-Budget " + host +
+        s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # Par.62-B Lane-Budget " + host +
              " (lane_build_parallelism = Owner-HEAVY_J je Lane, KON28-01; harte Compile-Worker-Zahl, kein nproc)\n";
         s += "      TOTAL=\"${COMDARE_GN_TOTAL:-16}\"   # Default 16 = sicherer Serie-Test; Voll-Bau: "
              "COMDARE_GN_TOTAL=131072\n";
         s += "      SLICE=" + std::to_string(kGnBatchSlice) +
-             "   # §62-B-Bestandslog-Korn (harte Konstante, KEIN Env-Override)\n";
+             "   # Par.62-B-Bestandslog-Korn (harte Konstante, KEIN Env-Override)\n";
         s += "      FAIL=0\n";
         s += "      LOGDIR=\"$CI_PROJECT_DIR/Code/gn_out/" + slug + "/" + host + "/logs\"\n";
         s += "      mkdir -p \"$LOGDIR\"\n";
@@ -1658,6 +1694,45 @@ private:
         return s;
     }
 
+    // E-1-DESIGN-FIX (2026-09-01, Refute F2): die MARKEN-WACHE der Stufe 2 -- eigener Emissionsblock neben den Batches,
+    // EINMAL je Stufe-2-YAML (end_plan). rules: `$COMDARE_MEASURE_PROFILE != null && != "smoke" && != "full"` =>
+    // on_success (die Wache laeuft und faellt mit exit 1), sonst `- when: never` (der Job entsteht nicht). So macht
+    // jeder Tippfehler der Mess-Marke (z.B. "Full") den Baum HART ROT, statt lautlos ein gruener Bau-Lauf zu werden
+    // (Owner 09.08. L23088). Festlegungen: Jobname "measure:marke-wache" (Praefix measure: = Gegenstand, kein Host);
+    // stage tier-build (E-1-FIX-R2 S-10, vorher measure: die Fail-fast-needs-Kante der Build-Batches darf nur auf die
+    // gleiche/fruehere Stufe zeigen -- GitLab 19.1.4 ci/lint lehnt stage measure ab, gemessen 01.09.2026);
+    // tags ["baremetal"] = Runner 16 prod1 / 17 prod2; needs [] = startet sofort; KEINE resource_group,
+    // KEIN allow_failure, KEIN when:manual, KEIN Submodul-Prolog (GIT_STRATEGY none, cache paths []). `!= null` und
+    // `&&` = GitLab-Doku job_rules.md v19.1.4. Reine Literale, kein Env => byte-deterministisch. Die if-Zeile ist EINE
+    // YAML-Zeile (121 Zeichen), hier als zwei Quell-Literale.
+    [[nodiscard]] static std::string emit_marke_wache_job() {
+        std::string s;
+        s += "# JOB marke-wache (STUFE 2, E-1-DESIGN-FIX 01.09.2026: ungueltige Mess-Marke => HART ROT, "
+             "nie stille Null)\n";
+        s += "\"measure:marke-wache\":\n";
+        s += "  stage: tier-build\n"; // S-10: erste Stufe (Ziel der optionalen needs-Kante der Build-Batches)
+        s += "  tags: " + yaml_tag_list({"baremetal"}) + "\n";
+        s += "  needs: []\n";
+        s += "  cache:\n";
+        s += "    paths: []          # keine Cache-Runde fuer eine Shell-Wache (Praezedenz super ergebnis:holen)\n";
+        s += "  variables:\n";
+        s += "    GIT_STRATEGY: \"none\"   # reine Shell-Wache: kein Checkout, kein Submodul-Klon\n";
+        s += "  rules:\n";
+        s += "    - if: '$COMDARE_MEASURE_PROFILE != null && $COMDARE_MEASURE_PROFILE != \"smoke\""
+             " && $COMDARE_MEASURE_PROFILE != \"full\"'\n";
+        s += "      when: on_success   # Marke gesetzt, aber weder smoke noch full (Tippfehler/Case) => "
+             "Wache laeuft, faellt\n";
+        s += "    - when: never        # Marke ungesetzt (Bau-/Kalibrierlauf) oder smoke|full (Messlauf): "
+             "Wache entsteht nicht\n";
+        s += "  script:\n";
+        s += "    - 'echo \"FEHLER: COMDARE_MEASURE_PROFILE=$COMDARE_MEASURE_PROFILE unbekannt "
+             "(erlaubt: smoke|full)\"'\n";
+        s += "    - 'echo \"Lauf HART ROT statt stillem Bau-Lauf (E-1-DESIGN-FIX 01.09.2026; "
+             "Owner 09.08. L23088)\"'\n";
+        s += "    - exit 1\n";
+        return s;
+    }
+
     // S4-§62-B Mess-BATCH (2026-07-23): EIN Job je Host-Lane, der INTERN alle Lane-Perms real misst (Spiegel des
     // frueheren emit_measure_job als Perm-Schleife). Er baut+misst OHNE COMDARE_GOLDEN_N_PROVISION_ONLY => run_profile
     // MISST und schreibt EIN CSV je Zelle nach measure_out/<slug>/perm<idx> (BYTE-GLEICHE Pfade, KEINE win-
@@ -1666,6 +1741,9 @@ private:
     // (ceb-measure-<host>, DIESELBE wie der Build-Batch = P4). rules (§41/320er): Auto-Run NUR im smoke-Profil, sonst
     // when:manual. needs = der Build-Batch derselben Lane (1 Kante). MESS-Testate tragen alle drei Klammern
     // zelle=[a,b,c][d,e,f][g,h,i] (nur die Mess-Ebene). Debug-Profil: (j3)-Dual-Compile je Perm UNVERAENDERT.
+    // E-1-DESIGN-FIX 01.09.2026 (Alt-Satz "sonst when:manual" oben = Historie): rules = smoke|full => on_success,
+    // sonst `- when: never` (rules-Skip, der Job entsteht nicht). Grund: ein unbespielter manual-Job hielt ueber
+    // strategy:depend drei Ebenen 69,8 h (251354 s) in 'running' (288/16275 -> 16279 -> 16280, Job 386389).
     [[nodiscard]] std::string emit_batch_measure_job(std::string const&           host,
                                                      std::vector<PlanPerm> const& perms) const {
         std::string const slug = legend::cmake_slug(combo_legend_);
@@ -1677,9 +1755,11 @@ private:
         std::string const build_type_env =
             header_.build_semantic.cmake_build_type == "Debug" ? "COMDARE_BUILD_TYPE=\"Debug\" " : std::string{};
         std::string s;
+        // E-1-FIX-R1 S-2 (Bewertung O-16, 01.09.2026): Vorbestands-Paragraph-Zeichen dieser JOB-Kopf-Zeile auf
+        // ASCII 'Par.62-B' gezogen -- die emittierte Zeile mischte sonst zwei Notationen (neu 'Par.41' + alt).
         s += "# JOB measure-batch host=" + host + " ceb=" + combo_legend_ +
-             " (STUFE 3 Batch, §62-B: O(Maschinen); realer Mess-Vollzug aller " + host +
-             "-Lane-Perms; smoke=Auto-Run / sonst when:manual = 320er-§41-Gate)\n";
+             " (STUFE 3 Batch, Par.62-B: O(Maschinen); realer Mess-Vollzug aller " + host +
+             "-Lane-Perms; smoke|full=Auto-Run / sonst rules-Skip when:never = 320er-Par.41-Gate, POST-Entscheid)\n";
         s += "\"" + job + "\":\n";
         s += "  stage: measure\n";
         s += "  tags: " + yaml_tag_list({host}) + "\n";
@@ -1694,10 +1774,19 @@ private:
         // §62-B: EINE Bau->Mess-Kante auf den Build-Batch derselben Lane (statt der 4 Chunk-Kanten je Perm).
         s += "    - \"" + legend::tier_batch_build_job(host) + "\"\n";
         // §41/320er: Auto-Messlauf NUR im smoke-Profil; sonst when:manual (BYTE-GLEICH zur Vor-S4-Emission).
+        // (Alt-Kommentar oben = Historie bis 01.09.2026.)
+        // E-1-DESIGN-FIX (2026-09-01, Owner-GO 09:48Z "E-1: ja canceln und echt reparieren. Wie empfohlen."):
+        // rules-SKIP statt when:manual. Der Mess-Batch wird NUR instanziiert, wenn der Lauf ihn verlangt
+        // (COMDARE_MEASURE_PROFILE = smoke|full = super-Register "smoke|full-Marke"); sonst `when: never` =
+        // der Job entsteht nicht. NIE when:manual, NIE allow_failure: ein unbespielter manual-Job hielt ueber
+        // strategy:depend drei Ebenen 69,8 h (251354 s) in 'running' (288/16275 -> 16279 -> 16280, Job 386389).
+        // 320er-Par.41-Gate = der explizite POST-Entscheid des Owners (Variable), kein Klick-Gate mehr.
         s += "  rules:\n";
         s += "    - if: '$COMDARE_MEASURE_PROFILE == \"smoke\"'\n";
         s += "      when: on_success   # smoke: Auto-Messlauf (kleiner Umfang, Rauch-Test der Mess-Strecke)\n";
-        s += "    - when: manual       # sonst: 320er-§41-Gate (Voll-Messlauf erst nach User-Entscheid)\n";
+        s += "    - if: '$COMDARE_MEASURE_PROFILE == \"full\"'\n";
+        s += "      when: on_success   # full: Voll-Messlauf, per Trigger-Variable verlangt (320er-Par.41 = POST)\n";
+        s += "    - when: never        # sonst (Bau-/Kalibrierlauf ohne Mess-Absicht): Job wird NICHT erzeugt\n";
         // #278 / OV-16 (2026-08-09): HIER STAND EINE EMISSION DES VERBOTENEN FLAGS -- ersatzlos entfernt.
         // (Die entfernte Zeile wird hier bewusst NICHT als Emissions-Literal zitiert -- ein Audit, das nach
         //  Emissions-Zeilen dieses Flags sucht, soll 0 Treffer haben und nicht an einem Kommentar haengen.)
@@ -1807,12 +1896,12 @@ private:
             "COMDARE_GN_TOTAL=131072)\n";
         // §61-MODI: der DLL-Bau laeuft PARALLEL, aber mit dem §62-B-K-Budget-Literal (ersetzt $(nproc)) -- NUR das
         // MESSEN ist 1-Thread (run_profile-Loop). Der Treiber-cmake-Bau bleibt beim Parent-CMAKE_BUILD_PARALLEL_LEVEL-Deckel.
-        s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # §62-B Lane-Budget " + host +
+        s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # Par.62-B Lane-Budget " + host +
              " (DLL-Bau parallel; Messen 1-Thread, run_profile-Loop; Owner-HEAVY_J je Lane, KON28-01; kein nproc)\n";
         // (platform-Tag) §61/§62 Plattform-Provenienz: die CSV-Spalte "platform" MUSS die MESSENDE Maschine tragen
         // (compile_time_platform_tag trennt amd/intel-x86_64 NICHT). Einmal je Batch (die Lane ist fix je Job).
         s += "      export COMDARE_PLATFORM=\"" + host +
-             "@$(hostname)\"   # (platform-Tag) ISA-Lane@Maschine -> CSV-Provenienz (§61/§62 per-Maschine)\n";
+             "@$(hostname)\"   # (platform-Tag) ISA-Lane@Maschine -> CSV-Provenienz (Par.61/Par.62 per-Maschine)\n";
         // E-04-P1: dieselbe Lane-Aussage wie im Bau-Batch. Auch der Mess-Batch faehrt einen Treiber-Bau (der
         // Fallback-Kanal emittiert dort seine Bilanz) -- ohne diese Zeile stuende dort lane=unbelegt.
         s += "      export COMDARE_LANE=\"" + host +

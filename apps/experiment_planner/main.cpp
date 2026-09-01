@@ -334,8 +334,10 @@ struct PlanerBlockGate {
         if (kaputt) return 2;
 
         pln::MengenEingang eingang{};
-        if (int const rc = pf::collect_mess_menge_facade(std::filesystem::path{profil}, eingang, std::cerr); rc != 0) {
-            return rc; // 5 = unbekannte/unlesbare Profil-Wurzel (Diagnose steht schon auf stderr)
+        if (int const rc = pf::collect_mess_menge_facade(std::filesystem::path{profil}, eingang); rc != 0) {
+            // 5 = unbekannte/unlesbare Profil-Wurzel, 1 = METHODIK-Profil unlesbar / >1 Methoden (E-1-FIX-R3 S-12);
+            // die Diagnose steht schon auf stderr (construct_plan_into), stdout bleibt leer.
+            return rc;
         }
         eingang.deckel_bytes   = deckel_bytes;
         eingang.deckel_tage    = deckel_tage;
@@ -408,9 +410,10 @@ struct SimulateArgs {
         int                               schlechtester = 0;
         for (auto const& prof : args.profile) {
             pln::SimulationsEingang eingang{};
-            if (int const rc = pf::collect_simulation_eingang_facade(std::filesystem::path{prof}, eingang, std::cerr);
-                rc != 0) {
-                return rc; // 5 = unbekannte/unlesbare Profil-Wurzel (Diagnose steht schon auf stderr)
+            if (int const rc = pf::collect_simulation_eingang_facade(std::filesystem::path{prof}, eingang); rc != 0) {
+                // 5 = unbekannte/unlesbare Profil-Wurzel, 1 = METHODIK-Profil unlesbar / >1 Methoden (E-1-FIX-R3
+                // S-12); die Diagnose steht schon auf stderr (construct_plan_into), stdout bleibt leer.
+                return rc;
             }
             eingang.mengen.sekunden_je_op = sek_je_op;
             eingang.mess_teilmenge        = teilmenge;
@@ -551,7 +554,7 @@ struct SimulateArgs {
 
         // SOLL: derselbe deterministische Director-Walk wie plan dump/ci/cmake. rc != 0 ist KEIN Abbruch --
         // der Bericht sagt dann "plan=nicht_erhoben" MIT Grund und berichtet die uebrigen Quellen weiter.
-        (void)pf::collect_plan_soll_facade(prof, bericht.soll, std::cerr);
+        (void)pf::collect_plan_soll_facade(prof, bericht.soll);
 
         pln::erhebe_zellen(bericht, pf::mess_format_fakten_facade());
         bericht.bestand = lies_bestand_sicht();

@@ -103,6 +103,24 @@ struct Lauf {
     return l;
 }
 
+/// E-1-FIX-R1 S-6: der DIAGNOSE-Kanal als Gegenstand -- stderr PUR (stdout -> /dev/null). Nur fuer den
+/// Fehlerpfad-Test unten; die Byte-Vergleiche oben bleiben stdout-rein (clig.dev-Trennung beidseitig).
+[[nodiscard]] Lauf fahre_stderr(std::string const& argzeile) {
+    Lauf        l{};
+    std::string cmd = "\"" + g_binary + "\" " + argzeile + " 2>&1 1>/dev/null";
+    std::FILE*  p   = COMDARE_POPEN(cmd.c_str(), "r");
+    if (p == nullptr) return l;
+    char puffer[512];
+    while (std::fgets(puffer, sizeof(puffer), p) != nullptr) l.out += puffer;
+    int const status = COMDARE_PCLOSE(p);
+#if defined(_WIN32)
+    l.rc = status;
+#else
+    l.rc = (status >= 0 && WIFEXITED(status)) ? WEXITSTATUS(status) : -1;
+#endif
+    return l;
+}
+
 void env_setzen(char const* name, char const* wert) {
 #if defined(_WIN32)
     std::string const zuweisung = std::string{name} + "=" + (wert == nullptr ? "" : wert);
@@ -133,6 +151,7 @@ void grundstellung() {
     env_setzen("COMDARE_MINIO_ENDPOINT", nullptr);
     env_setzen("COMDARE_MINIO_BUCKET", nullptr);
     env_setzen("COMDARE_THESIS_PROFILE", nullptr);
+    env_setzen("COMDARE_PLAN_METHODIK_PROFILE", nullptr); // E-1-FIX-R2 S-7: Methodik-Marke weg (Hermetik)
     env_setzen("COMDARE_PMC_PROBE_AUS", "true");
 }
 
@@ -270,6 +289,54 @@ TEST(Vl3DebugStdoutByteGleich, ExitSechsGateAbbruchIdentischMitUndOhneFlag) {
     EXPECT_EQ(mit.rc, 6) << "--debug darf den Gate-Abbruch nicht veraendern";
     EXPECT_EQ(ohne.out, mit.out) << "Gate-Abbruch: stdout-Paar muss byte-identisch sein";
     EXPECT_TRUE(ohne.out.empty()) << "der Gate-Abbruch emittiert nicht auf den Datenkanal";
+}
+
+// (4) E-1-FIX-R1 S-6 (Bewertung O-27, 01.09.2026): der FEHLER-Pfad des Emissionswegs. Ein nicht aufloesbares
+//     Profil (hier: nicht existierender Pfad => leere/unlesbare Wurzel) muss mit rc 5 enden UND die Diagnose
+//     "[<what>] '...': unbekannte/unlesbare Wurzel ... KEIN Plan emittiert." auf STDERR tragen -- der
+//     Datenkanal bleibt LEER (Zusage der Hilfe: "Diagnose/Fehler -> stderr (clig.dev)"). Vorher schrieb
+//     profile_run_facade.cpp construct_plan_into die Zeile in `os` = stdout: ein Harness, das nur stdout
+//     umlenkt und rc nicht prueft, erhielt eine einzeilige Pseudo-Emission. Geprueft an plan dump UND plan ci
+//     (beide laufen durch construct_plan_into; rot zuerst: bau/fixr1/s6-rot-*.txt im E-1-Beweisort).
+TEST(Vl3DebugStdoutByteGleich, FehlerpfadUnbekannteWurzelStdoutLeerDiagnoseAufStderr) {
+    grundstellung();
+    std::string const bogus = "\"/nonexistent/e1-fix-r1-unbekannte-wurzel.profile.xml\"";
+    for (char const* sub : {"plan dump", "plan ci"}) {
+        Lauf const l = fahre_stdout(std::string{sub} + " " + bogus);
+        EXPECT_EQ(l.rc, 5) << sub << ": nicht aufloesbares Profil muss mit rc 5 enden";
+        EXPECT_TRUE(l.out.empty()) << sub << ": der Datenkanal traegt KEINE Fehlerzeile, hat aber:\n" << l.out;
+        Lauf const e = fahre_stderr(std::string{sub} + " " + bogus);
+        EXPECT_EQ(e.rc, 5) << sub << ": rc im stderr-Lauf identisch";
+        EXPECT_NE(e.out.find("unbekannte/unlesbare Wurzel"), std::string::npos)
+            << sub << ": die Diagnose muss auf stderr ankommen, stderr war:\n"
+            << e.out;
+        EXPECT_NE(e.out.find("KEIN Plan emittiert."), std::string::npos) << sub << ": Abbruch-Satz auf stderr";
+    }
+}
+
+// (5) E-1-FIX-R2 S-7 (Bewertung r2, 01.09.2026): der VIERTE Fehlerpfad derselben Funktion -- das METHODIK-Profil
+//     (COMDARE_PLAN_METHODIK_PROFILE) ist nicht lesbar => rc 1, KEIN Plan. Vorher schrieb resolve_methodik_override
+//     ueber den uebergebenen Stream `os` (= Datenkanal) die Zeile "[methodik] ... nicht als Thesis-Profil lesbar"
+//     auf STDOUT (rot zuerst: bau/fixr2/s7-rot-*.txt im E-1-Beweisort: rc 1 + 179 B stdout an plan dump, plan ci
+//     und Treiber `tier ci`). SOLL: stdout LEER, Diagnose auf stderr (Hilfe: "Diagnose/Fehler -> stderr (clig.dev)");
+//     der Run-Pfad (run_profile_facade) uebergibt denselben Resolver bereits mit std::cerr. Geprueft an plan dump UND
+//     plan ci (beide laufen durch construct_plan_into); das Katalog-Profil selbst ist gueltig (g_profil).
+TEST(Vl3DebugStdoutByteGleich, FehlerpfadMethodikProfilUnlesbarStdoutLeerDiagnoseAufStderr) {
+    grundstellung();
+    env_setzen("COMDARE_PLAN_METHODIK_PROFILE", "/nonexistent/e1-fix-r2-methodik.profile.xml");
+    for (char const* sub : {"plan dump", "plan ci"}) {
+        Lauf const l = fahre_stdout(std::string{sub} + " \"" + g_profil + "\"");
+        EXPECT_EQ(l.rc, 1) << sub << ": unlesbares METHODIK-Profil muss mit rc 1 enden";
+        EXPECT_TRUE(l.out.empty()) << sub << ": der Datenkanal traegt KEINE [methodik]-Zeile, hat aber:\n" << l.out;
+        Lauf const e = fahre_stderr(std::string{sub} + " \"" + g_profil + "\"");
+        EXPECT_EQ(e.rc, 1) << sub << ": rc im stderr-Lauf identisch";
+        EXPECT_NE(e.out.find("[methodik] COMDARE_PLAN_METHODIK_PROFILE"), std::string::npos)
+            << sub << ": die Diagnose muss auf stderr ankommen, stderr war:\n"
+            << e.out;
+        EXPECT_NE(e.out.find("nicht als Thesis-Profil lesbar"), std::string::npos)
+            << sub << ": Fehlerklasse (Methodik-Profil unlesbar) auf stderr";
+    }
+    grundstellung(); // Env-Hygiene fuer die Nachbarn: die Grundstellung entfernt die Methodik-Marke wieder
 }
 
 } // namespace

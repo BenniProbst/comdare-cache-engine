@@ -262,8 +262,10 @@ struct ExperimentRunResult {
 // Root-Tag-Sniff (common-DOM, wie main.cpp:675-680) waehlt: <comdare_thesis_profile> -> Thesis-Kanal
 // (opt x simd x Sweep-Passes), <comdare_experiment> -> Experiment-Kanal (opt x simd x Phasen). Baut KEINE
 // DLL und misst NICHT (Anti-Phantom, golden-neutral). Rueckgabe: 0 = Plan-Text nach os emittiert, 5 = Profil
-// nicht als bekannte Wurzel lesbar. Der katalog-schwere Planer-Header (experiment_plan_director.hpp:42-43)
-// wird NUR in der Fassaden-.cpp inkludiert, NIE in diesem Header (umbrella-frei fuer den Treiber).
+// nicht als bekannte Wurzel lesbar, 1 = METHODIK-Profil unlesbar / >1 Methoden (Diagnose auf std::cerr, os bleibt
+// leer; E-1-FIX-R3 S-12, rc 1 aus construct_plan_into). Der katalog-schwere Planer-Header
+// (experiment_plan_director.hpp:42-43) wird NUR in der Fassaden-.cpp inkludiert, NIE in diesem Header
+// (umbrella-frei fuer den Treiber).
 [[nodiscard]] int dump_experiment_plan_facade(std::filesystem::path const& profile_path, std::ostream& os);
 
 // V-2/2a (Bauplan TEIL V, M3-Ersatz-Gate, 2026-07-27): das START-GATE des Mess-Treibers.
@@ -321,7 +323,8 @@ struct PlanerBlockContext {
 // Pipeline-YAML (CiYamlBuilder am SELBEN Director-Walk). Die dynamische, Planer-gesteuerte Folge-CI (§40.b:
 // Pilot->Serie): zweistufig (STUFE 1 = CEB-Bau-Jobs je System-Perm; STUFE 2 = Tier-Job-Emitter + Grandchild-
 // Trigger). Byte-deterministisch/host-unabhaengig (nur CI-Variablen + opt/simd-Plan-Konstanten). Baut KEINE
-// DLL und misst NICHT. Rueckgabe: 0 = YAML nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
+// DLL und misst NICHT. Rueckgabe: 0 = YAML nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar,
+// 1 = METHODIK-Profil unlesbar / >1 Methoden (Diagnose auf std::cerr, os bleibt leer; E-1-FIX-R3 S-12).
 // G4b-2/E1: `pb` traegt den planer_block. Default-Argument = leerer Kontext = AUS => bestehende Aufrufer und der
 // env-freie Lauf bleiben byte-identisch. Die YAML-Bytes aendern sich NIE durch den planer_block -- er schreibt
 // ausschliesslich ins Bestandslog-Dokument.
@@ -332,7 +335,8 @@ struct PlanerBlockContext {
 // (CMakeGraphBuilder am SELBEN Director-Walk). W10-A/§42: die MESS-ACHSEN-Stufe (Planer-Rolle) -- je
 // Mess-Kombination [a,b,c] ein CEB-Bau- + CEB-Emit-Target (--emit-tier-cmake => Stufe-2). Der Bare-Metal-Bau
 // ist damit dreistufig. Byte-deterministisch/host-unabhaengig (Treiber/Profil = CMake-Variablen). Baut KEINE
-// DLL und misst NICHT. Rueckgabe: 0 = .cmake nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
+// DLL und misst NICHT. Rueckgabe: 0 = .cmake nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar,
+// 1 = METHODIK-Profil unlesbar / >1 Methoden (Diagnose auf std::cerr, os bleibt leer; E-1-FIX-R3 S-12).
 // G4b-2/E1: `pb` wie bei dump_experiment_ci_facade -- derselbe Lifecycle, dieselbe Neutralitaet bei leerem Kontext.
 [[nodiscard]] int dump_experiment_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os,
                                                PlanerBlockContext const& pb = {});
@@ -342,7 +346,8 @@ struct PlanerBlockContext {
 // [g,h,i]:chunk<k>" + GN-11/320er-gegatete Mess-Jobs "measure:[a,b,c][d,e,f][g,h,i]") als GitLab-Child-2-YAML
 // (TierCiYamlBuilder am SELBEN Director-Walk). CEB-Hoheit (§40.b-Praezisierung: der Planer steuert die CEB-Jobs
 // via --dump-ci, die CEB steuert die Tier-Jobs via --emit-tier-ci; heute EINE Binary in zwei Rollen). Baut
-// KEINE DLL, misst NICHT. Rueckgabe: 0 = YAML nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
+// KEINE DLL, misst NICHT. Rueckgabe: 0 = YAML nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar,
+// 1 = METHODIK-Profil unlesbar / >1 Methoden (Diagnose auf std::cerr, os bleibt leer; E-1-FIX-R3 S-12).
 // A5 (§56-T2-FANOUT D4): `combo_selector` (leer = Identitaet, heutige Live-Strecke byte-stabil) waehlt bei N>1
 // CEB-Konfigs die EINE repraesentierte Mess-Kombination (cmake_slug der [a,b,c]-Legende, --measurement-combo-Wert).
 [[nodiscard]] int emit_tier_ci_facade(std::filesystem::path const& profile_path, std::ostream& os,
@@ -352,7 +357,8 @@ struct PlanerBlockContext {
 // das STUFE-2-tier_plan.cmake (TierCmakeGraphBuilder): je System-Perm die REALEN provision-only-Tier-Chunk-Bau-
 // Targets + je Perm ein GN-11/320er-gegatetes measure:-Skelett. Der Ort des Tier-Baus in der dreistufigen
 // Bare-Metal-Kette. Byte-deterministisch/host-unabhaengig. Baut KEINE DLL, misst NICHT. Rueckgabe: 0 = .cmake
-// nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
+// nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar, 1 = METHODIK-Profil unlesbar / >1 Methoden
+// (Diagnose auf std::cerr, os bleibt leer; E-1-FIX-R3 S-12).
 // A8(a)-Symmetrie (§56-T2-FANOUT D4): `combo_selector` SPIEGELT emit_tier_ci_facade (leer = Identitaet, heutige
 // Live-Strecke byte-stabil) und waehlt bei N>1 CEB-Konfigs die EINE repraesentierte Mess-Kombination (cmake_slug
 // der [a,b,c]-Legende, --measurement-combo-Wert) -- damit die Bare-Metal- und CI-Naht dieselbe Selektor-Semantik tragen.
@@ -394,9 +400,11 @@ struct PlanerBlockContext {
 // Der SOLL-Sammler: DERSELBE deterministische Director-Walk wie plan dump/ci/cmake (construct_plan_into),
 // nur mit einem sammelnden ConcreteBuilder statt eines emittierenden. Baut KEINE DLL, misst NICHT, schreibt
 // nichts (Anti-Phantom, golden-neutral) und beruehrt den Registry-Kanon nicht -- status LIEST nur.
-// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar.
-[[nodiscard]] int collect_plan_soll_facade(std::filesystem::path const& profile_path, planner::PlanSollSicht& out,
-                                           std::ostream& os);
+// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar, 1 = METHODIK-Profil
+// unlesbar / >1 Methoden. E-1-FIX-R2 S-7: KEIN Stream-Parameter -- die Zaehl-Fassaden emittieren nichts,
+// ihre Diagnosen gehen (wie bei allen Fehlerpfaden von construct_plan_into) auf std::cerr; der fruehere
+// `os` war nur noch tot.
+[[nodiscard]] int collect_plan_soll_facade(std::filesystem::path const& profile_path, planner::PlanSollSicht& out);
 
 // ---------------------------------------------------------------------------------------------------------------
 // check-size (2026-08-09): die MENGEN-ERHEBUNG vor dem Lauf.
@@ -414,9 +422,9 @@ struct PlanerBlockContext {
 // Was der Aufrufer NACH dieser Funktion noch selbst setzt (weil es von der Kommandozeile kommt, nicht aus
 // dem Profil): sekunden_je_op, deckel_bytes, deckel_tage.
 //
-// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar.
-[[nodiscard]] int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner::MengenEingang& out,
-                                            std::ostream& os);
+// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar, 1 = METHODIK-Profil
+// unlesbar / >1 Methoden. Diagnosen auf std::cerr, kein Stream-Parameter (E-1-FIX-R2 S-7, s. collect_plan_soll_facade).
+[[nodiscard]] int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner::MengenEingang& out);
 
 // ---------------------------------------------------------------------------------------------------------------
 // S-19 PLANUNGS-SIMULATION (#7, 2026-08-20): die SIMULATIONS-ERHEBUNG -- Planer-Etappe (D.1/O1: der
@@ -435,8 +443,9 @@ struct PlanerBlockContext {
 // bau_sekunden_je_dll, bytes_je_dll, lager_budget_bytes, t3_fenster_tage, mengen.sekunden_je_op,
 // fremde_lane_label/fremde_lane_pmc.
 //
-// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar.
+// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar, 1 = METHODIK-Profil
+// unlesbar / >1 Methoden. Diagnosen auf std::cerr, kein Stream-Parameter (E-1-FIX-R2 S-7, s. collect_plan_soll_facade).
 [[nodiscard]] int collect_simulation_eingang_facade(std::filesystem::path const& profile_path,
-                                                    planner::SimulationsEingang& out, std::ostream& os);
+                                                    planner::SimulationsEingang& out);
 
 } // namespace comdare::cache_engine::builder::profile_facade

@@ -1184,10 +1184,18 @@ TEST(TierCiYamlBuilder, BuildLegendsCarryNoSubAxisAndMeasureIsSharp) {
     EXPECT_NE(yaml.find("[MESS] zelle=[all][O2,no_extension][search_algo,cache_traversal,mapping]"), std::string::npos)
         << "MESS-Testat traegt alle drei Klammern [a,b,c][d,e,f][g,h,i]";
     // rules (§41/320er): je Mess-Batch EINE smoke-Auto-Run-Regel + EINE when:manual-Fallback-Regel. 2 Mess-Batches.
-    EXPECT_EQ(count_occurrences(yaml, "    - when: manual"), 2u)
-        << "je Mess-Batch ein when:manual-Fallback (2 Host-Lanes)";
+    // E-1-DESIGN-FIX 01.09.2026 (Alt-Zeile oben = Historie): when:manual ist aus der Emission verschwunden --
+    // ein unbespielter manual-Job hielt ueber strategy:depend drei Ebenen 69,8 h (251354 s) in 'running'
+    // (288/16275 -> 16279 -> 16280, Job 386389). SOLL: manual 0, smoke-if 2, full-if 2, `- when: never` 3
+    // (2 Mess-Batches rules-Skip + 1 Marken-Wache), "320er" bleibt als Provenienz.
+    EXPECT_EQ(count_occurrences(yaml, "    - when: manual"), 0u)
+        << "E-1-DESIGN-FIX: kein when:manual mehr in der Stufe-2-YAML (vorher 2 = je Mess-Batch ein Zombie-Gate)";
+    EXPECT_EQ(count_occurrences(yaml, "    - when: never"), 3u)
+        << "E-1-DESIGN-FIX: rules-Skip je Mess-Batch (2 Host-Lanes) + 1x Marken-Wache = 3";
     EXPECT_EQ(count_occurrences(yaml, "    - if: '$COMDARE_MEASURE_PROFILE == \"smoke\"'"), 2u)
         << "je Mess-Batch eine smoke-Auto-Run-Regel";
+    EXPECT_EQ(count_occurrences(yaml, "    - if: '$COMDARE_MEASURE_PROFILE == \"full\"'"), 2u)
+        << "E-1-DESIGN-FIX: je Mess-Batch eine full-Auto-Run-Regel (POST-Entscheid statt Klick-Gate)";
     EXPECT_NE(yaml.find("320er"), std::string::npos) << "Gate-Provenienz (§41/320er) dokumentiert";
     // P4 (§62-B): resource_group ceb-measure-<host> je Maschine geteilt zwischen Build-Batch UND Mess-Batch -> je
     // Host genau 2 Vorkommen (1 Build-Batch + 1 Mess-Batch), NICHT umbenannt.
@@ -1206,6 +1214,220 @@ TEST(TierCiYamlBuilder, BuildLegendsCarryNoSubAxisAndMeasureIsSharp) {
         << "kein serialisierter Bau mehr (§61-MODI: der alte =1 war eine Regression)";
     EXPECT_EQ(yaml.find("COMDARE_RUN_MEASURE=true"), std::string::npos)
         << "COMDARE_RUN_MEASURE hat null Konsumenten -> nie emittiert";
+}
+
+// (E-1-DESIGN-FIX 01.09.2026, Test A) RULES-SKIP statt when:manual: der Mess-Batch jeder Lane traegt den exakten
+//   SOLL-rules-Block (smoke -> on_success, full -> on_success, sonst `- when: never` = der Job entsteht nicht).
+//   Ein unbespielter manual-Job hielt ueber strategy:depend drei Ebenen 69,8 h (251354 s) in 'running'
+//   (288/16275 -> 16279 -> 16280, Job 386389, 29.08.-01.09.2026). Owner-GO 01.09. "E-1: ja canceln und echt
+//   reparieren. Wie empfohlen."; Doktrin NIE when:manual, NIE allow_failure (Owner 09.08. "Allow failure war schon
+//   IMMER verboten"). KOEDER (verdeckte-exit-Regel): eine YAML-Kopie mit never -> manual macht (ii) beobachtbar rot.
+TEST(TierCiYamlBuilder, MessBatchRulesSkipOhneMessProfilBeideLanenKeinManual) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    // (i) der exakte SOLL-rules-Block je Mess-Batch (amd + intel = Nenner 2) als EIN Literal (6 Zeilen).
+    std::string const soll_rules =
+        "  rules:\n"
+        "    - if: '$COMDARE_MEASURE_PROFILE == \"smoke\"'\n"
+        "      when: on_success   # smoke: Auto-Messlauf (kleiner Umfang, Rauch-Test der Mess-Strecke)\n"
+        "    - if: '$COMDARE_MEASURE_PROFILE == \"full\"'\n"
+        "      when: on_success   # full: Voll-Messlauf, per Trigger-Variable verlangt (320er-Par.41 = POST)\n"
+        "    - when: never        # sonst (Bau-/Kalibrierlauf ohne Mess-Absicht): Job wird NICHT erzeugt\n";
+    EXPECT_EQ(count_occurrences(yaml, soll_rules), 2u) << "SOLL-rules-Block genau 1x je Mess-Batch (2 Host-Lanes)";
+    // Block-Schnitt wie KeinAllowFailure...: je Mess-Batch-Block genau EIN SOLL-Block, kein manual, kein Flag.
+    std::vector<std::string> const measure_bloecke = [&yaml] {
+        std::vector<std::string> blocks;
+        std::size_t              pos = yaml.find("# JOB measure-batch ");
+        while (pos != std::string::npos) {
+            std::size_t const next = yaml.find("\n# JOB ", pos + 1);
+            blocks.push_back(yaml.substr(pos, next == std::string::npos ? std::string::npos : next - pos));
+            pos = yaml.find("# JOB measure-batch ", pos + 1);
+        }
+        return blocks;
+    }();
+    ASSERT_EQ(measure_bloecke.size(), 2u) << "Nenner: 2 Mess-Batches (amd + intel)";
+    for (std::string const& blk : measure_bloecke) {
+        EXPECT_EQ(count_occurrences(blk, soll_rules), 1u)
+            << "SOLL-rules-Block in DIESEM Mess-Batch: " << blk.substr(0, 60);
+        EXPECT_EQ(blk.find("when: manual"), std::string::npos) << "kein when:manual in diesem Mess-Batch";
+        EXPECT_EQ(blk.find("allow_failure"), std::string::npos) << "kein allow_failure in diesem Mess-Batch";
+        EXPECT_NE(blk.find("    - \"tier:build-batch:"), std::string::npos) << "needs-Kante auf den Build-Batch bleibt";
+    }
+    // (ii) 0 Vorkommen von when:manual in der GESAMTEN Stufe-2-YAML (vorher 2 = die Zombie-Klasse, Z1).
+    EXPECT_EQ(count_occurrences(yaml, "when: manual"), 0u) << "E-1: kein manual-Job mehr in der Kaskade (Z1)";
+    // (iii) 0 Vorkommen von allow_failure (Doppelung zu KeinAllowFailure... bewusst: Selbstcheck desselben Blocks).
+    EXPECT_EQ(count_occurrences(yaml, "allow_failure"), 0u) << "E-1: kein allow_failure (Z3, Doktrin 06.07.)";
+    // (iv) KOEDER-GEGENPROBE: Kopie mit never -> manual; (i) und (ii) muessen darauf beobachtbar fallen.
+    std::string const never_zeile{"    - when: never"};
+    std::string       koeder  = yaml;
+    std::size_t       ersetzt = 0;
+    for (std::size_t p = koeder.find(never_zeile); p != std::string::npos; p = koeder.find(never_zeile, p)) {
+        koeder.replace(p, never_zeile.size(), "    - when: manual");
+        ++ersetzt;
+    }
+    EXPECT_EQ(ersetzt, 3u) << "Koeder ersetzt 2 Mess-Batch-Regeln + 1 Wache-Regel (Nenner der never-Zeilen)";
+    EXPECT_EQ(count_occurrences(koeder, "when: manual"), 3u) << "Koeder: (ii) wuerde rot -- der Test ist beobachtbar";
+    EXPECT_EQ(count_occurrences(koeder, soll_rules), 0u) << "Koeder: (i) wuerde rot";
+}
+
+// (E-1-DESIGN-FIX 01.09.2026, Refute F2, Test B) MARKEN-WACHE: jeder Wert der Mess-Marke ausser smoke|full
+//   (Tippfehler/Case, z.B. "Full") wuerde nach dem rules-Skip lautlos zum gruenen Bau-Lauf -- die Klasse "stille
+//   Null" (Owner 09.08. L23088: Fehler sichtbar melden). Die Wache "measure:marke-wache" wird EINMAL je Stufe-2-YAML
+//   emittiert (end_plan), entsteht NUR bei ungueltiger Marke (rules `!= null && != "smoke" && != "full"`) und faellt
+//   hart (exit 1) -> Grandchild failed -> beide depend-Bruecken failed -> Kopf-Pipeline HART ROT, terminal. Dazu das
+//   Kopf-Echo der Marke im Build-Batch (reine Sichtbarkeit, rc 0). KOEDER: exit 1 -> exit 0 bzw. Wache entfernt.
+//   E-1-FIX-R2 S-10 (Bewertung r2, 01.09.2026) FAIL-FAST: die Wache steht in der ERSTEN Stufe (tier-build; GitLab
+//   19.1.4 ci/lint: "need measure:marke-wache is not defined in current or prior stages" bei stage measure -- gemessen,
+//   bau/fixr2/lint-vorprobe-K3-ffm.json) und JEDER Build-Batch traegt `needs: [{job: measure:marke-wache,
+//   optional: true}]`: fehlt die Wache (Marke gueltig/ungesetzt, rules-Skip), entfaellt die Kante (K0/K1/K2 = 2/4/4
+//   Jobs, 0 Fehler); faellt sie (ungueltige Marke), werden beide Build-Batches SKIPPED -> Grandchild SOFORT failed,
+//   nicht erst nach bis zu 7 d Bau (strategy:depend spiegelt den Endstatus). Mess-Batches tragen die Kante NICHT.
+//   E-1-FIX-R3 S-11 (Bewertung r3, 01.09.2026): die Regel-REIHENFOLGE der Wache war ungepinnt -- ein Emitter-Mutant
+//   `- when: never` VOR `- if:` liess alle Director-Tests gruen und toetete die Wache (ci/lint K3 = 2 Jobs, KEINE
+//   Wache). Deshalb (ii-b): rules-Block, script-Block und der GANZE Wache-Block je als EIN Literal + Tausch-Koeder.
+TEST(TierCiYamlBuilder, MarkenWacheJeStufe2YamlGenauEinmalHartRot) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    // (i) GENAU EINMAL je Stufe-2-YAML (eigener "# JOB "-Kopf: die Block-Schnitte der Nachbar-Tests bleiben sauber).
+    EXPECT_EQ(count_occurrences(yaml, "\"measure:marke-wache\":\n"), 1u) << "Wache-Job genau 1x";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB marke-wache "), 1u) << "Wache-Kopf genau 1x";
+    // (ii) der Wache-Block (Schnitt ab "# JOB marke-wache " bis Textende bzw. naechstem "\n# JOB ").
+    std::size_t const wpos = yaml.find("# JOB marke-wache ");
+    ASSERT_NE(wpos, std::string::npos) << "ohne Wache-Kopf gibt es keinen Block zu pruefen";
+    std::size_t const wnext    = yaml.find("\n# JOB ", wpos + 1);
+    std::string const wache    = yaml.substr(wpos, wnext == std::string::npos ? std::string::npos : wnext - wpos);
+    char const* const wache_if = "    - if: '$COMDARE_MEASURE_PROFILE != null && $COMDARE_MEASURE_PROFILE != \"smoke\""
+                                 " && $COMDARE_MEASURE_PROFILE != \"full\"'\n";
+    EXPECT_EQ(count_occurrences(wache, wache_if), 1u) << "if-Regel mit != null (GitLab-Doku job_rules v19.1.4)";
+    EXPECT_EQ(count_occurrences(wache, "      when: on_success"), 1u) << "ungueltige Marke => Wache laeuft";
+    EXPECT_EQ(count_occurrences(wache, "    - when: never"), 1u) << "sonst entsteht die Wache nicht (rules-Skip)";
+    // (ii-b) E-1-FIX-R3 S-11 (Bewertung r3, 01.09.2026; Klasse "Mutant bleibt gruen"): die Zaehl-Pins in (ii) sehen
+    //        die REIHENFOLGE der Wache-Regeln nicht -- ein Emitter-Mutant `- when: never` VOR `- if:` (dieselben drei
+    //        Literale) liess alle Director-Tests gruen und toetete die Wache: GitLab 19.1.4 ci/lint K3 'Full' = 2 Jobs,
+    //        KEINE Wache (gemessen 01.09.2026, bau/fixr3/s11-rot-*). Deshalb wie Test A: der rules-Block (4 Z.), der
+    //        script-Block (4 Z.) und der GANZE Wache-Block (17 Z.) je als EIN Literal mit Zaehler 1 -- Reihenfolge und
+    //        Wortlaut sind Vertrag (die if-Zeile ist EINE YAML-Zeile mit 121 Zeichen, hier als zwei Quell-Literale).
+    char const* const wache_never = "    - when: never        # Marke ungesetzt (Bau-/Kalibrierlauf) oder smoke|full "
+                                    "(Messlauf): Wache entsteht nicht\n";
+    std::string const soll_wache_rules =
+        std::string{"  rules:\n"} + wache_if +
+        "      when: on_success   # Marke gesetzt, aber weder smoke noch full (Tippfehler/Case) => "
+        "Wache laeuft, faellt\n" +
+        wache_never;
+    std::string const soll_wache_script =
+        "  script:\n"
+        "    - 'echo \"FEHLER: COMDARE_MEASURE_PROFILE=$COMDARE_MEASURE_PROFILE unbekannt "
+        "(erlaubt: smoke|full)\"'\n"
+        "    - 'echo \"Lauf HART ROT statt stillem Bau-Lauf (E-1-DESIGN-FIX 01.09.2026; "
+        "Owner 09.08. L23088)\"'\n"
+        "    - exit 1\n";
+    std::string const soll_wache =
+        std::string{
+            "# JOB marke-wache (STUFE 2, E-1-DESIGN-FIX 01.09.2026: ungueltige Mess-Marke => HART ROT, "
+            "nie stille Null)\n"
+            "\"measure:marke-wache\":\n"
+            "  stage: tier-build\n"
+            "  tags: [\"baremetal\"]\n"
+            "  needs: []\n"
+            "  cache:\n"
+            "    paths: []          # keine Cache-Runde fuer eine Shell-Wache (Praezedenz super ergebnis:holen)\n"
+            "  variables:\n"
+            "    GIT_STRATEGY: \"none\"   # reine Shell-Wache: kein Checkout, kein Submodul-Klon\n"} +
+        soll_wache_rules + soll_wache_script;
+    EXPECT_EQ(count_occurrences(soll_wache, "\n"), 17u) << "Nenner: 17 Zeilen (Design 3.1.b, Wache-Block)";
+    EXPECT_EQ(count_occurrences(yaml, soll_wache_rules), 1u)
+        << "S-11: Wache-rules-Block (if -> on_success -> never) 1x";
+    EXPECT_EQ(count_occurrences(wache, soll_wache_rules), 1u) << "S-11: ... und zwar IN der Wache";
+    EXPECT_EQ(count_occurrences(wache, soll_wache_script), 1u) << "S-11: script-Block (echo, echo, exit 1) 1x";
+    EXPECT_EQ(count_occurrences(yaml, soll_wache), 1u) << "S-11: der GANZE Wache-Block (17 Z.) als EIN Literal 1x";
+    EXPECT_EQ(count_occurrences(wache, soll_wache), 1u) << "S-11: Block-Literal liegt im Block-Schnitt (ii)";
+    // KOEDER-GEGENPROBE S-11: Kopie der Wache mit `- when: never` VOR `- if:` (= der Emitter-Mutant). Die Zaehl-Pins
+    // (ii) bleiben darauf GRUEN (je 1x) -- genau die Luecke; die Literale (ii-b) fallen auf 0.
+    std::string const never_voll{wache_never};
+    std::string       koeder_tausch = wache;
+    std::size_t const npos_never    = koeder_tausch.find(never_voll);
+    ASSERT_NE(npos_never, std::string::npos) << "die never-Zeile der Wache (voller Wortlaut)";
+    koeder_tausch.erase(npos_never, never_voll.size());
+    std::size_t const ipos_if = koeder_tausch.find(wache_if);
+    ASSERT_NE(ipos_if, std::string::npos) << "die if-Zeile der Wache";
+    koeder_tausch.insert(ipos_if, never_voll);
+    EXPECT_EQ(count_occurrences(koeder_tausch, wache_if), 1u) << "Koeder never-vor-if: Zaehl-Pin (ii) bleibt gruen";
+    EXPECT_EQ(count_occurrences(koeder_tausch, "      when: on_success"), 1u) << "dito -- die Luecke von S-11";
+    EXPECT_EQ(count_occurrences(koeder_tausch, "    - when: never"), 1u) << "dito";
+    EXPECT_EQ(count_occurrences(koeder_tausch, soll_wache_rules), 0u) << "Koeder never-vor-if: (ii-b) wuerde rot";
+    EXPECT_EQ(count_occurrences(koeder_tausch, soll_wache), 0u) << "Koeder never-vor-if: Block-Literal wuerde rot";
+    EXPECT_NE(wache.find("  stage: tier-build\n"), std::string::npos)
+        << "S-10: Wache in der ERSTEN Stufe (needs der Build-Batches darf nur auf gleiche/fruehere Stufe zeigen)";
+    EXPECT_EQ(wache.find("  stage: measure\n"), std::string::npos) << "S-10: nicht mehr stage measure";
+    EXPECT_NE(wache.find("  tags: [\"baremetal\"]\n"), std::string::npos) << "Runner 16 prod1 / 17 prod2: baremetal";
+    EXPECT_NE(wache.find("  needs: []\n"), std::string::npos) << "startet sofort, keine Kante auf die Batches";
+    EXPECT_NE(wache.find("    GIT_STRATEGY: \"none\""), std::string::npos) << "reine Shell-Wache: kein Checkout";
+    EXPECT_EQ(count_occurrences(wache, "    - exit 1\n"), 1u) << "hartes Verdikt: exit 1";
+    EXPECT_NE(wache.find("FEHLER: COMDARE_MEASURE_PROFILE=$COMDARE_MEASURE_PROFILE unbekannt (erlaubt: smoke|full)"),
+              std::string::npos)
+        << "die Warnung an den Anwender steht im Job-Log (Owner 09.08. L23088)";
+    EXPECT_EQ(wache.find("resource_group"), std::string::npos) << "keine resource_group (kein Batch-Slot)";
+    EXPECT_EQ(wache.find("allow_failure"), std::string::npos) << "kein allow_failure";
+    EXPECT_EQ(wache.find("when: manual"), std::string::npos) << "kein when:manual";
+    EXPECT_EQ(wache.find("# CHILD-SUBMODULE-KLON"), std::string::npos) << "kein Submodul-Prolog (Nachbar zaehlt 4)";
+    // (iii) Kopf-Echo im Build-Batch: 1 je Build-Batch (amd + intel = 2), 0 in jedem Mess-Batch-Block.
+    char const* const echo = "Mess-Batch nicht instanziiert: COMDARE_MEASURE_PROFILE ungesetzt";
+    EXPECT_EQ(count_occurrences(yaml, echo), 2u) << "Kopf-Echo je Build-Batch (2 Host-Lanes)";
+    auto const bloecke_ab = [&yaml](char const* kopf) {
+        std::vector<std::string> blocks;
+        for (std::size_t pos = yaml.find(kopf); pos != std::string::npos; pos = yaml.find(kopf, pos + 1)) {
+            std::size_t const next = yaml.find("\n# JOB ", pos + 1);
+            blocks.push_back(yaml.substr(pos, next == std::string::npos ? std::string::npos : next - pos));
+        }
+        return blocks;
+    };
+    std::vector<std::string> const build_bloecke   = bloecke_ab("# JOB tier-build-batch ");
+    std::vector<std::string> const measure_bloecke = bloecke_ab("# JOB measure-batch ");
+    ASSERT_EQ(build_bloecke.size(), 2u);
+    ASSERT_EQ(measure_bloecke.size(), 2u);
+    for (std::string const& blk : build_bloecke) EXPECT_EQ(count_occurrences(blk, echo), 1u) << "1 Echo je Build-Batch";
+    for (std::string const& blk : measure_bloecke)
+        EXPECT_EQ(count_occurrences(blk, echo), 0u) << "0 Echo im Mess-Batch";
+    EXPECT_EQ(count_occurrences(wache, echo), 0u) << "kein Echo in der Wache";
+    // (iii-b) S-10 FAIL-FAST-KANTE: genau EINE optionale needs-Kante auf die Wache je Build-Batch, 0 je Mess-Batch
+    //         (die Mess-Batches haengen weiter NUR am Build-Batch ihrer Lane), 0 in der Wache selbst (needs []).
+    char const* const kante = "  needs:\n    - job: \"measure:marke-wache\"\n      optional: true";
+    EXPECT_EQ(count_occurrences(yaml, kante), 2u) << "S-10: Fail-fast-Kante je Build-Batch (2 Host-Lanes)";
+    for (std::string const& blk : build_bloecke)
+        EXPECT_EQ(count_occurrences(blk, kante), 1u) << "S-10: 1 optionale Wache-Kante je Build-Batch";
+    for (std::string const& blk : measure_bloecke) {
+        EXPECT_EQ(count_occurrences(blk, kante), 0u) << "S-10: Mess-Batch ohne Wache-Kante";
+        EXPECT_EQ(count_occurrences(blk, "optional: true"), 0u) << "S-10: Mess-Batch-needs bleibt die Bau-Kante";
+    }
+    EXPECT_EQ(count_occurrences(wache, "optional: true"), 0u) << "S-10: die Wache selbst traegt keine Kante";
+    // Koeder S-10: ohne `optional: true` wuerde GitLab bei gueltiger/ohne Marke die Pipeline ablehnen (needs auf
+    // einen nicht instanziierten Job) -- der Pin auf das exakte Literal macht das beobachtbar.
+    std::string koeder_kante = yaml;
+    for (std::size_t pos = koeder_kante.find("      optional: true"); pos != std::string::npos;
+         pos             = koeder_kante.find("      optional: true", pos + 1))
+        koeder_kante.replace(pos, std::string{"      optional: true"}.size(), "      optional: nein");
+    EXPECT_EQ(count_occurrences(koeder_kante, kante), 0u) << "Koeder ohne optional: (iii-b) wuerde rot";
+    // (iv) KOEDER-GEGENPROBEN (verdeckte-exit-Regel): exit 1 -> exit 0 laesst (ii) fallen; ohne Wache faellt (i).
+    std::string const exit_eins{"    - exit 1\n"};
+    std::string       koeder_exit = yaml;
+    std::size_t const kpos        = koeder_exit.find(exit_eins, wpos);
+    ASSERT_NE(kpos, std::string::npos);
+    koeder_exit.replace(kpos, exit_eins.size(), "    - exit 0\n");
+    EXPECT_EQ(count_occurrences(koeder_exit.substr(wpos), exit_eins), 0u) << "Koeder exit 0: (ii) wuerde rot";
+    std::string koeder_ohne = yaml;
+    koeder_ohne.erase(wpos, wache.size());
+    EXPECT_EQ(count_occurrences(koeder_ohne, "\"measure:marke-wache\":\n"), 0u) << "Koeder ohne Wache: (i) wuerde rot";
+    EXPECT_EQ(count_occurrences(koeder_ohne, "# JOB marke-wache "), 0u) << "Koeder ohne Wache: Kopf-Zaehler faellt";
 }
 
 // -- #278 / OV-16: KEIN allow_failure in irgendeiner EMITTIERTEN Job-YAML (beide CI-Stufen). -----------------
@@ -2749,6 +2971,57 @@ TEST(SelectMeasurementCombo, SelectorTrichotomyIdentitySubsetMissOnFannedFixture
     director.construct(*tp, tb_none, "_does_not_exist_");
     EXPECT_EQ(count_occurrences(tb_none.text(), "# JOB tier-build-batch "), 0u)
         << "kein Selektor-Treffer => ehrlich leere Stufe-2 (0 Batch-Jobs)";
+}
+
+// (S4-f) E-1-FIX-R1 S-4 (Bewertung O-21, 01.09.2026): end_plan ist UNBEDINGT -- auch die ehrlich LEERE
+//        Stufe-2 (Selektor-Miss, 0 Batch-Jobs) traegt GENAU EINE Marken-Wache. Der degenerierte Fall ist
+//        heute real unerreichbar (K0..K3 nie leer), aber ungepinnt machte eine kuenftige BEDINGTE
+//        end_plan-Fassung die Wache still verlierbar. Koeder-Beleg (Wache-Emission temporaer entfernt,
+//        dieser Test + Test B rot): bau/koeder/ im E-1-Beweisort 20260901-e1-ci-zombie-fix.
+TEST(TierCiYamlBuilder, LeereStufe2TraegtGenauEineMarkenWache) {
+    auto tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    tp->measurement_tooling = {{"wallclock"}, {"macro"}, {"micro"}}; // N>1-Fixture wie SelectorTrichotomy
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb_none;
+    director.construct(*tp, tb_none, "_does_not_exist_");
+    std::string const& yaml = tb_none.text();
+    EXPECT_EQ(count_occurrences(yaml, "# JOB tier-build-batch "), 0u) << "Selektor-Miss: 0 Build-Batches";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB measure-batch "), 0u) << "Selektor-Miss: 0 Mess-Batches";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB marke-wache "), 1u)
+        << "die Marken-Wache steht GENAU EINMAL auch in der leeren Stufe-2 (end_plan unbedingt)";
+    EXPECT_EQ(count_occurrences(yaml, "\"measure:marke-wache\":"), 1u)
+        << "genau EIN Wache-Job-Schluessel in der leeren Stufe-2";
+}
+
+// (E-1-FIX-R2 S-9, Bewertung r2 01.09.2026) NOTATIONS-PIN: die Stufe-2-Emission ist ASCII-ONLY. Vorher trug E1
+//   16 Paragraph-Zeichen in 12 Vorbestands-Zeilen (Kopf Z.4/5, Build-Batch-JOB-Koepfe, Lane-Budget-/Bestandslog-
+//   Korn-/platform-Kommentare) NEBEN den ASCII-Fassungen 'Par.62-B'/'Par.41' (Runde 1 = nur die gemischte
+//   JOB-Kopf-Zeile). Ein YAML-Konsument ohne UTF-8-Annahme (Runner-Log, cat -A, Diff-Wache Gate 1) sieht sonst
+//   Multibyte-Reste; die Quelle ist seit der Diff-Hygiene-Regel ASCII-only, das Artefakt muss es auch sein.
+//   Nenner: JEDES Byte der Voll-Emission (all_axes_golden, 2 Lanes, 4 Perms, Wache). Rot zuerst am Emitter
+//   @af89003a: 32 Bytes > 0x7F (bau/fixr2/s9-rot-*.log im E-1-Beweisort).
+TEST(TierCiYamlBuilder, Stufe2EmissionIstAsciiOnly) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+    ASSERT_FALSE(yaml.empty()) << "eine leere Emission bewiese nichts";
+    std::size_t nicht_ascii = 0;
+    std::size_t erste_zeile = 0, zeile = 1;
+    for (unsigned char const c : yaml) {
+        if (c == '\n') ++zeile;
+        if (c > 0x7Fu) {
+            if (nicht_ascii == 0) erste_zeile = zeile;
+            ++nicht_ascii;
+        }
+    }
+    EXPECT_EQ(nicht_ascii, 0u) << "Stufe-2-Emission traegt " << nicht_ascii << " Byte(s) > 0x7F (erste in Zeile "
+                               << erste_zeile << " von " << zeile << "); Notation: 'Par.' statt Paragraph-Zeichen";
+    // Gegenprobe der Zaehlweise: die ASCII-Fassung der Batch-Notation steht in der Emission.
+    EXPECT_NE(yaml.find("Par.62-B"), std::string::npos) << "ASCII-Notation Par.62-B (Runde 1) bleibt";
 }
 
 // (A5c) STUFE 1 (CiYamlBuilder): bei N>1 CEB-Konfigs traegt jeder ceb:emit-Job den distinct --measurement-combo-

@@ -1082,9 +1082,12 @@ namespace {
 // <comdare_thesis_profile> -> Thesis-Kanal, <comdare_experiment> -> Experiment-Kanal. Beide Parser liefern
 // nullopt bei Fremd-Tag, daher ist der reine Root-Tag-Read gefahrlos. KEIN DLL-Bau, KEINE Messung, KEINE CSV
 // (Anti-Phantom, golden-neutral). Ohne Registry-Trio-Annotation (loaded=0): host-/registry-pfad-unabhaengig
-// reproduzierbar. Rueckgabe: 0 = Walk in den Builder gefahren, 5 = Profil nicht als bekannte Wurzel lesbar.
-int construct_plan_into(std::filesystem::path const& profile_path, planner::IPlanBuilder& builder, std::ostream& os,
-                        char const* what, std::string const& combo_selector = {}) {
+// reproduzierbar. Rueckgabe: 0 = Walk in den Builder gefahren, 5 = Profil nicht als bekannte Wurzel lesbar,
+// 1 = METHODIK-Profil unlesbar / >1 Methoden. E-1-FIX-R2 S-7: KEIN Stream-Parameter mehr -- die Diagnosen ALLER
+// Fehlerpfade gehen auf std::cerr (nach S-6 + S-7 war `os` hier tot, -Wunused-parameter); der DATENKANAL der
+// Aufrufer bleibt strukturell unerreichbar (ein Kanal, eine Wahrheit).
+int construct_plan_into(std::filesystem::path const& profile_path, planner::IPlanBuilder& builder, char const* what,
+                        std::string const& combo_selector = {}) {
     std::string root_tag;
     if (std::ifstream in{profile_path, std::ios::binary}; in) {
         std::ostringstream ss;
@@ -1163,15 +1166,26 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
     }
     // smoke=>debug-Entkopplung (2026-07-22): das METHODIK-Profil (COMDARE_PLAN_METHODIK_PROFILE) liefert -- falls
     // gesetzt -- die run_methodology (steuert Bau-Typ + (j3)-Dual-Compile im emittierten Mess-Job), waehrend
-    // profile_path den Bau-Katalog (Achsen/Perms) stellt. Single-Source-Resolver (resolve_methodik_override, oben);
-    // unlesbar/>1-Methoden => KEIN Plan emittiert (harter Abbruch); unset => leer => byte-identisch.
-    auto const methodik = resolve_methodik_override(profile_path, os); // S2-NACHT-3: Basename gg. thesis_profiles/
+    // profile_path den Bau-Katalog (Achsen/Perms) stellt. Single-Source-Resolver (resolve_methodik_override, oben;
+    // S2-NACHT-3: Bare-Basename wird gegen thesis_profiles/ aufgeloest); unlesbar/>1-Methoden => KEIN Plan emittiert
+    // (harter Abbruch, rc 1); unset => leer => byte-identisch.
+    // E-1-FIX-R2 S-7 (Bewertung r2, 01.09.2026): auch dieser VIERTE Fehlerpfad schreibt seine Diagnose ("[methodik]
+    // ...") auf STDERR statt in `os` -- `os` ist der DATENKANAL (s. S-6 unten), und der Run-Pfad (run_profile_facade)
+    // uebergibt denselben Resolver bereits mit std::cerr. Rot zuerst: rc 1 + 179 B "[methodik] ..." auf stdout an
+    // plan dump / plan ci / Treiber `tier ci` (bau/fixr2/s7-rot-*.txt). Pin: test_vl3_debug_stdout_bytegleich
+    // FehlerpfadMethodikProfilUnlesbarStdoutLeerDiagnoseAufStderr.
+    auto const methodik = resolve_methodik_override(profile_path, std::cerr);
     if (!methodik.ok) return 1;
+    // E-1-FIX-R1 S-6 (Bewertung O-27, 01.09.2026): die drei rc-5-Fehlerpfade dieser Funktion schreiben ihre
+    // Diagnose auf STDERR, nicht mehr in `os` -- `os` ist der DATENKANAL (Plan-Text/YAML/CMake), die Hilfe
+    // sagt "Diagnose/Fehler -> stderr (clig.dev)" zu, und ein Harness, das nur stdout umlenkt und rc nicht
+    // prueft, erhielt sonst eine einzeilige Pseudo-Emission (Treiber `tier ci <Kurzname>`: rc=5 + 1 Zeile
+    // auf stdout). Pin: test_vl3_debug_stdout_bytegleich FehlerpfadUnbekannteWurzelStdoutLeerDiagnoseAufStderr.
     if (root_tag == "comdare_thesis_profile") {
         auto const tp = tlz::load_thesis_profile(profile_path);
         if (!tp) {
-            os << "[" << what << "] Thesis-Profil '" << profile_path.string()
-               << "' nicht lesbar (parse_thesis_profile=nullopt). KEIN Plan emittiert.\n";
+            std::cerr << "[" << what << "] Thesis-Profil '" << profile_path.string()
+                      << "' nicht lesbar (parse_thesis_profile=nullopt). KEIN Plan emittiert.\n";
             return 5;
         }
         // S2-NACHT (2026-07-23): der Datei-Basename des AKTIVEN Profils reist bis in den Child-Prolog durch
@@ -1185,8 +1199,9 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
         cx::XmlConfigParser const parser;
         auto const                ep = parser.parse_experiment_profile(profile_path);
         if (!ep) {
-            os << "[" << what << "] Experiment-Profil '" << profile_path.string()
-               << "' nicht als comdare_experiment lesbar (parse_experiment_profile=nullopt). KEIN Plan emittiert.\n";
+            std::cerr
+                << "[" << what << "] Experiment-Profil '" << profile_path.string()
+                << "' nicht als comdare_experiment lesbar (parse_experiment_profile=nullopt). KEIN Plan emittiert.\n";
             return 5;
         }
         // S2-NACHT (2026-07-23): der Profil-Basename reist bis in den Child-Prolog durch (s. Thesis-Kanal oben).
@@ -1194,9 +1209,9 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
                            profile_path.filename().string()); // A5 combo leer=>Identitaet; methodik leer=>aus ep
         return 0;
     }
-    os << "[" << what << "] '" << profile_path.string() << "': unbekannte/unlesbare Wurzel"
-       << (root_tag.empty() ? "" : " '" + root_tag + "'")
-       << " -- weder <comdare_thesis_profile> noch <comdare_experiment>. KEIN Plan emittiert.\n";
+    std::cerr << "[" << what << "] '" << profile_path.string() << "': unbekannte/unlesbare Wurzel"
+              << (root_tag.empty() ? "" : " '" + root_tag + "'")
+              << " -- weder <comdare_thesis_profile> noch <comdare_experiment>. KEIN Plan emittiert.\n";
     return 5;
 }
 } // namespace
@@ -1204,7 +1219,7 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
 int dump_experiment_plan_facade(std::filesystem::path const& profile_path, std::ostream& os) {
     // W5-B (--dump-plan): der deterministische PlanTextBuilder-Traeger am geteilten Director-Walk.
     planner::PlanTextBuilder builder;
-    int const                rc = construct_plan_into(profile_path, builder, os, "dump-plan");
+    int const                rc = construct_plan_into(profile_path, builder, "dump-plan");
     if (rc == 0) os << builder.text();
     return rc;
 }
@@ -1213,7 +1228,7 @@ int assert_plan_nonempty_facade(std::filesystem::path const& profile_path, std::
     // V-2/2a: derselbe Walk wie --dump-plan, nur mit einem zaehlenden statt einem textenden Builder.
     // Kein zweiter Mechanismus, keine zweite Wahrheit (§73.1).
     planner::PlanSizeBuilder builder;
-    if (int const rc = construct_plan_into(profile_path, builder, os, "startgate"); rc != 0) return rc;
+    if (int const rc = construct_plan_into(profile_path, builder, "startgate"); rc != 0) return rc;
     if (builder.empty()) {
         os << "FATAL [V-2 Startgate]: Kein Experiment moeglich -- der Plan dieses Profils ist leer.\n"
            << "  Profil:        " << profile_path.string() << "\n"
@@ -1240,7 +1255,7 @@ int dump_experiment_ci_facade(std::filesystem::path const& profile_path, std::os
     return run_with_planer_block(pb, [&]() -> EmissionErgebnis {
         planner::CiYamlBuilder  builder;
         LegendCollectingBuilder sammler{builder}; // Decorator: gleicher Walk, Legende fuer die CEB-Bindung
-        int const               rc = construct_plan_into(profile_path, sammler, os, "dump-ci");
+        int const               rc = construct_plan_into(profile_path, sammler, "dump-ci");
         if (rc == 0) os << builder.text();
         return {rc, sammler.eine_legende(), sammler.combo_count()};
     });
@@ -1254,7 +1269,7 @@ int dump_experiment_cmake_facade(std::filesystem::path const& profile_path, std:
     return run_with_planer_block(pb, [&]() -> EmissionErgebnis {
         planner::CMakeGraphBuilder builder;
         LegendCollectingBuilder    sammler{builder}; // Decorator wie im --dump-ci-Zweig
-        int const                  rc = construct_plan_into(profile_path, sammler, os, "dump-cmake");
+        int const                  rc = construct_plan_into(profile_path, sammler, "dump-cmake");
         if (rc == 0) os << builder.text();
         return {rc, sammler.eine_legende(), sammler.combo_count()};
     });
@@ -1267,7 +1282,7 @@ int emit_tier_ci_facade(std::filesystem::path const& profile_path, std::ostream&
     // + GN-11/320er-gegatete Mess-Jobs). CEB-Hoheit (§40.b-Praezisierung); heute EINE Binary in zwei Rollen.
     // A5 (§56-T2-FANOUT D4): der combo_selector reicht bis zum Director-Walk durch (leer => Identitaet, byte-stabil).
     planner::TierCiYamlBuilder builder;
-    int const                  rc = construct_plan_into(profile_path, builder, os, "emit-tier-ci", combo_selector);
+    int const                  rc = construct_plan_into(profile_path, builder, "emit-tier-ci", combo_selector);
     if (rc == 0) os << builder.text();
     return rc;
 }
@@ -1280,7 +1295,7 @@ int emit_tier_cmake_facade(std::filesystem::path const& profile_path, std::ostre
     // A8(a)-Symmetrie: der combo_selector reist bis zum Director-Walk durch, exakt wie in emit_tier_ci_facade
     // (leer => Identitaet, byte-stabil zur heutigen 1-CEB-Strecke).
     planner::TierCmakeGraphBuilder builder;
-    int const rc = construct_plan_into(profile_path, builder, os, "emit-tier-cmake", combo_selector);
+    int const                      rc = construct_plan_into(profile_path, builder, "emit-tier-cmake", combo_selector);
     if (rc == 0) os << builder.text();
     return rc;
 }
@@ -1604,11 +1619,11 @@ private:
 
 } // namespace
 
-int collect_plan_soll_facade(std::filesystem::path const& profile_path, planner::PlanSollSicht& out, std::ostream& os) {
+int collect_plan_soll_facade(std::filesystem::path const& profile_path, planner::PlanSollSicht& out) {
     out = planner::PlanSollSicht{};
     StatusSollBuilder builder{out};
     // DERSELBE Walk wie plan dump/ci/cmake -- ein Kanal, eine Wahrheit. KEIN Bau, KEINE Messung, KEINE Emission.
-    int const rc = construct_plan_into(profile_path, builder, os, "status");
+    int const rc = construct_plan_into(profile_path, builder, "status");
     if (rc != 0) {
         out.erhoben = false;
         out.grund =
@@ -1791,15 +1806,14 @@ void mengen_profil_und_env_nachlese(std::filesystem::path const& profile_path, p
 
 } // namespace
 
-int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner::MengenEingang& out,
-                              std::ostream& os) {
+int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner::MengenEingang& out) {
     // Frischer Stand wie bei collect_plan_soll_facade: der Aufrufer setzt SEINE Zutaten (sekunden_je_op,
     // deckel_*) erst NACH dieser Funktion, ein Reset hier kann sie darum nicht loeschen.
     out = planner::MengenEingang{};
 
     // 1. Der Walk -- die exakten Zahlen (Perms, Kombinationen, Zellen, Achsen).
     MengenSollBuilder builder{out};
-    if (int const rc = construct_plan_into(profile_path, builder, os, "check-size"); rc != 0) return rc;
+    if (int const rc = construct_plan_into(profile_path, builder, "check-size"); rc != 0) return rc;
 
     // 2.+3. Die PROFIL-Zahlen, die der Walk nicht traegt (n_ops/Drift-Gate -- NUR am Thesis-Profil,
     // comdare_experiment hat die Felder nicht, ehrlicher Befund am Helfer) + Korn/Kampagnen-Breite.
@@ -1809,15 +1823,14 @@ int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner
     return 0;
 }
 
-int collect_simulation_eingang_facade(std::filesystem::path const& profile_path, planner::SimulationsEingang& out,
-                                      std::ostream& os) {
+int collect_simulation_eingang_facade(std::filesystem::path const& profile_path, planner::SimulationsEingang& out) {
     out = planner::SimulationsEingang{};
 
     // 1. EIN Walk fuer beide Ernten (der Simulations-Sammler delegiert an den Mengen-Sammler) --
     //    damit gibt es auch nur EINE PMC-Probe (I-PMC-2) und EINE Diagnose-Zeile.
     {
         SimulationsSollBuilder builder{out};
-        if (int const rc = construct_plan_into(profile_path, builder, os, "simulate"); rc != 0) return rc;
+        if (int const rc = construct_plan_into(profile_path, builder, "simulate"); rc != 0) return rc;
     }
 
     // 2. Dieselbe Profil-/env-Nachlese wie check-size (ein Ort, eine Wahrheit).
