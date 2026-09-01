@@ -1281,6 +1281,12 @@ TEST(TierCiYamlBuilder, MessBatchRulesSkipOhneMessProfilBeideLanenKeinManual) {
 //   emittiert (end_plan), entsteht NUR bei ungueltiger Marke (rules `!= null && != "smoke" && != "full"`) und faellt
 //   hart (exit 1) -> Grandchild failed -> beide depend-Bruecken failed -> Kopf-Pipeline HART ROT, terminal. Dazu das
 //   Kopf-Echo der Marke im Build-Batch (reine Sichtbarkeit, rc 0). KOEDER: exit 1 -> exit 0 bzw. Wache entfernt.
+//   E-1-FIX-R2 S-10 (Bewertung r2, 01.09.2026) FAIL-FAST: die Wache steht in der ERSTEN Stufe (tier-build; GitLab
+//   19.1.4 ci/lint: "need measure:marke-wache is not defined in current or prior stages" bei stage measure -- gemessen,
+//   bau/fixr2/lint-vorprobe-K3-ffm.json) und JEDER Build-Batch traegt `needs: [{job: measure:marke-wache,
+//   optional: true}]`: fehlt die Wache (Marke gueltig/ungesetzt, rules-Skip), entfaellt die Kante (K0/K1/K2 = 2/4/4
+//   Jobs, 0 Fehler); faellt sie (ungueltige Marke), werden beide Build-Batches SKIPPED -> Grandchild SOFORT failed,
+//   nicht erst nach bis zu 7 d Bau (strategy:depend spiegelt den Endstatus). Mess-Batches tragen die Kante NICHT.
 TEST(TierCiYamlBuilder, MarkenWacheJeStufe2YamlGenauEinmalHartRot) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
@@ -1302,7 +1308,9 @@ TEST(TierCiYamlBuilder, MarkenWacheJeStufe2YamlGenauEinmalHartRot) {
     EXPECT_EQ(count_occurrences(wache, wache_if), 1u) << "if-Regel mit != null (GitLab-Doku job_rules v19.1.4)";
     EXPECT_EQ(count_occurrences(wache, "      when: on_success"), 1u) << "ungueltige Marke => Wache laeuft";
     EXPECT_EQ(count_occurrences(wache, "    - when: never"), 1u) << "sonst entsteht die Wache nicht (rules-Skip)";
-    EXPECT_NE(wache.find("  stage: measure\n"), std::string::npos) << "stage measure existiert in der Stufe 2";
+    EXPECT_NE(wache.find("  stage: tier-build\n"), std::string::npos)
+        << "S-10: Wache in der ERSTEN Stufe (needs der Build-Batches darf nur auf gleiche/fruehere Stufe zeigen)";
+    EXPECT_EQ(wache.find("  stage: measure\n"), std::string::npos) << "S-10: nicht mehr stage measure";
     EXPECT_NE(wache.find("  tags: [\"baremetal\"]\n"), std::string::npos) << "Runner 16 prod1 / 17 prod2: baremetal";
     EXPECT_NE(wache.find("  needs: []\n"), std::string::npos) << "startet sofort, keine Kante auf die Batches";
     EXPECT_NE(wache.find("    GIT_STRATEGY: \"none\""), std::string::npos) << "reine Shell-Wache: kein Checkout";
@@ -1333,6 +1341,24 @@ TEST(TierCiYamlBuilder, MarkenWacheJeStufe2YamlGenauEinmalHartRot) {
     for (std::string const& blk : measure_bloecke)
         EXPECT_EQ(count_occurrences(blk, echo), 0u) << "0 Echo im Mess-Batch";
     EXPECT_EQ(count_occurrences(wache, echo), 0u) << "kein Echo in der Wache";
+    // (iii-b) S-10 FAIL-FAST-KANTE: genau EINE optionale needs-Kante auf die Wache je Build-Batch, 0 je Mess-Batch
+    //         (die Mess-Batches haengen weiter NUR am Build-Batch ihrer Lane), 0 in der Wache selbst (needs []).
+    char const* const kante = "  needs:\n    - job: \"measure:marke-wache\"\n      optional: true";
+    EXPECT_EQ(count_occurrences(yaml, kante), 2u) << "S-10: Fail-fast-Kante je Build-Batch (2 Host-Lanes)";
+    for (std::string const& blk : build_bloecke)
+        EXPECT_EQ(count_occurrences(blk, kante), 1u) << "S-10: 1 optionale Wache-Kante je Build-Batch";
+    for (std::string const& blk : measure_bloecke) {
+        EXPECT_EQ(count_occurrences(blk, kante), 0u) << "S-10: Mess-Batch ohne Wache-Kante";
+        EXPECT_EQ(count_occurrences(blk, "optional: true"), 0u) << "S-10: Mess-Batch-needs bleibt die Bau-Kante";
+    }
+    EXPECT_EQ(count_occurrences(wache, "optional: true"), 0u) << "S-10: die Wache selbst traegt keine Kante";
+    // Koeder S-10: ohne `optional: true` wuerde GitLab bei gueltiger/ohne Marke die Pipeline ablehnen (needs auf
+    // einen nicht instanziierten Job) -- der Pin auf das exakte Literal macht das beobachtbar.
+    std::string koeder_kante = yaml;
+    for (std::size_t pos = koeder_kante.find("      optional: true"); pos != std::string::npos;
+         pos             = koeder_kante.find("      optional: true", pos + 1))
+        koeder_kante.replace(pos, std::string{"      optional: true"}.size(), "      optional: nein");
+    EXPECT_EQ(count_occurrences(koeder_kante, kante), 0u) << "Koeder ohne optional: (iii-b) wuerde rot";
     // (iv) KOEDER-GEGENPROBEN (verdeckte-exit-Regel): exit 1 -> exit 0 laesst (ii) fallen; ohne Wache faellt (i).
     std::string const exit_eins{"    - exit 1\n"};
     std::string       koeder_exit = yaml;

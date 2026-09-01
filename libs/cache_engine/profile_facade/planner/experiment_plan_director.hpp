@@ -1222,10 +1222,13 @@ private:
         // EMISSIONSZEIT aus der Planer-Env LITERAL eingebrannt -- NICHT NAME: "$NAME": diese Selbst-Referenz wertet
         // GitLab im Child als 'circular variable reference' aus (config_error, leeres failed-Child; Befund Struktur-
         // Smoke 12628/12663). Leer/ungesetzt => Zeile ENTFAELLT (eine leere YAML-Variable ueberschriebe im Grandchild
-        // die 'nicht gesetzt'-Semantik: die STUFE-3-Mess-Rule '$COMDARE_MEASURE_PROFILE == "smoke"'-Auto-Run bzw. den
-        // ${COMDARE_GN_TOTAL:-16}-Fallback des Tier-Baus). Deterministische Reihenfolge; KLASSE: nur Werte/Basenames,
-        // nie $CI_PROJECT_DIR. Die Env setzt die super-YAML (Schicht 4): GN_TOTAL=131072 im Voll-Bau; MEASURE_PROFILE=
-        // smoke + METHODIK-Basename im Smoke. Leerer variables:-Block wird ausgelassen. KEIN pipeline_variables (Isolation).
+        // die 'nicht gesetzt'-Semantik: die Stufe-2-Mess-Rules smoke|full => Auto-Run / sonst `when: never`, die
+        // Marken-Wache `$COMDARE_MEASURE_PROFILE != null` -- eine LEER geforwardete Marke instanziierte die Wache =
+        // HART ROT + Fail-fast (E-1-FIX-R2 S-8; ci/lint 19.1.4 K4-leer: 3 Jobs inkl. Wache, gemessen 01.09.2026)
+        // -- bzw. den ${COMDARE_GN_TOTAL:-16}-Fallback des Tier-Baus). Deterministische Reihenfolge; KLASSE: nur
+        // Werte/Basenames, nie $CI_PROJECT_DIR. Die Env setzt die super-YAML (Schicht 4): GN_TOTAL=131072 im Voll-Bau;
+        // MEASURE_PROFILE=smoke + METHODIK-Basename im Smoke. Leerer variables:-Block wird ausgelassen. KEIN
+        // pipeline_variables (Isolation).
         std::string vars;
         append_forward_var_literal(vars, "COMDARE_GN_TOTAL");
         append_forward_var_literal(vars, "COMDARE_MEASURE_PROFILE");
@@ -1320,8 +1323,8 @@ public:
                 "Scheiben; Testate je Schritt zelle=[d,e,f][g,h,i]; Haupt-only, Par.42.b).\n";
         // E-1-DESIGN-FIX 01.09.2026: emittierter Kopf-Kommentar nachgezogen (vorher "smoke=>Auto / sonst when:manual").
         out_ += "#   measure:[a,b,c]:batch:<host>  -- EIN Mess-Batch je Host (smoke|full => Auto-Run, sonst rules-Skip "
-                "when:never; 320er-Par.41-Gate = POST-Entscheid; ungueltige Marke => measure:marke-wache HART ROT; "
-                "MESS-Testate zelle=[a,b,c][d,e,f][g,h,i]).\n";
+                "when:never; 320er-Par.41-Gate = POST-Entscheid; ungueltige Marke => measure:marke-wache HART ROT, "
+                "Fail-fast via needs optional der Build-Batches; MESS-Testate zelle=[a,b,c][d,e,f][g,h,i]).\n";
         out_ += "stages:\n";
         out_ += "  - tier-build\n";
         out_ += "  - measure\n";
@@ -1503,6 +1506,16 @@ private:
         s += "  timeout: 7d            # GN-11-Mehrtaegigkeit (Runner-maximum_timeout >= 7d ist Infra-Vorbedingung)\n";
         emit_gn_out_persistence_variables(
             s); // Resume-CI-Fix: gn_out/build ueberleben den Checkout-Clean (dll_is_current)
+        // E-1-FIX-R2 S-10 (Bewertung r2, 01.09.2026) FAIL-FAST: optionale needs-Kante auf die Marken-Wache. Marke
+        // gueltig/ungesetzt => die Wache entsteht nicht (rules-Skip) => `optional: true` laesst die Kante entfallen,
+        // der Batch startet wie bisher (ci/lint K0/K1/K2 = 2/4/4 Jobs, 0 Fehler). Ungueltige Marke => die Wache
+        // (stage tier-build) faellt sofort => beide Build-Batches SKIPPED => Grandchild failed SOFORT statt erst nach
+        // bis zu 7 d Bau (strategy:depend der Bruecken spiegelt den Endstatus). Pin: Test B (Kante je Build-Batch,
+        // 0 je Mess-Batch, 0 in der Wache); ci/lint K0-ff/K1-ff/K3-ff = 2/4/3 Jobs (bau/fixr2/lint-vorprobe-*).
+        s += "  needs:\n";
+        s += "    - job: \"measure:marke-wache\"\n";
+        s += "      optional: true   # E-1-FIX-R2 S-10 Fail-fast: Wache fehlt (Marke gueltig/ungesetzt) => Kante "
+             "entfaellt; Wache faellt => Batch skipped\n";
         s += "  script:\n";
         // S2-NACHT: der Prolog verdrahtet COMDARE_GOLDEN_N_PROFILE auf das AKTIVE Profil (header_.profile_basename).
         emit_child_submodule_prolog(s, header_.profile_basename); // W10-Nacharbeit 2: manueller ce-Submodul-Klon
@@ -1686,7 +1699,9 @@ private:
     // on_success (die Wache laeuft und faellt mit exit 1), sonst `- when: never` (der Job entsteht nicht). So macht
     // jeder Tippfehler der Mess-Marke (z.B. "Full") den Baum HART ROT, statt lautlos ein gruener Bau-Lauf zu werden
     // (Owner 09.08. L23088). Festlegungen: Jobname "measure:marke-wache" (Praefix measure: = Gegenstand, kein Host);
-    // stage measure; tags ["baremetal"] = Runner 16 prod1 / 17 prod2; needs [] = startet sofort; KEINE resource_group,
+    // stage tier-build (E-1-FIX-R2 S-10, vorher measure: die Fail-fast-needs-Kante der Build-Batches darf nur auf die
+    // gleiche/fruehere Stufe zeigen -- GitLab 19.1.4 ci/lint lehnt stage measure ab, gemessen 01.09.2026);
+    // tags ["baremetal"] = Runner 16 prod1 / 17 prod2; needs [] = startet sofort; KEINE resource_group,
     // KEIN allow_failure, KEIN when:manual, KEIN Submodul-Prolog (GIT_STRATEGY none, cache paths []). `!= null` und
     // `&&` = GitLab-Doku job_rules.md v19.1.4. Reine Literale, kein Env => byte-deterministisch. Die if-Zeile ist EINE
     // YAML-Zeile (121 Zeichen), hier als zwei Quell-Literale.
@@ -1695,7 +1710,7 @@ private:
         s += "# JOB marke-wache (STUFE 2, E-1-DESIGN-FIX 01.09.2026: ungueltige Mess-Marke => HART ROT, "
              "nie stille Null)\n";
         s += "\"measure:marke-wache\":\n";
-        s += "  stage: measure\n";
+        s += "  stage: tier-build\n"; // S-10: erste Stufe (Ziel der optionalen needs-Kante der Build-Batches)
         s += "  tags: " + yaml_tag_list({"baremetal"}) + "\n";
         s += "  needs: []\n";
         s += "  cache:\n";
