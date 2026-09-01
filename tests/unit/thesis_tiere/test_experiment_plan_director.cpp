@@ -2889,6 +2889,27 @@ TEST(SelectMeasurementCombo, SelectorTrichotomyIdentitySubsetMissOnFannedFixture
         << "kein Selektor-Treffer => ehrlich leere Stufe-2 (0 Batch-Jobs)";
 }
 
+// (S4-f) E-1-FIX-R1 S-4 (Bewertung O-21, 01.09.2026): end_plan ist UNBEDINGT -- auch die ehrlich LEERE
+//        Stufe-2 (Selektor-Miss, 0 Batch-Jobs) traegt GENAU EINE Marken-Wache. Der degenerierte Fall ist
+//        heute real unerreichbar (K0..K3 nie leer), aber ungepinnt machte eine kuenftige BEDINGTE
+//        end_plan-Fassung die Wache still verlierbar. Koeder-Beleg (Wache-Emission temporaer entfernt,
+//        dieser Test + Test B rot): bau/koeder/ im E-1-Beweisort 20260901-e1-ci-zombie-fix.
+TEST(TierCiYamlBuilder, LeereStufe2TraegtGenauEineMarkenWache) {
+    auto tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    tp->measurement_tooling = {{"wallclock"}, {"macro"}, {"micro"}}; // N>1-Fixture wie SelectorTrichotomy
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb_none;
+    director.construct(*tp, tb_none, "_does_not_exist_");
+    std::string const& yaml = tb_none.text();
+    EXPECT_EQ(count_occurrences(yaml, "# JOB tier-build-batch "), 0u) << "Selektor-Miss: 0 Build-Batches";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB measure-batch "), 0u) << "Selektor-Miss: 0 Mess-Batches";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB marke-wache "), 1u)
+        << "die Marken-Wache steht GENAU EINMAL auch in der leeren Stufe-2 (end_plan unbedingt)";
+    EXPECT_EQ(count_occurrences(yaml, "\"measure:marke-wache\":"), 1u)
+        << "genau EIN Wache-Job-Schluessel in der leeren Stufe-2";
+}
+
 // (A5c) STUFE 1 (CiYamlBuilder): bei N>1 CEB-Konfigs traegt jeder ceb:emit-Job den distinct --measurement-combo-
 //       Selektor (Kollisionsschutz der combo-unabhaengigen tier:build-Job-Namen, §56/T6). count==1 => KEIN Flag
 //       (byte-Stabilitaet zur heutigen 1-CEB-Strecke). Der Builder wird direkt getrieben (die Live-construct()-Naht
