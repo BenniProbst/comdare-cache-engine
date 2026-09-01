@@ -335,7 +335,9 @@ struct PlanerBlockGate {
 
         pln::MengenEingang eingang{};
         if (int const rc = pf::collect_mess_menge_facade(std::filesystem::path{profil}, eingang); rc != 0) {
-            return rc; // 5 = unbekannte/unlesbare Profil-Wurzel (Diagnose steht schon auf stderr)
+            // 5 = unbekannte/unlesbare Profil-Wurzel, 1 = METHODIK-Profil unlesbar / >1 Methoden (E-1-FIX-R3 S-12);
+            // die Diagnose steht schon auf stderr (construct_plan_into), stdout bleibt leer.
+            return rc;
         }
         eingang.deckel_bytes   = deckel_bytes;
         eingang.deckel_tage    = deckel_tage;
@@ -409,7 +411,9 @@ struct SimulateArgs {
         for (auto const& prof : args.profile) {
             pln::SimulationsEingang eingang{};
             if (int const rc = pf::collect_simulation_eingang_facade(std::filesystem::path{prof}, eingang); rc != 0) {
-                return rc; // 5 = unbekannte/unlesbare Profil-Wurzel (Diagnose steht schon auf stderr)
+                // 5 = unbekannte/unlesbare Profil-Wurzel, 1 = METHODIK-Profil unlesbar / >1 Methoden (E-1-FIX-R3
+                // S-12); die Diagnose steht schon auf stderr (construct_plan_into), stdout bleibt leer.
+                return rc;
             }
             eingang.mengen.sekunden_je_op = sek_je_op;
             eingang.mess_teilmenge        = teilmenge;
