@@ -1287,6 +1287,9 @@ TEST(TierCiYamlBuilder, MessBatchRulesSkipOhneMessProfilBeideLanenKeinManual) {
 //   optional: true}]`: fehlt die Wache (Marke gueltig/ungesetzt, rules-Skip), entfaellt die Kante (K0/K1/K2 = 2/4/4
 //   Jobs, 0 Fehler); faellt sie (ungueltige Marke), werden beide Build-Batches SKIPPED -> Grandchild SOFORT failed,
 //   nicht erst nach bis zu 7 d Bau (strategy:depend spiegelt den Endstatus). Mess-Batches tragen die Kante NICHT.
+//   E-1-FIX-R3 S-11 (Bewertung r3, 01.09.2026): die Regel-REIHENFOLGE der Wache war ungepinnt -- ein Emitter-Mutant
+//   `- when: never` VOR `- if:` liess alle Director-Tests gruen und toetete die Wache (ci/lint K3 = 2 Jobs, KEINE
+//   Wache). Deshalb (ii-b): rules-Block, script-Block und der GANZE Wache-Block je als EIN Literal + Tausch-Koeder.
 TEST(TierCiYamlBuilder, MarkenWacheJeStufe2YamlGenauEinmalHartRot) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
@@ -1308,6 +1311,61 @@ TEST(TierCiYamlBuilder, MarkenWacheJeStufe2YamlGenauEinmalHartRot) {
     EXPECT_EQ(count_occurrences(wache, wache_if), 1u) << "if-Regel mit != null (GitLab-Doku job_rules v19.1.4)";
     EXPECT_EQ(count_occurrences(wache, "      when: on_success"), 1u) << "ungueltige Marke => Wache laeuft";
     EXPECT_EQ(count_occurrences(wache, "    - when: never"), 1u) << "sonst entsteht die Wache nicht (rules-Skip)";
+    // (ii-b) E-1-FIX-R3 S-11 (Bewertung r3, 01.09.2026; Klasse "Mutant bleibt gruen"): die Zaehl-Pins in (ii) sehen
+    //        die REIHENFOLGE der Wache-Regeln nicht -- ein Emitter-Mutant `- when: never` VOR `- if:` (dieselben drei
+    //        Literale) liess alle Director-Tests gruen und toetete die Wache: GitLab 19.1.4 ci/lint K3 'Full' = 2 Jobs,
+    //        KEINE Wache (gemessen 01.09.2026, bau/fixr3/s11-rot-*). Deshalb wie Test A: der rules-Block (4 Z.), der
+    //        script-Block (4 Z.) und der GANZE Wache-Block (17 Z.) je als EIN Literal mit Zaehler 1 -- Reihenfolge und
+    //        Wortlaut sind Vertrag (die if-Zeile ist EINE YAML-Zeile mit 121 Zeichen, hier als zwei Quell-Literale).
+    char const* const wache_never = "    - when: never        # Marke ungesetzt (Bau-/Kalibrierlauf) oder smoke|full "
+                                    "(Messlauf): Wache entsteht nicht\n";
+    std::string const soll_wache_rules =
+        std::string{"  rules:\n"} + wache_if +
+        "      when: on_success   # Marke gesetzt, aber weder smoke noch full (Tippfehler/Case) => "
+        "Wache laeuft, faellt\n" +
+        wache_never;
+    std::string const soll_wache_script =
+        "  script:\n"
+        "    - 'echo \"FEHLER: COMDARE_MEASURE_PROFILE=$COMDARE_MEASURE_PROFILE unbekannt "
+        "(erlaubt: smoke|full)\"'\n"
+        "    - 'echo \"Lauf HART ROT statt stillem Bau-Lauf (E-1-DESIGN-FIX 01.09.2026; "
+        "Owner 09.08. L23088)\"'\n"
+        "    - exit 1\n";
+    std::string const soll_wache =
+        std::string{
+            "# JOB marke-wache (STUFE 2, E-1-DESIGN-FIX 01.09.2026: ungueltige Mess-Marke => HART ROT, "
+            "nie stille Null)\n"
+            "\"measure:marke-wache\":\n"
+            "  stage: tier-build\n"
+            "  tags: [\"baremetal\"]\n"
+            "  needs: []\n"
+            "  cache:\n"
+            "    paths: []          # keine Cache-Runde fuer eine Shell-Wache (Praezedenz super ergebnis:holen)\n"
+            "  variables:\n"
+            "    GIT_STRATEGY: \"none\"   # reine Shell-Wache: kein Checkout, kein Submodul-Klon\n"} +
+        soll_wache_rules + soll_wache_script;
+    EXPECT_EQ(count_occurrences(soll_wache, "\n"), 17u) << "Nenner: 17 Zeilen (Design 3.1.b, Wache-Block)";
+    EXPECT_EQ(count_occurrences(yaml, soll_wache_rules), 1u)
+        << "S-11: Wache-rules-Block (if -> on_success -> never) 1x";
+    EXPECT_EQ(count_occurrences(wache, soll_wache_rules), 1u) << "S-11: ... und zwar IN der Wache";
+    EXPECT_EQ(count_occurrences(wache, soll_wache_script), 1u) << "S-11: script-Block (echo, echo, exit 1) 1x";
+    EXPECT_EQ(count_occurrences(yaml, soll_wache), 1u) << "S-11: der GANZE Wache-Block (17 Z.) als EIN Literal 1x";
+    EXPECT_EQ(count_occurrences(wache, soll_wache), 1u) << "S-11: Block-Literal liegt im Block-Schnitt (ii)";
+    // KOEDER-GEGENPROBE S-11: Kopie der Wache mit `- when: never` VOR `- if:` (= der Emitter-Mutant). Die Zaehl-Pins
+    // (ii) bleiben darauf GRUEN (je 1x) -- genau die Luecke; die Literale (ii-b) fallen auf 0.
+    std::string const never_voll{wache_never};
+    std::string       koeder_tausch = wache;
+    std::size_t const npos_never    = koeder_tausch.find(never_voll);
+    ASSERT_NE(npos_never, std::string::npos) << "die never-Zeile der Wache (voller Wortlaut)";
+    koeder_tausch.erase(npos_never, never_voll.size());
+    std::size_t const ipos_if = koeder_tausch.find(wache_if);
+    ASSERT_NE(ipos_if, std::string::npos) << "die if-Zeile der Wache";
+    koeder_tausch.insert(ipos_if, never_voll);
+    EXPECT_EQ(count_occurrences(koeder_tausch, wache_if), 1u) << "Koeder never-vor-if: Zaehl-Pin (ii) bleibt gruen";
+    EXPECT_EQ(count_occurrences(koeder_tausch, "      when: on_success"), 1u) << "dito -- die Luecke von S-11";
+    EXPECT_EQ(count_occurrences(koeder_tausch, "    - when: never"), 1u) << "dito";
+    EXPECT_EQ(count_occurrences(koeder_tausch, soll_wache_rules), 0u) << "Koeder never-vor-if: (ii-b) wuerde rot";
+    EXPECT_EQ(count_occurrences(koeder_tausch, soll_wache), 0u) << "Koeder never-vor-if: Block-Literal wuerde rot";
     EXPECT_NE(wache.find("  stage: tier-build\n"), std::string::npos)
         << "S-10: Wache in der ERSTEN Stufe (needs der Build-Batches darf nur auf gleiche/fruehere Stufe zeigen)";
     EXPECT_EQ(wache.find("  stage: measure\n"), std::string::npos) << "S-10: nicht mehr stage measure";
