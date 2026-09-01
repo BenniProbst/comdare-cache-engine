@@ -394,9 +394,10 @@ struct PlanerBlockContext {
 // Der SOLL-Sammler: DERSELBE deterministische Director-Walk wie plan dump/ci/cmake (construct_plan_into),
 // nur mit einem sammelnden ConcreteBuilder statt eines emittierenden. Baut KEINE DLL, misst NICHT, schreibt
 // nichts (Anti-Phantom, golden-neutral) und beruehrt den Registry-Kanon nicht -- status LIEST nur.
-// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar.
-[[nodiscard]] int collect_plan_soll_facade(std::filesystem::path const& profile_path, planner::PlanSollSicht& out,
-                                           std::ostream& os);
+// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar, 1 = METHODIK-Profil
+// unlesbar. E-1-FIX-R2 S-7: KEIN Stream-Parameter -- die Zaehl-Fassaden emittieren nichts, ihre Diagnosen gehen
+// (wie bei allen Fehlerpfaden von construct_plan_into) auf std::cerr; der fruehere `os` war nur noch tot.
+[[nodiscard]] int collect_plan_soll_facade(std::filesystem::path const& profile_path, planner::PlanSollSicht& out);
 
 // ---------------------------------------------------------------------------------------------------------------
 // check-size (2026-08-09): die MENGEN-ERHEBUNG vor dem Lauf.
@@ -414,9 +415,9 @@ struct PlanerBlockContext {
 // Was der Aufrufer NACH dieser Funktion noch selbst setzt (weil es von der Kommandozeile kommt, nicht aus
 // dem Profil): sekunden_je_op, deckel_bytes, deckel_tage.
 //
-// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar.
-[[nodiscard]] int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner::MengenEingang& out,
-                                            std::ostream& os);
+// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar, 1 = METHODIK-Profil
+// unlesbar. Diagnosen auf std::cerr, kein Stream-Parameter (E-1-FIX-R2 S-7, s. collect_plan_soll_facade).
+[[nodiscard]] int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner::MengenEingang& out);
 
 // ---------------------------------------------------------------------------------------------------------------
 // S-19 PLANUNGS-SIMULATION (#7, 2026-08-20): die SIMULATIONS-ERHEBUNG -- Planer-Etappe (D.1/O1: der
@@ -435,8 +436,9 @@ struct PlanerBlockContext {
 // bau_sekunden_je_dll, bytes_je_dll, lager_budget_bytes, t3_fenster_tage, mengen.sekunden_je_op,
 // fremde_lane_label/fremde_lane_pmc.
 //
-// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar.
+// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar, 1 = METHODIK-Profil
+// unlesbar. Diagnosen auf std::cerr, kein Stream-Parameter (E-1-FIX-R2 S-7, s. collect_plan_soll_facade).
 [[nodiscard]] int collect_simulation_eingang_facade(std::filesystem::path const& profile_path,
-                                                    planner::SimulationsEingang& out, std::ostream& os);
+                                                    planner::SimulationsEingang& out);
 
 } // namespace comdare::cache_engine::builder::profile_facade

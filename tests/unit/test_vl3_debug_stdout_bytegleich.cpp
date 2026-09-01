@@ -151,6 +151,7 @@ void grundstellung() {
     env_setzen("COMDARE_MINIO_ENDPOINT", nullptr);
     env_setzen("COMDARE_MINIO_BUCKET", nullptr);
     env_setzen("COMDARE_THESIS_PROFILE", nullptr);
+    env_setzen("COMDARE_PLAN_METHODIK_PROFILE", nullptr); // E-1-FIX-R2 S-7: Methodik-Marke weg (Hermetik)
     env_setzen("COMDARE_PMC_PROBE_AUS", "true");
 }
 
@@ -311,6 +312,31 @@ TEST(Vl3DebugStdoutByteGleich, FehlerpfadUnbekannteWurzelStdoutLeerDiagnoseAufSt
             << e.out;
         EXPECT_NE(e.out.find("KEIN Plan emittiert."), std::string::npos) << sub << ": Abbruch-Satz auf stderr";
     }
+}
+
+// (5) E-1-FIX-R2 S-7 (Bewertung r2, 01.09.2026): der VIERTE Fehlerpfad derselben Funktion -- das METHODIK-Profil
+//     (COMDARE_PLAN_METHODIK_PROFILE) ist nicht lesbar => rc 1, KEIN Plan. Vorher schrieb resolve_methodik_override
+//     ueber den uebergebenen Stream `os` (= Datenkanal) die Zeile "[methodik] ... nicht als Thesis-Profil lesbar"
+//     auf STDOUT (rot zuerst: bau/fixr2/s7-rot-*.txt im E-1-Beweisort: rc 1 + 179 B stdout an plan dump, plan ci
+//     und Treiber `tier ci`). SOLL: stdout LEER, Diagnose auf stderr (Hilfe: "Diagnose/Fehler -> stderr (clig.dev)");
+//     der Run-Pfad (run_profile_facade) uebergibt denselben Resolver bereits mit std::cerr. Geprueft an plan dump UND
+//     plan ci (beide laufen durch construct_plan_into); das Katalog-Profil selbst ist gueltig (g_profil).
+TEST(Vl3DebugStdoutByteGleich, FehlerpfadMethodikProfilUnlesbarStdoutLeerDiagnoseAufStderr) {
+    grundstellung();
+    env_setzen("COMDARE_PLAN_METHODIK_PROFILE", "/nonexistent/e1-fix-r2-methodik.profile.xml");
+    for (char const* sub : {"plan dump", "plan ci"}) {
+        Lauf const l = fahre_stdout(std::string{sub} + " \"" + g_profil + "\"");
+        EXPECT_EQ(l.rc, 1) << sub << ": unlesbares METHODIK-Profil muss mit rc 1 enden";
+        EXPECT_TRUE(l.out.empty()) << sub << ": der Datenkanal traegt KEINE [methodik]-Zeile, hat aber:\n" << l.out;
+        Lauf const e = fahre_stderr(std::string{sub} + " \"" + g_profil + "\"");
+        EXPECT_EQ(e.rc, 1) << sub << ": rc im stderr-Lauf identisch";
+        EXPECT_NE(e.out.find("[methodik] COMDARE_PLAN_METHODIK_PROFILE"), std::string::npos)
+            << sub << ": die Diagnose muss auf stderr ankommen, stderr war:\n"
+            << e.out;
+        EXPECT_NE(e.out.find("nicht als Thesis-Profil lesbar"), std::string::npos)
+            << sub << ": Fehlerklasse (Methodik-Profil unlesbar) auf stderr";
+    }
+    grundstellung(); // Env-Hygiene fuer die Nachbarn: die Grundstellung entfernt die Methodik-Marke wieder
 }
 
 } // namespace
