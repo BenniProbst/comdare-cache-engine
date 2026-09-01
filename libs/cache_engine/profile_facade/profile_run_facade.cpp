@@ -1167,11 +1167,16 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
     // unlesbar/>1-Methoden => KEIN Plan emittiert (harter Abbruch); unset => leer => byte-identisch.
     auto const methodik = resolve_methodik_override(profile_path, os); // S2-NACHT-3: Basename gg. thesis_profiles/
     if (!methodik.ok) return 1;
+    // E-1-FIX-R1 S-6 (Bewertung O-27, 01.09.2026): die drei rc-5-Fehlerpfade dieser Funktion schreiben ihre
+    // Diagnose auf STDERR, nicht mehr in `os` -- `os` ist der DATENKANAL (Plan-Text/YAML/CMake), die Hilfe
+    // sagt "Diagnose/Fehler -> stderr (clig.dev)" zu, und ein Harness, das nur stdout umlenkt und rc nicht
+    // prueft, erhielt sonst eine einzeilige Pseudo-Emission (Treiber `tier ci <Kurzname>`: rc=5 + 1 Zeile
+    // auf stdout). Pin: test_vl3_debug_stdout_bytegleich FehlerpfadUnbekannteWurzelStdoutLeerDiagnoseAufStderr.
     if (root_tag == "comdare_thesis_profile") {
         auto const tp = tlz::load_thesis_profile(profile_path);
         if (!tp) {
-            os << "[" << what << "] Thesis-Profil '" << profile_path.string()
-               << "' nicht lesbar (parse_thesis_profile=nullopt). KEIN Plan emittiert.\n";
+            std::cerr << "[" << what << "] Thesis-Profil '" << profile_path.string()
+                      << "' nicht lesbar (parse_thesis_profile=nullopt). KEIN Plan emittiert.\n";
             return 5;
         }
         // S2-NACHT (2026-07-23): der Datei-Basename des AKTIVEN Profils reist bis in den Child-Prolog durch
@@ -1185,8 +1190,9 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
         cx::XmlConfigParser const parser;
         auto const                ep = parser.parse_experiment_profile(profile_path);
         if (!ep) {
-            os << "[" << what << "] Experiment-Profil '" << profile_path.string()
-               << "' nicht als comdare_experiment lesbar (parse_experiment_profile=nullopt). KEIN Plan emittiert.\n";
+            std::cerr
+                << "[" << what << "] Experiment-Profil '" << profile_path.string()
+                << "' nicht als comdare_experiment lesbar (parse_experiment_profile=nullopt). KEIN Plan emittiert.\n";
             return 5;
         }
         // S2-NACHT (2026-07-23): der Profil-Basename reist bis in den Child-Prolog durch (s. Thesis-Kanal oben).
@@ -1194,9 +1200,9 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
                            profile_path.filename().string()); // A5 combo leer=>Identitaet; methodik leer=>aus ep
         return 0;
     }
-    os << "[" << what << "] '" << profile_path.string() << "': unbekannte/unlesbare Wurzel"
-       << (root_tag.empty() ? "" : " '" + root_tag + "'")
-       << " -- weder <comdare_thesis_profile> noch <comdare_experiment>. KEIN Plan emittiert.\n";
+    std::cerr << "[" << what << "] '" << profile_path.string() << "': unbekannte/unlesbare Wurzel"
+              << (root_tag.empty() ? "" : " '" + root_tag + "'")
+              << " -- weder <comdare_thesis_profile> noch <comdare_experiment>. KEIN Plan emittiert.\n";
     return 5;
 }
 } // namespace
