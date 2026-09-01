@@ -2910,6 +2910,36 @@ TEST(TierCiYamlBuilder, LeereStufe2TraegtGenauEineMarkenWache) {
         << "genau EIN Wache-Job-Schluessel in der leeren Stufe-2";
 }
 
+// (E-1-FIX-R2 S-9, Bewertung r2 01.09.2026) NOTATIONS-PIN: die Stufe-2-Emission ist ASCII-ONLY. Vorher trug E1
+//   16 Paragraph-Zeichen in 12 Vorbestands-Zeilen (Kopf Z.4/5, Build-Batch-JOB-Koepfe, Lane-Budget-/Bestandslog-
+//   Korn-/platform-Kommentare) NEBEN den ASCII-Fassungen 'Par.62-B'/'Par.41' (Runde 1 = nur die gemischte
+//   JOB-Kopf-Zeile). Ein YAML-Konsument ohne UTF-8-Annahme (Runner-Log, cat -A, Diff-Wache Gate 1) sieht sonst
+//   Multibyte-Reste; die Quelle ist seit der Diff-Hygiene-Regel ASCII-only, das Artefakt muss es auch sein.
+//   Nenner: JEDES Byte der Voll-Emission (all_axes_golden, 2 Lanes, 4 Perms, Wache). Rot zuerst am Emitter
+//   @af89003a: 32 Bytes > 0x7F (bau/fixr2/s9-rot-*.log im E-1-Beweisort).
+TEST(TierCiYamlBuilder, Stufe2EmissionIstAsciiOnly) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+    ASSERT_FALSE(yaml.empty()) << "eine leere Emission bewiese nichts";
+    std::size_t nicht_ascii = 0;
+    std::size_t erste_zeile = 0, zeile = 1;
+    for (unsigned char const c : yaml) {
+        if (c == '\n') ++zeile;
+        if (c > 0x7Fu) {
+            if (nicht_ascii == 0) erste_zeile = zeile;
+            ++nicht_ascii;
+        }
+    }
+    EXPECT_EQ(nicht_ascii, 0u) << "Stufe-2-Emission traegt " << nicht_ascii << " Byte(s) > 0x7F (erste in Zeile "
+                               << erste_zeile << " von " << zeile << "); Notation: 'Par.' statt Paragraph-Zeichen";
+    // Gegenprobe der Zaehlweise: die ASCII-Fassung der Batch-Notation steht in der Emission.
+    EXPECT_NE(yaml.find("Par.62-B"), std::string::npos) << "ASCII-Notation Par.62-B (Runde 1) bleibt";
+}
+
 // (A5c) STUFE 1 (CiYamlBuilder): bei N>1 CEB-Konfigs traegt jeder ceb:emit-Job den distinct --measurement-combo-
 //       Selektor (Kollisionsschutz der combo-unabhaengigen tier:build-Job-Namen, §56/T6). count==1 => KEIN Flag
 //       (byte-Stabilitaet zur heutigen 1-CEB-Strecke). Der Builder wird direkt getrieben (die Live-construct()-Naht

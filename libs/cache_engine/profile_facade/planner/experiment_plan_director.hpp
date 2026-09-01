@@ -1312,9 +1312,12 @@ public:
                 " perm_count=" + std::to_string(h.perm_count) + " batch_slice=" + std::to_string(kGnBatchSlice) +
                 " host_lanes=amd,intel\n";
         out_ += "#\n";
-        out_ += "# Ledger §42.b/§56 + §62-B-Batch (CEB-Rolle 'tier ci'): NUR die STUFE-2-Sicht, O(Maschinen).\n";
+        // E-1-FIX-R2 S-9 (Bewertung r2, 01.09.2026): Emissions-Literale ASCII-only ('Par.' statt Paragraph-Zeichen);
+        // Pin: Test Stufe2EmissionIstAsciiOnly (0 Byte > 0x7F in der Voll-Emission).
+        out_ += "# Ledger Par.42.b/Par.56 + Par.62-B-Batch (CEB-Rolle 'tier ci'): NUR die STUFE-2-Sicht, "
+                "O(Maschinen).\n";
         out_ += "#   tier:build-batch:<host>       -- EIN Build+Pruef-Batch je Host (iteriert intern Perms x 4096er-"
-                "Scheiben; Testate je Schritt zelle=[d,e,f][g,h,i]; Haupt-only, §42.b).\n";
+                "Scheiben; Testate je Schritt zelle=[d,e,f][g,h,i]; Haupt-only, Par.42.b).\n";
         // E-1-DESIGN-FIX 01.09.2026: emittierter Kopf-Kommentar nachgezogen (vorher "smoke=>Auto / sonst when:manual").
         out_ += "#   measure:[a,b,c]:batch:<host>  -- EIN Mess-Batch je Host (smoke|full => Auto-Run, sonst rules-Skip "
                 "when:never; 320er-Par.41-Gate = POST-Entscheid; ungueltige Marke => measure:marke-wache HART ROT; "
@@ -1486,7 +1489,7 @@ private:
         // Batch-KOPF (Kommentar, einmal je Job): CEB-Identitaet [a,b,c] + Host-Lane. §62-B-NACHTRAG: [a,b,c] ist
         // die CEB-Ebene und steht NUR im KOPF, NICHT je Schritt.
         s += "# JOB tier-build-batch host=" + host + " ceb=" + combo_legend_ +
-             " (STUFE 2 Batch, §62-B: O(Maschinen); Build+Pruef aller " + host +
+             " (STUFE 2 Batch, Par.62-B: O(Maschinen); Build+Pruef aller " + host + // S-9: ASCII 'Par.'
              "-Lane-Perms; Testate je Schritt [d,e,f][g,h,i], ceb=[a,b,c] nur KOPF)\n";
         s += "\"" + job + "\":\n";
         s += "  stage: tier-build\n";
@@ -1541,12 +1544,12 @@ private:
         emit_storage_activation(s); // G4a P-A: Push/Pull scharfschalten (inert ohne COMDARE_STORAGE_CACHE) + Deckel
         // Sec. 62-B Lane-Budget (Bau-Pool-WORKER-Override, KEIN $(nproc)): lane_build_parallelism(host) = Owner-HEAVY_J
         // je Lane (amd 16 KON28-01, intel 24 = nproc prod2), s. Definition oben.
-        s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # §62-B Lane-Budget " + host +
+        s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # Par.62-B Lane-Budget " + host +
              " (lane_build_parallelism = Owner-HEAVY_J je Lane, KON28-01; harte Compile-Worker-Zahl, kein nproc)\n";
         s += "      TOTAL=\"${COMDARE_GN_TOTAL:-16}\"   # Default 16 = sicherer Serie-Test; Voll-Bau: "
              "COMDARE_GN_TOTAL=131072\n";
         s += "      SLICE=" + std::to_string(kGnBatchSlice) +
-             "   # §62-B-Bestandslog-Korn (harte Konstante, KEIN Env-Override)\n";
+             "   # Par.62-B-Bestandslog-Korn (harte Konstante, KEIN Env-Override)\n";
         s += "      FAIL=0\n";
         s += "      LOGDIR=\"$CI_PROJECT_DIR/Code/gn_out/" + slug + "/" + host + "/logs\"\n";
         s += "      mkdir -p \"$LOGDIR\"\n";
@@ -1878,12 +1881,12 @@ private:
             "COMDARE_GN_TOTAL=131072)\n";
         // §61-MODI: der DLL-Bau laeuft PARALLEL, aber mit dem §62-B-K-Budget-Literal (ersetzt $(nproc)) -- NUR das
         // MESSEN ist 1-Thread (run_profile-Loop). Der Treiber-cmake-Bau bleibt beim Parent-CMAKE_BUILD_PARALLEL_LEVEL-Deckel.
-        s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # §62-B Lane-Budget " + host +
+        s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # Par.62-B Lane-Budget " + host +
              " (DLL-Bau parallel; Messen 1-Thread, run_profile-Loop; Owner-HEAVY_J je Lane, KON28-01; kein nproc)\n";
         // (platform-Tag) §61/§62 Plattform-Provenienz: die CSV-Spalte "platform" MUSS die MESSENDE Maschine tragen
         // (compile_time_platform_tag trennt amd/intel-x86_64 NICHT). Einmal je Batch (die Lane ist fix je Job).
         s += "      export COMDARE_PLATFORM=\"" + host +
-             "@$(hostname)\"   # (platform-Tag) ISA-Lane@Maschine -> CSV-Provenienz (§61/§62 per-Maschine)\n";
+             "@$(hostname)\"   # (platform-Tag) ISA-Lane@Maschine -> CSV-Provenienz (Par.61/Par.62 per-Maschine)\n";
         // E-04-P1: dieselbe Lane-Aussage wie im Bau-Batch. Auch der Mess-Batch faehrt einen Treiber-Bau (der
         // Fallback-Kanal emittiert dort seine Bilanz) -- ohne diese Zeile stuende dort lane=unbelegt.
         s += "      export COMDARE_LANE=\"" + host +
