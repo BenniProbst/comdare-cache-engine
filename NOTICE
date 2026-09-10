@@ -54,7 +54,7 @@ building block, see `docs/bausteine/Bausteine_Matrix.txt`.
 
 Project       : unodb (Adaptive Radix Tree in C++)
 Source URL    : https://github.com/laurynas-biveinis/unodb
-Path          : ext/P01-ART/unodb/
+Path          : ext/traversal/P01-ART/unodb/
 License       : Apache License 2.0
 Copyright     : Laurynas Biveinis and unodb contributors
 Reference     : V. Leis, A. Kemper, T. Neumann (2013). The Adaptive Radix
@@ -69,7 +69,7 @@ PRT-ART role  : Adaptive Radix Tree node family (Node4, Node16, Node48,
 
 Project       : hot
 Source URL    : https://github.com/speedskater/hot
-Path          : ext/P02-HOT/hot/
+Path          : ext/traversal/P02-HOT/hot/
 License       : ISC License
 Copyright     : Robert Binna and HOT contributors
 Reference     : R. Binna, E. Zangerle, M. Pichl, G. Specht, V. Leis (2018).
@@ -85,7 +85,7 @@ PRT-ART role  : Compound Node (k=32) baseline; BMI2/AVX2 SIMD bitstring
 
 Project       : masstree-beta
 Source URL    : https://github.com/kohler/masstree-beta
-Path          : ext/P03-Masstree/masstree-beta/
+Path          : ext/traversal/P03-Masstree/masstree-beta/
 License       : MIT License
 Copyright     : President and Fellows of Harvard College and contributors
 Reference     : Y. Mao, E. Kohler, R. Morris (2012). Cache Craftiness for
@@ -99,7 +99,7 @@ PRT-ART role  : Trie-of-B+-Trees baseline; permutation-field idea.
 
 Project       : CoCo-trie (Compressed Cooperative Trie)
 Source URL    : https://github.com/aboffa/CoCo-trie
-Path          : ext/P04-CoCo-trie/CoCo-trie/
+Path          : ext/traversal/P04-CoCo-trie/CoCo-trie/
 License       : GNU GPL v3.0
 Copyright     : Antonio Boffa and CoCo-Trie contributors
 Reference     : A. Boffa, P. Ferragina, F. Tosoni, G. Vinciguerra (2024).
@@ -117,7 +117,7 @@ PRT-ART role  : Macro-Node encoding pool; compression-aware indexing
 
 Project       : START
 Source URL    : https://github.com/jungmair/START
-Path          : ext/P05-START/START/
+Path          : ext/traversal/P05-START/START/
 License       : MIT License
 Copyright     : Michael Jungmair and START contributors
 Reference     : P. Fent, M. Jungmair, A. Kipf, T. Neumann (2020). START —
@@ -131,7 +131,7 @@ PRT-ART role  : Multi-byte (rewired) nodes; cost-model calibration template.
 
 Project       : b2-tree-master + bart-master (received privately 2026-05-08)
 Source URL    : (not publicly hosted)
-Path          : ext/P06-B2tree/b2-tree-master/
+Path          : ext/traversal/P06-B2tree/b2-tree-master/
                 ext/P06-B2tree/bart-master/
 License       : NO LICENSE FILE (received with implicit academic permission)
 Copyright     : Josef Schmeisser, Maximilian E. Schuele, Viktor Leis,
@@ -156,7 +156,7 @@ Notice        : Received as ZIP archives via direct contact with the TUM
 
 Project       : wormhole
 Source URL    : https://github.com/wuxb45/wormhole
-Path          : ext/P07-Wormhole/wormhole/
+Path          : ext/traversal/P07-Wormhole/wormhole/
 License       : GNU GPL v3.0
 Copyright     : Xingbo Wu and Wormhole contributors
 Reference     : X. Wu, F. Ni, S. Jiang (2019). Wormhole: A Fast Ordered
@@ -173,7 +173,7 @@ PRT-ART role  : MetaTrieHT (Trie+Hash+B+-Tree hybrid); anchor-key
 
 Project       : SuRF
 Source URL    : https://github.com/efficient/SuRF
-Path          : ext/P10-SuRF/SuRF/
+Path          : ext/traversal/P10-SuRF/SuRF/
 License       : Apache License 2.0
 Copyright     : Carnegie Mellon University EfficientLab and SuRF contributors
 Reference     : H. Zhang, H. Lim, V. Leis, D.G. Andersen, M. Kaminsky,
@@ -190,7 +190,7 @@ PRT-ART role  : LOUDS-Dense / LOUDS-Sparse / LOUDS-DS hybrid encoding;
 
 Project       : leanstore
 Source URL    : https://github.com/leanstore/leanstore
-Path          : ext/P20-BTreesAreBack/leanstore/
+Path          : ext/traversal/P20-BTreesAreBack/leanstore/
 License       : MIT License
 Copyright     : LeanStore project contributors and TU Munich
 Reference     : Mueller/Benson/Leis (2025). B-Trees Are Back: Engineering
@@ -205,7 +205,7 @@ PRT-ART role  : Adaptive B-Tree with 6 layout optimizations; runtime
 
 Project       : prefetching
 Source URL    : https://github.com/hpides/prefetching
-Path          : ext/P25-Mahling/prefetching/
+Path          : ext/traversal/P25-Mahling/prefetching/
 License       : NO LICENSE FILE (README invites academic citation)
 Copyright     : Fabian Mahling, Marcel Weisgut, Tilmann Rabl
                 Hasso-Plattner-Institut, University of Potsdam
@@ -223,7 +223,7 @@ PRT-ART role  : Microbenchmark suite for fill-buffer occupancy and
 
 Project       : userspace-rcu (liburcu)
 Source URL    : https://github.com/urcu/userspace-rcu
-Path          : ext/P29-RCU/userspace-rcu/
+Path          : ext/traversal/P29-RCU/userspace-rcu/
 License       : LGPL-2.1-or-later (per-file SPDX tags; full texts in
                 ext/P29-RCU/userspace-rcu/LICENSES/)
 Copyright     : Mathieu Desnoyers, Paul E. McKenney, and contributors
@@ -242,9 +242,10 @@ PRT-ART role  : RCU memory reclamation backbone for online relocation.
 
 Project       : haz_ptr (Lightweight Hazard Pointers)
 Source URL    : https://github.com/huangjiahua/haz_ptr
-Path          : ext/P30-HazardPointers/haz_ptr/
-License       : NO LICENSE FILE
-Copyright     : Huang Jiahua
+Path          : ext/traversal/P30-HazardPointers/haz_ptr/
+License       : MIT (permission notice in the headers of haz_ptr.h and haz_ptr.cpp;
+                no LICENSE file upstream; corrected 2026-09-10, was "NO LICENSE FILE")
+Copyright     : 2019 Jiahua Huang (source headers)
 Reference     : M.M. Michael (2004). Hazard Pointers: Safe Memory Reclamation
                 for Lock-Free Objects. IEEE TPDS 15(6).
 PRT-ART role  : NOT ACTIVELY USED. Hazard Pointers were removed from PRT-ART
@@ -311,7 +312,7 @@ ALLOCATOR FAMILY (Phase 6.2.B-C, 2026-05-13)
 
 The Comdare CacheEngine treats memory allocation as a first-class building-
 block stack parallel to the search algorithm stack (REV 7 §1, 2026-05-13).
-The following 10 allocator implementations are bundled in `ext/A*/` to
+The following 10 allocator implementations are bundled in `ext/allocator/A*/` (paths corrected 2026-09-10) to
 support the 7 allocator axes AA1-AA7 defined in `Allokator_Matrix.txt`.
 For per-paper extractions see `Diplomarbeit - Datenbanken/20260508 Termin 7/
 Phase5_UML_Detail/_paper_extractions_allocators/A{NN}-*.md`.
@@ -320,7 +321,7 @@ Phase5_UML_Detail/_paper_extractions_allocators/A{NN}-*.md`.
 34. A01 — Hoard (ASPLOS 2000)
     Project       : Hoard Memory Allocator
     Source URL    : https://github.com/emeryberger/Hoard
-    Path          : ext/A01-hoard/
+    Path          : ext/allocator/A01-hoard/
     License       : Apache License 2.0
     Copyright     : Emery Berger and Hoard contributors
     Reference     : E.D. Berger, K.S. McKinley, R.D. Blumofe, P.R. Wilson
@@ -332,7 +333,7 @@ Phase5_UML_Detail/_paper_extractions_allocators/A{NN}-*.md`.
 35. A03 — Michael Lock-Free Allocator (PLDI 2004, re-implementation)
     Project       : scotts/michael (Re-Implementation of Maged Michael 2004)
     Source URL    : https://github.com/scotts/michael
-    Path          : ext/A03-michael-lockfree/
+    Path          : ext/allocator/A03-michael-lockfree/
     License       : LGPL-2.1-or-later (per repository README, section
                     'Copyright & License'; original Maged Michael IBM
                     paper is the algorithm source - IBM patent applies)
@@ -348,7 +349,7 @@ Phase5_UML_Detail/_paper_extractions_allocators/A{NN}-*.md`.
 36. A04 — mimalloc (MSR-TR-2019-18)
     Project       : mimalloc
     Source URL    : https://github.com/microsoft/mimalloc
-    Path          : ext/A04-mimalloc/
+    Path          : ext/allocator/A04-mimalloc/
     License       : MIT License
     Copyright     : 2018-2025 Microsoft Corporation, Daan Leijen
     Reference     : D. Leijen, B. Zorn, L. de Moura (2019). Mimalloc: Free
@@ -360,7 +361,7 @@ Phase5_UML_Detail/_paper_extractions_allocators/A{NN}-*.md`.
 37. A05 — jemalloc (BSDCan 2006)
     Project       : jemalloc
     Source URL    : https://github.com/jemalloc/jemalloc
-    Path          : ext/A05-jemalloc/
+    Path          : ext/allocator/A05-jemalloc/
     License       : 2-Clause BSD-style (Jason Evans Custom)
     Copyright     : 2002-present Jason Evans + jemalloc contributors
     Reference     : J. Evans (2006). A Scalable Concurrent malloc(3)
@@ -372,7 +373,7 @@ Phase5_UML_Detail/_paper_extractions_allocators/A{NN}-*.md`.
 38. A06 — tcmalloc (Google, 2009 / Modern 2024+)
     Project       : tcmalloc
     Source URL    : https://github.com/google/tcmalloc
-    Path          : ext/A06-tcmalloc/
+    Path          : ext/allocator/A06-tcmalloc/
     License       : Apache License 2.0
     Copyright     : Google LLC and tcmalloc contributors
     Reference     : S. Ghemawat, P. Menage (2009). TCMalloc: Thread-Caching
@@ -385,7 +386,7 @@ Phase5_UML_Detail/_paper_extractions_allocators/A{NN}-*.md`.
 39. A07 — snmalloc (ISMM 2019)
     Project       : snmalloc
     Source URL    : https://github.com/microsoft/snmalloc
-    Path          : ext/A07-snmalloc/
+    Path          : ext/allocator/A07-snmalloc/
     License       : MIT License
     Copyright     : Microsoft Corporation
     Reference     : P. Liétar, T. Butler, S. Clebsch, S. Drossopoulou, J.
@@ -399,7 +400,7 @@ Phase5_UML_Detail/_paper_extractions_allocators/A{NN}-*.md`.
 40. A08 — scalloc (OOPSLA 2015)
     Project       : scalloc
     Source URL    : https://github.com/cksystemsgroup/scalloc
-    Path          : ext/A08-scalloc/
+    Path          : ext/allocator/A08-scalloc/
     License       : 3-Clause BSD
     Copyright     : 2012-2015 the scalloc project authors (cksystems group,
                     Universitaet Salzburg)
@@ -413,7 +414,7 @@ Phase5_UML_Detail/_paper_extractions_allocators/A{NN}-*.md`.
 41. A10 — rpmalloc (Public Domain / MIT)
     Project       : rpmalloc
     Source URL    : https://github.com/mjansson/rpmalloc
-    Path          : ext/A10-rpmalloc/
+    Path          : ext/allocator/A10-rpmalloc/
     License       : Public Domain (UNLICENSE) OR MIT
     Copyright     : Mattias Jansson
     Reference     : M. Jansson (2017+). rpmalloc — public domain cross-
@@ -424,7 +425,7 @@ Phase5_UML_Detail/_paper_extractions_allocators/A{NN}-*.md`.
 42. A11 — LRMalloc (VECPAR 2018)
     Project       : lrmalloc
     Source URL    : https://github.com/ricleite/lrmalloc
-    Path          : ext/A11-lrmalloc/
+    Path          : ext/allocator/A11-lrmalloc/
     License       : MIT License
     Copyright     : 2018 Ricardo Leite
     Reference     : R. Leite, R. Rocha (2018/2019). LRMalloc: A Modern and
@@ -437,7 +438,7 @@ Phase5_UML_Detail/_paper_extractions_allocators/A{NN}-*.md`.
     Project       : Doug Lea's Memory Allocator (dlmalloc)
     Source URL    : https://github.com/ennorehling/dlmalloc
                     (mirror); upstream: gee.cs.oswego.edu/dl/html/malloc.html
-    Path          : ext/A20-dlmalloc/
+    Path          : ext/allocator/A20-dlmalloc/
     License       : Public Domain (CC0-equivalent, Doug Lea explicit release)
     Copyright     : Doug Lea (with "this work is in the public domain")
     Reference     : Doug Lea, "A Memory Allocator", continuously maintained
@@ -609,7 +610,7 @@ Implikationen fuer die einzelnen Lizenz-Klassen:
     fuer typische C-Software, nicht eine Beschraenkung fuer
     Permutations-Achsen-Extraktion in einem Forschungswerk.
 
-  No-LICENSE (P06-B2tree, P25-Mahling, P30-HazardPointers)
+  No-LICENSE (P06-B2tree, P25-Mahling; P30-HazardPointers seit 2026-09-10 MIT per Quellkopf)
   ──────────────────────────────────────────────────────────────────────────────
     Formal-rechtlich besteht ein Copyright. Die Pflicht erschoepft sich
     in der Autoren-Zitation (siehe NOTICE Eintraege oben + thesis-
