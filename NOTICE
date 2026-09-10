@@ -132,7 +132,7 @@ PRT-ART role  : Multi-byte (rewired) nodes; cost-model calibration template.
 Project       : b2-tree-master + bart-master (received privately 2026-05-08)
 Source URL    : (not publicly hosted)
 Path          : ext/traversal/P06-B2tree/b2-tree-master/
-                ext/P06-B2tree/bart-master/
+                ext/traversal/P06-B2tree/bart-master/
 License       : NO LICENSE FILE (received with implicit academic permission)
 Copyright     : Josef Schmeisser, Maximilian E. Schuele, Viktor Leis,
                 Thomas Neumann, Alfons Kemper
@@ -225,7 +225,7 @@ Project       : userspace-rcu (liburcu)
 Source URL    : https://github.com/urcu/userspace-rcu
 Path          : ext/traversal/P29-RCU/userspace-rcu/
 License       : LGPL-2.1-or-later (per-file SPDX tags; full texts in
-                ext/P29-RCU/userspace-rcu/LICENSES/)
+                ext/traversal/P29-RCU/userspace-rcu/LICENSES/)
 Copyright     : Mathieu Desnoyers, Paul E. McKenney, and contributors
 Reference     : P.E. McKenney et al. (2001). Read-Copy Update. Ottawa
                 Linux Symposium 2001.
