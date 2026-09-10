@@ -1,4 +1,4 @@
-# Lizenz-Audit ext/-Repos (Stand 2026-08-10; Vorfassung V31-PRE, 2026-05-14)
+# Lizenz-Audit ext/-Repos (Stand 2026-08-10; P30-Nachzug 2026-09-10; Vorfassung V31-PRE, 2026-05-14)
 
 **Hauptlizenz des Eigencodes:** Comdare Research License 1.0
 (`LicenseRef-Comdare-Research-1.0`), Change Date 2031-08-10 nach Apache-2.0.
@@ -21,6 +21,19 @@ im Sinne dieser Lizenz (LICENSE Abschnitt 8) und behaelt seine Originallizenz.
   Antonopoulos). Tabelle, Zusammenfassung und NOTICE-Eintrag 35 sind
   nachgezogen; REUSE.toml deklarierte den Pfad bereits seit 2026-08-25 korrekt.
 
+**Nachgezogen 2026-09-10 (Lizenz-/Vertragszug #179, Verify-Nachzug; am Objekt gemessen):**
+- `P30-HazardPointers` stand hier als "KEINE LICENSE" (Autoren anschreiben) und im
+  NOTICE als "NO LICENSE FILE". Richtig ist: es gibt KEINE Lizenzdatei (weder in
+  `ext/traversal/P30-HazardPointers/haz_ptr/` noch upstream huangjiahua/haz_ptr), aber
+  `haz_ptr.h` und `haz_ptr.cpp` tragen im Kopf "Copyright 2019 Jiahua Huang" und den
+  vollstaendigen MIT-Erlaubnistext ("Permission is hereby granted, free of charge ...
+  The above copyright notice and this permission notice shall be included ..."). Die
+  Lizenz ist damit MIT, erteilt durch den Quellkopf; ein Autoren-Anschreiben ist
+  unnoetig, Copyright- und Permission-Notice sind beizubehalten. REUSE.toml ordnete
+  den Pfad bereits seit 2026-08-25 als MIT zu (Widerspruch seit 8c861759 2026-08-26).
+  Tabelle (P30), Zusammenfassung und V31.K5 sind nachgezogen; NOTICE-Eintrag 12 und
+  die Direktiven-Zeile "No-LICENSE" ebenso.
+
 ## SOTA-Repos
 
 | Repo | Lizenz | Adapter-Status |
@@ -36,7 +49,7 @@ im Sinne dieser Lizenz (LICENSE Abschnitt 8) und behaelt seine Originallizenz.
 | P20-BTreesAreBack/leanstore | MIT | ✅ safe |
 | P25-Mahling | KEINE LICENSE | ❌ User muss Autoren anschreiben |
 | P29-RCU/userspace-rcu | **LGPL-2.1+** (Hauptcode), GPL-2 (Build-Skripte) | ⚠️ dynamisches Linken erlaubt; eigene RCU-Impl bevorzugt (siehe MEMORY) |
-| P30-HazardPointers | KEINE LICENSE | ❌ User muss Autoren anschreiben |
+| P30-HazardPointers | MIT (kein LICENSE-File; Erlaubnistext im Kopf von haz_ptr.h/.cpp, (C) 2019 Jiahua Huang) | OK safe (nachgezogen 2026-09-10; Notices beibehalten) |
 
 ## Allokator-Repos
 
@@ -79,9 +92,11 @@ fortbestehende Pflicht ist die Attribution, und die traegt das NOTICE.
 
 ## Zusammenfassung
 
-- **13 Adapter "safe"** (Apache-2.0/MIT/ISC/BSD-2/BSD-3): koennen autonom aktiviert werden
+- **14 Adapter "safe"** (Apache-2.0/MIT/ISC/BSD-2/BSD-3; seit 2026-09-10 einschliesslich P30):
+  koennen autonom aktiviert werden
 - **4 Adapter mit Copyleft** (P04, P07 GPL-3; P29, A03 LGPL-2.1+): brauchen User-Bestaetigung oder Plug-in-Architektur
-- **3 Adapter ohne LICENSE** (P06, P25, P30): User muss Autoren anschreiben oder Repos exkludieren
+- **2 Adapter ohne LICENSE** (P06, P25): User muss Autoren anschreiben oder Repos exkludieren
+  (P30 bis 2026-09-10 hier mitgezaehlt; es ist MIT per Quellkopf, siehe Nachzug oben)
 
 ## V31-Plan-Anpassung (vs Original-Anker)
 
@@ -94,7 +109,8 @@ Echter GPL-Konflikt: P04-CoCo-trie + P07-Wormhole (beide GPL-3, nicht GPL-2).
 3. V31.K2 A04-mimalloc-Adapter (Pilot Allokator, MIT)
 4. V31.K3 weitere SAFE SOTA: P02-HOT, P03-Masstree, P05-START, P10-SuRF, P20-BTreesAreBack
 5. V31.K4 weitere SAFE Allokator: A01-hoard, A05-jemalloc, A06-tcmalloc, A07-snmalloc, A08-scalloc, A10-rpmalloc, A11-lrmalloc, A20-dlmalloc
-6. V31.K5 USER-Pending: P04-CoCo-trie + P07-Wormhole (GPL-3 Bestaetigung), P06+P25+P30 (Autoren anschreiben), A03 (LGPL-2.1+, wie P29)
+6. V31.K5 USER-Pending: P04-CoCo-trie + P07-Wormhole (GPL-3 Bestaetigung), P06+P25 (Autoren anschreiben;
+   P30 seit 2026-09-10 als MIT gefuehrt, Erlaubnistext im Quellkopf), A03 (LGPL-2.1+, wie P29)
 
 ## Architekt-Direktive II 2026-05-14 (User)
 
@@ -103,7 +119,8 @@ Echter GPL-Konflikt: P04-CoCo-trie + P07-Wormhole (beide GPL-3, nicht GPL-2).
 > Repos ohne Lizenz: formal nur Autoren-Zitation."
 
 **Konsequenz:** Alle 22 ext/-Repos sind fuer V31-Adapter freigegeben.
-GPL-3 (P04, P07), LGPL (P29, A03) und No-LICENSE (P06, P25, P30) brauchen
+GPL-3 (P04, P07), LGPL (P29, A03) und No-LICENSE (P06, P25; P30 seit 2026-09-10 als MIT gefuehrt)
+brauchen
 keine separate User-Bestaetigung mehr. Vollstaendige Begruendung: NOTICE,
 Abschnitt "Architekt-Direktive II 2026-05-14".
 
