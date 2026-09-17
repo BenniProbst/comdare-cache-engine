@@ -68,6 +68,16 @@
 // Geprueft sind dort also die vier 'frist:'-Zeilen; NICHT geprueft ist die 'isa:'-Zeile.
 // Beide Mengen stehen in der Ausgabe des Falls.
 //
+// NACHTRAG (2026-09-17, Owner-Order 206 "OV-2 Archiv-Variante gilt und frist Zeilen entfernen"):
+// der Satz "geprueft sind dort die vier 'frist:'-Zeilen" ist UEBERHOLT -- die vier Zeilen sind aus
+// der Allowlist entfernt. An ihre Stelle tritt die ARCHIV-Klasse der Wache: eine getrackte
+// Test-Quelldatei unter tests/deprecated/<ordner>/ zaehlt nicht zum SOLL, wenn und nur wenn
+// tests/deprecated/<ordner>/VERMERK.md im Index liegt. Fall (8) misst ab jetzt GENAU DAS am echten
+// Repo (die vier fehlen im Bauweg und muessen trotzdem gruen sein, weil sie ARCHIV sind), Fall (10)
+// die Regel selbst an einem Wegwerf-Repo -- beidseitig, samt Nachbar-Anker-Probe.
+// UNVERAENDERT: die 'frist:'-ART der Wache bleibt in Gebrauch und wird von Fall (7) beidseitig
+// gefahren; sie hat nach diesem Entscheid nur keinen Gegenstand mehr in der committeten Allowlist.
+//
 // ASCII-only, Zeilen <= 120 Byte.
 // =============================================================================
 
@@ -110,6 +120,11 @@ constexpr char const* kGegenprobe = "tests/unit/test_pressure_state.cpp";
 // W-B (2026-08-15, Vorlage-B2-GO): per 'git mv' nach tests/deprecated/prt_art_legacy_waisen/
 // archiviert (VERMERK.md dort). Der SOLL ist am DATEINAMEN verankert, die vier bleiben also
 // im SOLL und in der Allowlist -- nur der Pfad in Feld 1 und hier ist nachgezogen.
+// UEBERHOLT (2026-09-17, Owner-Order 206): der letzte Satz gilt nicht mehr. Die vier stehen in
+// KEINER Allowlist mehr und sind auch nicht mehr im SOLL der Registrierungs-Wache -- sie sind
+// ARCHIV, weil tests/deprecated/prt_art_legacy_waisen/VERMERK.md im Index liegt und die Wache
+// diesen Anker liest. Die Literale hier bleiben trotzdem noetig: Fall (8) nimmt sie aus dem
+// Bauweg heraus (Anlass des Archiv-Abzugs) und Fall (9) sucht ihre Namen in der Schwesterliste.
 constexpr char const* kGeparkt[] = {
     "tests/deprecated/prt_art_legacy_waisen/test_concepts_compile.cpp",
     "tests/deprecated/prt_art_legacy_waisen/test_value_handle.cpp",
@@ -139,9 +154,13 @@ void berichten(char const* fall, Lauf const& lauf, std::string const& marke) {
 // ---------------------------------------------------------------------------
 class Fall {
 public:
-    explicit Fall(std::string const& marke)
-        : marke_{marke}, repo_{marke}, baum_{repo_.pfad().string() + "_baum"},
-          waise_{"tests/unit/test_waise_" + marke + ".cpp"} {
+    explicit Fall(std::string const& marke) : Fall{marke, "tests/unit/test_waise_" + marke + ".cpp"} {}
+
+    // Zweiter Konstruktor (2026-09-17): der Waisen-PFAD ist waehlbar. Die ARCHIV-Klasse der Wache
+    // haengt am ORT der Datei, nicht an ihrem Namen -- ein Fall dafuer braucht eine Waise unter
+    // tests/deprecated/<ordner>/ statt unter tests/unit/. Alles andere bleibt identisch.
+    Fall(std::string const& marke, std::string const& waisen_pfad)
+        : marke_{marke}, repo_{marke}, baum_{repo_.pfad().string() + "_baum"}, waise_{waisen_pfad} {
         std::error_code ec;
         fs::create_directories(baum_, ec);
     }
@@ -413,6 +432,15 @@ TEST(Pa1ToteAusnahme, FristTraegtBisZumTagUndDannNichtMehr) {
 //     BEIDE MENGEN: geprueft sind die vier 'frist:'-Zeilen. NICHT geprueft ist die
 //     'isa:'-Zeile (test_ap5_simd_extension_coherence) -- ihr Fehlen laesst sich hier
 //     nicht ehrlich herstellen, s. Kopf.
+//
+//     NACHTRAG 2026-09-17 (Owner-Order 206): die vier 'frist:'-Zeilen gibt es nicht mehr; der
+//     AUFBAU dieses Falls bleibt Byte fuer Byte derselbe, aber der GEGENSTAND ist jetzt die
+//     ARCHIV-Klasse. Die vier Dateien fehlen dem Baum weiterhin -- gruen sind sie nur, weil die
+//     Wache sie wegen tests/deprecated/prt_art_legacy_waisen/VERMERK.md gar nicht erst in ihren
+//     SOLL nimmt. Genau das prueft der Fall ab hier: Exit 0 UND eine ARCHIV-Zeile, die alle vier
+//     namentlich auffuehrt. Faellt der Anker weg, faellt dieser Fall -- und zwar laut.
+//     Die 'isa:'-Zeile bleibt aus demselben Grund wie oben ungeprueft; sie ist nach dem Entscheid
+//     die einzige verbliebene wirksame Zeile der committeten Allowlist.
 // =============================================================================
 TEST(Pa1ToteAusnahme, EchteAllowlistTraegtKeineToteZeile) {
     std::string const marke = koeder();
@@ -467,12 +495,24 @@ TEST(Pa1ToteAusnahme, EchteAllowlistTraegtKeineToteZeile) {
     Lauf const lauf = fahre("cd " + zitiert(fs::path{repo_wurzel()}) + " && " + WegwerfRepo::umgebung() + " sh " +
                             zitiert(wachen_pfad()) + " " + zitiert(baum));
     std::cout << "  [PA-1] Fall 'EchteAllowlistTraegtKeineToteZeile' | SOLL " << alle.size() << " | weggelassen "
-              << weggelassen << " (die vier 'frist:'-Zeilen) | NICHT geprueft: die 'isa:'-Zeile"
+              << weggelassen << " (die vier ARCHIV-Dateien) | NICHT geprueft: die 'isa:'-Zeile"
               << " | Exit " << lauf.code << "\n";
 
     EXPECT_EQ(lauf.code, 0) << "Die committete Allowlist traegt eine Zeile, die nie erloeschen kann.\n" << lauf.ausgabe;
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "0 TOTE AUSNAHME")) << "Der Nenner muss die Null ausweisen (V-1).\n"
                                                            << lauf.ausgabe;
+    // Die vier fehlen dem Baum und sind trotzdem gruen -- das traegt NUR die ARCHIV-Klasse.
+    // Ohne diese Erwartungen waere der Fall auch von einer Wache erfuellt, die sie stillschweigend
+    // uebersieht: gemessen wird deshalb die AUSGEWIESENE Menge, nicht nur der Exit.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "ARCHIV (tests/deprecated/, VERMERK.md-Anker): 4 Datei(en)"))
+        << "Die vier archivierten Dateien muessen als Menge ausgewiesen sein.\n"
+        << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "4 archiviert")) << "Die Endzeile muss den Archiv-Nenner tragen.\n"
+                                                        << lauf.ausgabe;
+    for (char const* const g : kGeparkt) {
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, std::string{g})) << "'" << g << "' fehlt in der ARCHIV-Liste der Wache.\n"
+                                                            << lauf.ausgabe;
+    }
     fs::remove_all(baum, ec);
 }
 
@@ -541,6 +581,62 @@ TEST(Pa1ToteAusnahme, T6SchwesterlisteFuehrtDieVierNichtMehr) {
                  "             KEINE Erloschen-Probe -- weder Richtung 1 noch Richtung 2. Struktur-Nenner:\n"
               << "             " << wirksam.size() << " von " << wirksam.size()
               << " Zeilen ohne nachpruefbaren Gegenstand. Eigenes Paket.\n";
+}
+
+// =============================================================================
+// (10) DIE ARCHIV-KLASSE, BEIDSEITIG UND MIT NACHBAR-PROBE (Owner 2026-09-17, Order 206).
+//      Die Regel lautet: eine getrackte Test-Quelldatei unter tests/deprecated/<ordner>/
+//      faellt aus dem SOLL, WENN UND NUR WENN tests/deprecated/<ordner>/VERMERK.md im
+//      Index liegt. Dieser Fall faehrt alle drei Zustaende am SELBEN Gegenstand:
+//        (a) kein Anker            -> ROT, die Waise steht namentlich als unbegruendet
+//        (b) Anker im NACHBARordner -> weiter ROT (ein Anker traegt NUR seinen Ordner)
+//        (c) Anker im eigenen Ordner -> GRUEN, die Waise steht in der ARCHIV-Zeile
+//      K13 beidseitig: ein Orakel, das immer GRUEN liefert, faellt an (a) und (b); eines,
+//      das immer ROT liefert, faellt an (c). (b) ist der Teil, der aus dem "wenn" ein
+//      "wenn und nur wenn" macht -- ohne ihn waere die Regel "irgendwo unter
+//      tests/deprecated/ liegt ein VERMERK.md" und damit genau der Freibrief, gegen den
+//      diese Wache gebaut ist.
+//      AUSDRUECKLICH OHNE ALLOWLIST-ZEILE: die Archiv-Klasse darf nicht an einer Ausnahme
+//      haengen, sonst pruefte der Fall die Allowlist und nicht den Ort.
+// =============================================================================
+TEST(Pa1ToteAusnahme, ArchivOrdnerZaehltNurMitVermerkAnker) {
+    std::string const marke  = koeder();
+    std::string const ordner = "tests/deprecated/archiv_" + marke;
+    Fall              fall{marke, ordner + "/test_waise_" + marke + ".cpp"};
+    ASSERT_TRUE(fall.init());
+
+    Lauf const ohne = fall.fahren();
+    berichten("ArchivOrdnerZaehltNurMitVermerkAnker/ohne-Anker", ohne, marke);
+    EXPECT_EQ(ohne.code, 1) << "Ohne VERMERK.md bleibt die Datei im SOLL -- und fehlt im Bauweg.\n" << ohne.ausgabe;
+    EXPECT_TRUE(enthaelt(ohne.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << ohne.ausgabe;
+    EXPECT_TRUE(enthaelt(ohne.ausgabe, fall.waise()))
+        << "Der gewuerfelte Pfad fehlt in der Ausgabe -- der Befund stammt dann nicht aus diesem Fall.\n"
+        << ohne.ausgabe;
+    EXPECT_TRUE(enthaelt(ohne.ausgabe, "0 archiviert"))
+        << "Die Archiv-Klasse gehoert auch dann in den Nenner, wenn sie leer ist (V-1).\n"
+        << ohne.ausgabe;
+
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge("tests/deprecated/anderer_" + marke + "/VERMERK.md",
+                                                  "# Nachbar-Anker " + marke + "\n"));
+    Lauf const nachbar = fall.fahren();
+    berichten("ArchivOrdnerZaehltNurMitVermerkAnker/Nachbar-Anker", nachbar, marke);
+    EXPECT_EQ(nachbar.code, 1) << "Ein Anker im NACHBARordner darf nicht tragen.\n" << nachbar.ausgabe;
+    EXPECT_TRUE(enthaelt(nachbar.ausgabe, "0 archiviert")) << "Der fremde Anker hat etwas archiviert.\n"
+                                                           << nachbar.ausgabe;
+
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(ordner + "/VERMERK.md", "# Archiv-Anker " + marke + "\n"));
+    Lauf const mit = fall.fahren();
+    berichten("ArchivOrdnerZaehltNurMitVermerkAnker/mit-Anker", mit, marke);
+    EXPECT_EQ(mit.code, 0) << "Mit eigenem VERMERK.md ist die Datei ARCHIV und nicht mehr im SOLL.\n" << mit.ausgabe;
+    EXPECT_TRUE(enthaelt(mit.ausgabe, "ARCHIV (tests/deprecated/, VERMERK.md-Anker): 1 Datei(en)"))
+        << "Die Archiv-Menge muss sichtbar ausgewiesen sein, sonst schrumpft der Nenner lautlos.\n"
+        << mit.ausgabe;
+    EXPECT_TRUE(enthaelt(mit.ausgabe, "1 Ordner(n)")) << "Die Ordner-Zahl gehoert in den Ausweis.\n" << mit.ausgabe;
+    EXPECT_TRUE(enthaelt(mit.ausgabe, fall.waise())) << "Die archivierte Datei muss namentlich erscheinen.\n"
+                                                     << mit.ausgabe;
+    EXPECT_TRUE(enthaelt(mit.ausgabe, "1 archiviert")) << "Die Endzeile muss den Archiv-Nenner tragen.\n"
+                                                       << mit.ausgabe;
+    EXPECT_TRUE(enthaelt(mit.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << mit.ausgabe;
 }
 
 #endif // _WIN32
