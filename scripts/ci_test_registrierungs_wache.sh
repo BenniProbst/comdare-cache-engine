@@ -169,6 +169,38 @@
 # bindet sie an ein DATUM statt an einen Gegenstand -- danach wird sie ROT. Damit kann auch
 # sie keine unbegrenzte Laufzeit haben.
 #
+# DIE VIERTE KLASSE: ARCHIV -- ein ORT statt einer Ausnahme (Owner 2026-09-17, Order 206).
+# Die drei Arten oben begruenden, warum eine Datei des SOLL im Bauweg FEHLEN darf. Der Archiv-Fall
+# ist ein anderer: die vier prt-art-Waisen liegen seit dem 2026-08-15 (W-B) per 'git mv' unter
+# tests/deprecated/prt_art_legacy_waisen/ mit einem VERMERK.md daneben -- sie sind nicht abwesend,
+# sie sind ABGELEGT. Ihre 'frist:'-Zeilen waren deshalb die falsche Form: eine Frist erzwingt eine
+# Entscheidung, und der Owner hat sie am 2026-09-17 getroffen ("OV-2 Archiv-Variante gilt und frist
+# Zeilen entfernen"). Die vier Zeilen sind mit dieser Fassung aus der Allowlist entfernt.
+#
+# DIE REGEL, eng und nachpruefbar: eine getrackte Test-Quelldatei unter tests/deprecated/<ordner>/
+# zaehlt NICHT zum SOLL, WENN UND NUR WENN tests/deprecated/<ordner>/VERMERK.md im Git-Index liegt.
+# Der VERMERK.md ist der ANKER; er traegt Begruendung, Messung und die aufgegebene Deckung. Fehlt er,
+# bleibt die Datei im SOLL und die Wache beisst wie bisher (ohne Allowlist-Zeile: OHNE BEGRUENDUNG).
+#
+# WARUM NICHT LAUTLOS: eine Klasse, die den Nenner verkleinert, ohne sich zu zeigen, waere genau der
+# Freibrief, gegen den diese Wache gebaut ist. Die Archiv-Menge wird deshalb bei JEDEM Lauf mit Zahl,
+# Ordner-Zahl und Dateinamen ausgewiesen und steht im NENNER und in der ENDZEILE -- auch im gruenen
+# Lauf. Wer den Ordner leert oder den VERMERK.md entfernt, sieht die Zahl sinken, und die Dateien
+# fallen in den SOLL zurueck.
+#
+# GRENZEN, ausdruecklich: <ordner> ist GENAU das dritte Pfadsegment -- ein VERMERK.md tiefer im Baum
+# ankert nichts, und eine Datei direkt in tests/deprecated/ (ohne Ordner) hat keinen Anker und bleibt
+# im SOLL. Ob eine archivierte Datei uebersetzt wird, prueft diese Wache nicht mehr: sie ist aus dem
+# SOLL genommen. Das ist der Preis der Ablage -- und der Grund, warum der Anker eine Datei im INDEX
+# ist und keine Zeile in einer Liste.
+#
+# DER GEMESSENE BAUM MUSS DERSELBE SEIN WIE DER DER CI (J-0b, am Objekt 2026-09-17): der CI-Baum
+# build-covguard wird MIT -DCOMDARE_CE_PRUEFLINGE=<repo>/tests/pruefling_fixture konfiguriert, und
+# nur dann steht tests/pruefling_fixture/test_pruefling_fixture_ladung.cpp im Bauweg. Ein lokaler
+# Baum ohne diesen Schalter meldet sie als OHNE BEGRUENDUNG -- richtig gemessen, falscher Baum.
+# Dasselbe gilt fuer die vier Tests, die erst NACH 'make inventar' (Werkzeuge bauen, RE-CONFIGURE)
+# registriert werden. Wer diese Wache von Hand faehrt, faehrt sie gegen einen so gebauten Baum.
+#
 # AUFRUF:  sh scripts/ci_test_registrierungs_wache.sh <build-verzeichnis>
 # EXIT:    0 = jede getrackte Test-Quelldatei ist im Bauweg oder begruendet abwesend
 #          1 = mindestens eine Test-Quelldatei OHNE gueltige Begruendung ausserhalb --
@@ -281,11 +313,59 @@ TMP=$(mktemp -d) || exit 2
 trap 'rm -rf "$TMP"' EXIT INT TERM
 
 git ls-files 2>/dev/null | "$GREP" -v '^ext/' | "$GREP" -v '/ext/' |
-    "$GREP" -E '(^|/)test_[^/]*\.cpp$' | sort > "$TMP/soll.txt" || true
+    "$GREP" -E '(^|/)test_[^/]*\.cpp$' | sort > "$TMP/soll_roh.txt" || true
+
+SOLL_ROH_N=$(wc -l < "$TMP/soll_roh.txt" | tr -d ' ')
+if [ "$SOLL_ROH_N" -eq 0 ]; then
+    echo "ABBRUCH: der SOLL ist leer -- 'git ls-files' fand keine Test-Quelldatei." >&2
+    echo "         Ein leerer Nenner macht jede Aussage wahr. Fail-closed." >&2
+    exit 2
+fi
+
+# ---------------------------------------------------------------------------
+# ARCHIV-ABZUG (Owner 2026-09-17, Order 206). Die ANKER zuerst, aus derselben
+# Quelle wie der SOLL: 'tests/deprecated/<ordner>/VERMERK.md' im Git-INDEX. Ein
+# VERMERK.md, das nur im Arbeitsbaum liegt, ankert NICHTS -- sonst haenge die
+# Grundgesamtheit an einer ungetrackten Datei, die niemand sieht.
+# ---------------------------------------------------------------------------
+git ls-files 2>/dev/null |
+    "$GREP" -E '^tests/deprecated/[^/]+/VERMERK\.md$' | sort > "$TMP/archiv_anker.txt" || true
+
+: > "$TMP/archiv.txt"
+: > "$TMP/soll.txt"
+while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    _arch=nein
+    case "$f" in
+        tests/deprecated/*/*)
+            _ar=${f#tests/deprecated/}
+            case "$_ar" in
+                */*) _aord=${_ar%%/*} ;;
+                *)   _aord="" ;;
+            esac
+            if [ -n "$_aord" ] &&
+               "$GREP" -q -F -x -- "tests/deprecated/$_aord/VERMERK.md" "$TMP/archiv_anker.txt"; then
+                _arch=ja
+            fi
+            ;;
+    esac
+    if [ "$_arch" = ja ]; then
+        printf '%s\n' "$f" >> "$TMP/archiv.txt"
+    else
+        printf '%s\n' "$f" >> "$TMP/soll.txt"
+    fi
+done < "$TMP/soll_roh.txt"
+
+ARCHIV_N=$(wc -l < "$TMP/archiv.txt" | tr -d ' ')
+ARCHIV_ORD_N=0
+if [ "$ARCHIV_N" -gt 0 ]; then
+    ARCHIV_ORD_N=$(sed 's|^tests/deprecated/\([^/]*\)/.*|\1|' "$TMP/archiv.txt" |
+        sort -u | wc -l | tr -d ' ')
+fi
 
 SOLL_N=$(wc -l < "$TMP/soll.txt" | tr -d ' ')
 if [ "$SOLL_N" -eq 0 ]; then
-    echo "ABBRUCH: der SOLL ist leer -- 'git ls-files' fand keine Test-Quelldatei." >&2
+    echo "ABBRUCH: der SOLL ist nach dem Archiv-Abzug leer ($ARCHIV_N von $SOLL_ROH_N)." >&2
     echo "         Ein leerer Nenner macht jede Aussage wahr. Fail-closed." >&2
     exit 2
 fi
@@ -702,10 +782,19 @@ if [ "$BEGR_N" -gt 0 ]; then
     sed 's/^/  /' "$TMP/begruendet.txt"
 fi
 
+if [ "$ARCHIV_N" -gt 0 ]; then
+    echo ""
+    echo "ARCHIV (tests/deprecated/, VERMERK.md-Anker): $ARCHIV_N Datei(en) in" \
+         "$ARCHIV_ORD_N Ordner(n), nicht im SOLL:"
+    sed 's/^/  /' "$TMP/archiv.txt"
+fi
+
 echo ""
 echo "-----------------------------------------------------------------------------"
 echo "NENNER (nie eine nackte Zahl):"
 echo "  $SOLL_N getrackte Test-Quelldatei(en) im Baum (ohne ext/) -- SOLL."
+echo "  davon abgezogen: $ARCHIV_N ARCHIV-Datei(en) in $ARCHIV_ORD_N Ordner(n) unter" \
+     "tests/deprecated/ mit VERMERK.md-Anker ($SOLL_ROH_N getrackt insgesamt)."
 echo "  $FEHLEND_N davon NICHT im Bauweg des Baums '$BUILD'."
 echo "  davon $BEGR_N begruendet, $ERL_N mit ERLOSCHENER, $TOT_N TOTE AUSNAHME," \
      "$UNPR_N mit UNPRUEFBARER Begruendung, $UNBEGR_N ohne."
@@ -725,7 +814,7 @@ echo "--------------------------------------------------------------------------
 
 if [ "$UNBEGR_N" -gt 0 ] || [ "$ERL_N" -gt 0 ] || [ "$UNPR_N" -gt 0 ] || [ "$TOT_N" -gt 0 ]; then
     echo "TEST-REGISTRIERUNGS-WACHE: ROT ($UNBEGR_N von $SOLL_N ohne Begruendung," \
-         "$ERL_N erloschen, $TOT_N tot, $UNPR_N unpruefbar)."
+         "$ERL_N erloschen, $TOT_N tot, $UNPR_N unpruefbar, $ARCHIV_N archiviert)."
     echo "Abhilfe: die Datei per comdare_add_test()/add_test() in den Bauweg nehmen -- ODER"
     echo "         sie mit einem nachpruefbaren Gegenstand in $ALLOWLIST begruenden"
     echo "         ('datei:<pfad>' oder 'isa:<merkmal>[+<merkmal>]', s. Kopf der Allowlist)."
@@ -737,5 +826,6 @@ if [ "$UNBEGR_N" -gt 0 ] || [ "$ERL_N" -gt 0 ] || [ "$UNPR_N" -gt 0 ] || [ "$TOT
     exit 1
 fi
 
-echo "TEST-REGISTRIERUNGS-WACHE: OK ($SOLL_N Quelldateien, $UNBEGR_N ohne Begruendung ausserhalb)."
+echo "TEST-REGISTRIERUNGS-WACHE: OK ($SOLL_N Quelldateien, $UNBEGR_N ohne Begruendung ausserhalb," \
+     "$ARCHIV_N archiviert)."
 exit 0
