@@ -137,11 +137,24 @@
 # Die Frist 2026-09-15 bleibt unveraendert: sie gehoert dem Owner und deckt jetzt die
 # ENDGUELTIGE Form (Archiv bestaetigen und Wachen-SOLL-Frage klaeren ODER Loeschung mit
 # eigenem Owner-GO) -- der Posten soll weiterhin nicht lautlos alt werden koennen.
+#
+# OV-2-NACHTRAG (2026-09-17, Owner-Order 206 verbatim: "OV-2 Archiv-Variante gilt und frist Zeilen
+# entfernen"): die im W-B-Nachtrag offen gelassene Wachen-SOLL-Frage ist damit GEKLAERT, und die vier
+# 'frist:2026-09-18'-Zeilen sind ENTFERNT -- sie standen bis zu dieser Fassung unmittelbar unter
+# diesem Absatz. UEBERHOLT ist deshalb genau der Satz oben, die vier blieben "im SOLL und in der
+# Allowlist"; alles andere am W-B-Nachtrag gilt fort (Archiv statt Loeschung, VERMERK.md, Messungen).
+#
+# WAS AN IHRE STELLE TRITT -- ein ORT, keine Ausnahme: scripts/ci_test_registrierungs_wache.sh nimmt
+# eine getrackte Test-Quelldatei unter tests/deprecated/<ordner>/ aus ihrem SOLL, wenn und nur wenn
+# tests/deprecated/<ordner>/VERMERK.md im Git-Index liegt, und weist die Archiv-Menge bei jedem Lauf
+# mit Zahl, Ordner-Zahl und Dateinamen aus (Nenner und Endzeile). Die vier Dateien brauchen deshalb
+# hier keine Zeile mehr: eine Ausnahme OHNE ANLASS faenge nur das naechste echte Verschwinden
+# desselben Namens lautlos weg -- dieselbe Begruendung wie bei der T-6-Schwesterliste oben.
+#
+# WAS DAMIT NICHT ENTSCHIEDEN IST: die LOESCHUNG der vier Dateien. Sie braucht weiter ein eigenes
+# Owner-GO. Die Begruendung des Archivs steht in tests/deprecated/prt_art_legacy_waisen/VERMERK.md;
+# faellt diese Datei, fallen die vier .cpp in den SOLL zurueck und die Wache wird ROT.
 # -----------------------------------------------------------------------------
-tests/deprecated/prt_art_legacy_waisen/test_concepts_compile.cpp | frist:2026-09-18 | PA-3 8a8f6877; Archiv W-B
-tests/deprecated/prt_art_legacy_waisen/test_value_handle.cpp | frist:2026-09-18 | PA-3 8a8f6877; Archiv W-B
-tests/deprecated/prt_art_legacy_waisen/test_three_layer_audit.cpp | frist:2026-09-18 | PA-3 8a8f6877; Archiv W-B
-tests/deprecated/prt_art_legacy_waisen/test_six_page_structures.cpp | frist:2026-09-18 | PA-3 8a8f6877; Archiv W-B
 
 # -----------------------------------------------------------------------------
 # HOST-ISA-GATTER: EINE Test-QUELLDATEI haengt an der ISA des Bau-Hosts.
