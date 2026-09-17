@@ -75,3 +75,25 @@ und deckt jetzt die ENDGUELTIGE Form: Archiv bestaetigen ODER Loeschung mit eige
 Eine Neu-Deckung der drei Luecken laeuft ueber neue Tests gegen die heutige Slot-Welt bzw. eine
 neue Faehigkeit im ce-Kontrakt (`COMDARE_PRUEFLING_BEKANNTE_FAEHIGKEITEN`), nicht ueber Reanimation
 dieser Dateien.
+
+## OV-2-NACHTRAG (Owner-Entscheid 2026-09-17, Order 206)
+
+Owner verbatim: "OV-2 Archiv-Variante gilt und frist Zeilen entfernen".
+
+Damit ist der Abschnitt "Frist und Reaktivierungs-Weg" oben UEBERHOLT, soweit er die `frist:`-Zeilen
+betrifft: die vier Zeilen sind aus `scripts/ci_test_registrierungs_allowlist.txt` ENTFERNT. Das
+Archiv ist BESTAETIGT, die vier Dateien bleiben liegen -- die Loeschung braucht weiter ein eigenes
+Owner-GO. Alles uebrige oben (Zaehlung, die drei aufgegebenen Deckungs-Luecken, Bedingung (a)) gilt
+unveraendert fort.
+
+**Diese Datei ist ab jetzt ein ANKER, nicht nur ein Vermerk.**
+`scripts/ci_test_registrierungs_wache.sh` nimmt eine getrackte Test-Quelldatei unter
+`tests/deprecated/<ordner>/` aus ihrem SOLL, wenn und nur wenn `tests/deprecated/<ordner>/VERMERK.md`
+im Git-Index liegt. Wird diese Datei geloescht, umbenannt oder aus dem Index genommen, fallen die
+vier `.cpp` sofort in den SOLL zurueck, und die Wache meldet sie als OHNE BEGRUENDUNG (rot). Die
+Archiv-Menge steht bei jedem Wachen-Lauf sichtbar in der Ausgabe, im Nenner und in der Endzeile --
+die Ablage ist damit nicht leiser als die Frist es war, nur ohne Ablaufdatum.
+
+Beweis am Objekt (2026-09-17): `tests/unit/test_pa1_tote_ausnahme.cpp`, Faelle
+`EchteAllowlistTraegtKeineToteZeile` (die vier hier, gegen das echte Repo) und
+`ArchivOrdnerZaehltNurMitVermerkAnker` (Wegwerf-Repo: ohne Anker rot, mit Anker gruen).
