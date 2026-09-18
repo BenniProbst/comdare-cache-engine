@@ -68,7 +68,8 @@ Archiv-Commits b39d62a2 ist dessen shortstat-Zeile "7 files changed" = 4 R100-Re
 
 ## Frist und Reaktivierungs-Weg
 
-Die `frist:2026-09-15`-Zeilen der vier Dateien bleiben in
+Die `frist:2026-09-15`-Zeilen [Stand W-B 15.08.; seit `57757fe3` (Owner 15.09., Frage 1)
+`frist:2026-09-18`; am 17.09. mit OV-2 entfernt, s. Nachtrag unten] der vier Dateien bleiben in
 `scripts/ci_test_registrierungs_allowlist.txt` (SOLL ist am DATEINAMEN verankert, Pfad in Feld 1
 nachgezogen; `tests/unit/test_pa1_tote_ausnahme.cpp` kGeparkt ebenso). Die Frist gehoert dem Owner
 und deckt jetzt die ENDGUELTIGE Form: Archiv bestaetigen ODER Loeschung mit eigenem Owner-GO.
@@ -89,11 +90,23 @@ unveraendert fort.
 **Diese Datei ist ab jetzt ein ANKER, nicht nur ein Vermerk.**
 `scripts/ci_test_registrierungs_wache.sh` nimmt eine getrackte Test-Quelldatei unter
 `tests/deprecated/<ordner>/` aus ihrem SOLL, wenn und nur wenn `tests/deprecated/<ordner>/VERMERK.md`
-im Git-Index liegt. Wird diese Datei geloescht, umbenannt oder aus dem Index genommen, fallen die
+im Git-Index liegt. Wird diese Datei aus dem Index genommen (`git rm`, `git mv`; massgeblich ist
+allein der INDEX -- ein blosses `rm` im Arbeitsbaum laesst den Index-Eintrag stehen und die Wache
+lokal gruen, in CI ohne Wirkung, weil dort frisch ausgecheckt wird; Lens A LA-05), fallen die
 vier `.cpp` sofort in den SOLL zurueck, und die Wache meldet sie als OHNE BEGRUENDUNG (rot). Die
 Archiv-Menge steht bei jedem Wachen-Lauf sichtbar in der Ausgabe, im Nenner und in der Endzeile --
 die Ablage ist damit nicht leiser als die Frist es war, nur ohne Ablaufdatum.
 
 Beweis am Objekt (2026-09-17): `tests/unit/test_pa1_tote_ausnahme.cpp`, Faelle
 `EchteAllowlistTraegtKeineToteZeile` (die vier hier, gegen das echte Repo) und
-`ArchivOrdnerZaehltNurMitVermerkAnker` (Wegwerf-Repo: ohne Anker rot, mit Anker gruen).
+`ArchivOrdnerZaehltNurMitVermerkAnker` (Wegwerf-Repo: ohne Anker rot, Anker im NACHBARordner rot,
+mit eigenem Anker gruen -- erst die Nachbar-Stufe macht aus dem "wenn" ein "wenn und nur wenn").
+
+## NACHTRAG 2 (Lens-Funde r1, 2026-09-18)
+
+Der Anker muss INHALT UND FORM haben: ein `VERMERK.md` mit 0 Byte oder als Symlink ankert NICHT
+(Wache: UNPRUEFBARER ANKER, rot; Fall `ArchivAnkerOhneInhaltOderFormAnkertNicht`). Eine
+Allowlist-Zeile fuer eine der vier Dateien ist eine Ausnahme OHNE ANLASS (unpruefbar, rot; Fall
+`ArchivOrdnerZaehltNurMitVermerkAnker`, Stufe d). Die drei Grenzen der Regel -- Datei direkt unter
+`tests/deprecated/` bleibt im SOLL, ein Anker tiefer als das dritte Pfadsegment ankert nichts, ein
+Anker nur im Arbeitsbaum ankert nichts -- tragen je einen eigenen Fall (`ArchivGrenze...`).

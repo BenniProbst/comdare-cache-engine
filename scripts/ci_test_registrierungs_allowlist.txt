@@ -131,6 +131,8 @@
 # W-B-NACHTRAG (2026-08-15, Vorlage-B2-GO "Aufraeumen (a)"): die vier Dateien sind per
 # 'git mv' nach tests/deprecated/prt_art_legacy_waisen/ archiviert -- NICHT geloescht;
 # Begruendung, Messungen und die drei aufgegebenen Deckungs-Luecken stehen dort in
+# [UEBERHOLT ab dem naechsten Satz "Der SOLL dieser Wache ..." bis zum Ende dieses Nachtrags,
+#  Frist-Saetze eingeschlossen -- OV-2-NACHTRAG unten (2026-09-17, Marker nachgezogen 2026-09-18).]
 # VERMERK.md. Der SOLL dieser Wache ist 'git ls-files' mit DATEINAMEN-Anker, die vier
 # bleiben also im SOLL; ihre 'frist:'-Zeilen tragen deshalb weiter, nur mit dem neuen
 # Pfad in Feld 1 (tests/unit/test_pa1_tote_ausnahme.cpp kGeparkt ist nachgezogen).
@@ -141,8 +143,14 @@
 # OV-2-NACHTRAG (2026-09-17, Owner-Order 206 verbatim: "OV-2 Archiv-Variante gilt und frist Zeilen
 # entfernen"): die im W-B-Nachtrag offen gelassene Wachen-SOLL-Frage ist damit GEKLAERT, und die vier
 # 'frist:2026-09-18'-Zeilen sind ENTFERNT -- sie standen bis zu dieser Fassung unmittelbar unter
-# diesem Absatz. UEBERHOLT ist deshalb genau der Satz oben, die vier blieben "im SOLL und in der
-# Allowlist"; alles andere am W-B-Nachtrag gilt fort (Archiv statt Loeschung, VERMERK.md, Messungen).
+# diesem Absatz. UEBERHOLT ist deshalb der W-B-Nachtrag ab "Der SOLL dieser Wache ist 'git ls-files'
+# mit DATEINAMEN-Anker, die vier bleiben also im SOLL; ihre 'frist:'-Zeilen tragen deshalb weiter"
+# bis zu seinem Ende, die Frist-Saetze eingeschlossen (die Frist hiess 2026-09-15 und seit 57757fe3,
+# Owner 15.09. Frage 1, 2026-09-18; es gibt sie nicht mehr). Alles DAVOR am W-B-Nachtrag gilt fort
+# (Archiv statt Loeschung, VERMERK.md, Messungen, die drei aufgegebenen Deckungs-Luecken).
+# [Berichtigt 2026-09-18, Lens A LA-03: die vorige Fassung dieses Absatzes zitierte den ueberholten
+# Satz mit dem Wortlaut aus tests/unit/test_pa1_tote_ausnahme.cpp:122 statt aus dieser Datei und
+# liess die Frist-Saetze des W-B-Nachtrags ohne Marker stehen.]
 #
 # WAS AN IHRE STELLE TRITT -- ein ORT, keine Ausnahme: scripts/ci_test_registrierungs_wache.sh nimmt
 # eine getrackte Test-Quelldatei unter tests/deprecated/<ordner>/ aus ihrem SOLL, wenn und nur wenn
@@ -153,7 +161,11 @@
 #
 # WAS DAMIT NICHT ENTSCHIEDEN IST: die LOESCHUNG der vier Dateien. Sie braucht weiter ein eigenes
 # Owner-GO. Die Begruendung des Archivs steht in tests/deprecated/prt_art_legacy_waisen/VERMERK.md;
-# faellt diese Datei, fallen die vier .cpp in den SOLL zurueck und die Wache wird ROT.
+# faellt diese Datei aus dem INDEX (git rm, git mv -- massgeblich ist der Index, ein blosses rm im
+# Arbeitsbaum aendert ihn nicht; Lens A LA-05), fallen die vier .cpp in den SOLL zurueck und die
+# Wache wird ROT. Seit 2026-09-18 (Lens-Funde r1) gilt zudem: ein VERMERK.md ohne Inhalt oder als
+# Symlink ankert NICHT (UNPRUEFBARER ANKER, rot), und eine Allowlist-Zeile fuer eine der vier
+# ARCHIV-Dateien ist eine Ausnahme OHNE ANLASS (unpruefbar, rot) -- diese Liste darf sie nie tragen.
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
