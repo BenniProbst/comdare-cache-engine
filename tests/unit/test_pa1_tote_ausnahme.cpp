@@ -78,6 +78,14 @@
 // UNVERAENDERT: die 'frist:'-ART der Wache bleibt in Gebrauch und wird von Fall (7) beidseitig
 // gefahren; sie hat nach diesem Entscheid nur keinen Gegenstand mehr in der committeten Allowlist.
 //
+// NACHTRAG 2 (2026-09-18, Lens-Funde r1 des OV-2-Zuges: Lens A LA-04, Lens B LB-01/LB-02/LB-03/LB-05):
+// Fall (10) traegt jetzt die Stufen (d)/(e) -- eine Allowlist-Zeile fuer eine ARCHIV-Datei ist eine
+// Ausnahme OHNE ANLASS und ROT; die Faelle (11a-c) geben den drei im Wachen-Kopf behaupteten Grenzen
+// der Archiv-Regel je einen Traeger; Fall (12) verlangt einen Anker mit Inhalt und Form (0 Byte oder
+// Symlink ankern nicht); Fall (13) faengt die Schwesterklasse "Allowlist-Zeile ohne Gegenstand im
+// Index". Alle Archiv-Nenner sind ab hier FELD-verankert gepinnt (", 4 archiviert)" mit Komma davor
+// und Klammer danach statt "4 archiviert" -- Teilzeichenkette von "14 archiviert", Klasse s. oben).
+//
 // ASCII-only, Zeilen <= 120 Byte.
 // =============================================================================
 
@@ -494,8 +502,12 @@ TEST(Pa1ToteAusnahme, EchteAllowlistTraegtKeineToteZeile) {
 
     Lauf const lauf = fahre("cd " + zitiert(fs::path{repo_wurzel()}) + " && " + WegwerfRepo::umgebung() + " sh " +
                             zitiert(wachen_pfad()) + " " + zitiert(baum));
-    std::cout << "  [PA-1] Fall 'EchteAllowlistTraegtKeineToteZeile' | SOLL " << alle.size() << " | weggelassen "
-              << weggelassen << " (die vier ARCHIV-Dateien) | NICHT geprueft: die 'isa:'-Zeile"
+    // ETIKETT (Lens B LB-05, 2026-09-18): 'alle' ist der ROH-Bestand aus git ls-files; der SOLL der Wache
+    // ist die Zahl NACH dem Archiv-Abzug. Beide stehen hier, in derselben Sprache wie der Nenner der
+    // Wache ("N getrackte ... davon M ARCHIV ... -- SOLL: N-M").
+    std::cout << "  [PA-1] Fall 'EchteAllowlistTraegtKeineToteZeile' | getrackt " << alle.size() << " | SOLL "
+              << (alle.size() - weggelassen) << " | ARCHIV " << weggelassen
+              << " (die vier Archiv-Dateien fehlen dem Baum) | NICHT geprueft: die 'isa:'-Zeile"
               << " | Exit " << lauf.code << "\n";
 
     EXPECT_EQ(lauf.code, 0) << "Die committete Allowlist traegt eine Zeile, die nie erloeschen kann.\n" << lauf.ausgabe;
@@ -504,11 +516,14 @@ TEST(Pa1ToteAusnahme, EchteAllowlistTraegtKeineToteZeile) {
     // Die vier fehlen dem Baum und sind trotzdem gruen -- das traegt NUR die ARCHIV-Klasse.
     // Ohne diese Erwartungen waere der Fall auch von einer Wache erfuellt, die sie stillschweigend
     // uebersieht: gemessen wird deshalb die AUSGEWIESENE Menge, nicht nur der Exit.
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "ARCHIV (tests/deprecated/, VERMERK.md-Anker): 4 Datei(en)"))
-        << "Die vier archivierten Dateien muessen als Menge ausgewiesen sein.\n"
+    // FELD-ANKER statt Teilzeichenkette (Lens B LB-03, 2026-09-18): "4 archiviert" ist Teilzeichenkette
+    // von "14 archiviert" -- dieselbe Klasse wie '/build' gegen '/builds' (Kopf). Gepinnt wird deshalb
+    // das ganze Feld mit Komma davor und Klammer danach, und die ARCHIV-Zeile mit Datei- UND Ordner-Zahl.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "ARCHIV (tests/deprecated/, VERMERK.md-Anker): 4 Datei(en) in 1 Ordner(n),"))
+        << "Die vier archivierten Dateien muessen als Menge ausgewiesen sein (4 Dateien, 1 Ordner).\n"
         << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "4 archiviert")) << "Die Endzeile muss den Archiv-Nenner tragen.\n"
-                                                        << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, ", 4 archiviert)")) << "Die Endzeile muss den Archiv-Nenner tragen.\n"
+                                                           << lauf.ausgabe;
     for (char const* const g : kGeparkt) {
         EXPECT_TRUE(enthaelt(lauf.ausgabe, std::string{g})) << "'" << g << "' fehlt in der ARCHIV-Liste der Wache.\n"
                                                             << lauf.ausgabe;
@@ -596,8 +611,10 @@ TEST(Pa1ToteAusnahme, T6SchwesterlisteFuehrtDieVierNichtMehr) {
 //      "wenn und nur wenn" macht -- ohne ihn waere die Regel "irgendwo unter
 //      tests/deprecated/ liegt ein VERMERK.md" und damit genau der Freibrief, gegen den
 //      diese Wache gebaut ist.
-//      AUSDRUECKLICH OHNE ALLOWLIST-ZEILE: die Archiv-Klasse darf nicht an einer Ausnahme
+//      (a)-(c) AUSDRUECKLICH OHNE ALLOWLIST-ZEILE: die Archiv-Klasse darf nicht an einer Ausnahme
 //      haengen, sonst pruefte der Fall die Allowlist und nicht den Ort.
+//        (d) Anker PLUS Allowlist-Zeile -> ROT: die Zeile ist eine Ausnahme OHNE ANLASS (LB-01)
+//        (e) Anker, Allowlist ohne die Zeile -> wieder GRUEN (Gegenrichtung zu (d))
 // =============================================================================
 TEST(Pa1ToteAusnahme, ArchivOrdnerZaehltNurMitVermerkAnker) {
     std::string const marke  = koeder();
@@ -612,7 +629,7 @@ TEST(Pa1ToteAusnahme, ArchivOrdnerZaehltNurMitVermerkAnker) {
     EXPECT_TRUE(enthaelt(ohne.ausgabe, fall.waise()))
         << "Der gewuerfelte Pfad fehlt in der Ausgabe -- der Befund stammt dann nicht aus diesem Fall.\n"
         << ohne.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne.ausgabe, "0 archiviert"))
+    EXPECT_TRUE(enthaelt(ohne.ausgabe, ", 0 archiviert)"))
         << "Die Archiv-Klasse gehoert auch dann in den Nenner, wenn sie leer ist (V-1).\n"
         << ohne.ausgabe;
 
@@ -621,22 +638,254 @@ TEST(Pa1ToteAusnahme, ArchivOrdnerZaehltNurMitVermerkAnker) {
     Lauf const nachbar = fall.fahren();
     berichten("ArchivOrdnerZaehltNurMitVermerkAnker/Nachbar-Anker", nachbar, marke);
     EXPECT_EQ(nachbar.code, 1) << "Ein Anker im NACHBARordner darf nicht tragen.\n" << nachbar.ausgabe;
-    EXPECT_TRUE(enthaelt(nachbar.ausgabe, "0 archiviert")) << "Der fremde Anker hat etwas archiviert.\n"
-                                                           << nachbar.ausgabe;
+    EXPECT_TRUE(enthaelt(nachbar.ausgabe, ", 0 archiviert)")) << "Der fremde Anker hat etwas archiviert.\n"
+                                                              << nachbar.ausgabe;
 
     ASSERT_TRUE(fall.repo().schreibe_und_verfolge(ordner + "/VERMERK.md", "# Archiv-Anker " + marke + "\n"));
     Lauf const mit = fall.fahren();
     berichten("ArchivOrdnerZaehltNurMitVermerkAnker/mit-Anker", mit, marke);
     EXPECT_EQ(mit.code, 0) << "Mit eigenem VERMERK.md ist die Datei ARCHIV und nicht mehr im SOLL.\n" << mit.ausgabe;
-    EXPECT_TRUE(enthaelt(mit.ausgabe, "ARCHIV (tests/deprecated/, VERMERK.md-Anker): 1 Datei(en)"))
-        << "Die Archiv-Menge muss sichtbar ausgewiesen sein, sonst schrumpft der Nenner lautlos.\n"
+    EXPECT_TRUE(enthaelt(mit.ausgabe, "ARCHIV (tests/deprecated/, VERMERK.md-Anker): 1 Datei(en) in 1 Ordner(n),"))
+        << "Die Archiv-Menge muss mit Datei- und Ordner-Zahl ausgewiesen sein, sonst schrumpft der Nenner lautlos.\n"
         << mit.ausgabe;
-    EXPECT_TRUE(enthaelt(mit.ausgabe, "1 Ordner(n)")) << "Die Ordner-Zahl gehoert in den Ausweis.\n" << mit.ausgabe;
     EXPECT_TRUE(enthaelt(mit.ausgabe, fall.waise())) << "Die archivierte Datei muss namentlich erscheinen.\n"
                                                      << mit.ausgabe;
-    EXPECT_TRUE(enthaelt(mit.ausgabe, "1 archiviert")) << "Die Endzeile muss den Archiv-Nenner tragen.\n"
-                                                       << mit.ausgabe;
+    EXPECT_TRUE(enthaelt(mit.ausgabe, ", 1 archiviert)")) << "Die Endzeile muss den Archiv-Nenner tragen.\n"
+                                                          << mit.ausgabe;
     EXPECT_TRUE(enthaelt(mit.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << mit.ausgabe;
+
+    // (d) EINE ALLOWLIST-ZEILE FUER DIE ARCHIVIERTE DATEI (Lens B LB-01, 2026-09-18). Die Allowlist-
+    //     Schleife der Wache laeuft nur ueber die Dateien, die dem SOLL fehlen; eine archivierte Datei
+    //     steht nicht im SOLL, ihre Zeile wuerde also NIE ausgewertet -- eine abgelaufene Frist bliebe
+    //     still gruen (Lens-B-Probe P10: 'frist:2000-01-01' -> Exit 0). Genau das ist die "Ausnahme
+    //     OHNE ANLASS" aus Fall (9). Die Wache muss die Zeile als UNPRUEFBAR melden: ROT, namentlich,
+    //     und mit "0 erloschen" -- sie darf die Frist gar nicht erst bewerten, der Ort traegt.
+    //     ROT ZUERST: gegen die Wache vom Stand 54296857 war diese Stufe GRUEN (Exit 0) -- Beleg im
+    //     Beweisort des OV-2-Zuges (FIX-r1.md).
+    ASSERT_TRUE(fall.allowlist_setzen("frist:2000-01-01"));
+    Lauf const zeile = fall.fahren();
+    berichten("ArchivOrdnerZaehltNurMitVermerkAnker/Anker-plus-Allowlist-Zeile", zeile, marke);
+    EXPECT_EQ(zeile.code, 1) << "Eine Allowlist-Zeile fuer eine ARCHIV-Datei ist eine Ausnahme ohne Anlass -- ROT.\n"
+                             << zeile.ausgabe;
+    EXPECT_TRUE(enthaelt(zeile.ausgabe, fall.waise() + " -- UNPRUEFBAR: ARCHIV-Datei mit Allowlist-Zeile"))
+        << "Die Zeile muss namentlich und mit ihrer Klasse gemeldet werden.\n"
+        << zeile.ausgabe;
+    EXPECT_TRUE(enthaelt(zeile.ausgabe, "Ausnahme ohne Anlass")) << zeile.ausgabe;
+    EXPECT_TRUE(enthaelt(zeile.ausgabe, "1 unpruefbar")) << "Die Endzeile muss die Zeile als UNPRUEFBAR zaehlen.\n"
+                                                         << zeile.ausgabe;
+    EXPECT_TRUE(enthaelt(zeile.ausgabe, "1 Allowlist-Zeile(n) fuer ARCHIV-Dateien"))
+        << "Der Nenner muss die Klasse getrennt zaehlen (V-1).\n"
+        << zeile.ausgabe;
+    EXPECT_TRUE(enthaelt(zeile.ausgabe, "0 erloschen"))
+        << "Die Frist darf nicht bewertet worden sein -- die Zeile hat keinen Gegenstand im SOLL.\n"
+        << zeile.ausgabe;
+    EXPECT_TRUE(enthaelt(zeile.ausgabe, ", 1 archiviert)")) << "Die Datei bleibt ARCHIV; ROT ist die Zeile.\n"
+                                                            << zeile.ausgabe;
+
+    // (e) GEGENRICHTUNG zu (d): dieselbe Allowlist-Datei OHNE die Zeile -> wieder GRUEN. Damit ist
+    //     belegt, dass (d) an der ZEILE hing und nicht an der blossen Anwesenheit einer Allowlist.
+    ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt", "# ohne Zeile " + marke + "\n"));
+    Lauf const ohne_zeile = fall.fahren();
+    berichten("ArchivOrdnerZaehltNurMitVermerkAnker/Anker-ohne-Allowlist-Zeile", ohne_zeile, marke);
+    EXPECT_EQ(ohne_zeile.code, 0) << "Ohne die Zeile muss der Anker allein wieder tragen.\n" << ohne_zeile.ausgabe;
+    EXPECT_TRUE(enthaelt(ohne_zeile.ausgabe, ", 1 archiviert)")) << ohne_zeile.ausgabe;
+    EXPECT_TRUE(enthaelt(ohne_zeile.ausgabe, "0 Allowlist-Zeile(n) fuer ARCHIV-Dateien")) << ohne_zeile.ausgabe;
+}
+
+// =============================================================================
+// (11) DIE DREI GRENZEN DER ARCHIV-REGEL, je mit Test-Traeger (Lens B LB-02, 2026-09-18).
+//      Der Kopf der Wache behauptet drei Grenzen; am Objekt stimmten sie (Lens-Proben P1/P2/P4),
+//      aber "Skripte sagen gar nichts" -- ohne Google-Test-Deckung bleibt jede Grenze Behauptung:
+//        (a) eine Datei DIREKT unter tests/deprecated/ (ohne Ordner) hat keinen Anker und bleibt im
+//            SOLL -- auch wenn tests/deprecated/VERMERK.md im Index liegt;
+//        (b) ein VERMERK.md TIEFER als das dritte Pfadsegment ankert nichts -- der Anker des dritten
+//            Segments dagegen traegt auch tiefer liegende Dateien (Gegenrichtung);
+//        (c) ein VERMERK.md, das nur im ARBEITSBAUM liegt (nicht im Index), ankert nichts --
+//            dieselbe Datei per 'git add' traegt (Gegenrichtung).
+//      Jede Stufe misst Exit-Code UND Literal: die OHNE-BEGRUENDUNG-Zeile mit dem Waisen-Pfad und
+//      den Archiv-Nenner ", 0 archiviert)" (Feld-Anker, s. Fall (8)).
+//      ROT ZUERST am Mutanten: jede Stufe wurde gegen eine absichtlich aufgeweichte Kopie der Wache
+//      gefahren (Anker-Muster ohne Segment-Grenze; Anker aus dem Arbeitsbaum statt aus dem Index)
+//      und war dort rot -- Beleg im Beweisort des OV-2-Zuges (FIX-r1.md).
+// =============================================================================
+TEST(Pa1ToteAusnahme, ArchivGrenzeDateiDirektUnterDeprecatedBleibtImSoll) {
+    std::string const marke = koeder();
+    Fall              fall{marke, "tests/deprecated/test_waise_" + marke + ".cpp"};
+    ASSERT_TRUE(fall.init());
+    // Der Anker liegt eine Ebene ZU HOCH: tests/deprecated/VERMERK.md ist kein <ordner>-Anker.
+    ASSERT_TRUE(
+        fall.repo().schreibe_und_verfolge("tests/deprecated/VERMERK.md", "# kein Ordner-Anker " + marke + "\n"));
+
+    Lauf const lauf = fall.fahren();
+    berichten("ArchivGrenzeDateiDirektUnterDeprecatedBleibtImSoll", lauf, marke);
+    EXPECT_EQ(lauf.code, 1) << "Eine Datei direkt unter tests/deprecated/ hat keinen Anker und bleibt im SOLL.\n"
+                            << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, fall.waise())) << "Der gewuerfelte Pfad fehlt in der Ausgabe.\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, ", 0 archiviert)")) << "tests/deprecated/VERMERK.md hat etwas archiviert.\n"
+                                                           << lauf.ausgabe;
+}
+
+TEST(Pa1ToteAusnahme, ArchivGrenzeAnkerTieferAlsDrittesSegmentAnkertNicht) {
+    std::string const marke  = koeder();
+    std::string const ordner = "tests/deprecated/tief_" + marke;
+    Fall              fall{marke, ordner + "/unter/test_waise_" + marke + ".cpp"};
+    ASSERT_TRUE(fall.init());
+    // Der Anker liegt NEBEN der Datei, aber im VIERTEN Segment -- <ordner> ist genau das dritte.
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(ordner + "/unter/VERMERK.md", "# zu tiefer Anker " + marke + "\n"));
+
+    Lauf const tief = fall.fahren();
+    berichten("ArchivGrenzeAnkerTieferAlsDrittesSegmentAnkertNicht/Anker-im-vierten-Segment", tief, marke);
+    EXPECT_EQ(tief.code, 1) << "Ein VERMERK.md tiefer als das dritte Pfadsegment darf nicht ankern.\n" << tief.ausgabe;
+    EXPECT_TRUE(enthaelt(tief.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << tief.ausgabe;
+    EXPECT_TRUE(enthaelt(tief.ausgabe, fall.waise())) << tief.ausgabe;
+    EXPECT_TRUE(enthaelt(tief.ausgabe, ", 0 archiviert)")) << "Der zu tiefe Anker hat etwas archiviert.\n"
+                                                           << tief.ausgabe;
+
+    // GEGENRICHTUNG: der Anker im dritten Segment traegt auch die tiefer liegende Datei.
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(ordner + "/VERMERK.md", "# Ordner-Anker " + marke + "\n"));
+    Lauf const drittes = fall.fahren();
+    berichten("ArchivGrenzeAnkerTieferAlsDrittesSegmentAnkertNicht/Anker-im-dritten-Segment", drittes, marke);
+    EXPECT_EQ(drittes.code, 0) << "Der Anker im dritten Segment muss den ganzen Ordner tragen.\n" << drittes.ausgabe;
+    EXPECT_TRUE(enthaelt(drittes.ausgabe, fall.waise())) << drittes.ausgabe;
+    EXPECT_TRUE(enthaelt(drittes.ausgabe, ", 1 archiviert)")) << drittes.ausgabe;
+}
+
+TEST(Pa1ToteAusnahme, ArchivGrenzeAnkerNurImArbeitsbaumAnkertNicht) {
+    std::string const marke  = koeder();
+    std::string const ordner = "tests/deprecated/ungetrackt_" + marke;
+    Fall              fall{marke, ordner + "/test_waise_" + marke + ".cpp"};
+    ASSERT_TRUE(fall.init());
+    // repo().schreibe statt schreibe_und_verfolge: die Datei liegt im Arbeitsbaum, NICHT im Index.
+    ASSERT_TRUE(fall.repo().schreibe(ordner + "/VERMERK.md", "# ungetrackter Anker " + marke + "\n"));
+    ASSERT_FALSE(fall.repo().ist_verfolgt(ordner + "/VERMERK.md"))
+        << "Das Arrangement ist falsch: der Anker steht im Index, die Stufe maesse nichts.";
+
+    Lauf const ungetrackt = fall.fahren();
+    berichten("ArchivGrenzeAnkerNurImArbeitsbaumAnkertNicht/nur-Arbeitsbaum", ungetrackt, marke);
+    EXPECT_EQ(ungetrackt.code, 1) << "Ein VERMERK.md nur im Arbeitsbaum darf nicht ankern.\n" << ungetrackt.ausgabe;
+    EXPECT_TRUE(enthaelt(ungetrackt.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << ungetrackt.ausgabe;
+    EXPECT_TRUE(enthaelt(ungetrackt.ausgabe, fall.waise())) << ungetrackt.ausgabe;
+    EXPECT_TRUE(enthaelt(ungetrackt.ausgabe, ", 0 archiviert)")) << "Der ungetrackte Anker hat etwas archiviert.\n"
+                                                                 << ungetrackt.ausgabe;
+
+    // GEGENRICHTUNG: dieselbe Datei im Index traegt.
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(ordner + "/VERMERK.md", "# jetzt getrackter Anker " + marke + "\n"));
+    Lauf const getrackt = fall.fahren();
+    berichten("ArchivGrenzeAnkerNurImArbeitsbaumAnkertNicht/im-Index", getrackt, marke);
+    EXPECT_EQ(getrackt.code, 0) << "Derselbe Anker im Index muss tragen.\n" << getrackt.ausgabe;
+    EXPECT_TRUE(enthaelt(getrackt.ausgabe, ", 1 archiviert)")) << getrackt.ausgabe;
+}
+
+// =============================================================================
+// (12) DIE FORM DES ANKERS (Lens A LA-04, 2026-09-18). Der Anker traegt die Begruendung der
+//      Ablage. Ein Index-Eintrag namens VERMERK.md, der ein Blob mit 0 Byte oder kein regulaeres
+//      Blob ist (Symlink, Modus 120000), traegt nichts -- und darf deshalb NICHT ankern. Die
+//      Doktrin der Wache macht aus einer leeren Begruendung ROT (Feld 2 leer = UNPRUEFBAR); vor
+//      diesem Fall war der Anker die einzige Stelle, an der Leere gruen trug. Drei Stufen am
+//      selben Gegenstand:
+//        (a) VERMERK.md mit 0 Byte im Index   -> ROT: UNPRUEFBARER ANKER, Waise im SOLL, 0 archiviert
+//        (b) VERMERK.md als Symlink ins Nichts -> ROT: UNPRUEFBARER ANKER (Modus 120000), 0 archiviert
+//        (c) VERMERK.md mit Inhalt             -> GRUEN, 1 archiviert (Gegenrichtung)
+//      ROT ZUERST: (a) und (b) waren gegen die Wache vom Stand 54296857 GRUEN (Exit 0, "1 archiviert")
+//      -- Beleg im Beweisort des OV-2-Zuges (FIX-r1.md).
+// =============================================================================
+TEST(Pa1ToteAusnahme, ArchivAnkerOhneInhaltOderFormAnkertNicht) {
+    std::string const marke  = koeder();
+    std::string const ordner = "tests/deprecated/hohl_" + marke;
+    std::string const anker  = ordner + "/VERMERK.md";
+    Fall              fall{marke, ordner + "/test_waise_" + marke + ".cpp"};
+    ASSERT_TRUE(fall.init());
+
+    // (a) 0 Byte, im Index.
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(anker, ""));
+    Lauf const leer = fall.fahren();
+    berichten("ArchivAnkerOhneInhaltOderFormAnkertNicht/0-Byte", leer, marke);
+    EXPECT_EQ(leer.code, 1) << "Ein Anker mit 0 Byte traegt keine Begruendung und darf nicht ankern.\n" << leer.ausgabe;
+    EXPECT_TRUE(enthaelt(leer.ausgabe, anker + " -- UNPRUEFBARER ANKER"))
+        << "Der Anker muss namentlich und mit seiner Klasse gemeldet werden.\n"
+        << leer.ausgabe;
+    EXPECT_TRUE(enthaelt(leer.ausgabe, "0 Byte")) << leer.ausgabe;
+    EXPECT_TRUE(enthaelt(leer.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << leer.ausgabe;
+    EXPECT_TRUE(enthaelt(leer.ausgabe, fall.waise())) << leer.ausgabe;
+    EXPECT_TRUE(enthaelt(leer.ausgabe, ", 0 archiviert)")) << "Der leere Anker hat etwas archiviert.\n" << leer.ausgabe;
+    EXPECT_TRUE(enthaelt(leer.ausgabe, "1 unpruefbar")) << "Die Endzeile muss den Anker als UNPRUEFBAR zaehlen.\n"
+                                                        << leer.ausgabe;
+    EXPECT_TRUE(enthaelt(leer.ausgabe, "1 ARCHIV-Anker ohne Inhalt/Form"))
+        << "Der Nenner muss die Klasse getrennt zaehlen (V-1).\n"
+        << leer.ausgabe;
+
+    // (b) derselbe Pfad als Symlink auf ein Ziel, das es nicht gibt. 'git add' legt ihn mit Modus
+    //     120000 in den Index; das Blob traegt nur den Link-Text.
+    fs::path const  anker_abs = fall.repo().pfad() / anker;
+    std::error_code ec;
+    fs::remove(anker_abs, ec);
+    ASSERT_FALSE(fs::exists(anker_abs)) << "Der 0-Byte-Anker liess sich nicht entfernen.";
+    fs::create_symlink("nirgends_" + marke, anker_abs, ec);
+    ASSERT_FALSE(ec) << "Symlink nicht anlegbar: " << ec.message();
+    Lauf const add =
+        fahre("cd " + zitiert(fall.repo().pfad()) + " && " + WegwerfRepo::umgebung() + " git add -- " + zitiert(anker));
+    ASSERT_EQ(add.code, 0) << "git add des Symlinks fehlgeschlagen:\n" << add.ausgabe;
+    Lauf const modus = fahre("cd " + zitiert(fall.repo().pfad()) + " && " + WegwerfRepo::umgebung() +
+                             " git ls-files -s -- " + zitiert(anker));
+    ASSERT_TRUE(enthaelt(modus.ausgabe, "120000 ")) << "Das Arrangement ist falsch: kein Symlink im Index:\n"
+                                                    << modus.ausgabe;
+    Lauf const symlink = fall.fahren();
+    berichten("ArchivAnkerOhneInhaltOderFormAnkertNicht/Symlink", symlink, marke);
+    EXPECT_EQ(symlink.code, 1) << "Ein Symlink namens VERMERK.md ist kein Anker.\n" << symlink.ausgabe;
+    EXPECT_TRUE(enthaelt(symlink.ausgabe, anker + " -- UNPRUEFBARER ANKER")) << symlink.ausgabe;
+    EXPECT_TRUE(enthaelt(symlink.ausgabe, "120000")) << "Der Modus gehoert in die Meldung (V-1).\n" << symlink.ausgabe;
+    EXPECT_TRUE(enthaelt(symlink.ausgabe, ", 0 archiviert)")) << symlink.ausgabe;
+    EXPECT_TRUE(enthaelt(symlink.ausgabe, "1 ARCHIV-Anker ohne Inhalt/Form")) << symlink.ausgabe;
+
+    // (c) GEGENRICHTUNG: derselbe Pfad mit Inhalt traegt.
+    fs::remove(anker_abs, ec);
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(anker, "# Archiv-Anker mit Inhalt " + marke + "\n"));
+    Lauf const voll = fall.fahren();
+    berichten("ArchivAnkerOhneInhaltOderFormAnkertNicht/mit-Inhalt", voll, marke);
+    EXPECT_EQ(voll.code, 0) << "Derselbe Pfad mit Inhalt muss tragen.\n" << voll.ausgabe;
+    EXPECT_TRUE(enthaelt(voll.ausgabe, ", 1 archiviert)")) << voll.ausgabe;
+    EXPECT_TRUE(enthaelt(voll.ausgabe, "0 ARCHIV-Anker ohne Inhalt/Form")) << voll.ausgabe;
+}
+
+// =============================================================================
+// (13) DIE SCHWESTERKLASSE ZU (10d) (Lens A LA-08, 2026-09-18): eine Allowlist-Zeile, deren Feld 1
+//      KEINE getrackte Test-Quelldatei nennt (geloescht, umbenannt, unter ext/, anders geschrieben),
+//      wird genauso nie ausgewertet -- und erwacht mit dem naechsten Namensgleichen als Freibrief.
+//      Aufbau: eine BEGRUENDETE Waise (Zeile wie in Fall (2), sie traegt) plus eine zweite Zeile fuer
+//      einen Geist. ROT darf dann NUR die Geist-Zeile sein: "davon 1 begruendet" bleibt stehen.
+//      Gegenrichtung: dieselbe Allowlist ohne die Geist-Zeile -> GRUEN.
+// =============================================================================
+TEST(Pa1ToteAusnahme, AllowlistZeileOhneGegenstandImIndexIstUnpruefbar) {
+    std::string const marke = koeder();
+    Fall              fall{marke};
+    ASSERT_TRUE(fall.init());
+    std::string const lebendig = "tests/unit/kommt_vielleicht_" + marke + ".hpp";
+    std::string const geist    = "tests/unit/test_geist_" + marke + ".cpp";
+    std::string const tragend  = fall.waise() + " | datei:" + lebendig + " | Koeder " + marke + "\n";
+    ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
+                                     "# Allowlist des Falls " + marke + "\n" + tragend + geist +
+                                         " | frist:2999-12-31 | Geist " + marke + "\n"));
+
+    Lauf const mit = fall.fahren();
+    berichten("AllowlistZeileOhneGegenstandImIndexIstUnpruefbar/mit-Geist-Zeile", mit, marke);
+    EXPECT_EQ(mit.code, 1) << "Eine Zeile ohne Gegenstand im Index ist ein schlafender Freibrief -- ROT.\n"
+                           << mit.ausgabe;
+    EXPECT_TRUE(enthaelt(mit.ausgabe, geist + " -- UNPRUEFBAR: Allowlist-Zeile ohne Gegenstand")) << mit.ausgabe;
+    EXPECT_TRUE(enthaelt(mit.ausgabe, "davon 1 begruendet")) << "Die tragende Zeile darf nicht mit rot werden.\n"
+                                                             << mit.ausgabe;
+    EXPECT_TRUE(enthaelt(mit.ausgabe, "1 unpruefbar")) << mit.ausgabe;
+    EXPECT_TRUE(enthaelt(mit.ausgabe, "1 ohne Gegenstand im Index")) << mit.ausgabe;
+    EXPECT_TRUE(enthaelt(mit.ausgabe, "0 erloschen")) << "Die Frist der Geist-Zeile darf nicht bewertet worden sein.\n"
+                                                      << mit.ausgabe;
+
+    ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
+                                     "# Allowlist des Falls " + marke + "\n" + tragend));
+    Lauf const ohne = fall.fahren();
+    berichten("AllowlistZeileOhneGegenstandImIndexIstUnpruefbar/ohne-Geist-Zeile", ohne, marke);
+    EXPECT_EQ(ohne.code, 0) << "Ohne die Geist-Zeile muss die tragende Zeile allein gruen sein.\n" << ohne.ausgabe;
+    EXPECT_TRUE(enthaelt(ohne.ausgabe, "0 mit UNPRUEFBARER")) << ohne.ausgabe;
+    EXPECT_TRUE(enthaelt(ohne.ausgabe, "0 ohne Gegenstand im Index")) << ohne.ausgabe;
 }
 
 #endif // _WIN32

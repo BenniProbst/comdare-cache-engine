@@ -194,18 +194,36 @@
 # SOLL genommen. Das ist der Preis der Ablage -- und der Grund, warum der Anker eine Datei im INDEX
 # ist und keine Zeile in einer Liste.
 #
+# ZWEI FOLGEN DER VIERTEN KLASSE, beide fail-closed (Lens-Funde r1, 2026-09-18):
+#   (1) DER ANKER MUSS INHALT UND FORM HABEN (Lens A LA-04). Ein Index-Eintrag namens VERMERK.md,
+#       der kein regulaeres Blob ist (Symlink 120000, Gitlink 160000) oder ein Blob mit 0 Byte,
+#       traegt keine Begruendung. Er ankert NICHT (die Dateien bleiben im SOLL) und wird als
+#       UNPRUEFBARER ANKER gemeldet -- ROT. Sonst waere der Anker die einzige Stelle dieser Wache,
+#       an der Leere gruen traegt; ein leeres Feld 2 ist seit je UNPRUEFBAR.
+#   (2) EINE ALLOWLIST-ZEILE FUER EINE ARCHIV-DATEI IST EINE AUSNAHME OHNE ANLASS (Lens B LB-01).
+#       Die Allowlist wird nur fuer Dateien gelesen, die dem SOLL fehlen; eine archivierte Datei
+#       steht nicht im SOLL, ihre Zeile wuerde also NIE ausgewertet (am Objekt gemessen, Lens B P10:
+#       'frist:2000-01-01' fuer eine ARCHIV-Datei -> Exit 0, kein ABGELAUFEN) und laege in Reserve,
+#       bis der Anker faellt. Dasselbe gilt fuer eine Zeile, deren Feld 1 gar keine getrackte
+#       Test-Quelldatei nennt (geloescht, umbenannt, unter ext/, anders geschrieben; Lens A LA-08).
+#       Beide Klassen sind UNPRUEFBAR und damit ROT; die Abhilfe ist die Loeschung der Zeile.
+#
 # DER GEMESSENE BAUM MUSS DERSELBE SEIN WIE DER DER CI (J-0b, am Objekt 2026-09-17): der CI-Baum
 # build-covguard wird MIT -DCOMDARE_CE_PRUEFLINGE=<repo>/tests/pruefling_fixture konfiguriert, und
 # nur dann steht tests/pruefling_fixture/test_pruefling_fixture_ladung.cpp im Bauweg. Ein lokaler
 # Baum ohne diesen Schalter meldet sie als OHNE BEGRUENDUNG -- richtig gemessen, falscher Baum.
-# Dasselbe gilt fuer die vier Tests, die erst NACH 'make inventar' (Werkzeuge bauen, RE-CONFIGURE)
-# registriert werden. Wer diese Wache von Hand faehrt, faehrt sie gegen einen so gebauten Baum.
+# Dasselbe gilt fuer die DREI Tests, die erst NACH 'make inventar' (Werkzeuge bauen, RE-CONFIGURE)
+# registriert werden -- am Objekt 2026-09-17 genau test_v41_anatomy_adhoc_autobuilt_load,
+# test_v41_anatomy_f15_measurement und test_v41_anatomy_r5i_configure_codegen (Gatter in
+# tests/unit/CMakeLists.txt: _r5i_status, _f15_status, _r5g_autobuilt_count). Wer diese Wache von
+# Hand faehrt, faehrt sie gegen einen so gebauten Baum. [Berichtigt 2026-09-18, Lens A LA-01: "vier".]
 #
 # AUFRUF:  sh scripts/ci_test_registrierungs_wache.sh <build-verzeichnis>
 # EXIT:    0 = jede getrackte Test-Quelldatei ist im Bauweg oder begruendet abwesend
 #          1 = mindestens eine Test-Quelldatei OHNE gueltige Begruendung ausserhalb --
 #              ohne Allowlist-Zeile, mit ERLOSCHENER, mit TOTER oder mit UNPRUEFBARER
-#              Begruendung
+#              Begruendung (dazu zaehlen ein ARCHIV-Anker ohne Inhalt/Form und eine
+#              Allowlist-Zeile ohne Gegenstand im SOLL, s. oben)
 #          2 = die Wache konnte nicht pruefen (fail-closed, ausdruecklich KEIN Gruen)
 #
 # GRENZE, EHRLICH BENANNT -- was diese Wache NICHT deckt:
@@ -327,9 +345,50 @@ fi
 # Quelle wie der SOLL: 'tests/deprecated/<ordner>/VERMERK.md' im Git-INDEX. Ein
 # VERMERK.md, das nur im Arbeitsbaum liegt, ankert NICHTS -- sonst haenge die
 # Grundgesamtheit an einer ungetrackten Datei, die niemand sieht.
+#
+# DIE FORM DES ANKERS WIRD GEPRUEFT (Lens A LA-04, 2026-09-18): 'git ls-files -s'
+# liefert 'MODUS SHA STUFE<TAB>PFAD'. Nur ein regulaeres Blob (100644/100755) mit
+# mehr als 0 Byte ankert; ein Symlink (120000), ein Gitlink (160000), ein leeres
+# oder unlesbares Blob traegt keine Begruendung. Ein solcher Eintrag ankert NICHT
+# und wird als UNPRUEFBARER ANKER in derselben Liste und Zaehlung gefuehrt wie
+# eine unpruefbare Allowlist-Zeile -- denn er ist eine (Kopf, Folge (1)).
+# Am Objekt gemessen (Lens A, Proben R und L): 0-Byte-VERMERK.md und dangling
+# Symlink VERMERK.md ankerten bis zu dieser Fassung wie ein echter Vermerk.
 # ---------------------------------------------------------------------------
-git ls-files 2>/dev/null |
-    "$GREP" -E '^tests/deprecated/[^/]+/VERMERK\.md$' | sort > "$TMP/archiv_anker.txt" || true
+_TAB=$(printf '\t')
+git ls-files -s 2>/dev/null |
+    "$GREP" -E "^[0-9]+ [0-9a-f]+ [0-9]+${_TAB}tests/deprecated/[^/]+/VERMERK\.md$" \
+    > "$TMP/archiv_anker_roh.txt" || true
+
+: > "$TMP/archiv_anker.txt"
+: > "$TMP/anker_unpruefbar.txt"
+while IFS= read -r z; do
+    [ -n "$z" ] || continue
+    _am=${z%% *}
+    _as=${z#* }; _as=${_as%% *}
+    _ap=${z#*"$_TAB"}
+    case "$_am" in
+        100644|100755) ;;
+        *)  _msg="UNPRUEFBARER ANKER: Index-Modus $_am ist kein regulaeres Blob (Symlink 120000 oder"
+            _msg="$_msg Gitlink 160000) -- traegt keine Begruendung, ankert nichts"
+            printf '%s -- %s\n' "$_ap" "$_msg" >> "$TMP/anker_unpruefbar.txt"
+            continue ;;
+    esac
+    _ag=$(git cat-file -s "$_as" 2>/dev/null || true)
+    if [ -z "$_ag" ]; then
+        _msg="UNPRUEFBARER ANKER: Blob $_as ist nicht lesbar (git cat-file -s) -- ankert nichts"
+        printf '%s -- %s\n' "$_ap" "$_msg" >> "$TMP/anker_unpruefbar.txt"
+        continue
+    fi
+    if [ "$_ag" -eq 0 ]; then
+        _msg="UNPRUEFBARER ANKER: Blob mit 0 Byte -- eine leere Begruendung traegt nichts, ankert nichts"
+        printf '%s -- %s\n' "$_ap" "$_msg" >> "$TMP/anker_unpruefbar.txt"
+        continue
+    fi
+    printf '%s\n' "$_ap" >> "$TMP/archiv_anker.txt"
+done < "$TMP/archiv_anker_roh.txt"
+sort -u -o "$TMP/archiv_anker.txt" "$TMP/archiv_anker.txt"
+ANKER_UNPR_N=$(wc -l < "$TMP/anker_unpruefbar.txt" | tr -d ' ')
 
 : > "$TMP/archiv.txt"
 : > "$TMP/soll.txt"
@@ -738,17 +797,62 @@ while IFS= read -r f; do
         fi
         ;;
     *)
-        printf '%s -- UNPRUEFBAR: Feld 2 ist "%s" -- keine bekannte Art (erwartet "datei:" oder "isa:")\n' \
+        printf '%s -- UNPRUEFBAR: Feld 2 ist "%s" -- keine bekannte Art (erwartet "datei:", "isa:" oder "frist:")\n' \
             "$f" "$geg" >> "$TMP/unpruefbar.txt"
         ;;
     esac
 done < "$TMP/fehlend.txt"
 
+# ---------------------------------------------------------------------------
+# JEDE WIRKSAME ALLOWLIST-ZEILE BRAUCHT EINEN GEGENSTAND IM SOLL (Lens B LB-01 /
+# Lens A LA-08, 2026-09-18). Die Schleife oben laeuft nur ueber fehlend.txt -- eine
+# Zeile, deren Feld 1 keine Datei des SOLL nennt, wird NIE ausgewertet: nicht bei
+# diesem Lauf, nicht beim naechsten. Zwei Klassen, beide UNPRUEFBAR und damit ROT:
+#   ARCHIV   Feld 1 nennt eine archivierte Datei. Der Ort traegt sie, die Zeile hat
+#            keinen Anlass -- und laege in Reserve: faellt der Anker, wird sie ohne
+#            Ablauf wirksam. Am Objekt gemessen (Lens B, Probe P10): 'frist:2000-01-01'
+#            fuer eine ARCHIV-Datei -> Exit 0, kein ABGELAUFEN.
+#   GEIST    Feld 1 nennt keine getrackte Test-Quelldatei (geloescht, umbenannt, unter
+#            ext/, kein test_*.cpp, anders geschrieben, oder leer). Auch diese Zeile
+#            schlaeft und erwacht mit dem naechsten Namensgleichen -- dieselbe Klasse.
+# Beide zaehlen als UNPRUEFBAR, in derselben Liste wie eine Zeile mit unbekannter
+# Art: eine Begruendung ohne Gegenstand ist keine. Abhilfe: die Zeile loeschen.
+# ---------------------------------------------------------------------------
+: > "$TMP/zeilen_unpruefbar.txt"
+ARCHIV_ZEILE_N=0
+GEIST_ZEILE_N=0
+if [ -f "$ALLOWLIST" ]; then
+    while IFS= read -r z; do
+        case "$z" in ''|'#'*) continue ;; esac
+        _d=$(printf '%s' "$z" | cut -d'|' -f1 | sed 's/[[:space:]]*$//;s/^[[:space:]]*//')
+        if [ -z "$_d" ]; then
+            _msg="UNPRUEFBAR: Allowlist-Zeile ohne Gegenstand -- Feld 1 ist leer; die Zeile wird nie"
+            _msg="$_msg ausgewertet und gehoert geloescht"
+            printf '(leeres Feld 1) -- %s\n' "$_msg" >> "$TMP/zeilen_unpruefbar.txt"
+            GEIST_ZEILE_N=$((GEIST_ZEILE_N + 1))
+        elif "$GREP" -q -F -x -- "$_d" "$TMP/archiv.txt"; then
+            _msg="UNPRUEFBAR: ARCHIV-Datei mit Allowlist-Zeile -- Ausnahme ohne Anlass (der VERMERK.md-"
+            _msg="${_msg}Anker nimmt die Datei aus dem SOLL; die Zeile wird nie ausgewertet, gehoert geloescht)"
+            printf '%s -- %s\n' "$_d" "$_msg" >> "$TMP/zeilen_unpruefbar.txt"
+            ARCHIV_ZEILE_N=$((ARCHIV_ZEILE_N + 1))
+        elif ! "$GREP" -q -F -x -- "$_d" "$TMP/soll_roh.txt"; then
+            _msg="UNPRUEFBAR: Allowlist-Zeile ohne Gegenstand -- Feld 1 ist keine getrackte Test-Quelldatei"
+            _msg="$_msg (geloescht, umbenannt, unter ext/, kein test_*.cpp?); die Zeile wird nie ausgewertet"
+            printf '%s -- %s\n' "$_d" "$_msg" >> "$TMP/zeilen_unpruefbar.txt"
+            GEIST_ZEILE_N=$((GEIST_ZEILE_N + 1))
+        fi
+    done < "$ALLOWLIST"
+fi
+
 BEGR_N=$(wc -l < "$TMP/begruendet.txt" | tr -d ' ')
 UNBEGR_N=$(wc -l < "$TMP/unbegruendet.txt" | tr -d ' ')
 ERL_N=$(wc -l < "$TMP/erloschen.txt" | tr -d ' ')
-UNPR_N=$(wc -l < "$TMP/unpruefbar.txt" | tr -d ' ')
+UNPR_FEHLEND_N=$(wc -l < "$TMP/unpruefbar.txt" | tr -d ' ')
 TOT_N=$(wc -l < "$TMP/tot.txt" | tr -d ' ')
+# UNPRUEFBAR gesamt: die Zeilen aus der Schleife (je eine dem Bauweg fehlende Datei)
+# PLUS die Klassen ohne Bezug zum Bauweg (Anker ohne Inhalt/Form, Zeilen ohne
+# Gegenstand). Der Nenner unten weist beide Anteile getrennt aus.
+UNPR_N=$((UNPR_FEHLEND_N + ANKER_UNPR_N + ARCHIV_ZEILE_N + GEIST_ZEILE_N))
 
 echo "-----------------------------------------------------------------------------"
 echo "TEST-REGISTRIERUNGS-WACHE (MT-L4) -- Quelldatei gegen Bauweg"
@@ -773,8 +877,9 @@ if [ "$TOT_N" -gt 0 ]; then
 fi
 if [ "$UNPR_N" -gt 0 ]; then
     echo ""
-    echo "UNPRUEFBARE BEGRUENDUNG -- Feld 2 nennt nichts, was diese Wache nachpruefen kann:"
-    sed 's/^/  /' "$TMP/unpruefbar.txt"
+    echo "UNPRUEFBARE BEGRUENDUNG -- nichts davon kann diese Wache nachpruefen (Feld 2, Anker-Form," \
+         "Zeile ohne Gegenstand):"
+    sed 's/^/  /' "$TMP/unpruefbar.txt" "$TMP/anker_unpruefbar.txt" "$TMP/zeilen_unpruefbar.txt"
 fi
 if [ "$BEGR_N" -gt 0 ]; then
     echo ""
@@ -792,12 +897,14 @@ fi
 echo ""
 echo "-----------------------------------------------------------------------------"
 echo "NENNER (nie eine nackte Zahl):"
-echo "  $SOLL_N getrackte Test-Quelldatei(en) im Baum (ohne ext/) -- SOLL."
-echo "  davon abgezogen: $ARCHIV_N ARCHIV-Datei(en) in $ARCHIV_ORD_N Ordner(n) unter" \
-     "tests/deprecated/ mit VERMERK.md-Anker ($SOLL_ROH_N getrackt insgesamt)."
+echo "  $SOLL_ROH_N getrackte Test-Quelldatei(en) im Baum (ohne ext/)."
+echo "  davon $ARCHIV_N ARCHIV-Datei(en) in $ARCHIV_ORD_N Ordner(n) unter tests/deprecated/ mit" \
+     "VERMERK.md-Anker abgezogen -- SOLL: $SOLL_N."
 echo "  $FEHLEND_N davon NICHT im Bauweg des Baums '$BUILD'."
 echo "  davon $BEGR_N begruendet, $ERL_N mit ERLOSCHENER, $TOT_N TOTE AUSNAHME," \
-     "$UNPR_N mit UNPRUEFBARER Begruendung, $UNBEGR_N ohne."
+     "$UNPR_FEHLEND_N mit UNPRUEFBARER Begruendung, $UNBEGR_N ohne."
+echo "  dazu UNPRUEFBAR ohne Bezug zum Bauweg: $ANKER_UNPR_N ARCHIV-Anker ohne Inhalt/Form," \
+     "$ARCHIV_ZEILE_N Allowlist-Zeile(n) fuer ARCHIV-Dateien, $GEIST_ZEILE_N ohne Gegenstand im Index."
 echo "  Erreichbarkeit: $NBEURT_N der $BEGR_N begruendeten nennen einen Gegenstand AUSSERHALB"
 echo "                  des Repos -- fuer die ist 'kann nie entstehen' NICHT beurteilt worden."
 echo "  Heute (fuer 'frist:'): $HEUTE -- Herkunft: $HEUTE_HERKUNFT."
@@ -817,7 +924,10 @@ if [ "$UNBEGR_N" -gt 0 ] || [ "$ERL_N" -gt 0 ] || [ "$UNPR_N" -gt 0 ] || [ "$TOT
          "$ERL_N erloschen, $TOT_N tot, $UNPR_N unpruefbar, $ARCHIV_N archiviert)."
     echo "Abhilfe: die Datei per comdare_add_test()/add_test() in den Bauweg nehmen -- ODER"
     echo "         sie mit einem nachpruefbaren Gegenstand in $ALLOWLIST begruenden"
-    echo "         ('datei:<pfad>' oder 'isa:<merkmal>[+<merkmal>]', s. Kopf der Allowlist)."
+    echo "         ('datei:<pfad>', 'isa:<merkmal>[+<merkmal>]' oder 'frist:<JJJJ-MM-TT>', s. Kopf"
+    echo "         der Allowlist) -- ODER sie nach Owner-Entscheid unter tests/deprecated/<ordner>/"
+    echo "         ablegen, mit einem VERMERK.md (Inhalt, im Index) daneben: ARCHIV, s. Kopf dieser"
+    echo "         Wache; eine archivierte Datei braucht und vertraegt KEINE Allowlist-Zeile."
     if [ "$TOT_N" -gt 0 ]; then
         echo "Bei einer TOTEN AUSNAHME hilft kein anderer Pfad: gibt es keinen erreichbaren"
         echo "         Gegenstand, gehoert die Zeile auf 'frist:<JJJJ-MM-TT>' -- eine geparkte"
