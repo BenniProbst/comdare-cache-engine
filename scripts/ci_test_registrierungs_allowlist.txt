@@ -38,12 +38,18 @@
 #                               wer sie benutzt, muss in Feld 3 sagen, wem der Posten
 #                               gehoert und woran er haengt.
 #
-# FORMREGELN JE ZEILE (2026-09-18, Fix-r2 des OV-2-Zuges, Lens C LCW-08/LCW-09): Feld 3 darf nicht
-# leer sein -- eine Ausnahme ohne Begruendungstext ist keine und ist UNPRUEFBAR (rot); je
-# Test-Quelldatei steht genau EINE Zeile -- die Wache laese nur die erste, jede weitere schliefe; ein
-# mehrfach genannter Pfad ist UNPRUEFBAR (rot). Eine Zeile nur aus Leerraum gilt als Leerzeile; ein
-# Kommentar beginnt in Spalte 1 (eingerueckt ist er eine Datenzeile ohne Gegenstand, rot). Die letzte
-# Zeile darf ohne Zeilenumbruch enden -- sie wird trotzdem gelesen.
+# FORMREGELN JE ZEILE (2026-09-18, Fix-r2 des OV-2-Zuges, Lens C LCW-08/LCW-09; Fix-r3 LC3W-05/LC3W-07):
+# Feld 3 darf nicht leer sein -- eine Ausnahme ohne Begruendungstext ist keine und ist UNPRUEFBAR
+# (rot); je Test-Quelldatei steht genau EINE Zeile -- die Wache laese nur die erste, jede weitere
+# schliefe; ein mehrfach genannter Pfad ist UNPRUEFBAR (rot). Eine Zeile nur aus Leerraum gilt als
+# Leerzeile; ein Kommentar beginnt in Spalte 1 (eingerueckt ist er eine Datenzeile ohne Gegenstand,
+# rot). Die letzte Zeile darf ohne Zeilenumbruch enden -- sie wird trotzdem gelesen. Ein 'isa:'-
+# Ausdruck hat kein leeres Teilmerkmal: '+avx2', 'avx2+' und 'avx2++avx512f' sind UNPRUEFBAR (rot),
+# nicht 'avx2'. DIE FORM GILT FUER JEDE DATENZEILE, auch fuer eine Datei, die IM Bauweg steht: eine
+# solche Zeile ist stumm (sie wird nie ausgewertet -- die 'isa:'-Zeile unten ist es auf einem AVX-512-
+# Host), aber ein Formfehler darin (leeres Feld 3, unbekannte Art, leeres oder unbekanntes Merkmal,
+# kein Datum) ist UNPRUEFBAR (rot) und steht im Nenner als eigene Klasse ("mit Formfehler fuer Dateien
+# im Bauweg"); bis Fix-r3 lag er in Reserve, bis die Datei einmal fehlte.
 #
 # WARUM ES DIE ZWEITE ART GIBT (Pipeline 15517, ce/development ROT): Feld 2 kannte bis
 # dahin nur einen Pfad. Der erste echte Fang der Wache haengt aber an keiner Datei,
@@ -164,8 +170,9 @@
 # WAS AN IHRE STELLE TRITT -- ein ORT, keine Ausnahme: scripts/ci_test_registrierungs_wache.sh nimmt
 # eine getrackte Test-Quelldatei unter tests/deprecated/<ordner>/ aus ihrem SOLL, wenn und nur wenn
 # tests/deprecated/<ordner>/VERMERK.md im Git-Index liegt UND die Form eines Ankers hat (regulaeres
-# Blob 100644/100755 auf Index-Stufe 0, lesbar, mit mindestens einem Nicht-Leerraum-Zeichen; seit
-# 2026-09-18, Lens-Funde r1/r2, Lens C LCW-06), und weist die Archiv-Menge bei jedem Lauf mit Zahl,
+# Blob 100644/100755 auf Index-Stufe 0, dessen Objekt in der Objektdatenbank liegt und ein Blob IST,
+# lesbar, mit mindestens einem Nicht-Leerraum-Zeichen; seit 2026-09-18, Lens-Funde r1/r2, Lens C
+# LCW-06, Fix-r3 LC3W-06), und weist die Archiv-Menge bei jedem Lauf mit Zahl,
 # Ordner-Zahl und Dateinamen aus (Nenner und Endzeile). Die vier Dateien brauchen deshalb hier keine
 # Zeile mehr: eine Ausnahme OHNE ANLASS faenge nur das naechste echte Verschwinden desselben Namens
 # lautlos weg -- dieselbe Begruendung wie bei der T-6-Schwesterliste oben.
@@ -179,7 +186,10 @@
 # (UNPRUEFBARER ANKER, rot); eine Allowlist-Zeile fuer einen Pfad unter tests/deprecated/ -- die vier
 # ARCHIV-Dateien eingeschlossen, mit oder ohne Anker -- ist UNPRUEFBAR (rot): diese Liste darf sie nie
 # tragen, der Archiv-Ort kennt nur den Anker (Lens C LCW-05). Ebenso rot: zwei Zeilen fuer denselben
-# Pfad, ein leeres Feld 3, und eine Zeile, deren Feld 1 keine Datei des SOLL-Bestands nennt.
+# Pfad, ein leeres Feld 3, eine Zeile, deren Feld 1 keine Datei des SOLL-Bestands nennt, ein Formfehler
+# in der stummen Zeile einer Datei im Bauweg, und ein VERMERK.md, dessen Index-Eintrag auf ein fehlendes
+# Objekt oder auf kein Blob (Tree, Commit) zeigt (Fix-r3, Lens C LC3W-05/LC3W-06). Werkzeug-Ausfaelle
+# der Wache (grep, git, wc, sort, uniq, date, mktemp) sind Exit 2, nie ein Befund (LC3W-01..04).
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------

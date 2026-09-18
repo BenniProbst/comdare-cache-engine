@@ -91,7 +91,7 @@ unveraendert fort.
 `scripts/ci_test_registrierungs_wache.sh` nimmt eine getrackte Test-Quelldatei unter
 `tests/deprecated/<ordner>/` aus ihrem SOLL, wenn und nur wenn `tests/deprecated/<ordner>/VERMERK.md`
 im Git-Index liegt UND die Form eines Ankers hat (regulaeres Blob 100644/100755 auf Index-Stufe 0,
-lesbar, mit mindestens einem Nicht-Leerraum-Zeichen; NACHTRAG 2 und 3 unten). Wird diese Datei aus
+lesbar, mit mindestens einem Nicht-Leerraum-Zeichen; NACHTRAG 2, 3 und 4 unten). Wird diese Datei aus
 dem Index genommen (`git rm`, `git mv`; massgeblich ist
 allein der INDEX -- ein blosses `rm` im Arbeitsbaum laesst den Index-Eintrag stehen und die Wache
 lokal gruen, in CI ohne Wirkung, weil dort frisch ausgecheckt wird; Lens A LA-05), fallen die
@@ -128,3 +128,20 @@ Wache ist 540 = 544 - 4. Fall `EchteAllowlistTraegtKeineToteZeile` pinnt genau d
 selbst gemessenen Zahlen. Seit Fix-r2 ist eine Allowlist-Zeile fuer einen Pfad unter `tests/deprecated/`
 auch OHNE Anker unpruefbar (rot): der Archiv-Ort kennt nur diesen Anker (Wache, Kopf Folge (3); Fall
 `AllowlistZeileFuerPfadUnterDeprecatedIstUnpruefbar`).
+
+## NACHTRAG 4 (Fix-r3: Lens C r3 LC3W-01..08; 2026-09-18)
+
+Die Anker-Form ist um das OBJEKT ergaenzt: der Index-Modus 100644/100755 verspricht ein Blob, prueft es
+aber nicht (`git update-index --cacheinfo` legt jedes Objekt unter jedem Modus ab). Die Wache fragt jetzt
+`git cat-file -e` (fehlt das Objekt, ist der Anker UNPRUEFBAR) und `git cat-file -t` == blob (ein Tree oder
+Commit unter 100644 ankert nicht); scheitert git selbst, ist das Exit 2, kein Befund (Fall
+`ArchivAnkerMussBlobInDerObjektdatenbankSein`). Werkzeug-Ausfaelle sind durchgehend Exit 2 (grep-Status 2,
+git 128 in der Erreichbarkeits-Probe, date; cut, sed und tr sind aus der Wache entfernt), ISA-Belege
+muessen eindeutig sein (ein leeres Teilmerkmal wie `+avx2` ist ein Formfehler), und die Form einer
+Allowlist-Zeile gilt auch fuer Dateien im Bauweg (sechstes Nenner-Feld "mit Formfehler fuer Dateien im
+Bauweg"). Fuer DIESEN Ordner aendert sich nichts: die Wache am Worktree-Stand nach Fix-r3 meldet weiterhin
+die drei Zeilen aus NACHTRAG 3 (544 getrackt, 4 ARCHIV in 1 Ordner, SOLL 540, Endzeile OK 540/0/4); die
+Nenner-Zeile "dazu UNPRUEFBAR ohne Bezug zum Bauweg" endet neu auf "0 mit Formfehler fuer Dateien im
+Bauweg." Am Objekt gefunden: `git check-ignore` stirbt fuer Pfade unter einem Submodul-Gitlink mit 128
+(kein Werkzeugfehler, eine Datenlage) -- die Wache prueft die Gitlink-Ahnenreihe deshalb zuerst (Fall
+`SubmodulGitlinkIstErreichbar`).
