@@ -38,6 +38,13 @@
 #                               wer sie benutzt, muss in Feld 3 sagen, wem der Posten
 #                               gehoert und woran er haengt.
 #
+# FORMREGELN JE ZEILE (2026-09-18, Fix-r2 des OV-2-Zuges, Lens C LCW-08/LCW-09): Feld 3 darf nicht
+# leer sein -- eine Ausnahme ohne Begruendungstext ist keine und ist UNPRUEFBAR (rot); je
+# Test-Quelldatei steht genau EINE Zeile -- die Wache laese nur die erste, jede weitere schliefe; ein
+# mehrfach genannter Pfad ist UNPRUEFBAR (rot). Eine Zeile nur aus Leerraum gilt als Leerzeile; ein
+# Kommentar beginnt in Spalte 1 (eingerueckt ist er eine Datenzeile ohne Gegenstand, rot). Die letzte
+# Zeile darf ohne Zeilenumbruch enden -- sie wird trotzdem gelesen.
+#
 # WARUM ES DIE ZWEITE ART GIBT (Pipeline 15517, ce/development ROT): Feld 2 kannte bis
 # dahin nur einen Pfad. Der erste echte Fang der Wache haengt aber an keiner Datei,
 # sondern an einem CMake-Gatter ueber der HOST-ISA -- es gibt schlicht keine Datei,
@@ -131,9 +138,11 @@
 # W-B-NACHTRAG (2026-08-15, Vorlage-B2-GO "Aufraeumen (a)"): die vier Dateien sind per
 # 'git mv' nach tests/deprecated/prt_art_legacy_waisen/ archiviert -- NICHT geloescht;
 # Begruendung, Messungen und die drei aufgegebenen Deckungs-Luecken stehen dort in
+# VERMERK.md.
 # [UEBERHOLT ab dem naechsten Satz "Der SOLL dieser Wache ..." bis zum Ende dieses Nachtrags,
-#  Frist-Saetze eingeschlossen -- OV-2-NACHTRAG unten (2026-09-17, Marker nachgezogen 2026-09-18).]
-# VERMERK.md. Der SOLL dieser Wache ist 'git ls-files' mit DATEINAMEN-Anker, die vier
+#  Frist-Saetze eingeschlossen -- OV-2-NACHTRAG unten (2026-09-17, Marker nachgezogen 2026-09-18,
+#  vor den ueberholten Satz gestellt 2026-09-18 Fix-r2 F4, Lens B LB2-04 / Lens A LA3-09).]
+# Der SOLL dieser Wache ist 'git ls-files' mit DATEINAMEN-Anker, die vier
 # bleiben also im SOLL; ihre 'frist:'-Zeilen tragen deshalb weiter, nur mit dem neuen
 # Pfad in Feld 1 (tests/unit/test_pa1_tote_ausnahme.cpp kGeparkt ist nachgezogen).
 # Die Frist 2026-09-15 bleibt unveraendert: sie gehoert dem Owner und deckt jetzt die
@@ -154,18 +163,23 @@
 #
 # WAS AN IHRE STELLE TRITT -- ein ORT, keine Ausnahme: scripts/ci_test_registrierungs_wache.sh nimmt
 # eine getrackte Test-Quelldatei unter tests/deprecated/<ordner>/ aus ihrem SOLL, wenn und nur wenn
-# tests/deprecated/<ordner>/VERMERK.md im Git-Index liegt, und weist die Archiv-Menge bei jedem Lauf
-# mit Zahl, Ordner-Zahl und Dateinamen aus (Nenner und Endzeile). Die vier Dateien brauchen deshalb
-# hier keine Zeile mehr: eine Ausnahme OHNE ANLASS faenge nur das naechste echte Verschwinden
-# desselben Namens lautlos weg -- dieselbe Begruendung wie bei der T-6-Schwesterliste oben.
+# tests/deprecated/<ordner>/VERMERK.md im Git-Index liegt UND die Form eines Ankers hat (regulaeres
+# Blob 100644/100755 auf Index-Stufe 0, lesbar, mit mindestens einem Nicht-Leerraum-Zeichen; seit
+# 2026-09-18, Lens-Funde r1/r2, Lens C LCW-06), und weist die Archiv-Menge bei jedem Lauf mit Zahl,
+# Ordner-Zahl und Dateinamen aus (Nenner und Endzeile). Die vier Dateien brauchen deshalb hier keine
+# Zeile mehr: eine Ausnahme OHNE ANLASS faenge nur das naechste echte Verschwinden desselben Namens
+# lautlos weg -- dieselbe Begruendung wie bei der T-6-Schwesterliste oben.
 #
 # WAS DAMIT NICHT ENTSCHIEDEN IST: die LOESCHUNG der vier Dateien. Sie braucht weiter ein eigenes
 # Owner-GO. Die Begruendung des Archivs steht in tests/deprecated/prt_art_legacy_waisen/VERMERK.md;
 # faellt diese Datei aus dem INDEX (git rm, git mv -- massgeblich ist der Index, ein blosses rm im
 # Arbeitsbaum aendert ihn nicht; Lens A LA-05), fallen die vier .cpp in den SOLL zurueck und die
-# Wache wird ROT. Seit 2026-09-18 (Lens-Funde r1) gilt zudem: ein VERMERK.md ohne Inhalt oder als
-# Symlink ankert NICHT (UNPRUEFBARER ANKER, rot), und eine Allowlist-Zeile fuer eine der vier
-# ARCHIV-Dateien ist eine Ausnahme OHNE ANLASS (unpruefbar, rot) -- diese Liste darf sie nie tragen.
+# Wache wird ROT. Seit 2026-09-18 (Lens-Funde r1/r2) gilt zudem: ein VERMERK.md ohne Nicht-Leerraum-
+# Inhalt, als Symlink oder Gitlink, oder im Merge-Konflikt (Index-Stufe 1-3) ankert NICHT
+# (UNPRUEFBARER ANKER, rot); eine Allowlist-Zeile fuer einen Pfad unter tests/deprecated/ -- die vier
+# ARCHIV-Dateien eingeschlossen, mit oder ohne Anker -- ist UNPRUEFBAR (rot): diese Liste darf sie nie
+# tragen, der Archiv-Ort kennt nur den Anker (Lens C LCW-05). Ebenso rot: zwei Zeilen fuer denselben
+# Pfad, ein leeres Feld 3, und eine Zeile, deren Feld 1 keine Datei des SOLL-Bestands nennt.
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------

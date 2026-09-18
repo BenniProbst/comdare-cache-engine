@@ -90,7 +90,9 @@ unveraendert fort.
 **Diese Datei ist ab jetzt ein ANKER, nicht nur ein Vermerk.**
 `scripts/ci_test_registrierungs_wache.sh` nimmt eine getrackte Test-Quelldatei unter
 `tests/deprecated/<ordner>/` aus ihrem SOLL, wenn und nur wenn `tests/deprecated/<ordner>/VERMERK.md`
-im Git-Index liegt. Wird diese Datei aus dem Index genommen (`git rm`, `git mv`; massgeblich ist
+im Git-Index liegt UND die Form eines Ankers hat (regulaeres Blob 100644/100755 auf Index-Stufe 0,
+lesbar, mit mindestens einem Nicht-Leerraum-Zeichen; NACHTRAG 2 und 3 unten). Wird diese Datei aus
+dem Index genommen (`git rm`, `git mv`; massgeblich ist
 allein der INDEX -- ein blosses `rm` im Arbeitsbaum laesst den Index-Eintrag stehen und die Wache
 lokal gruen, in CI ohne Wirkung, weil dort frisch ausgecheckt wird; Lens A LA-05), fallen die
 vier `.cpp` sofort in den SOLL zurueck, und die Wache meldet sie als OHNE BEGRUENDUNG (rot). Die
@@ -104,9 +106,25 @@ mit eigenem Anker gruen -- erst die Nachbar-Stufe macht aus dem "wenn" ein "wenn
 
 ## NACHTRAG 2 (Lens-Funde r1, 2026-09-18)
 
-Der Anker muss INHALT UND FORM haben: ein `VERMERK.md` mit 0 Byte oder als Symlink ankert NICHT
-(Wache: UNPRUEFBARER ANKER, rot; Fall `ArchivAnkerOhneInhaltOderFormAnkertNicht`). Eine
+Der Anker muss INHALT UND FORM haben: ein `VERMERK.md` mit 0 Byte, nur aus Leerraum, als Symlink
+oder Gitlink, oder im Merge-Konflikt (Index-Stufe 1-3) ankert NICHT (Wache: UNPRUEFBARER ANKER, rot;
+Faelle `ArchivAnkerOhneInhaltOderFormAnkertNicht` und `ArchivAnkerImMergeKonfliktAnkertNicht`). Eine
 Allowlist-Zeile fuer eine der vier Dateien ist eine Ausnahme OHNE ANLASS (unpruefbar, rot; Fall
 `ArchivOrdnerZaehltNurMitVermerkAnker`, Stufe d). Die drei Grenzen der Regel -- Datei direkt unter
 `tests/deprecated/` bleibt im SOLL, ein Anker tiefer als das dritte Pfadsegment ankert nichts, ein
 Anker nur im Arbeitsbaum ankert nichts -- tragen je einen eigenen Fall (`ArchivGrenze...`).
+
+## NACHTRAG 3 (Fix-r2: Lens A r3, Lens B r2, Lens C r2; 2026-09-18)
+
+Beleg am Objekt -- die Wache am Worktree-Stand nach Fix-r2, `sh scripts/ci_test_registrierungs_wache.sh
+build-gcc-release` (sh = dash), Nenner und Endzeile literal (Lens C LCT-05-Rest, Mitnahme M5):
+
+    544 getrackte Test-Quelldatei(en) im Baum (ohne ext/).
+    davon 4 ARCHIV-Datei(en) in 1 Ordner(n) unter tests/deprecated/ mit VERMERK.md-Anker abgezogen -- SOLL: 540.
+    TEST-REGISTRIERUNGS-WACHE: OK (540 Quelldateien, 0 ohne Begruendung ausserhalb, 4 archiviert).
+
+Die 4 ARCHIV-Dateien sind die vier dieses Ordners (Tabelle oben), der 1 Ordner ist dieser; der SOLL der
+Wache ist 540 = 544 - 4. Fall `EchteAllowlistTraegtKeineToteZeile` pinnt genau diese drei Zeilen mit den
+selbst gemessenen Zahlen. Seit Fix-r2 ist eine Allowlist-Zeile fuer einen Pfad unter `tests/deprecated/`
+auch OHNE Anker unpruefbar (rot): der Archiv-Ort kennt nur diesen Anker (Wache, Kopf Folge (3); Fall
+`AllowlistZeileFuerPfadUnterDeprecatedIstUnpruefbar`).
