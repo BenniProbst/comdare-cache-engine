@@ -100,6 +100,18 @@
 // Nenner-Pipeline = Exit 2 per PATH-Koeder (LCW-02/LCW-03). Rot zuerst je Stufe gegen die Wache d8e8f53d
 // bzw. einen Mutanten -- Belege im Beweisort des OV-2-Zuges (FIX-r2.md).
 //
+// NACHTRAG 4 (2026-09-18, Fix-r3 des OV-2-Zuges: Lens C r3 LC3W-01..08): neue Faelle (19) leeres ISA-
+// Teilmerkmal (LC3W-07), (20) ISA-Belege eindeutig (LC3W-08), (21) Werkzeug-Ausfall im ISA-Pfad per
+// wc-Koeder an der ISA-Zwischendatei (LC3W-01; sed ist aus der Wache entfernt, der Koeder trifft das
+// verbliebene PATH-Werkzeug), (22) grep-Status 2 = Exit 2 (LC3W-02; IST-Datei unlesbar per chmod 000
+// oder procfs), (23) git-Fehler 128 in der Erreichbarkeits-Probe (LC3W-03), (24) der Anker muss ein
+// Blob in der Objektdatenbank sein (LC3W-06; cat-file-Fehler = Exit 2, LC3W-03), (25) date-Ausfall
+// (LC3W-04), (26) Formfehler der stummen Zeile einer Datei im Bauweg (LC3W-05 -- die Test-Auflage der
+// Triage zeigte Exit 0 gegen 806629ca, der Fund war echt). Die Nenner-Zeile "dazu UNPRUEFBAR ..." traegt
+// ein sechstes Feld ("N mit Formfehler fuer Dateien im Bauweg"); nenner_ohne_bauweg() hat dafuer einen
+// sechsten Parameter mit Vorgabe 0, alle aelteren Pins bleiben ganze Zeilen. Rot zuerst je Stufe gegen
+// die Wache 806629ca (das neue Binary gegen die alte Wache per COMDARE_PA1_WACHE_PFAD) -- FIX-r3.md.
+//
 // ASCII-only, Zeilen <= 120 Byte.
 // =============================================================================
 
@@ -161,6 +173,17 @@ constexpr std::size_t kGeparktN = sizeof kGeparkt / sizeof kGeparkt[0];
 // still gruen: der Nenner der Wache und der SOLL des Falls stammen aus derselben Quelle, git ls-files).
 constexpr std::size_t kGeparktOrdnerN = 1;
 
+// Ein EHRLICHER CMakeCache fuer die ISA-Faelle (19)-(21) (2026-09-18, Fix-r3): avx2 vorhanden (Wert 1,
+// _EXITCODE 0), avx512f fehlt (Wert leer, _EXITCODE 1) -- dieselbe Form wie kEhrlichAvx2 in
+// tests/unit/test_mt_l4_registrierungs_wache_isa.cpp. Damit traegt 'isa:avx512f' (das Merkmal fehlt dem
+// Bau-Host) -- die Faelle hier brauchen die tragende Seite als Arrangement und Gegenrichtung.
+constexpr char const* kIsaCacheAvx2DaAvx512fFehlt = "COMDARE_HOST_RUNS_AVX2:INTERNAL=1\n"
+                                                    "COMDARE_HOST_RUNS_AVX2_COMPILED:INTERNAL=TRUE\n"
+                                                    "COMDARE_HOST_RUNS_AVX2_EXITCODE:INTERNAL=0\n"
+                                                    "COMDARE_HOST_RUNS_AVX512F:INTERNAL=\n"
+                                                    "COMDARE_HOST_RUNS_AVX512F_COMPILED:INTERNAL=TRUE\n"
+                                                    "COMDARE_HOST_RUNS_AVX512F_EXITCODE:INTERNAL=1\n";
+
 [[nodiscard]] std::string wachen_pfad() {
     if (char const* const ueberschrieben = std::getenv("COMDARE_PA1_WACHE_PFAD");
         ueberschrieben != nullptr && *ueberschrieben != '\0') {
@@ -183,15 +206,18 @@ void berichten(char const* fall, Lauf const& lauf, std::string const& marke) {
 // mit allen Feldern: wer ein Feld umbenennt, verschiebt oder seinen Zaehler in einen fremden Kontext
 // traegt, faellt hier laut. Die Reihenfolge der Felder ist die der Wache (scripts/ci_test_registrierungs_
 // wache.sh, Block NENNER und Endzeile); eine Aenderung dort zieht diese vier Helfer nach.
+// SECHSTES FELD (2026-09-18, Fix-r3, Lens C LC3W-05): "N mit Formfehler fuer Dateien im Bauweg" -- der
+// Parameter 'form' hat die Vorgabe 0, damit jeder aeltere Pin weiter die GANZE Zeile prueft.
 // ---------------------------------------------------------------------------
 [[nodiscard]] std::string z(std::size_t n) { return std::to_string(n); }
 
 [[nodiscard]] std::string nenner_ohne_bauweg(std::size_t anker, std::size_t archiv_zeilen, std::size_t ort_zeilen,
-                                             std::size_t geist, std::size_t doppelt) {
+                                             std::size_t geist, std::size_t doppelt, std::size_t form = 0) {
     return "dazu UNPRUEFBAR ohne Bezug zum Bauweg: " + z(anker) + " ARCHIV-Anker ohne Inhalt/Form, " +
            z(archiv_zeilen) + " Allowlist-Zeile(n) fuer ARCHIV-Dateien, " + z(ort_zeilen) +
            " fuer Pfade unter tests/deprecated/ ohne wirksamen Anker, " + z(geist) +
-           " ohne Gegenstand im SOLL-Bestand, " + z(doppelt) + " Pfad(e) mit doppelter Zeile.";
+           " ohne Gegenstand im SOLL-Bestand, " + z(doppelt) + " Pfad(e) mit doppelter Zeile, " + z(form) +
+           " mit Formfehler fuer Dateien im Bauweg.";
 }
 
 [[nodiscard]] std::string nenner_davon(std::size_t begruendet, std::size_t erloschen, std::size_t tot,
@@ -309,8 +335,22 @@ public:
                      zitiert(baum_));
     }
 
+    // Ein CMakeCache.txt im Bau-Baum (2026-09-18, Fix-r3, Faelle (19)-(21)): 'isa:'-Zeilen lesen ihn;
+    // ohne ihn ist jede 'isa:'-Zeile Exit 2. Der Inhalt kommt vom Fall, damit jede Stufe ihren Cache sieht.
+    [[nodiscard]] testing::AssertionResult isa_cache_schreiben(std::string const& inhalt) const {
+        std::ofstream aus{baum_ / "CMakeCache.txt", std::ios::trunc};
+        if (!aus.good()) { return testing::AssertionFailure() << "CMakeCache.txt nicht schreibbar"; }
+        aus << inhalt;
+        aus.close();
+        if (!fs::exists(baum_ / "CMakeCache.txt")) {
+            return testing::AssertionFailure() << "CMakeCache.txt fehlt nach dem Schreiben";
+        }
+        return testing::AssertionSuccess();
+    }
+
     [[nodiscard]] WegwerfRepo const& repo() const { return repo_; }
     [[nodiscard]] std::string const& waise() const { return waise_; }
+    [[nodiscard]] fs::path const&    baum() const { return baum_; }
 
 private:
     std::string marke_;
@@ -1399,6 +1439,504 @@ TEST(Pa1ToteAusnahme, WerkzeugAusfallInDerNennerPipelineIstExit2) {
     berichten("WerkzeugAusfallInDerNennerPipelineIstExit2/Koeder-entfernt", wieder, marke);
     EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
     EXPECT_TRUE(enthaelt(wieder.ausgabe, endzeile_ok(1, 1))) << wieder.ausgabe;
+}
+
+// =============================================================================
+// (19) LEERE ISA-TEILMERKMALE SIND UNPRUEFBAR (Lens C LC3W-07, Fix-r3). Bis 806629ca wurde ein leeres
+//      Teilmerkmal still uebersprungen: 'isa:+avx512f' galt wie 'isa:avx512f' (Exit 0). Die Form ist
+//      isa:<merkmal>[+<merkmal>] -- kein '+' am Rand, kein '++'. Geprueft wird die FORM vor dem Cache:
+//      der Nenner sagt "ISA-Gegenprobe: nicht gefragt". Gegenrichtung (a): dieselbe Zeile wohlgeformt
+//      traegt, weil avx512f dem Bau-Host des Falls fehlt (kIsaCacheAvx2DaAvx512fFehlt).
+// =============================================================================
+TEST(Pa1ToteAusnahme, IsaLeeresTeilmerkmalIstUnpruefbar) {
+    std::string const marke = koeder();
+    Fall              fall{marke};
+    ASSERT_TRUE(fall.init());
+    ASSERT_TRUE(fall.isa_cache_schreiben(kIsaCacheAvx2DaAvx512fFehlt));
+
+    // (a) Arrangement und Gegenrichtung: wohlgeformt, avx512f fehlt -> begruendet.
+    ASSERT_TRUE(fall.allowlist_setzen("isa:avx512f"));
+    Lauf const gesund = fall.fahren();
+    berichten("IsaLeeresTeilmerkmalIstUnpruefbar/wohlgeformt", gesund, marke);
+    ASSERT_EQ(gesund.code, 0) << "Das Arrangement ist falsch: 'isa:avx512f' traegt nicht.\n" << gesund.ausgabe;
+    EXPECT_TRUE(enthaelt(gesund.ausgabe, "avx512f=nein")) << gesund.ausgabe;
+    EXPECT_TRUE(enthaelt(gesund.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << gesund.ausgabe;
+    EXPECT_TRUE(enthaelt(gesund.ausgabe, endzeile_ok(2, 0))) << gesund.ausgabe;
+
+    // (b)-(d) ein leeres Teilmerkmal am Anfang, am Ende, in der Mitte.
+    for (char const* const merkmal : {"+avx512f", "avx512f+", "avx2++avx512f"}) {
+        ASSERT_TRUE(fall.allowlist_setzen(std::string{"isa:"} + merkmal));
+        Lauf const leer = fall.fahren();
+        berichten((std::string{"IsaLeeresTeilmerkmalIstUnpruefbar/isa:"} + merkmal).c_str(), leer, marke);
+        EXPECT_EQ(leer.code, 1) << "'isa:" << merkmal << "' hat ein leeres Teilmerkmal -- ROT.\n" << leer.ausgabe;
+        EXPECT_TRUE(
+            enthaelt(leer.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"isa:" + merkmal + "\" hat ein leeres Teilmerkmal"))
+            << leer.ausgabe;
+        EXPECT_TRUE(enthaelt(leer.ausgabe, "ISA-Gegenprobe: nicht gefragt"))
+            << "Die Form wird VOR dem Cache geprueft -- der Cache darf nicht gelesen worden sein.\n"
+            << leer.ausgabe;
+        EXPECT_TRUE(enthaelt(leer.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << leer.ausgabe;
+        EXPECT_TRUE(enthaelt(leer.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << leer.ausgabe;
+    }
+}
+
+// =============================================================================
+// (20) ISA-BELEGE MUESSEN EINDEUTIG SEIN (Lens C LC3W-08, Fix-r3). Die Wertzeile musste schon GENAU
+//      EINMAL im Cache stehen; _COMPILED und _EXITCODE nicht -- eine zweite Zeile schlief oder gewann
+//      je nach Reihenfolge (gegen 806629ca je Exit 0). Und bei leerem Wert ('nein') liess ein LEERER
+//      _EXITCODE durch, obwohl try_run beide Zeilen gemeinsam schreibt. Jede Stufe ist Exit 2 (die
+//      ISA-Frage ist unbeantwortbar), nie ein Befund; Gegenrichtung: der ehrliche Cache traegt.
+// =============================================================================
+TEST(Pa1ToteAusnahme, IsaBelegeMuessenEindeutigSein) {
+    std::string const marke = koeder();
+    Fall              fall{marke};
+    ASSERT_TRUE(fall.init());
+    ASSERT_TRUE(fall.allowlist_setzen("isa:avx512f"));
+    std::string const gesund_cache{kIsaCacheAvx2DaAvx512fFehlt};
+
+    ASSERT_TRUE(fall.isa_cache_schreiben(gesund_cache));
+    Lauf const gesund = fall.fahren();
+    berichten("IsaBelegeMuessenEindeutigSein/ehrlicher-Cache", gesund, marke);
+    ASSERT_EQ(gesund.code, 0) << "Das Arrangement ist falsch: der ehrliche Cache traegt nicht.\n" << gesund.ausgabe;
+
+    struct Stufe {
+        char const* name;
+        std::string cache;
+        char const* meldung;
+    };
+    std::vector<Stufe> const stufen{
+        {"_COMPILED-doppelt", gesund_cache + "COMDARE_HOST_RUNS_AVX512F_COMPILED:INTERNAL=FALSE\n",
+         "'COMDARE_HOST_RUNS_AVX512F_COMPILED' steht 2-mal in"},
+        {"_EXITCODE-doppelt", gesund_cache + "COMDARE_HOST_RUNS_AVX512F_EXITCODE:INTERNAL=0\n",
+         "'COMDARE_HOST_RUNS_AVX512F_EXITCODE' steht 2-mal in"},
+        {"nein-mit-leerem-_EXITCODE",
+         "COMDARE_HOST_RUNS_AVX512F:INTERNAL=\n"
+         "COMDARE_HOST_RUNS_AVX512F_COMPILED:INTERNAL=TRUE\n"
+         "COMDARE_HOST_RUNS_AVX512F_EXITCODE:INTERNAL=\n",
+         "'COMDARE_HOST_RUNS_AVX512F' ist leer und 'COMDARE_HOST_RUNS_AVX512F_EXITCODE' ist es auch"},
+    };
+    for (auto const& s : stufen) {
+        ASSERT_TRUE(fall.isa_cache_schreiben(s.cache));
+        Lauf const lauf = fall.fahren();
+        berichten((std::string{"IsaBelegeMuessenEindeutigSein/"} + s.name).c_str(), lauf, marke);
+        EXPECT_EQ(lauf.code, 2) << s.name << ": ein nicht eindeutiger Beleg ist UNBEANTWORTBAR -- Exit 2.\n"
+                                << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, "ABBRUCH: ")) << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, s.meldung)) << s.name << ": die Meldung muss den Beleg nennen.\n"
+                                                       << lauf.ausgabe;
+        EXPECT_FALSE(enthaelt(lauf.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << lauf.ausgabe;
+    }
+
+    // Gegenrichtung: der ehrliche Cache traegt wieder.
+    ASSERT_TRUE(fall.isa_cache_schreiben(gesund_cache));
+    Lauf const wieder = fall.fahren();
+    berichten("IsaBelegeMuessenEindeutigSein/ehrlicher-Cache-wieder", wieder, marke);
+    EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
+    EXPECT_TRUE(enthaelt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
+}
+
+// =============================================================================
+// (21) WERKZEUG-AUSFALL IM ISA-PFAD IST EXIT 2 (Lens C LC3W-01, Fix-r3). Die Fassung 806629ca zaehlte die
+//      Cache-Zeilen mit 'sed | wc -l | tr': ein Ausfall vor dem letzten Glied war unsichtbar, und ein
+//      ausgefallenes wc hinterliess einen leeren Zaehler, den jedes '-eq 0' still uebersprang -- Exit 0
+//      (Shell-Probe im Beweisort FIX-r3.md, stdin-lesender wc-Koeder). Jetzt laeuft der ISA-Teil ueber
+//      grep_in_datei und zeilen_zaehlen; zeilen_zaehlen reicht den DATEINAMEN an wc, deshalb kann ein
+//      PATH-Koeder gezielt an der ISA-Zwischendatei scheitern. Gegenrichtung: ohne Koeder Exit 0.
+// =============================================================================
+TEST(Pa1ToteAusnahme, WerkzeugAusfallImIsaPfadIstExit2) {
+    std::string const marke = koeder();
+    Fall              fall{marke};
+    ASSERT_TRUE(fall.init());
+    ASSERT_TRUE(fall.isa_cache_schreiben(kIsaCacheAvx2DaAvx512fFehlt));
+    ASSERT_TRUE(fall.allowlist_setzen("isa:avx512f"));
+    Lauf const gesund = fall.fahren();
+    berichten("WerkzeugAusfallImIsaPfadIstExit2/ohne-Koeder", gesund, marke);
+    ASSERT_EQ(gesund.code, 0) << "Das Arrangement ist falsch: der gesunde Baum ist nicht gruen.\n" << gesund.ausgabe;
+
+    Lauf const wo = im_repo(fall.repo(), "command -v wc");
+    ASSERT_EQ(wo.code, 0) << wo.ausgabe;
+    std::string const echtes_wc = wo.ausgabe;
+    ASSERT_FALSE(echtes_wc.empty());
+    fs::path const    bin  = fall.repo().pfad() / "koeder_bin";
+    std::string const pfad = "PATH=\"" + bin.string() + ":$PATH\"";
+    // Der Koeder scheitert NUR, wenn seine Argumente die ISA-Zwischendatei nennen; alle anderen
+    // Zaehlungen der Wache laufen durch das echte wc.
+    ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "wc",
+                                   "#!/bin/sh\n# PATH-Koeder des Falls " + marke +
+                                       ": 'wc' scheitert an der ISA-Zwischendatei, sonst echtes wc.\n"
+                                       "case \"$*\" in *isa_*) exit 1 ;; esac\nexec " +
+                                       echtes_wc + " \"$@\"\n"));
+    ASSERT_TRUE(fall.repo().schreibe("isa_wert_probe.txt", "x\n"));
+    Lauf const probe_isa = im_repo(fall.repo(), pfad + " wc -l isa_wert_probe.txt");
+    ASSERT_EQ(probe_isa.code, 1) << "Arrangement: der wc-Koeder scheitert nicht an 'isa_':\n" << probe_isa.ausgabe;
+    Lauf const probe_echt = im_repo(fall.repo(), "wc -l isa_wert_probe.txt");
+    ASSERT_EQ(probe_echt.code, 0) << "Arrangement: das echte wc zaehlt die Probedatei nicht:\n" << probe_echt.ausgabe;
+    Lauf const probe_rest = im_repo(fall.repo(), pfad + " wc -l /dev/null");
+    ASSERT_EQ(probe_rest.code, 0) << "Arrangement: der wc-Koeder reicht andere Aufrufe nicht durch:\n"
+                                  << probe_rest.ausgabe;
+
+    Lauf const ausfall = fall.fahren("", pfad);
+    berichten("WerkzeugAusfallImIsaPfadIstExit2/wc-Koeder-an-isa_wert", ausfall, marke);
+    EXPECT_EQ(ausfall.code, 2) << "Ein Werkzeug-Ausfall im ISA-Pfad ist 'konnte nicht pruefen' -- Exit 2.\n"
+                               << ausfall.ausgabe;
+    EXPECT_TRUE(enthaelt(ausfall.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'wc -l' ueber")) << ausfall.ausgabe;
+    EXPECT_TRUE(enthaelt(ausfall.ausgabe, "isa_wert.txt")) << "Der Abbruch muss die ISA-Zwischendatei nennen.\n"
+                                                           << ausfall.ausgabe;
+    EXPECT_FALSE(enthaelt(ausfall.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << ausfall.ausgabe;
+
+    std::error_code ec;
+    fs::remove(bin / "wc", ec);
+    ASSERT_FALSE(fs::exists(bin / "wc"));
+    Lauf const wieder = fall.fahren("", pfad);
+    berichten("WerkzeugAusfallImIsaPfadIstExit2/Koeder-entfernt", wieder, marke);
+    EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
+    EXPECT_TRUE(enthaelt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
+}
+
+// =============================================================================
+// (22) GREP-STATUS 2 IST EXIT 2, KEIN NICHTTREFFER (Lens C LC3W-02, Fix-r3). 'if ! grep -q' nahm einen
+//      Status 2 (Datei unlesbar) als "nicht gefunden": an der Gegenprobe wurde daraus "steht NICHT in
+//      compile_commands.json" (Exit 2 mit falscher Diagnose), an der Zuordnung im Nachscan ein
+//      Datenbefund. Jetzt laeuft jeder grep durch grep_in_datei: 0/1 sind Antworten, ab 2 ist ein
+//      Werkzeug-Ausfall. Arrangement: die IST-Datei des Bau-Baums wird unlesbar gemacht -- per chmod 000;
+//      liest sie der Nutzer trotzdem (root, CAP_DAC_OVERRIDE), ersatzweise als Symlink auf /proc/self/mem
+//      (eine regulaere Datei, deren Lesen mit EIO scheitert); ist auch das nicht herstellbar, wird der
+//      Fall LAUT uebersprungen, nie still gruen. Gegenrichtung: wieder lesbar -> Exit 0.
+// =============================================================================
+TEST(Pa1ToteAusnahme, GrepStatusZweiIstExit2) {
+    std::string const marke = koeder();
+    Fall              fall{marke};
+    ASSERT_TRUE(fall.init());
+    ASSERT_TRUE(fall.allowlist_setzen("datei:tests/unit/kommt_vielleicht_" + marke + ".hpp"));
+    Lauf const gesund = fall.fahren();
+    berichten("GrepStatusZweiIstExit2/lesbar", gesund, marke);
+    ASSERT_EQ(gesund.code, 0) << gesund.ausgabe;
+
+    fs::path const  ist = fall.baum() / "compile_commands.json";
+    std::error_code ec;
+    fs::permissions(ist, fs::perms::none, fs::perm_options::replace, ec);
+    ASSERT_FALSE(ec) << "chmod 000 fehlgeschlagen: " << ec.message();
+    bool procfs = false;
+    Lauf lesbar = fahre("cat " + zitiert(ist) + " > /dev/null");
+    if (lesbar.code == 0) {
+        // root liest trotz chmod 000: zweite Herstellung ueber procfs.
+        fs::permissions(ist, fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::replace, ec);
+        fs::remove(ist, ec);
+        fs::create_symlink("/proc/self/mem", ist, ec);
+        procfs = true;
+        lesbar = fahre("cat " + zitiert(ist) + " > /dev/null");
+        if (ec || lesbar.code == 0 || !fs::is_regular_file(ist)) {
+            GTEST_SKIP() << "Die IST-Datei laesst sich auf diesem Host nicht unlesbar machen (root ohne "
+                            "procfs?) -- ohne dieses Arrangement waere die Stufe kein Beweis.";
+        }
+    }
+
+    Lauf const ausfall = fall.fahren();
+    berichten(procfs ? "GrepStatusZweiIstExit2/IST-Datei-EIO" : "GrepStatusZweiIstExit2/IST-Datei-chmod-000", ausfall,
+              marke);
+    EXPECT_EQ(ausfall.code, 2) << "Eine unlesbare IST-Datei ist ein Werkzeug-Ausfall -- Exit 2.\n" << ausfall.ausgabe;
+    EXPECT_TRUE(enthaelt(ausfall.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'grep' Gegenprobe")) << ausfall.ausgabe;
+    EXPECT_FALSE(enthaelt(ausfall.ausgabe, "steht NICHT in"))
+        << "Die alte Fehldiagnose (Nichttreffer statt Werkzeug-Ausfall) darf nicht mehr erscheinen.\n"
+        << ausfall.ausgabe;
+    EXPECT_FALSE(enthaelt(ausfall.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << ausfall.ausgabe;
+
+    // Gegenrichtung: wieder lesbar.
+    if (procfs) {
+        fs::remove(ist, ec);
+        ASSERT_TRUE(fall.bauweg_schreiben({kGegenprobe}));
+    } else {
+        fs::permissions(ist,
+                        fs::perms::owner_read | fs::perms::owner_write | fs::perms::group_read | fs::perms::others_read,
+                        fs::perm_options::replace, ec);
+        ASSERT_FALSE(ec) << ec.message();
+    }
+    Lauf const wieder = fall.fahren();
+    berichten("GrepStatusZweiIstExit2/wieder-lesbar", wieder, marke);
+    EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
+    EXPECT_TRUE(enthaelt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
+}
+
+// =============================================================================
+// (23) GIT-FEHLER IN DER ERREICHBARKEITS-PROBE SIND EXIT 2 (Lens C LC3W-03, Fix-r3). 'git check-ignore -q'
+//      kennt drei Antworten: 0 ignoriert, 1 nicht ignoriert, 128 git scheitert. Die Fassung 806629ca
+//      nahm 128 als "nicht ignoriert" und erklaerte ein Bauprodukt unter .gitignore fuer TOT (Exit 1,
+//      ein Datenurteil aus einem Werkzeugfehler); ein 'git ls-files' mit 128 galt als "kein Inhalt"
+//      (Shell-Proben im Beweisort FIX-r3.md). Aufbau wie Fall (3), dazu PATH-Koeder fuer git, die genau
+//      EINEN Unterbefehl mit 128 beenden. Gegenrichtung: ohne Koeder Exit 0.
+// =============================================================================
+TEST(Pa1ToteAusnahme, GitFehlerInDerErreichbarkeitsProbeIstExit2) {
+    std::string const marke = koeder();
+    Fall              fall{marke};
+    ASSERT_TRUE(fall.init());
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(".gitignore", "erzeugt_" + marke + "/\n"));
+    std::string const bauprodukt = "erzeugt_" + marke + "/artefakt.hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + bauprodukt));
+    Lauf const gesund = fall.fahren();
+    berichten("GitFehlerInDerErreichbarkeitsProbeIstExit2/ohne-Koeder", gesund, marke);
+    ASSERT_EQ(gesund.code, 0) << "Das Arrangement ist falsch: das Bauprodukt ist nicht erreichbar.\n" << gesund.ausgabe;
+
+    Lauf const wo = im_repo(fall.repo(), "command -v git");
+    ASSERT_EQ(wo.code, 0) << wo.ausgabe;
+    std::string const echtes_git = wo.ausgabe;
+    ASSERT_FALSE(echtes_git.empty());
+    fs::path const    bin  = fall.repo().pfad() / "koeder_bin";
+    std::string const pfad = "PATH=\"" + bin.string() + ":$PATH\"";
+    std::error_code   ec;
+
+    // (a) 'git check-ignore' endet mit 128.
+    ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "git",
+                                   "#!/bin/sh\n# PATH-Koeder des Falls " + marke +
+                                       ": 'check-ignore' scheitert mit 128.\n"
+                                       "if [ \"$1\" = check-ignore ]; then echo 'fatal: Koeder' >&2; exit 128; fi\n"
+                                       "exec " +
+                                       echtes_git + " \"$@\"\n"));
+    Lauf const probe_ci = im_repo(fall.repo(), pfad + " git check-ignore -q -- x");
+    ASSERT_EQ(probe_ci.code, 128) << "Arrangement: der git-Koeder liefert keine 128:\n" << probe_ci.ausgabe;
+    Lauf const ci = fall.fahren("", pfad);
+    berichten("GitFehlerInDerErreichbarkeitsProbeIstExit2/check-ignore-128", ci, marke);
+    EXPECT_EQ(ci.code, 2) << "Ein git-Fehler ist keine Antwort auf 'ignoriert?' -- Exit 2.\n" << ci.ausgabe;
+    EXPECT_TRUE(enthaelt(ci.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'git check-ignore' fuer " + bauprodukt))
+        << ci.ausgabe;
+    EXPECT_FALSE(enthaelt(ci.ausgabe, "TOTE AUSNAHME -- der Gegenstand"))
+        << "Aus einem Werkzeugfehler darf kein Datenurteil werden.\n"
+        << ci.ausgabe;
+    EXPECT_FALSE(enthaelt(ci.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << ci.ausgabe;
+    fs::remove(bin / "git", ec);
+    ASSERT_FALSE(fs::exists(bin / "git"));
+
+    // (b) 'git ls-files -- <pfad>' (die Index-Frage der Probe) endet mit 128; 'ls-files' ohne '--' (SOLL)
+    //     und 'ls-files -s' (Anker) laufen echt.
+    ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "git",
+                                   "#!/bin/sh\n# PATH-Koeder des Falls " + marke +
+                                       ": 'ls-files --' scheitert mit 128.\n"
+                                       "if [ \"$1\" = ls-files ] && [ \"$2\" = -- ]; then echo 'fatal: Koeder' >&2; "
+                                       "exit 128; fi\nexec " +
+                                       echtes_git + " \"$@\"\n"));
+    Lauf const probe_lf = im_repo(fall.repo(), pfad + " git ls-files -- x");
+    ASSERT_EQ(probe_lf.code, 128) << probe_lf.ausgabe;
+    Lauf const probe_soll = im_repo(fall.repo(), pfad + " git ls-files");
+    ASSERT_EQ(probe_soll.code, 0) << "Arrangement: der Koeder trifft auch das SOLL:\n" << probe_soll.ausgabe;
+    Lauf const lf = fall.fahren("", pfad);
+    berichten("GitFehlerInDerErreichbarkeitsProbeIstExit2/ls-files-128", lf, marke);
+    EXPECT_EQ(lf.code, 2) << lf.ausgabe;
+    EXPECT_TRUE(enthaelt(lf.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'git ls-files' fuer " + bauprodukt)) << lf.ausgabe;
+    EXPECT_FALSE(enthaelt(lf.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << lf.ausgabe;
+    fs::remove(bin / "git", ec);
+    ASSERT_FALSE(fs::exists(bin / "git"));
+
+    // (c) Gegenrichtung.
+    Lauf const wieder = fall.fahren("", pfad);
+    berichten("GitFehlerInDerErreichbarkeitsProbeIstExit2/Koeder-entfernt", wieder, marke);
+    EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
+    EXPECT_TRUE(enthaelt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
+}
+
+// =============================================================================
+// (24) DER ANKER MUSS EIN BLOB IN DER OBJEKTDATENBANK SEIN (Lens C LC3W-06 / LC3W-03, Fix-r3). Der
+//      Index-Modus 100644 verspricht ein Blob, prueft es aber nicht: 'git update-index --cacheinfo' legt
+//      jedes Objekt unter jedem Modus ab. Ein TREE unter 100644 ankerte gegen 806629ca (Exit 0, sein
+//      'cat-file -p' hat Nicht-Leerraum-Zeichen). Jetzt: 'cat-file -e' (Objekt da? 1 = fehlt -> UNPRUEFBAR,
+//      ein Datenbefund) und 'cat-file -t' == blob (sonst UNPRUEFBAR); scheitert git selbst, ist es Exit 2.
+//      Stufen: (a) Tree, (b) Fantasie-SHA, (c) echtes Blob (Gegenrichtung), (d) git-Koeder 'cat-file -t' 128.
+// =============================================================================
+TEST(Pa1ToteAusnahme, ArchivAnkerMussBlobInDerObjektdatenbankSein) {
+    std::string const marke  = koeder();
+    std::string const ordner = "tests/deprecated/objekt_" + marke;
+    std::string const anker  = ordner + "/VERMERK.md";
+    Fall              fall{marke, ordner + "/test_waise_" + marke + ".cpp"};
+    ASSERT_TRUE(fall.init());
+
+    // (a) ein Tree-Objekt unter 100644.
+    Lauf const tree = im_repo(fall.repo(), "git write-tree");
+    ASSERT_EQ(tree.code, 0) << tree.ausgabe;
+    ASSERT_EQ(tree.ausgabe.size(), 40U) << "kein SHA-1: '" << tree.ausgabe << "'";
+    Lauf const typ = im_repo(fall.repo(), "git cat-file -t " + tree.ausgabe);
+    ASSERT_EQ(typ.ausgabe, "tree") << "Arrangement: das Objekt ist kein Tree:\n" << typ.ausgabe;
+    Lauf const cacheinfo =
+        im_repo(fall.repo(), "git update-index --add --cacheinfo 100644," + tree.ausgabe + "," + anker);
+    ASSERT_EQ(cacheinfo.code, 0) << cacheinfo.ausgabe;
+    Lauf const eintrag = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(anker));
+    ASSERT_TRUE(enthaelt(eintrag.ausgabe, "100644 " + tree.ausgabe + " 0\t" + anker)) << "Arrangement:\n"
+                                                                                      << eintrag.ausgabe;
+    Lauf const als_tree = fall.fahren();
+    berichten("ArchivAnkerMussBlobInDerObjektdatenbankSein/Tree-unter-100644", als_tree, marke);
+    EXPECT_EQ(als_tree.code, 1) << "Ein Tree ist kein Anker -- die Datei bleibt im SOLL, ROT.\n" << als_tree.ausgabe;
+    EXPECT_TRUE(enthaelt(als_tree.ausgabe, anker + " -- UNPRUEFBARER ANKER: Objekttyp tree ist kein Blob (Index-Modus"
+                                                   " 100644 verspricht eines)"))
+        << als_tree.ausgabe;
+    EXPECT_TRUE(enthaelt(als_tree.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << als_tree.ausgabe;
+    EXPECT_TRUE(enthaelt(als_tree.ausgabe, fall.waise())) << als_tree.ausgabe;
+    EXPECT_TRUE(enthaelt(als_tree.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0))) << als_tree.ausgabe;
+    EXPECT_TRUE(enthaelt(als_tree.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << als_tree.ausgabe;
+
+    // (b) ein SHA ohne Objekt.
+    std::string const fantasie = "0123456789012345678901234567890123456789";
+    Lauf const cacheinfo2 = im_repo(fall.repo(), "git update-index --add --cacheinfo 100644," + fantasie + "," + anker);
+    ASSERT_EQ(cacheinfo2.code, 0) << cacheinfo2.ausgabe;
+    Lauf const fehlt_probe = im_repo(fall.repo(), "git cat-file -e " + fantasie);
+    ASSERT_EQ(fehlt_probe.code, 1) << "Arrangement: das Objekt existiert doch:\n" << fehlt_probe.ausgabe;
+    Lauf const ohne_objekt = fall.fahren();
+    berichten("ArchivAnkerMussBlobInDerObjektdatenbankSein/Objekt-fehlt", ohne_objekt, marke);
+    EXPECT_EQ(ohne_objekt.code, 1) << ohne_objekt.ausgabe;
+    EXPECT_TRUE(enthaelt(ohne_objekt.ausgabe,
+                         anker + " -- UNPRUEFBARER ANKER: Blob " + fantasie + " fehlt in der Objektdatenbank"))
+        << ohne_objekt.ausgabe;
+    EXPECT_TRUE(enthaelt(ohne_objekt.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0))) << ohne_objekt.ausgabe;
+    EXPECT_TRUE(enthaelt(ohne_objekt.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << ohne_objekt.ausgabe;
+
+    // (c) Gegenrichtung: ein echtes Blob traegt.
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(anker, "# Anker mit Inhalt " + marke + "\n"));
+    Lauf const blob = fall.fahren();
+    berichten("ArchivAnkerMussBlobInDerObjektdatenbankSein/echtes-Blob", blob, marke);
+    EXPECT_EQ(blob.code, 0) << blob.ausgabe;
+    EXPECT_TRUE(enthaelt(blob.ausgabe, endzeile_ok(1, 1))) << blob.ausgabe;
+
+    // (d) git selbst scheitert an 'cat-file -t': Exit 2, kein Befund.
+    Lauf const wo = im_repo(fall.repo(), "command -v git");
+    ASSERT_EQ(wo.code, 0) << wo.ausgabe;
+    Lauf const blob_sha = im_repo(fall.repo(), "git hash-object -- " + zitiert(anker));
+    ASSERT_EQ(blob_sha.ausgabe.size(), 40U) << blob_sha.ausgabe;
+    fs::path const    bin  = fall.repo().pfad() / "koeder_bin";
+    std::string const pfad = "PATH=\"" + bin.string() + ":$PATH\"";
+    ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "git",
+                                   "#!/bin/sh\n# PATH-Koeder des Falls " + marke +
+                                       ": 'cat-file -t' scheitert mit 128.\n"
+                                       "if [ \"$1\" = cat-file ] && [ \"$2\" = -t ]; then echo 'fatal: Koeder' >&2; "
+                                       "exit 128; fi\nexec " +
+                                       wo.ausgabe + " \"$@\"\n"));
+    Lauf const probe = im_repo(fall.repo(), pfad + " git cat-file -t " + blob_sha.ausgabe);
+    ASSERT_EQ(probe.code, 128) << "Arrangement: der git-Koeder liefert keine 128:\n" << probe.ausgabe;
+    Lauf const probe_echt = im_repo(fall.repo(), "git cat-file -t " + blob_sha.ausgabe);
+    ASSERT_EQ(probe_echt.ausgabe, "blob") << "Arrangement: das echte git kennt das Blob nicht:\n" << probe_echt.ausgabe;
+    Lauf const ausfall = fall.fahren("", pfad);
+    berichten("ArchivAnkerMussBlobInDerObjektdatenbankSein/cat-file-t-128", ausfall, marke);
+    EXPECT_EQ(ausfall.code, 2) << ausfall.ausgabe;
+    EXPECT_TRUE(enthaelt(ausfall.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'git cat-file -t' fuer den Anker " + anker))
+        << ausfall.ausgabe;
+    EXPECT_FALSE(enthaelt(ausfall.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << ausfall.ausgabe;
+    std::error_code ec;
+    fs::remove(bin / "git", ec);
+    ASSERT_FALSE(fs::exists(bin / "git"));
+    Lauf const wieder = fall.fahren("", pfad);
+    berichten("ArchivAnkerMussBlobInDerObjektdatenbankSein/Koeder-entfernt", wieder, marke);
+    EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
+    EXPECT_TRUE(enthaelt(wieder.ausgabe, endzeile_ok(1, 1))) << wieder.ausgabe;
+}
+
+// =============================================================================
+// (25) EIN AUSFALL VON 'date' IST EXIT 2 (Lens C LC3W-04, Fix-r3). HEUTE=$(date ...) ohne Statuspruefung
+//      endete unter 'set -e' mit dem Rohstatus von date -- Exit 1, von einem Befund nicht zu unterscheiden
+//      (Shell-Probe im Beweisort FIX-r3.md). Jetzt: werkzeug_abbruch, Exit 2. Mit COMDARE_WACHE_HEUTE
+//      wird date nicht gefragt -- derselbe Koeder ist dann wirkungslos (Gegenrichtung 1); ohne Koeder
+//      Exit 0 (Gegenrichtung 2). Die uebrigen direkten Werkzeuge der Fassung 806629ca (sed fuer die
+//      eingerueckte Ausgabe und die Ordnernamen, cut/sed/tr fuer die Felder) sind aus der Wache entfernt
+//      -- ohne Werkzeug kein Ausfall (Kopf der Wache, Folge (6)).
+// =============================================================================
+TEST(Pa1ToteAusnahme, DateAusfallIstExit2) {
+    std::string const marke = koeder();
+    Fall              fall{marke};
+    ASSERT_TRUE(fall.init());
+    ASSERT_TRUE(fall.allowlist_setzen("datei:tests/unit/kommt_vielleicht_" + marke + ".hpp"));
+    fs::path const    bin  = fall.repo().pfad() / "koeder_bin";
+    std::string const pfad = "PATH=\"" + bin.string() + ":$PATH\"";
+    ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "date",
+                                   "#!/bin/sh\n# PATH-Koeder des Falls " + marke + ": 'date' scheitert.\nexit 1\n"));
+    Lauf const probe = im_repo(fall.repo(), pfad + " date +%Y-%m-%d");
+    ASSERT_EQ(probe.code, 1) << "Arrangement: der date-Koeder scheitert nicht:\n" << probe.ausgabe;
+
+    Lauf const ausfall = fall.fahren("", pfad);
+    berichten("DateAusfallIstExit2/date-Koeder", ausfall, marke);
+    EXPECT_EQ(ausfall.code, 2) << "Ohne belastbares Heute kann die Wache nicht pruefen -- Exit 2, nie Rohstatus.\n"
+                               << ausfall.ausgabe;
+    EXPECT_TRUE(enthaelt(ausfall.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'date +%Y-%m-%d'")) << ausfall.ausgabe;
+    EXPECT_FALSE(enthaelt(ausfall.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << ausfall.ausgabe;
+
+    // Gegenrichtung 1: das Heute vorgegeben -> date wird nicht gefragt, der Koeder bleibt wirkungslos.
+    Lauf const vorgegeben = fall.fahren("2026-09-18", pfad);
+    berichten("DateAusfallIstExit2/Heute-vorgegeben", vorgegeben, marke);
+    EXPECT_EQ(vorgegeben.code, 0) << vorgegeben.ausgabe;
+    EXPECT_TRUE(enthaelt(vorgegeben.ausgabe, "2026-09-18 -- Herkunft: COMDARE_WACHE_HEUTE (ueberschrieben)"))
+        << vorgegeben.ausgabe;
+
+    // Gegenrichtung 2: ohne Koeder.
+    std::error_code ec;
+    fs::remove(bin / "date", ec);
+    ASSERT_FALSE(fs::exists(bin / "date"));
+    Lauf const wieder = fall.fahren("", pfad);
+    berichten("DateAusfallIstExit2/Koeder-entfernt", wieder, marke);
+    EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
+    EXPECT_TRUE(enthaelt(wieder.ausgabe, "Herkunft: Systemuhr")) << wieder.ausgabe;
+}
+
+// =============================================================================
+// (26) DIE FORM GILT AUCH FUER DIE STUMME ZEILE EINER DATEI IM BAUWEG (Lens C LC3W-05, Fix-r3). Die
+//      Schleife der Wache prueft Feld 2 und 3 nur an Zeilen, die sie auswertet (Dateien, die dem Bauweg
+//      fehlen). Eine Zeile fuer eine Datei IM Bauweg ist stumm -- das ist Design (Lens A LA3-08: die
+//      'isa:'-Zeile ist auf dem AVX-512-Host genau so stumm) -- aber ein Formfehler darin lag in Reserve:
+//      gegen 806629ca war jede der Stufen (a)-(d) Exit 0 (Shell-Proben im Beweisort FIX-r3.md; die
+//      Lead-Triage hatte den Fund als widerlegt gefuehrt, die Test-Auflage widerlegte die Widerlegung).
+//      Jetzt prueft der Nachscan die Form ALLER Datenzeilen mit demselben Helfer wie die Schleife und
+//      zaehlt Formfehler stummer Zeilen als eigene Klasse (sechstes Nenner-Feld). Gegenstand: die
+//      Gegenprobe-Datei des Falls (sie steht immer im Bauweg); die Waise traegt daneben eine gueltige
+//      Zeile und muss begruendet bleiben. Die ISA-Stufe hat KEINEN CMakeCache.txt und ist trotzdem Exit 1,
+//      nicht Exit 2: Form vor Cache. (e) Gegenrichtung: eine WOHLGEFORMTE stumme Zeile bleibt stumm --
+//      Exit 0, ihr Feld 3 erscheint nie in der Ausgabe.
+// =============================================================================
+TEST(Pa1ToteAusnahme, AllowlistFormfehlerFuerDateiImBauwegIstUnpruefbar) {
+    std::string const marke = koeder();
+    Fall              fall{marke};
+    ASSERT_TRUE(fall.init());
+    std::string const lebendig = "tests/unit/kommt_vielleicht_" + marke + ".hpp";
+    std::string const tragend  = fall.waise() + " | datei:" + lebendig + " | Koeder " + marke + "\n";
+    std::string const gebaut   = kGegenprobe; // steht im Bauweg des Falls
+
+    struct Stufe {
+        char const* name;
+        std::string zeile;
+        std::string meldung;
+    };
+    std::vector<Stufe> const rot{
+        {"Feld-3-leer", gebaut + " | datei:tests/unit/x_" + marke + ".hpp |\n",
+         gebaut + " -- UNPRUEFBAR: Feld 3 (Begruendung) ist leer"},
+        {"Art-unbekannt", gebaut + " | foo:x | Text " + marke + "\n",
+         gebaut + " -- UNPRUEFBAR: Feld 2 ist \"foo:x\" -- keine bekannte Art"},
+        {"ISA-Merkmal-unbekannt", gebaut + " | isa:sse9 | Text " + marke + "\n",
+         gebaut + " -- UNPRUEFBAR: unbekannte(s) ISA-Merkmal(e): sse9 (bekannt: avx2, avx512f)"},
+        {"kein-Datum", gebaut + " | frist:gestern | Text " + marke + "\n",
+         gebaut + " -- UNPRUEFBAR: \"frist:gestern\" ist kein Datum JJJJ-MM-TT"},
+    };
+    for (auto const& s : rot) {
+        ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
+                                         "# Allowlist des Falls " + marke + "\n" + tragend + s.zeile));
+        Lauf const lauf = fall.fahren();
+        berichten((std::string{"AllowlistFormfehlerFuerDateiImBauwegIstUnpruefbar/"} + s.name).c_str(), lauf, marke);
+        EXPECT_EQ(lauf.code, 1) << s.name << ": ein Formfehler in einer stummen Zeile ist ein Freibrief in Reserve"
+                                << " -- ROT.\n"
+                                << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, s.meldung)) << s.name << "\n" << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, "die Zeile gilt einer Datei IM Bauweg und ist stumm")) << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, nenner_davon(1, 0, 0, 0, 0)))
+            << "Die tragende Zeile der Waise darf nicht mit rot werden.\n"
+            << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0, 1))) << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << lauf.ausgabe;
+    }
+
+    // (e) Gegenrichtung: wohlgeformt und stumm.
+    std::string const stumm = gebaut + " | datei:tests/unit/y_" + marke + ".hpp | stumm " + marke + "\n";
+    ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
+                                     "# Allowlist des Falls " + marke + "\n" + tragend + stumm));
+    Lauf const gruen = fall.fahren();
+    berichten("AllowlistFormfehlerFuerDateiImBauwegIstUnpruefbar/wohlgeformt-stumm", gruen, marke);
+    EXPECT_EQ(gruen.code, 0) << "Eine wohlgeformte Zeile fuer eine Datei im Bauweg ist stumm -- kein Befund.\n"
+                             << gruen.ausgabe;
+    EXPECT_FALSE(enthaelt(gruen.ausgabe, "stumm " + marke))
+        << "Die stumme Zeile darf nie ausgewertet worden sein -- ihr Feld 3 gehoert nicht in die Ausgabe.\n"
+        << gruen.ausgabe;
+    EXPECT_TRUE(enthaelt(gruen.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << gruen.ausgabe;
+    EXPECT_TRUE(enthaelt(gruen.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0, 0))) << gruen.ausgabe;
+    EXPECT_TRUE(enthaelt(gruen.ausgabe, endzeile_ok(2, 0))) << gruen.ausgabe;
 }
 
 #endif // _WIN32
