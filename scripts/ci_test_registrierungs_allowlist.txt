@@ -89,6 +89,19 @@
 # Repos nennt. Ein Pfad AUSSERHALB des Repos (absolut oder mit '..'-Segment) wird gar
 # nicht beurteilt und nie als tot gemeldet; die Wache weist ihre Zahl im Nenner aus.
 #
+# WAS EIN VORFAHR SEIN MUSS, DAMIT ER TRAEGT (2026-09-19, Fix-r5 des OV-2-Zuges; Lens A r5 LA5-01/02/03/06,
+# Lens B r4 LB4-01/03; Wache, Kopf Folgen (11) und (12)): 'vorhandenes Verzeichnis' heisst ein Verzeichnis
+# MIT getracktem Inhalt. Eine getrackte DATEI als Vorfahr ('ext/README.md/x.hpp') traegt NICHT -- unter einer
+# Datei kann nie ein Kind entstehen, die Zeile ist TOT (rot; bis Fix-r5 galt sie als erreichbar). Ein SYMLINK
+# als Vorfahr und ein Pfad, der im Index im Merge-Konflikt mit ungleichen Typen je Stufe steht (Datei gegen
+# Gitlink), sind UNPRUEFBAR (rot): die Wache loest keinen Link auf und raet keinen Merge-Ausgang; ein Gitlink
+# zaehlt dagegen auf jeder Index-Stufe. DIE FORM DES PFADS: ein 'datei:'-Pfad ist kanonisch und repo-relativ
+# geschrieben -- kein './', kein '//', kein '/' am Ende, kein Segment '.' -- und enthaelt kein Zeichen, das
+# git in seiner Ausgabe quotiert (Tabulator, Steuerzeichen, Anfuehrungszeichen, Backslash); sonst ist die
+# Zeile UNPRUEFBAR (rot), auch als stumme Zeile einer Datei im Bauweg. Leerzeichen und Nicht-ASCII-Zeichen
+# im Pfad sind erlaubt (die Wache liest den Index mit core.quotePath=false) -- diese Datei selbst bleibt
+# nach Hausregel ASCII. Alle Klassen sind mit Koeder belegt (Faelle (27d-f), (28), (29)).
+#
 # -----------------------------------------------------------------------------
 # prt-art-Legacy: VIER GEPARKTE POSTEN. Frueher stand hier
 # 'datei:prt_art/include/prt_art/prt_art.hpp' -- eine Adresse, die NIEMAND je belegen
@@ -166,6 +179,11 @@
 # [Berichtigt 2026-09-18, Lens A LA-03: die vorige Fassung dieses Absatzes zitierte den ueberholten
 # Satz mit dem Wortlaut aus tests/unit/test_pa1_tote_ausnahme.cpp:122 statt aus dieser Datei und
 # liess die Frist-Saetze des W-B-Nachtrags ohne Marker stehen.]
+# [Berichtigt 2026-09-19, Lens B r4 LB4-I2 (Fix-r5): die Zeilennummer ':122' im vorigen Klammersatz gilt
+# fuer die Fassung fe692d47 und wandert mit jedem Kopf-NACHTRAG des Tests (am Stand c62cfc7e ist :122 eine
+# Trennzeile). Gemeint ist ohne Zeilennummer: der W-B-Absatz ueber der Konstante kGeparkt in
+# tests/unit/test_pa1_tote_ausnahme.cpp ("Der SOLL ist am DATEINAMEN verankert, die vier bleiben also im
+# SOLL und in der Allowlist"), dort seit 2026-09-17 mit UEBERHOLT-Marker.]
 #
 # WAS AN IHRE STELLE TRITT -- ein ORT, keine Ausnahme: scripts/ci_test_registrierungs_wache.sh nimmt
 # eine getrackte Test-Quelldatei unter tests/deprecated/<ordner>/ aus ihrem SOLL, wenn und nur wenn
