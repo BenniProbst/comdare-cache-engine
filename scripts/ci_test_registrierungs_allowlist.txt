@@ -101,6 +101,15 @@
 # Zeile UNPRUEFBAR (rot), auch als stumme Zeile einer Datei im Bauweg. Leerzeichen und Nicht-ASCII-Zeichen
 # im Pfad sind erlaubt (die Wache liest den Index mit core.quotePath=false) -- diese Datei selbst bleibt
 # nach Hausregel ASCII. Alle Klassen sind mit Koeder belegt (Faelle (27d-f), (28), (29)).
+# [Ergaenzt 2026-09-19, Fix-r6 des OV-2-Zuges; Lens A r6 LA6-01/02/03/06, Lens C r4 LC3W-15..18; Wache, Kopf
+# Folge (13)]: UNPRUEFBAR (rot) ist auch ein Vorfahr, der im Index im Merge-Konflikt als EINTRAG GEGEN EIN
+# VERZEICHNIS darunter steht (D/F: Gitlink oder Datei auf einer Stufe, Eintraege darunter auf einer anderen) --
+# die Meldung nennt die Stufen und Typen, nicht mehr fest 'Datei gegen Gitlink' --, und ein Vorfahr, der NUR im
+# Arbeitsbaum ein Symlink ist (nicht im Index). Die Formregel fuer den 'datei:'-Pfad gilt nur INNERHALB des Repos:
+# ein absoluter Pfad und ein Pfad mit '..'-Segment werden wie bisher gar nicht beurteilt (Nenner-Zeile 'AUSSERHALB',
+# s. o.). Ein Gegenstand, der als Symlink ohne Ziel vorliegt, ist ERLOSCHEN (der Pfad ist belegt). Nicht-ASCII-
+# Pfade zaehlen seit Fix-r6 auch im SOLL und am VERMERK.md-Anker (die Wache liest beide roh; bis 9223cbd5 fielen
+# sie dort STILL heraus). Faelle (6b), (27e2/e3/f2), (27g)-(27g3), (27h), (28f), (31).]
 #
 # -----------------------------------------------------------------------------
 # prt-art-Legacy: VIER GEPARKTE POSTEN. Frueher stand hier
