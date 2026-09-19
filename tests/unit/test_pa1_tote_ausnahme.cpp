@@ -118,6 +118,20 @@
 // Tiefe 2 unter dem Verzeichnis ist TOT, unter dem echten Gitlink bleibt es erreichbar. Rot zuerst gegen die
 // Wache 63f8abd4 (per COMDARE_PA1_WACHE_PFAD) -- FIX-r4.md.
 //
+// NACHTRAG 6 (2026-09-19, Fix-r5 des OV-2-Zuges: Lens A r5 LA5-01/02/03/06, Lens B r4 LB4-01/02/03/I1, Lead-
+// Entscheide O-12/O-14): Fall (27) traegt die Stufen (d) Symlink an Stelle des Gitlinks -> UNPRUEFBAR (die
+// Modus-Haelfte des Vergleichs; Mutant M1 ohne Modus ueberlebte 30/30), (e) Gitlink nur auf Index-Stufe 1 ->
+// erreichbar (O-12 Teil 1; Mutant M7 'nur Stufe 0' ueberlebte 30/30), (f) Typ-Konflikt Datei gegen Gitlink je
+// Stufe -> UNPRUEFBAR (O-12 Teil 2, wie der Anker im Konflikt). Fall (28): eine getrackte DATEI als Vorfahr ist
+// kein Verzeichnis -- der Gegenstand darunter ist TOT (gegen c62cfc7e Exit 0: fail-open seit 806629ca, am
+// echten Objekt Koeder 'ext/queuing/REPOS_OVERVIEW.md/x.hpp'). Fall (29): ein 'datei:'-Pfad mit quotierbarem
+// Zeichen (Tabulator, Backslash, Anfuehrungszeichen) oder ohne kanonische Form ('./', '//', '/' am Ende, Segment
+// '.') ist UNPRUEFBAR, auch als stumme Zeile; ein Nicht-ASCII-Gitlink-Pfad bleibt erreichbar (die Wache liest
+// den Index mit core.quotePath=false). Die Marke-Pins der Faelle (2) und (27b) fordern 'Koeder <marke>' -- Feld 3
+// der GELESENEN Zeile -- statt der blossen Marke, die als Pfadname in jeder Ausgabe der Fixture steht (Lens B
+// LB4-02: der Pin war vakuoes). Rot zuerst je Stufe gegen die Wache c62cfc7e bzw. die Mutanten M1/M7 und einen
+// Mutanten ohne Feld-3-Ausgabe (fuer die Marke-Pins) -- FIX-r5.md.
+//
 // ASCII-only, Zeilen <= 120 Byte.
 // =============================================================================
 
@@ -419,7 +433,9 @@ TEST(Pa1ToteAusnahme, MoeglicherGegenstandBleibtGRUEN) {
                             << lauf.ausgabe;
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "0 TOTE AUSNAHME")) << "Fehlalarm: der Gegenstand hat einen Erzeuger.\n"
                                                            << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, marke))
+    // 'Koeder <marke>' ist Feld 3 der Zeile und steht NUR in der Ausgabe, wenn die Wache die Zeile gelesen hat;
+    // die blosse Marke stuende auch als Pfadname (Bau-Baum, Waise) in jeder Ausgabe (Lens B r4 LB4-I1, Fix-r5).
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Koeder " + marke))
         << "Die Wache muss GENAU diese Allowlist-Zeile gelesen haben -- sonst belegt das Gruen nichts.\n"
         << lauf.ausgabe;
 }
@@ -2008,7 +2024,8 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/unter-Gitlink", gruen, marke);
     EXPECT_EQ(gruen.code, 0) << "Ein Pfad unter einem Gitlink kann jederzeit ausgecheckt werden -- kein Befund.\n"
                              << gruen.ausgabe;
-    EXPECT_TRUE(enthaelt(gruen.ausgabe, marke)) << gruen.ausgabe;
+    // Feld 3 der gelesenen Zeile, nicht die blosse Marke (die steht als Pfadname in jeder Ausgabe; LB4-02).
+    EXPECT_TRUE(enthaelt(gruen.ausgabe, "Koeder " + marke)) << gruen.ausgabe;
     EXPECT_TRUE(enthaelt(gruen.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << gruen.ausgabe;
     EXPECT_TRUE(enthaelt(gruen.ausgabe, endzeile_ok(2, 0))) << gruen.ausgabe;
 
@@ -2021,6 +2038,318 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
                               << direkt.ausgabe;
     EXPECT_TRUE(enthaelt(direkt.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << direkt.ausgabe;
     EXPECT_TRUE(enthaelt(direkt.ausgabe, endzeile_ok(2, 0))) << direkt.ausgabe;
+
+    // (d) DER MODUS (Lens B r4 LB4-01, Lens A r5 LA5-06; Fix-r5): ein SYMLINK (Index-Modus 120000, nur im
+    //     Index -- kein Link im Arbeitsbaum) an Stelle eines Gitlinks, Gegenstand direkt darunter. Die Wache
+    //     c62cfc7e sah 'getrackten Inhalt' und hielt den Pfad fuer erreichbar (Exit 0, fail-open); ein Mutant
+    //     ohne den Modus-Vergleich (M1) haelt jeden exakten Eintrag fuer einen Gitlink (Exit 0). Jetzt:
+    //     UNPRUEFBAR, Exit 1 -- die Wache loest keinen Link auf und raet nicht, was dahinter liegt.
+    std::string const link = dir + "/link";
+    Lauf const        blob = im_repo(fall.repo(), "git hash-object -w -- " + zitiert(datei));
+    ASSERT_EQ(blob.code, 0) << blob.ausgabe;
+    ASSERT_EQ(blob.ausgabe.size(), 40U) << "kein SHA-1: '" << blob.ausgabe << "'";
+    Lauf const lidx = im_repo(fall.repo(), "git update-index --add --cacheinfo 120000," + blob.ausgabe + "," + link);
+    ASSERT_EQ(lidx.code, 0) << "Symlink-Eintrag konnte nicht in den Index gelegt werden:\n" << lidx.ausgabe;
+    Lauf const lmodus = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + link));
+    ASSERT_TRUE(enthaelt(lmodus.ausgabe, "120000 ")) << "Arrangement: kein Symlink-Eintrag:\n" << lmodus.ausgabe;
+    ASSERT_TRUE(enthaelt(lmodus.ausgabe, " 0\t" + link)) << lmodus.ausgabe;
+    std::string const unter_link = link + "/x_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_link));
+    Lauf const symlink = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/Symlink-statt-Gitlink", symlink, marke);
+    EXPECT_EQ(symlink.code, 1) << "Ein Symlink ist kein Gitlink und kein Verzeichnis -- UNPRUEFBAR, ROT.\n"
+                               << symlink.ausgabe;
+    EXPECT_TRUE(enthaelt(symlink.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_link +
+                                              "\" existiert nicht, und sein Vorfahr " + link +
+                                              " ist im Index ein SYMLINK (Modus 120000)"))
+        << symlink.ausgabe;
+    EXPECT_FALSE(enthaelt(symlink.ausgabe, "TOTE AUSNAHME -- der Gegenstand"))
+        << "Ein Symlink-Ahne ist unpruefbar, nicht tot: die Wache weiss nicht, was hinter dem Link liegt.\n"
+        << symlink.ausgabe;
+    EXPECT_TRUE(enthaelt(symlink.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << symlink.ausgabe;
+    EXPECT_TRUE(enthaelt(symlink.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << symlink.ausgabe;
+
+    // (e) DIE INDEX-STUFE (Lens B r4 LB4-03, Lead-Entscheid O-12 Teil 1; Fix-r5): ein Gitlink, der NUR auf
+    //     Stufe 1 steht (Merge-Konflikt, keine Stufe 0; 'update-index --index-info'), ist ein Gitlink -- in jedem
+    //     Ausgang des Merges bleibt der Pfad darunter erreichbar. Ein Mutant, der nur Stufe 0 zaehlt (M7),
+    //     liesse den Pfad in check-ignore laufen (Exit 2). Jetzt wie bisher: erreichbar, Exit 0 -- gepinnt.
+    std::string const stufig = dir + "/S-sub";
+    std::string const sha1   = "0000000000000000000000000000000000000003";
+    ASSERT_TRUE(fall.repo().schreibe("stufe1_" + marke + ".txt", "160000 " + sha1 + " 1\t" + stufig + "\n"));
+    Lauf const sidx = im_repo(fall.repo(), "git update-index --index-info < " +
+                                               zitiert(fall.repo().pfad() / ("stufe1_" + marke + ".txt")));
+    ASSERT_EQ(sidx.code, 0) << "git update-index --index-info fehlgeschlagen:\n" << sidx.ausgabe;
+    Lauf const sstufen = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + stufig));
+    ASSERT_TRUE(enthaelt(sstufen.ausgabe, "160000 " + sha1 + " 1\t" + stufig)) << "Arrangement: keine Stufe 1:\n"
+                                                                               << sstufen.ausgabe;
+    ASSERT_FALSE(enthaelt(sstufen.ausgabe, " 0\t" + stufig)) << "Arrangement: Stufe 0 steht:\n" << sstufen.ausgabe;
+    std::string const unter_stufig = stufig + "/x_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_stufig));
+    Lauf const stufe = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/Gitlink-nur-Stufe-1", stufe, marke);
+    EXPECT_EQ(stufe.code, 0) << "Ein Gitlink im Merge-Konflikt ist ein Gitlink -- der Pfad darunter ist erreichbar.\n"
+                             << stufe.ausgabe;
+    EXPECT_TRUE(enthaelt(stufe.ausgabe, "Koeder " + marke)) << stufe.ausgabe;
+    EXPECT_TRUE(enthaelt(stufe.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << stufe.ausgabe;
+    EXPECT_TRUE(enthaelt(stufe.ausgabe, endzeile_ok(2, 0))) << stufe.ausgabe;
+
+    // (f) DER TYP-KONFLIKT (Lens A r5 LA5-02, Lead-Entscheid O-12 Teil 2; Fix-r5): derselbe Pfad ist auf Stufe 2
+    //     eine DATEI (100644) und auf Stufe 3 ein GITLINK (160000). Loest der Merge zur Datei auf, ist der
+    //     Pfad darunter tot; zum Gitlink, erreichbar -- waehrend des Konflikts ist die Antwort unentscheidbar.
+    //     Die Wache c62cfc7e nahm die Gitlink-Zeile und meldete erreichbar (Exit 0), reihenfolge-unabhaengig
+    //     gruen. Jetzt: UNPRUEFBAR, Exit 1 -- wie der Anker im Konflikt (Fall (12b)).
+    std::string const zwiesp = dir + "/K-sub";
+    std::string const sha3   = "0000000000000000000000000000000000000004";
+    ASSERT_TRUE(fall.repo().schreibe("konflikt_" + marke + ".txt", "100644 " + blob.ausgabe + " 2\t" + zwiesp +
+                                                                       "\n160000 " + sha3 + " 3\t" + zwiesp + "\n"));
+    Lauf const kidx = im_repo(fall.repo(), "git update-index --index-info < " +
+                                               zitiert(fall.repo().pfad() / ("konflikt_" + marke + ".txt")));
+    ASSERT_EQ(kidx.code, 0) << "git update-index --index-info fehlgeschlagen:\n" << kidx.ausgabe;
+    Lauf const kstufen = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + zwiesp));
+    ASSERT_TRUE(enthaelt(kstufen.ausgabe, "100644 " + blob.ausgabe + " 2\t" + zwiesp)) << kstufen.ausgabe;
+    ASSERT_TRUE(enthaelt(kstufen.ausgabe, "160000 " + sha3 + " 3\t" + zwiesp)) << kstufen.ausgabe;
+    std::string const unter_zwiesp = zwiesp + "/x_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_zwiesp));
+    Lauf const konflikt = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/Typ-Konflikt-Datei-Gitlink", konflikt, marke);
+    EXPECT_EQ(konflikt.code, 1) << "Datei gegen Gitlink im Konflikt: die Antwort haengt vom Merge-Ausgang ab -- "
+                                   "UNPRUEFBAR, ROT.\n"
+                                << konflikt.ausgabe;
+    EXPECT_TRUE(enthaelt(konflikt.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_zwiesp +
+                                               "\" existiert nicht, und sein Vorfahr " + zwiesp +
+                                               " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe"))
+        << konflikt.ausgabe;
+    EXPECT_TRUE(enthaelt(konflikt.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << konflikt.ausgabe;
+    EXPECT_TRUE(enthaelt(konflikt.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << konflikt.ausgabe;
+}
+
+// =============================================================================
+// (28) EINE GETRACKTE DATEI ALS VORFAHR IST KEIN VERZEICHNIS (Lens A r5 LA5-01; Fix-r5). Die Aufwaerts-Schleife
+//      der Erreichbarkeits-Probe fragte den direkten Elternteil nur 'hat getrackten Inhalt?' -- und 'git ls-files
+//      <pfad>' listet fuer eine getrackte DATEI die Datei selbst. 'ext/README.md/x.hpp' galt so als 'neue Datei
+//      in einem vorhandenen Verzeichnis' = erreichbar (Exit 0), obwohl unter einer Datei nie ein Kind entstehen
+//      kann, weder im Index noch im Arbeitsbaum: fail-open in der PA-1-Richtung, Vorbestand seit 806629ca; am
+//      echten Objekt Koeder K4 'ext/queuing/REPOS_OVERVIEW.md/x.hpp' (Lens A r5). Jetzt liest die Probe je Ahnen
+//      den exakten Index-Eintrag (Modus, Stufe, Pfadfeld): eine Datei -> TOT, mit dem Vorfahren in der Meldung.
+//      (a) direkt unter der Datei -> TOT, Exit 1 (gegen c62cfc7e: Exit 0). (b) Tiefe 2 unter der Datei -> TOT
+//      mit derselben Diagnose (gegen c62cfc7e Exit 1, aber ohne den Vorfahren -- die 'weiter oben'-Regel griff).
+//      (c) Gegenrichtung: die getrackte Datei SELBST als Gegenstand, im Arbeitsbaum entfernt -> erreichbar
+//      (ein Checkout bringt sie zurueck). (d) Gegenrichtung: das direkte Kind des VERZEICHNISSES -> erreichbar.
+//      (e) die Datei im Merge-Konflikt (Stufen 1-3, alle 100644, keine Stufe 0): in jedem Ausgang eine Datei
+//      oder geloescht -> TOT (Lead-Entscheid O-12: alle Stufen vom selben Typ zaehlen als dieser Typ).
+// =============================================================================
+TEST(Pa1ToteAusnahme, DateiAlsVorfahrIstKeinVerzeichnis) {
+    std::string const marke = koeder();
+    Fall              fall{marke};
+    ASSERT_TRUE(fall.init());
+
+    std::string const dir   = "ext/dir_" + marke;
+    std::string const datei = dir + "/README.md";
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(datei, "# README " + marke + "\n"));
+    Lauf const eintrag = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + datei));
+    ASSERT_EQ(eintrag.code, 0) << eintrag.ausgabe;
+    ASSERT_TRUE(enthaelt(eintrag.ausgabe, "100644 ")) << "Arrangement: die Datei ist kein Blob 100644:\n"
+                                                      << eintrag.ausgabe;
+    ASSERT_TRUE(enthaelt(eintrag.ausgabe, " 0\t" + datei)) << eintrag.ausgabe;
+
+    // (a) direkt unter der Datei.
+    std::string const unter = datei + "/x_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter));
+    Lauf const direkt = fall.fahren();
+    berichten("DateiAlsVorfahrIstKeinVerzeichnis/direkt-unter-Datei", direkt, marke);
+    EXPECT_EQ(direkt.code, 1) << "Unter einer Datei kann nie ein Kind entstehen -- TOTE AUSNAHME, ROT.\n"
+                              << direkt.ausgabe;
+    EXPECT_TRUE(enthaelt(direkt.ausgabe, "TOTE AUSNAHME -- der Gegenstand kann in KEINEM erklaerten Baum entstehen:"))
+        << direkt.ausgabe;
+    EXPECT_TRUE(enthaelt(direkt.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + unter +
+                                             "\" existiert nicht, und sein Vorfahr " + datei +
+                                             " ist eine getrackte DATEI (Index-Modus 100644/100755)"))
+        << "Die Meldung muss den Vorfahren und seine Klasse nennen.\n"
+        << direkt.ausgabe;
+    EXPECT_TRUE(enthaelt(direkt.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << direkt.ausgabe;
+    EXPECT_TRUE(enthaelt(direkt.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << direkt.ausgabe;
+
+    // (b) Tiefe 2 unter der Datei: dieselbe Diagnose (nicht die allgemeine 'keine Quelle kennt den Zweig').
+    std::string const tief = datei + "/tief/x_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + tief));
+    Lauf const tiefer = fall.fahren();
+    berichten("DateiAlsVorfahrIstKeinVerzeichnis/Tiefe-2-unter-Datei", tiefer, marke);
+    EXPECT_EQ(tiefer.code, 1) << tiefer.ausgabe;
+    EXPECT_TRUE(enthaelt(tiefer.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + tief +
+                                             "\" existiert nicht, und sein Vorfahr " + datei +
+                                             " ist eine getrackte DATEI (Index-Modus 100644/100755)"))
+        << tiefer.ausgabe;
+    EXPECT_TRUE(enthaelt(tiefer.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << tiefer.ausgabe;
+    EXPECT_TRUE(enthaelt(tiefer.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << tiefer.ausgabe;
+
+    // (c) Gegenrichtung: die getrackte Datei selbst, im Arbeitsbaum entfernt -- sie kann wiederkommen.
+    std::error_code ec;
+    fs::remove(fall.repo().pfad() / datei, ec);
+    ASSERT_FALSE(fs::exists(fall.repo().pfad() / datei)) << "Arrangement: die Datei liegt noch im Arbeitsbaum.";
+    ASSERT_TRUE(fall.repo().ist_verfolgt(datei));
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + datei));
+    Lauf const selbst = fall.fahren();
+    berichten("DateiAlsVorfahrIstKeinVerzeichnis/Datei-selbst-als-Gegenstand", selbst, marke);
+    EXPECT_EQ(selbst.code, 0) << "Eine getrackte, im Arbeitsbaum fehlende Datei ist erreichbar (Checkout).\n"
+                              << selbst.ausgabe;
+    EXPECT_TRUE(enthaelt(selbst.ausgabe, "Koeder " + marke)) << selbst.ausgabe;
+    EXPECT_TRUE(enthaelt(selbst.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << selbst.ausgabe;
+    EXPECT_TRUE(enthaelt(selbst.ausgabe, endzeile_ok(2, 0))) << selbst.ausgabe;
+
+    // (d) Gegenrichtung: das direkte Kind des VERZEICHNISSES (es hat getrackten Inhalt: die Datei).
+    std::string const kind = dir + "/neu_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + kind));
+    Lauf const verzeichnis = fall.fahren();
+    berichten("DateiAlsVorfahrIstKeinVerzeichnis/direktes-Kind-des-Verzeichnisses", verzeichnis, marke);
+    EXPECT_EQ(verzeichnis.code, 0) << "Eine neue Datei in einem vorhandenen Verzeichnis ist der Normalfall.\n"
+                                   << verzeichnis.ausgabe;
+    EXPECT_TRUE(enthaelt(verzeichnis.ausgabe, "Koeder " + marke)) << verzeichnis.ausgabe;
+    EXPECT_TRUE(enthaelt(verzeichnis.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << verzeichnis.ausgabe;
+    EXPECT_TRUE(enthaelt(verzeichnis.ausgabe, endzeile_ok(2, 0))) << verzeichnis.ausgabe;
+
+    // (e) die Datei im Merge-Konflikt: Stufen 1-3, alle 100644, keine Stufe 0 -- in jedem Ausgang eine Datei.
+    Lauf const sha = im_repo(fall.repo(), "git hash-object -w --stdin < /dev/null");
+    ASSERT_EQ(sha.code, 0) << sha.ausgabe;
+    ASSERT_EQ(sha.ausgabe.size(), 40U) << "kein SHA-1: '" << sha.ausgabe << "'";
+    std::string const rezept = "0 0000000000000000000000000000000000000000\t" + datei + "\n" + "100644 " + sha.ausgabe +
+                               " 1\t" + datei + "\n" + "100644 " + sha.ausgabe + " 2\t" + datei + "\n" + "100644 " +
+                               sha.ausgabe + " 3\t" + datei + "\n";
+    ASSERT_TRUE(fall.repo().schreibe("konflikt_" + marke + ".txt", rezept));
+    Lauf const konflikt = im_repo(fall.repo(), "git update-index --index-info < " +
+                                                   zitiert(fall.repo().pfad() / ("konflikt_" + marke + ".txt")));
+    ASSERT_EQ(konflikt.code, 0) << "git update-index --index-info fehlgeschlagen:\n" << konflikt.ausgabe;
+    Lauf const stufen = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + datei));
+    ASSERT_TRUE(enthaelt(stufen.ausgabe, " 1\t" + datei)) << "Arrangement: keine Stufe 1:\n" << stufen.ausgabe;
+    ASSERT_TRUE(enthaelt(stufen.ausgabe, " 3\t" + datei)) << "Arrangement: keine Stufe 3:\n" << stufen.ausgabe;
+    ASSERT_FALSE(enthaelt(stufen.ausgabe, " 0\t" + datei)) << "Arrangement: Stufe 0 steht noch:\n" << stufen.ausgabe;
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter));
+    Lauf const im_konflikt = fall.fahren();
+    berichten("DateiAlsVorfahrIstKeinVerzeichnis/Datei-im-Konflikt-Stufen-1-2-3", im_konflikt, marke);
+    EXPECT_EQ(im_konflikt.code, 1) << "Drei Datei-Stufen sind eine Datei -- unter ihr entsteht nichts, TOT.\n"
+                                   << im_konflikt.ausgabe;
+    EXPECT_TRUE(enthaelt(im_konflikt.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + unter +
+                                                  "\" existiert nicht, und sein Vorfahr " + datei +
+                                                  " ist eine getrackte DATEI (Index-Modus 100644/100755)"))
+        << im_konflikt.ausgabe;
+    EXPECT_TRUE(enthaelt(im_konflikt.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << im_konflikt.ausgabe;
+    EXPECT_TRUE(enthaelt(im_konflikt.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << im_konflikt.ausgabe;
+}
+
+// =============================================================================
+// (29) DIE SCHREIBWEISE DES GEGENSTANDS MUSS DER DES INDEX ENTSPRECHEN (Lens A r5 LA5-03; Fix-r5). Der Pfad-
+//      vergleich der Erreichbarkeits-Probe ist exakt; 'git ls-files' quotiert aber Pfade mit Nicht-ASCII-Bytes
+//      (core.quotePath), Tabulator, Steuerzeichen, Anfuehrungszeichen und Backslash, und ein Gegenstand mit
+//      './', '//', '/' am Ende oder Segment '.' steht so in keinem Index. Gegen c62cfc7e traf keiner dieser
+//      Pfade seinen Gitlink-Ahnen und lief in 'git check-ignore' -- Exit 2 mit der falschen Diagnose 'is in
+//      submodule' ('/' am Ende: zufaellig Exit 0). Jetzt: (a) nicht kanonische Form -> UNPRUEFBAR, Exit 1, mit
+//      der Form-Diagnose; (b) quotierbares Zeichen -> UNPRUEFBAR, Exit 1; (c) Gegenrichtung: ein Gitlink mit
+//      Nicht-ASCII-Pfad (UTF-8 'ae-<U+00E4>', in der Ausgabe von 'git ls-files' quotiert "\303\244") bleibt
+//      erreichbar, weil die Wache den Index mit core.quotePath=false liest -- Exit 0 (gegen c62cfc7e: Exit 2);
+//      (d) Gegenrichtung: ein Leerzeichen im Pfad ist erlaubt -> Exit 0; (e) die stumme Zeile einer Datei IM
+//      Bauweg mit nicht kanonischem Pfad ist ein Formfehler (Nachscan, Kopf Folge (8)) -> Exit 1, sechstes
+//      Nenner-Feld 1 (gegen c62cfc7e: Exit 0). Die Quelle bleibt ASCII: die UTF-8-Bytes stehen als \x-Folgen.
+// =============================================================================
+TEST(Pa1ToteAusnahme, DateiPfadMussKanonischUndVergleichbarSein) {
+    std::string const marke = koeder();
+    Fall              fall{marke};
+    ASSERT_TRUE(fall.init());
+
+    std::string const dir     = "ext/dir_" + marke;
+    std::string const gitlink = dir + "/A-sub";
+    std::string const datei   = dir + "/B.txt";
+    std::string const sha     = "0000000000000000000000000000000000000005";
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(datei, "B " + marke + "\n"));
+    Lauf const idx = im_repo(fall.repo(), "git update-index --add --cacheinfo 160000," + sha + "," + gitlink);
+    ASSERT_EQ(idx.code, 0) << "Gitlink konnte nicht in den Index gelegt werden:\n" << idx.ausgabe;
+
+    // (a) nicht kanonische Formen desselben, an sich erreichbaren Pfads unter dem Gitlink.
+    std::string const form_diagnose = "ist kein kanonischer repo-relativer Pfad (Segment '.' oder leeres Segment";
+    std::vector<std::string> const unkanonisch = {"./" + gitlink + "/x_" + marke + ".hpp",
+                                                  dir + "//A-sub/x_" + marke + ".hpp", gitlink + "/",
+                                                  dir + "/./A-sub/x_" + marke + ".hpp"};
+    for (std::string const& pfad : unkanonisch) {
+        ASSERT_TRUE(fall.allowlist_setzen("datei:" + pfad));
+        Lauf const lauf = fall.fahren();
+        berichten(("DateiPfadMussKanonischUndVergleichbarSein/nicht-kanonisch '" + pfad + "'").c_str(), lauf, marke);
+        EXPECT_EQ(lauf.code, 1) << "Ein Pfad, der so in keinem Index steht, ist UNPRUEFBAR -- ROT, nicht Exit 2.\n"
+                                << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"datei:" + pfad + "\" " + form_diagnose))
+            << lauf.ausgabe;
+        EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABBRUCH: Werkzeug-Ausfall"))
+            << "Die falsche Diagnose (check-ignore 128) darf nicht mehr erscheinen.\n"
+            << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << lauf.ausgabe;
+    }
+
+    // (b) quotierbare Zeichen: Tabulator, Backslash, Anfuehrungszeichen.
+    std::string const quot_diagnose =
+        "enthaelt ein Zeichen, das git in seiner Ausgabe quotiert (Tabulator, Steuerzeichen,";
+    std::vector<std::string> const quotierbar = {dir + "/a\tb/x_" + marke + ".hpp", dir + "/a\\b/x_" + marke + ".hpp",
+                                                 dir + "/a\"b/x_" + marke + ".hpp"};
+    for (std::string const& pfad : quotierbar) {
+        ASSERT_TRUE(fall.allowlist_setzen("datei:" + pfad));
+        Lauf const lauf = fall.fahren();
+        berichten("DateiPfadMussKanonischUndVergleichbarSein/quotierbares-Zeichen", lauf, marke);
+        EXPECT_EQ(lauf.code, 1) << "Ein Pfad, den git quotiert, ist nicht vergleichbar -- UNPRUEFBAR, ROT.\n"
+                                << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"datei:" + pfad + "\" " + quot_diagnose))
+            << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << lauf.ausgabe;
+    }
+
+    // (c) Gegenrichtung: ein Gitlink mit Nicht-ASCII-Pfad. 'git ls-files -s' quotiert ihn (Arrangement-ASSERT),
+    //     die Wache liest mit core.quotePath=false und trifft ihn trotzdem.
+    std::string const umlaut = dir + "/ae-" + std::string{"\xc3\xa4"};
+    std::string const sha_u  = "0000000000000000000000000000000000000006";
+    Lauf const        uidx = im_repo(fall.repo(), "git update-index --add --cacheinfo 160000," + sha_u + "," + umlaut);
+    ASSERT_EQ(uidx.code, 0) << "Gitlink mit Nicht-ASCII-Pfad konnte nicht in den Index gelegt werden:\n"
+                            << uidx.ausgabe;
+    Lauf const quotiert = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + umlaut));
+    ASSERT_EQ(quotiert.code, 0) << quotiert.ausgabe;
+    ASSERT_TRUE(enthaelt(quotiert.ausgabe, "\t\"" + dir + "/ae-\\303\\244\""))
+        << "Arrangement: git quotiert den Pfad nicht (core.quotePath?):\n"
+        << quotiert.ausgabe;
+    std::string const unter_umlaut = umlaut + "/x_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_umlaut));
+    Lauf const roh = fall.fahren();
+    berichten("DateiPfadMussKanonischUndVergleichbarSein/Nicht-ASCII-Gitlink", roh, marke);
+    EXPECT_EQ(roh.code, 0) << "Ein Gitlink mit Nicht-ASCII-Pfad ist ein Gitlink -- der Pfad darunter ist erreichbar.\n"
+                           << roh.ausgabe;
+    EXPECT_TRUE(enthaelt(roh.ausgabe, "Koeder " + marke)) << roh.ausgabe;
+    EXPECT_TRUE(enthaelt(roh.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << roh.ausgabe;
+    EXPECT_TRUE(enthaelt(roh.ausgabe, endzeile_ok(2, 0))) << roh.ausgabe;
+
+    // (d) Gegenrichtung: ein Leerzeichen im Pfad quotiert git nicht -- erlaubt, erreichbar.
+    std::string const leer  = dir + "/my sub";
+    std::string const sha_l = "0000000000000000000000000000000000000007";
+    Lauf const lidx = im_repo(fall.repo(), "git update-index --add --cacheinfo 160000," + sha_l + "," + zitiert(leer));
+    ASSERT_EQ(lidx.code, 0) << lidx.ausgabe;
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + leer + "/x_" + marke + ".hpp"));
+    Lauf const mit_leer = fall.fahren();
+    berichten("DateiPfadMussKanonischUndVergleichbarSein/Leerzeichen-im-Pfad", mit_leer, marke);
+    EXPECT_EQ(mit_leer.code, 0) << mit_leer.ausgabe;
+    EXPECT_TRUE(enthaelt(mit_leer.ausgabe, "Koeder " + marke)) << mit_leer.ausgabe;
+    EXPECT_TRUE(enthaelt(mit_leer.ausgabe, endzeile_ok(2, 0))) << mit_leer.ausgabe;
+
+    // (e) die stumme Zeile einer Datei im Bauweg mit nicht kanonischem Pfad: Formfehler, sechstes Nenner-Feld.
+    std::string const tragend = fall.waise() + " | datei:" + gitlink + "/x_" + marke + ".hpp | Koeder " + marke + "\n";
+    std::string const stumm =
+        std::string{kGegenprobe} + " | datei:./tests/unit/neu_" + marke + ".hpp | stumm " + marke + "\n";
+    ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
+                                     "# Allowlist des Falls " + marke + "\n" + tragend + stumm));
+    Lauf const nachscan = fall.fahren();
+    berichten("DateiPfadMussKanonischUndVergleichbarSein/stumme-Zeile-nicht-kanonisch", nachscan, marke);
+    EXPECT_EQ(nachscan.code, 1) << "Die Form gilt auch fuer die stumme Zeile (Folge (8)).\n" << nachscan.ausgabe;
+    EXPECT_TRUE(enthaelt(nachscan.ausgabe, std::string{kGegenprobe} + " -- UNPRUEFBAR: \"datei:./tests/unit/neu_" +
+                                               marke + ".hpp\" " + form_diagnose))
+        << nachscan.ausgabe;
+    EXPECT_TRUE(enthaelt(nachscan.ausgabe, "Koeder " + marke)) << "Die tragende Zeile muss weiter tragen.\n"
+                                                               << nachscan.ausgabe;
+    EXPECT_TRUE(enthaelt(nachscan.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << nachscan.ausgabe;
+    EXPECT_TRUE(enthaelt(nachscan.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0, 1))) << nachscan.ausgabe;
+    EXPECT_TRUE(enthaelt(nachscan.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << nachscan.ausgabe;
 }
 
 #endif // _WIN32
