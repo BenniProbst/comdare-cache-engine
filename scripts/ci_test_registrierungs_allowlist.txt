@@ -113,7 +113,8 @@
 # Arbeitsbaum ein Symlink ist (nicht im Index). Die Formregel fuer den 'datei:'-Pfad gilt nur INNERHALB des Repos:
 # ein absoluter Pfad und ein Pfad, der per '..' ueber die Wurzel hinausfuehrt, werden wie bisher gar nicht beurteilt
 # (Nenner-Zeile 'AUSSERHALB', s. o.); ein '..', das innerhalb des Repos aufloest, ist seit Fix-r7 UNPRUEFBAR (LA7-02,
-# Faelle (5b)-(5d)). Ein Gegenstand, der als Symlink ohne Ziel vorliegt, ist ERLOSCHEN (der Pfad ist belegt).
+# Faelle (5b)-(5e); '(5d)' bis 89cf7103, berichtigt mit Fix-r8, Lens A r8 LA8-06). Ein Gegenstand, der als Symlink
+# ohne Ziel vorliegt, ist ERLOSCHEN (der Pfad ist belegt).
 # Nicht-ASCII-Pfade zaehlen seit Fix-r6 auch im SOLL und am VERMERK.md-Anker (die Wache liest beide roh; bis
 # 9223cbd5 fielen sie dort STILL heraus). Faelle (6b), (27e2/e3/f2), (27g)-(27g3), (27h), (28f), (31).]
 #
