@@ -152,6 +152,25 @@
 // Wortlaut 'in jedem Ausgang des Merges' in (27e) ist zu 'in mindestens einem' berichtigt (LA6-05). Rot zuerst
 // je Stufe gegen die Wache 9223cbd5 bzw. Mutanten -- FIX-r6.md. LC3T-10 ENTLASTET (Lead-Probe K77: 240 Zeilen).
 //
+// NACHTRAG 8 (2026-09-19, Fix-r7 des OV-2-Zuges: Lens A r7 LA7-01..03, Lens B r6 LB6-02/03/05, Lens C r5 LC5T-01..06
+// und LC5W-01..08): Fall (8) liest den SOLL nur noch per 'git -c core.quotePath=false ls-files' (Status geprueft),
+// die drei grep-Filter und 'sort -u' sind C++ (LB6-02 = LC5T-01 = I-4; bis 8ae59179 sah soll.code nur 'sort -u').
+// Fall (5) traegt die '..'-Stufen (5b) Wurzel verlassend mit '.'-Segment, (5c) repo-intern aufloesend = UNPRUEFBAR
+// (Tiefenzaehler LA7-02; gegen 8ae59179 Exit 0), (5d) '..' vor der Quote-Pruefung, (5e) mittleres '..' ueber die
+// Wurzel hinaus (LB6-03 = LC5T-02 = I-10). (6b) pinnt den Index-Eintrag des Links exakt (LC5T-05a), (6c) ist der
+// UNTRACKED Symlink ohne Ziel (LC5T-03 = I-13; gegen 9223cbd5 Exit 2). WegwerfBaum nimmt seinen Pfad EXKLUSIV in
+// Besitz (create_directory; Vorhandenes wird nie geloescht, ok()/fehler() statt stillem Erfolg), Destruktoren nur
+// mit error_code-Ueberladungen, und Fall::baum_ ist derselbe Waechter (LC5T-04). (27g2) schliesst Stufe 0 aus
+// (LB6-05); NEUE STUFEN (27g4) Datei auf Stufe 0 gegen Eintraege darunter auf Stufe 2 (Probe X36), (27g5) Eintraege
+// darunter auf Stufe 1 UND 3 -> 'Stufe 1, Stufe 3' (LC5W-07; vorher 'Stufe 1 3'), (27i) Datei-Ahne unter einem
+// D/F-Konflikt (Probe X37; gegen 8ae59179 TOT statt UNPRUEFBAR, LC5W-01), (27j) Datei-Ahne unter einem
+// Arbeitsbaum-Symlink (Probe X38, LC5W-02); Fall (31) traegt (31d) eine von git auch mit core.quotePath=false
+// quotierte Test-Quelldatei und (31e) einen so quotierten Anker-Ordner (LA7-01 = LC5W-06; gegen 8ae59179 STILL aus
+// dem SOLL, "2 getrackte" und Exit 0); der Nenner hat ein siebtes Feld ('N mit von git quotiertem Pfad') und die
+// Zeile 'Quotierte Index-Pfade' (nenner_quotiert). Anker-Stufen (d) Commit-Objekt unter 100644 und (e) Index-Modus
+// 160000 (LC5T-06; beide per 'update-index --cacheinfo' anlegbar, Probe t7-machbarkeit). Rot zuerst je Stufe gegen
+// 8ae59179 bzw. 9223cbd5 (COMDARE_PA1_WACHE_PFAD) und gegen die Mutanten -- FIX-r7.md.
+//
 // ASCII-only, Zeilen <= 120 Byte.
 // =============================================================================
 
@@ -172,6 +191,7 @@ TEST(Pa1ToteAusnahme, NurPosix) {
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -249,16 +269,25 @@ void berichten(char const* fall, Lauf const& lauf, std::string const& marke) {
 // wache.sh, Block NENNER und Endzeile); eine Aenderung dort zieht diese vier Helfer nach.
 // SECHSTES FELD (2026-09-18, Fix-r3, Lens C LC3W-05): "N mit Formfehler fuer Dateien im Bauweg" -- der
 // Parameter 'form' hat die Vorgabe 0, damit jeder aeltere Pin weiter die GANZE Zeile prueft.
+// SIEBTES FELD (2026-09-19, Fix-r7, Lens A r7 LA7-01 = Lens C r5 LC5W-06): "N mit von git quotiertem Pfad" --
+// 'quotiert' mit Vorgabe 0, wie 'form'; dazu die eigene Nenner-Zeile 'Quotierte Index-Pfade' (nenner_quotiert).
 // ---------------------------------------------------------------------------
 [[nodiscard]] std::string z(std::size_t n) { return std::to_string(n); }
 
 [[nodiscard]] std::string nenner_ohne_bauweg(std::size_t anker, std::size_t archiv_zeilen, std::size_t ort_zeilen,
-                                             std::size_t geist, std::size_t doppelt, std::size_t form = 0) {
+                                             std::size_t geist, std::size_t doppelt, std::size_t form = 0,
+                                             std::size_t quotiert = 0) {
     return "dazu UNPRUEFBAR ohne Bezug zum Bauweg: " + z(anker) + " ARCHIV-Anker ohne Inhalt/Form, " +
            z(archiv_zeilen) + " Allowlist-Zeile(n) fuer ARCHIV-Dateien, " + z(ort_zeilen) +
            " fuer Pfade unter tests/deprecated/ ohne wirksamen Anker, " + z(geist) +
            " ohne Gegenstand im SOLL-Bestand, " + z(doppelt) + " Pfad(e) mit doppelter Zeile, " + z(form) +
-           " mit Formfehler fuer Dateien im Bauweg.";
+           " mit Formfehler fuer Dateien im Bauweg, " + z(quotiert) + " mit von git quotiertem Pfad.";
+}
+
+[[nodiscard]] std::string nenner_quotiert(std::size_t n, std::size_t soll, std::size_t anker) {
+    return "Quotierte Index-Pfade: " + z(n) + " von git auch mit core.quotePath=false quotiert (Tabulator," +
+           " Steuerzeichen, Anfuehrungszeichen, Backslash), davon " + z(soll) + " im SOLL-Muster und " + z(anker) +
+           " als VERMERK.md-Anker (beide UNPRUEFBAR).";
 }
 
 [[nodiscard]] std::string nenner_davon(std::size_t begruendet, std::size_t erloschen, std::size_t tot,
@@ -330,6 +359,31 @@ void berichten(char const* fall, Lauf const& lauf, std::string const& marke) {
     return l;
 }
 
+// Eine Datei mit Anfuehrungszeichen im Namen anlegen und in den Index nehmen (Fix-r7, Stufen (31d)/(31e)):
+// die Werkbank zitiert Pfade fuer die Shell in doppelten Anfuehrungszeichen (zitiert()), ein '"' im Namen
+// braeche dort die Kommandozeile -- hier einfache Anfuehrungszeichen, der Name traegt kein '\''. Die
+// Gegenprobe fragt git selbst (ls-files -s mit :(literal)-Pathspec), wie schreibe_und_verfolge().
+[[nodiscard]] testing::AssertionResult
+schreibe_und_verfolge_einfach_zitiert(WegwerfRepo const& repo, std::string const& relativ, std::string const& inhalt) {
+    if (relativ.find('\'') != std::string::npos) {
+        return testing::AssertionFailure() << "Pfad traegt ein einfaches Anfuehrungszeichen: " << relativ;
+    }
+    testing::AssertionResult const r = repo.schreibe(relativ, inhalt);
+    if (!r) { return r; }
+    Lauf const add = im_repo(repo, "git add -- '" + relativ + "'");
+    if (add.code != 0) {
+        return testing::AssertionFailure() << "git add '" << relativ << "' fehlgeschlagen (Exit " << add.code << "):\n"
+                                           << add.ausgabe;
+    }
+    Lauf const probe = im_repo(repo, "git -c core.quotePath=false ls-files -s -- ':(literal)" + relativ + "'");
+    if (probe.code != 0 || probe.ausgabe.empty()) {
+        return testing::AssertionFailure()
+               << "'" << relativ << "' steht nach dem git add nicht im Index (Exit " << probe.code << "):\n"
+               << probe.ausgabe;
+    }
+    return testing::AssertionSuccess();
+}
+
 // Ein PATH-Koeder: ein Werkzeug gleichen Namens VOR dem echten im PATH (Fall (18)).
 [[nodiscard]] testing::AssertionResult koeder_bin_anlegen(WegwerfRepo const& repo, std::string const& name,
                                                           std::string const& inhalt) {
@@ -345,6 +399,51 @@ void berichten(char const* fall, Lauf const& lauf, std::string const& marke) {
 }
 
 // ---------------------------------------------------------------------------
+// RAII fuer einen Wegwerf-Baum (Lens C r4 LC3T-09, Fix-r6; Besitz-Haertung Lens C r5 LC5T-04, Fix-r7): der
+// Waechter nimmt seinen Pfad EXKLUSIV in Besitz -- fs::create_directory, nicht create_directories: ein schon
+// vorhandener Pfad (Verzeichnis, Datei oder Link) wird NIE geloescht und nie als eigener angesehen; ok() und
+// fehler() sagen es dem Fall, der laut faellt statt fremden Bestand zu raeumen. Bis 8ae59179 legte
+// create_directories still ueber Vorhandenes, und der Destruktor loeschte es mit; sein fs::exists(pfad) ohne
+// error_code haette im Destruktor werfen koennen (std::terminate). Jetzt nur error_code-Ueberladungen; ein
+// Loeschfehler ist eine ADD_FAILURE mit Grund. Fall::baum_ ist derselbe Waechter (Probe t5-ownership, FIX-r7.md).
+// ---------------------------------------------------------------------------
+class WegwerfBaum {
+public:
+    explicit WegwerfBaum(fs::path pfad) : pfad_{std::move(pfad)} {
+        std::error_code ec;
+        besitz_ = fs::create_directory(pfad_, ec);
+        if (ec) {
+            besitz_ = false;
+            fehler_ = "create_directory '" + pfad_.string() + "' fehlgeschlagen: " + ec.message();
+        } else if (!besitz_) {
+            fehler_ = "Pfad '" + pfad_.string() + "' bestand schon -- nicht in Besitz genommen, nichts geloescht";
+        }
+    }
+    WegwerfBaum(WegwerfBaum const&)            = delete;
+    WegwerfBaum& operator=(WegwerfBaum const&) = delete;
+    ~WegwerfBaum() {
+        if (!besitz_) { return; }
+        std::error_code ec;
+        fs::remove_all(pfad_, ec);
+        std::error_code ec_rest;
+        bool const      rest = fs::exists(pfad_, ec_rest);
+        if (ec || ec_rest || rest) {
+            ADD_FAILURE() << "Wegwerf-Baum '" << pfad_.string() << "' nicht geraeumt: " << ec.message()
+                          << (ec_rest ? " / exists: " + ec_rest.message() : std::string{})
+                          << (rest ? " / Pfad besteht noch" : "");
+        }
+    }
+    [[nodiscard]] bool               ok() const { return besitz_; }
+    [[nodiscard]] std::string const& fehler() const { return fehler_; }
+    [[nodiscard]] fs::path const&    pfad() const { return pfad_; }
+
+private:
+    fs::path    pfad_;
+    bool        besitz_ = false;
+    std::string fehler_;
+};
+
+// ---------------------------------------------------------------------------
 // Ein Fall: ein Wegwerf-Repo mit Gegenprobe-Datei, einer Waise und einem Bau-Baum, in
 // dem die Waise fehlt. Was die Allowlist-Zeile dann in Feld 2 nennt, ist der Gegenstand
 // der Untersuchung.
@@ -356,19 +455,14 @@ public:
     // Zweiter Konstruktor (2026-09-17): der Waisen-PFAD ist waehlbar. Die ARCHIV-Klasse der Wache
     // haengt am ORT der Datei, nicht an ihrem Namen -- ein Fall dafuer braucht eine Waise unter
     // tests/deprecated/<ordner>/ statt unter tests/unit/. Alles andere bleibt identisch.
+    // Der Bau-Baum ist ein WegwerfBaum (Fix-r7, LC5T-04): exklusiv in Besitz genommen, init() prueft ok().
     Fall(std::string const& marke, std::string const& waisen_pfad)
-        : marke_{marke}, repo_{marke}, baum_{repo_.pfad().string() + "_baum"}, waise_{waisen_pfad} {
-        std::error_code ec;
-        fs::create_directories(baum_, ec);
-    }
+        : marke_{marke}, repo_{marke}, baum_{fs::path{repo_.pfad().string() + "_baum"}}, waise_{waisen_pfad} {}
     Fall(Fall const&)            = delete;
     Fall& operator=(Fall const&) = delete;
-    ~Fall() {
-        std::error_code ec;
-        fs::remove_all(baum_, ec);
-    }
 
     [[nodiscard]] testing::AssertionResult init() {
+        if (!baum_.ok()) { return testing::AssertionFailure() << "Bau-Baum: " << baum_.fehler(); }
         testing::AssertionResult r = repo_.init();
         if (!r) { return r; }
         r = repo_.ist_eigene_wurzel();
@@ -392,18 +486,18 @@ public:
     }
 
     [[nodiscard]] testing::AssertionResult bauweg_schreiben(std::vector<std::string> const& relativ) const {
-        std::ofstream aus{baum_ / "compile_commands.json", std::ios::trunc};
+        std::ofstream aus{baum_.pfad() / "compile_commands.json", std::ios::trunc};
         if (!aus.good()) { return testing::AssertionFailure() << "compile_commands.json nicht schreibbar"; }
         aus << "[\n";
         for (std::size_t i = 0; i < relativ.size(); ++i) {
-            aus << "  {\"directory\": \"" << baum_.string() << "\",\n"
+            aus << "  {\"directory\": \"" << baum_.pfad().string() << "\",\n"
                 << "   \"command\": \"c++ -c " << (repo_.pfad() / relativ[i]).string() << "\",\n"
                 << "   \"file\": \"" << (repo_.pfad() / relativ[i]).string() << "\"}"
                 << (i + 1 == relativ.size() ? "\n" : ",\n");
         }
         aus << "]\n";
         aus.close();
-        if (!fs::exists(baum_ / "compile_commands.json")) {
+        if (!fs::exists(baum_.pfad() / "compile_commands.json")) {
             return testing::AssertionFailure() << "compile_commands.json fehlt nach dem Schreiben";
         }
         return testing::AssertionSuccess();
@@ -418,17 +512,17 @@ public:
         if (!heute.empty()) { vorspann += " COMDARE_WACHE_HEUTE=" + heute; }
         if (!zusatz.empty()) { vorspann += " " + zusatz; }
         return fahre("cd " + zitiert(repo_.pfad()) + " && " + vorspann + " sh " + zitiert(wachen_pfad()) + " " +
-                     zitiert(baum_));
+                     zitiert(baum_.pfad()));
     }
 
     // Ein CMakeCache.txt im Bau-Baum (2026-09-18, Fix-r3, Faelle (19)-(21)): 'isa:'-Zeilen lesen ihn;
     // ohne ihn ist jede 'isa:'-Zeile Exit 2. Der Inhalt kommt vom Fall, damit jede Stufe ihren Cache sieht.
     [[nodiscard]] testing::AssertionResult isa_cache_schreiben(std::string const& inhalt) const {
-        std::ofstream aus{baum_ / "CMakeCache.txt", std::ios::trunc};
+        std::ofstream aus{baum_.pfad() / "CMakeCache.txt", std::ios::trunc};
         if (!aus.good()) { return testing::AssertionFailure() << "CMakeCache.txt nicht schreibbar"; }
         aus << inhalt;
         aus.close();
-        if (!fs::exists(baum_ / "CMakeCache.txt")) {
+        if (!fs::exists(baum_.pfad() / "CMakeCache.txt")) {
             return testing::AssertionFailure() << "CMakeCache.txt fehlt nach dem Schreiben";
         }
         return testing::AssertionSuccess();
@@ -436,12 +530,12 @@ public:
 
     [[nodiscard]] WegwerfRepo const& repo() const { return repo_; }
     [[nodiscard]] std::string const& waise() const { return waise_; }
-    [[nodiscard]] fs::path const&    baum() const { return baum_; }
+    [[nodiscard]] fs::path const&    baum() const { return baum_.pfad(); }
 
 private:
     std::string marke_;
     WegwerfRepo repo_;
-    fs::path    baum_;
+    WegwerfBaum baum_;
     std::string waise_;
 };
 
@@ -605,6 +699,77 @@ TEST(Pa1ToteAusnahme, AusserhalbDesRepoWirdNichtBeurteilt) {
         << "Die begruendete Zeile muss den Vorbehalt tragen.\n"
         << lauf.ausgabe;
     EXPECT_TRUE(zeile_exakt(lauf.ausgabe, endzeile_ok(2, 0))) << lauf.ausgabe;
+
+    // (5b) EIN '..', DAS DIE WURZEL VERLAESST (Lens B r6 LB6-03 = Lens C r5 LC5T-02 = I-10, Fix-r7): der Pfad
+    //      '../aussen_<marke>/./y.hpp' ist Grenze (a), NICHT beurteilt -- und das '..' gewinnt vor der Formregel
+    //      fuer das '.'-Segment (die Wache 9223cbd5 sagte 'kein kanonischer repo-relativer Pfad', rot; Probe X20).
+    //      Exit 0, gepinnt wie (5): begruendete Zeile mit Vorbehalt, Nenner, AUSSERHALB-Zeile, Endzeile.
+    std::string const dd_raus = "../aussen_" + marke + "/./y.hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + dd_raus));
+    Lauf const raus = fall.fahren();
+    berichten("AusserhalbDesRepoWirdNichtBeurteilt/dotdot-verlaesst-Wurzel", raus, marke);
+    EXPECT_EQ(raus.code, 0) << "Ein Pfad, der per '..' die Wurzel verlaesst, ist Grenze (a) -- kein Befund.\n"
+                            << raus.ausgabe;
+    EXPECT_TRUE(zeile_exakt(raus.ausgabe, fall.waise() + " -- Koeder " + marke + " (datei abwesend: " + dd_raus +
+                                              " -- ausserhalb des Repos, Erreichbarkeit NICHT beurteilt)"))
+        << raus.ausgabe;
+    EXPECT_FALSE(enthaelt(raus.ausgabe, "kein kanonischer")) << "Das '..' muss VOR der '.'-Formregel gewinnen.\n"
+                                                             << raus.ausgabe;
+    EXPECT_TRUE(zeile_exakt(raus.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << raus.ausgabe;
+    EXPECT_TRUE(zeile_exakt(raus.ausgabe, nenner_ausserhalb(1, 1))) << raus.ausgabe;
+    EXPECT_TRUE(zeile_exakt(raus.ausgabe, endzeile_ok(2, 0))) << raus.ausgabe;
+
+    // (5c) EIN '..', DAS INNERHALB DES REPOS AUFLOEST (Lens A r7 LA7-02, Tiefenzaehler; Fix-r7): der Pfad
+    //      'ext/../aussen_<marke>/y.hpp' verlaesst die Wurzel NICHT (Tiefe 1 -> 0) -- eine nicht kanonische
+    //      Schreibweise, so steht kein Pfad im Index: UNPRUEFBAR, ROT, mit eigener Diagnose. Bis 8ae59179 lief
+    //      sie als 'ausserhalb des Repos' begruendet durch (Exit 0, Probe X20b; am echten Baum Koeder K6) und
+    //      umging so die TOT-Frage.
+    std::string const dd_innen = "ext/../aussen_" + marke + "/y.hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + dd_innen));
+    Lauf const innen = fall.fahren();
+    berichten("AusserhalbDesRepoWirdNichtBeurteilt/dotdot-loest-intern-auf", innen, marke);
+    EXPECT_EQ(innen.code, 1) << "Ein repo-intern aufloesendes '..' ist keine Grenze -- UNPRUEFBAR, ROT.\n"
+                             << innen.ausgabe;
+    EXPECT_TRUE(zeile_exakt(innen.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"datei:" + dd_innen +
+                                               "\" ist kein kanonischer repo-relativer Pfad (Segment '..', das" +
+                                               " INNERHALB des Repos aufloest) -- so steht kein Pfad im Index;" +
+                                               " nenne den aufgeloesten Pfad"))
+        << innen.ausgabe;
+    EXPECT_FALSE(enthaelt(innen.ausgabe, "Erreichbarkeit NICHT beurteilt")) << innen.ausgabe;
+    EXPECT_TRUE(zeile_exakt(innen.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << innen.ausgabe;
+    EXPECT_TRUE(zeile_exakt(innen.ausgabe, nenner_ausserhalb(0, 0))) << innen.ausgabe;
+    EXPECT_TRUE(zeile_exakt(innen.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << innen.ausgabe;
+
+    // (5d) '..' VOR DER QUOTE-PRUEFUNG: '../a"b_<marke>/y.hpp' verlaesst die Wurzel -- Grenze (a) gewinnt vor
+    //      dem Anfuehrungszeichen (Probe X21): Exit 0, kein 'quotiert', die begruendete Zeile traegt den Pfad roh.
+    std::string const dd_quote = "../a\"b_" + marke + "/y.hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + dd_quote));
+    Lauf const quote = fall.fahren();
+    berichten("AusserhalbDesRepoWirdNichtBeurteilt/dotdot-vor-Quote-Pruefung", quote, marke);
+    EXPECT_EQ(quote.code, 0) << quote.ausgabe;
+    EXPECT_TRUE(zeile_exakt(quote.ausgabe, fall.waise() + " -- Koeder " + marke + " (datei abwesend: " + dd_quote +
+                                               " -- ausserhalb des Repos, Erreichbarkeit NICHT beurteilt)"))
+        << quote.ausgabe;
+    EXPECT_FALSE(enthaelt(quote.ausgabe, "enthaelt ein Zeichen, das git in seiner Ausgabe quotiert"))
+        << "Die Quote-Diagnose darf nicht greifen (die Nenner-Zeile 'Quotierte Index-Pfade' steht immer).\n"
+        << quote.ausgabe;
+    EXPECT_TRUE(zeile_exakt(quote.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << quote.ausgabe;
+    EXPECT_TRUE(zeile_exakt(quote.ausgabe, nenner_ausserhalb(1, 1))) << quote.ausgabe;
+    EXPECT_TRUE(zeile_exakt(quote.ausgabe, endzeile_ok(2, 0))) << quote.ausgabe;
+
+    // (5e) EIN MITTLERES '..', DAS DIE WURZEL VERLAESST: 'ext/../../aussen_<marke>/y.hpp' (Tiefe 1 -> 0 -> -1) --
+    //      nicht nur ein fuehrendes '..' ist Grenze (a) (Probe X30c). Exit 0 wie (5b).
+    std::string const dd_mitte = "ext/../../aussen_" + marke + "/y.hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + dd_mitte));
+    Lauf const mitte = fall.fahren();
+    berichten("AusserhalbDesRepoWirdNichtBeurteilt/mittleres-dotdot-verlaesst-Wurzel", mitte, marke);
+    EXPECT_EQ(mitte.code, 0) << mitte.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mitte.ausgabe, fall.waise() + " -- Koeder " + marke + " (datei abwesend: " + dd_mitte +
+                                               " -- ausserhalb des Repos, Erreichbarkeit NICHT beurteilt)"))
+        << mitte.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mitte.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << mitte.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mitte.ausgabe, nenner_ausserhalb(1, 1))) << mitte.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mitte.ausgabe, endzeile_ok(2, 0))) << mitte.ausgabe;
 }
 
 // =============================================================================
@@ -645,6 +810,14 @@ TEST(Pa1ToteAusnahme, RichtungEinsBleibtErhalten) {
     ASSERT_FALSE(ec) << "Symlink nicht anlegbar: " << ec.message();
     Lauf const add = im_repo(fall.repo(), "git add -- " + zitiert(link));
     ASSERT_EQ(add.code, 0) << "git add des Symlinks fehlgeschlagen:\n" << add.ausgabe;
+    // Arrangement als EXAKTE Index-Zeile (Lens C r5 LC5T-05a, Fix-r7): Modus 120000, das Blob des Link-Texts,
+    // Stufe 0, Pfad -- nicht nur 'git add' war erfolgreich.
+    Lauf const lsha6 = im_repo(fall.repo(), "printf '%s' 'nirgends_" + marke + "' | git hash-object --stdin");
+    ASSERT_EQ(lsha6.ausgabe.size(), 40U) << "kein SHA-1: '" << lsha6.ausgabe << "'";
+    Lauf const leintrag = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + link));
+    ASSERT_TRUE(zeile_exakt(leintrag.ausgabe, "120000 " + lsha6.ausgabe + " 0\t" + link))
+        << "Arrangement: der Link steht nicht als 120000/Stufe 0 im Index:\n"
+        << leintrag.ausgabe;
     ASSERT_TRUE(fall.allowlist_setzen("datei:" + link));
     Lauf const dangling = fall.fahren();
     berichten("RichtungEinsBleibtErhalten/Symlink-ohne-Ziel", dangling, marke);
@@ -657,6 +830,30 @@ TEST(Pa1ToteAusnahme, RichtungEinsBleibtErhalten) {
                                                                << dangling.ausgabe;
     EXPECT_TRUE(zeile_exakt(dangling.ausgabe, nenner_davon(0, 1, 0, 0, 0))) << dangling.ausgabe;
     EXPECT_TRUE(zeile_exakt(dangling.ausgabe, endzeile_rot(0, 2, 1, 0, 0, 0))) << dangling.ausgabe;
+
+    // (6c) DERSELBE LINK OHNE 'git add' (Lens C r5 LC5T-03 = I-13, Fix-r7): der UNTRACKED Symlink ohne Ziel
+    //      (Probe X08b) lief bis 9223cbd5 in check-ignore 128 = Exit 2 mit der falschen Diagnose. ist_verfolgt
+    //      ist hier ASSERT_FALSE -- sonst maesse die Stufe (6b). Dieselben Pins: ERLOSCHEN mit '(als SYMLINK ohne
+    //      Ziel)', Nenner und Endzeile; kein ABBRUCH.
+    std::string const link2 = "tests/unit/link2_" + marke;
+    fs::create_symlink("nirgends2_" + marke, fall.repo().pfad() / link2, ec);
+    ASSERT_FALSE(ec) << "Symlink nicht anlegbar: " << ec.message();
+    ASSERT_FALSE(fall.repo().ist_verfolgt(link2)) << "Arrangement: der Link steht im Index, die Stufe maesse (6b).";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + link2));
+    Lauf const untracked = fall.fahren();
+    berichten("RichtungEinsBleibtErhalten/Symlink-ohne-Ziel-untracked", untracked, marke);
+    EXPECT_EQ(untracked.code, 1) << "Ein untracked Symlink ohne Ziel belegt den Pfad -- ERLOSCHEN, ROT, kein Exit 2.\n"
+                                 << untracked.ausgabe;
+    EXPECT_TRUE(zeile_exakt(untracked.ausgabe, fall.waise() + " -- ERLOSCHEN: \"" + link2 +
+                                                   "\" existiert wieder (als SYMLINK ohne Ziel), die Ausnahme" +
+                                                   " traegt nicht mehr"))
+        << untracked.ausgabe;
+    EXPECT_FALSE(enthaelt(untracked.ausgabe, "ABBRUCH: Werkzeug-Ausfall"))
+        << "Die falsche Diagnose (check-ignore 128) darf nicht mehr erscheinen.\n"
+        << untracked.ausgabe;
+    EXPECT_FALSE(enthaelt(untracked.ausgabe, "datei abwesend")) << untracked.ausgabe;
+    EXPECT_TRUE(zeile_exakt(untracked.ausgabe, nenner_davon(0, 1, 0, 0, 0))) << untracked.ausgabe;
+    EXPECT_TRUE(zeile_exakt(untracked.ausgabe, endzeile_rot(0, 2, 1, 0, 0, 0))) << untracked.ausgabe;
 }
 
 // =============================================================================
@@ -719,54 +916,47 @@ TEST(Pa1ToteAusnahme, FristTraegtBisZumTagUndDannNichtMehr) {
 //     Die 'isa:'-Zeile bleibt aus demselben Grund wie oben ungeprueft; sie ist nach dem Entscheid
 //     die einzige verbliebene wirksame Zeile der committeten Allowlist.
 // =============================================================================
-// RAII fuer den Wegwerf-Baum des Falls (8) (Lens C r4 LC3T-09, Fix-r6): bis 9223cbd5 stand remove_all erst am
-// Ende des Falls -- jedes fatale ASSERT davor (etwa ein scheiterndes 'git ls-files', Probe im Beweisort FIX-r6.md
-// mit git-Koeder im PATH) liess den Baum unter user_tmp_dir() stehen, und die Loeschung selbst blieb ungeprueft.
-// Der Waechter raeumt beim Verlassen des Blocks, auch nach einem fatalen ASSERT, und meldet ein Scheitern laut.
-class WegwerfBaum {
-public:
-    explicit WegwerfBaum(fs::path pfad) : pfad_{std::move(pfad)} {
-        std::error_code ec;
-        fs::create_directories(pfad_, ec);
-    }
-    WegwerfBaum(WegwerfBaum const&)            = delete;
-    WegwerfBaum& operator=(WegwerfBaum const&) = delete;
-    ~WegwerfBaum() {
-        std::error_code ec;
-        fs::remove_all(pfad_, ec);
-        if (ec || fs::exists(pfad_)) {
-            ADD_FAILURE() << "Wegwerf-Baum '" << pfad_.string() << "' nicht geraeumt: " << ec.message();
-        }
-    }
-    [[nodiscard]] fs::path const& pfad() const { return pfad_; }
-
-private:
-    fs::path pfad_;
-};
-
+// RAII fuer den Wegwerf-Baum: die Klasse WegwerfBaum steht seit Fix-r7 im anonymen Namensraum vor Fall (sie
+// traegt jetzt auch Fall::baum_; Lens C r5 LC5T-04). Bis 9223cbd5 stand remove_all erst am Ende dieses Falls
+// (Lens C r4 LC3T-09, Fix-r6): jedes fatale ASSERT davor liess den Baum unter user_tmp_dir() stehen.
 TEST(Pa1ToteAusnahme, EchteAllowlistTraegtKeineToteZeile) {
     std::string const marke = koeder();
     WegwerfBaum const waechter{comdare::test::user_tmp_dir() / ("pa1_echt_" + marke)};
-    fs::path const&   baum = waechter.pfad();
+    ASSERT_TRUE(waechter.ok()) << waechter.fehler();
+    fs::path const& baum = waechter.pfad();
     ASSERT_TRUE(fs::is_directory(baum)) << "Wegwerf-Baum nicht anlegbar: " << baum.string();
 
-    // Der SOLL der Wache, aus derselben Quelle wie bei ihr: git ls-files, ohne ext/,
-    // am DATEINAMEN verankert -- und wie sie mit core.quotePath=false (Fix-r6, Lens A r6 LA6-02): ein
-    // Nicht-ASCII-Pfad zaehlt bei beiden gleich, sonst liefe dieser Fall bei der ersten solchen Datei laut auf.
-    Lauf const soll =
-        fahre("cd " + zitiert(fs::path{repo_wurzel()}) + " && " + WegwerfRepo::umgebung() +
-              " git -c core.quotePath=false ls-files | /usr/bin/grep -v '^ext/' | /usr/bin/grep -v '/ext/'"
-              " | /usr/bin/grep -E '(^|/)test_[^/]*[.]cpp$' | sort -u");
+    // Der SOLL der Wache, aus derselben Quelle wie bei ihr: 'git -c core.quotePath=false ls-files' (Fix-r6, Lens
+    // A r6 LA6-02: ein Nicht-ASCII-Pfad zaehlt bei beiden gleich). NUR git laeuft in der Shell, und sein Status
+    // wird geprueft (Lens B r6 LB6-02 = Lens C r5 LC5T-01 = I-4, Fix-r7): bis 8ae59179 hing hinter git ein Rohr
+    // aus drei grep und 'sort -u' -- fahre() nutzt popen (/bin/sh = dash, kein pipefail), soll.code war der
+    // Status von 'sort -u', und ein git, das die halbe Liste liefert und stirbt, blieb unentdeckt (Rot zuerst:
+    // git-Koeder 'head -n 200; exit 1', FIX-r7.md). Die drei Filter und sort/unique sind jetzt C++.
+    // PFLEGE-KOPPLUNG mit der Wache (scripts/ci_test_registrierungs_wache.sh, SOLL-Lesung ueber index.txt:
+    // grep -v '^ext/', grep -v '/ext/', grep -E '(^|/)test_[^/]*\.cpp$', dann sort -u): aendert sich dort ein
+    // Filter, ist er HIER nachzuziehen, sonst faellt dieser Fall laut (der SOLL des Falls und der Nenner der
+    // Wache weichen ab). Eine von git quotierte Zeile (beginnt mit '"') faellt bei der Wache aus dem SOLL heraus
+    // (UNPRUEFBAR, Fix-r7 Folge (14d)) und wird hier ebenso uebergangen; am echten Baum gibt es keine (Nenner-
+    // Zeile 'Quotierte Index-Pfade: 0', Fall (31d) belegt die Klasse im Wegwerf-Repo).
+    Lauf const soll = fahre("cd " + zitiert(fs::path{repo_wurzel()}) + " && " + WegwerfRepo::umgebung() +
+                            " git -c core.quotePath=false ls-files");
     ASSERT_EQ(soll.code, 0) << "git ls-files im echten Repo fehlgeschlagen:\n" << soll.ausgabe;
 
-    std::vector<std::string> alle;
+    std::set<std::string> gefiltert;
     for (std::size_t start = 0; start < soll.ausgabe.size();) {
         std::size_t const ende = soll.ausgabe.find('\n', start);
         std::string const z    = soll.ausgabe.substr(start, ende == std::string::npos ? ende : ende - start);
-        if (!z.empty()) { alle.push_back(z); }
+        if (!z.empty() && z.front() != '"' && z.rfind("ext/", 0) != 0 && z.find("/ext/") == std::string::npos) {
+            std::size_t const schraeg = z.rfind('/');
+            std::string const name    = schraeg == std::string::npos ? z : z.substr(schraeg + 1);
+            if (name.rfind("test_", 0) == 0 && name.size() > 4 && name.compare(name.size() - 4, 4, ".cpp") == 0) {
+                gefiltert.insert(z);
+            }
+        }
         if (ende == std::string::npos) { break; }
         start = ende + 1;
     }
+    std::vector<std::string> const alle(gefiltert.begin(), gefiltert.end());
     // GEGENPROBE des Messgeraets: ohne belastbaren SOLL beweist der Fall nichts.
     ASSERT_GT(alle.size(), 100U) << "Der SOLL ist unglaubwuerdig klein (" << alle.size() << ") -- fail-closed.";
 
@@ -2006,6 +2196,55 @@ TEST(Pa1ToteAusnahme, ArchivAnkerMussBlobInDerObjektdatenbankSein) {
     EXPECT_TRUE(zeile_exakt(ohne_objekt.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0))) << ohne_objekt.ausgabe;
     EXPECT_TRUE(zeile_exakt(ohne_objekt.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << ohne_objekt.ausgabe;
 
+    // (d) EIN COMMIT-OBJEKT UNTER 100644 (Lens C r5 LC5T-06, Fix-r7): 'update-index --cacheinfo' legt jedes Objekt
+    //     unter jedem Modus ab; ein Commit hinter dem Anker-Eintrag ist kein Blob und ankert nicht (Probe
+    //     t7-machbarkeit). Der Commit entsteht per 'commit-tree' mit -c user.name/user.email (Werkbank ohne Config).
+    Lauf const commit = im_repo(fall.repo(), "git -c user.name=pa1 -c user.email=pa1@invalid commit-tree " +
+                                                 tree.ausgabe + " -m anker_" + marke);
+    ASSERT_EQ(commit.code, 0) << commit.ausgabe;
+    ASSERT_EQ(commit.ausgabe.size(), 40U) << "kein SHA-1: '" << commit.ausgabe << "'";
+    Lauf const ctyp = im_repo(fall.repo(), "git cat-file -t " + commit.ausgabe);
+    ASSERT_EQ(ctyp.ausgabe, "commit") << "Arrangement: das Objekt ist kein Commit:\n" << ctyp.ausgabe;
+    Lauf const cacheinfo3 =
+        im_repo(fall.repo(), "git update-index --add --cacheinfo 100644," + commit.ausgabe + "," + anker);
+    ASSERT_EQ(cacheinfo3.code, 0) << cacheinfo3.ausgabe;
+    Lauf const eintrag3 = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(anker));
+    ASSERT_TRUE(zeile_exakt(eintrag3.ausgabe, "100644 " + commit.ausgabe + " 0\t" + anker)) << "Arrangement:\n"
+                                                                                            << eintrag3.ausgabe;
+    Lauf const als_commit = fall.fahren();
+    berichten("ArchivAnkerMussBlobInDerObjektdatenbankSein/Commit-unter-100644", als_commit, marke);
+    EXPECT_EQ(als_commit.code, 1) << "Ein Commit ist kein Anker -- die Datei bleibt im SOLL, ROT.\n"
+                                  << als_commit.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(als_commit.ausgabe,
+                              anker + " -- UNPRUEFBARER ANKER: Objekttyp commit ist kein Blob (Index-Modus 100644" +
+                                  " verspricht eines)"))
+        << als_commit.ausgabe;
+    EXPECT_TRUE(zeile_exakt(als_commit.ausgabe, fall.waise())) << als_commit.ausgabe;
+    EXPECT_TRUE(zeile_exakt(als_commit.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0))) << als_commit.ausgabe;
+    EXPECT_TRUE(zeile_exakt(als_commit.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << als_commit.ausgabe;
+
+    // (e) DER ANKER MIT INDEX-MODUS 160000 (Gitlink; LC5T-06): das Objekt ist ein echtes Blob, der Modus ist es
+    //     nicht -- 'Index-Modus 160000 ist kein regulaeres Blob', ankert nichts. Die Modus-Pruefung greift VOR der
+    //     Objektpruefung.
+    Lauf const anker_blob = im_repo(fall.repo(), "printf '%s\\n' '# Anker " + marke + "' | git hash-object -w --stdin");
+    ASSERT_EQ(anker_blob.code, 0) << anker_blob.ausgabe;
+    ASSERT_EQ(anker_blob.ausgabe.size(), 40U) << "kein SHA-1: '" << anker_blob.ausgabe << "'";
+    Lauf const cacheinfo4 =
+        im_repo(fall.repo(), "git update-index --add --cacheinfo 160000," + anker_blob.ausgabe + "," + anker);
+    ASSERT_EQ(cacheinfo4.code, 0) << cacheinfo4.ausgabe;
+    Lauf const eintrag4 = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(anker));
+    ASSERT_TRUE(zeile_exakt(eintrag4.ausgabe, "160000 " + anker_blob.ausgabe + " 0\t" + anker)) << "Arrangement:\n"
+                                                                                                << eintrag4.ausgabe;
+    Lauf const als_gitlink = fall.fahren();
+    berichten("ArchivAnkerMussBlobInDerObjektdatenbankSein/Anker-Modus-160000", als_gitlink, marke);
+    EXPECT_EQ(als_gitlink.code, 1) << als_gitlink.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(als_gitlink.ausgabe,
+                              anker + " -- UNPRUEFBARER ANKER: Index-Modus 160000 ist kein regulaeres Blob (Symlink" +
+                                  " 120000 oder Gitlink 160000)"))
+        << als_gitlink.ausgabe;
+    EXPECT_TRUE(zeile_exakt(als_gitlink.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0))) << als_gitlink.ausgabe;
+    EXPECT_TRUE(zeile_exakt(als_gitlink.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << als_gitlink.ausgabe;
+
     // (c) Gegenrichtung: ein echtes Blob traegt.
     ASSERT_TRUE(fall.repo().schreibe_und_verfolge(anker, "# Anker mit Inhalt " + marke + "\n"));
     Lauf const blob = fall.fahren();
@@ -2453,6 +2692,7 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     Lauf const estufen = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + esub));
     ASSERT_TRUE(zeile_exakt(estufen.ausgabe, "100644 " + blob.ausgabe + " 2\t" + esub)) << estufen.ausgabe;
     ASSERT_TRUE(zeile_exakt(estufen.ausgabe, "160000 " + sha_e + " 3\t" + esub + "/c")) << estufen.ausgabe;
+    ASSERT_FALSE(enthaelt(estufen.ausgabe, " 0\t" + esub)) << "Arrangement: Stufe 0 steht:\n" << estufen.ausgabe;
     std::string const unter_e = esub + "/c/x_" + marke + ".hpp";
     ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_e));
     Lauf const df2 = fall.fahren();
@@ -2508,6 +2748,136 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
         << arbeitsbaum.ausgabe;
     EXPECT_TRUE(zeile_exakt(arbeitsbaum.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << arbeitsbaum.ausgabe;
     EXPECT_TRUE(zeile_exakt(arbeitsbaum.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << arbeitsbaum.ausgabe;
+
+    // (g4) D/F MIT DEM EXAKTEN EINTRAG AUF STUFE 0 (Lens A r7 LA7-03, Fix-r7; Probe X36): Datei F-sub auf Stufe 0,
+    //      Eintrag F-sub/x.txt darunter auf Stufe 2 -- git verweigert nur BEIDES auf Stufe 0 (Probe X17), Stufe 0
+    //      gegen Stufe 1-3 darunter ist per 'update-index --index-info' anlegbar. Arrangement exakt: der Eintrag
+    //      NUR auf Stufe 0, der Untereintrag NUR auf Stufe 2. Die Meldung nennt 'Stufe 0: Datei' und 'Stufe 2'.
+    std::string const fsub = dir + "/F-sub";
+    ASSERT_TRUE(fall.repo().schreibe("df4_" + marke + ".txt", "100644 " + blob.ausgabe + " 0\t" + fsub + "\n100644 " +
+                                                                  blob.ausgabe + " 2\t" + fsub + "/x.txt\n"));
+    Lauf const fidx4 = im_repo(fall.repo(), "git update-index --index-info < " +
+                                                zitiert(fall.repo().pfad() / ("df4_" + marke + ".txt")));
+    ASSERT_EQ(fidx4.code, 0) << "git update-index --index-info (D/F Stufe 0) fehlgeschlagen:\n" << fidx4.ausgabe;
+    Lauf const fstufen4 = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + fsub));
+    ASSERT_TRUE(zeile_exakt(fstufen4.ausgabe, "100644 " + blob.ausgabe + " 0\t" + fsub)) << fstufen4.ausgabe;
+    ASSERT_TRUE(zeile_exakt(fstufen4.ausgabe, "100644 " + blob.ausgabe + " 2\t" + fsub + "/x.txt")) << fstufen4.ausgabe;
+    ASSERT_FALSE(enthaelt(fstufen4.ausgabe, " 1\t" + fsub)) << "Arrangement: Stufe 1 steht:\n" << fstufen4.ausgabe;
+    ASSERT_FALSE(enthaelt(fstufen4.ausgabe, " 2\t" + fsub + "\n")) << "Arrangement: F-sub auf Stufe 2:\n"
+                                                                   << fstufen4.ausgabe;
+    ASSERT_FALSE(enthaelt(fstufen4.ausgabe, " 3\t" + fsub)) << "Arrangement: Stufe 3 steht:\n" << fstufen4.ausgabe;
+    ASSERT_FALSE(enthaelt(fstufen4.ausgabe, " 0\t" + fsub + "/x.txt")) << "Arrangement: x.txt auf Stufe 0:\n"
+                                                                       << fstufen4.ausgabe;
+    std::string const unter_f4 = fsub + "/tief/y_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_f4));
+    Lauf const df4 = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/DF-Datei-0-gegen-Verzeichnis-2", df4, marke);
+    EXPECT_EQ(df4.code, 1) << "Datei auf Stufe 0 gegen Eintraege darunter auf Stufe 2 -- UNPRUEFBAR, ROT.\n"
+                           << df4.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(df4.ausgabe,
+                              fall.waise() + " -- UNPRUEFBAR: \"" + unter_f4 + "\" existiert nicht, und sein Vorfahr " +
+                                  fsub + " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe" +
+                                  " (Stufe 0: Datei; dazu Eintraege DARUNTER auf Stufe 2 = Verzeichnis (D/F))"))
+        << df4.ausgabe;
+    EXPECT_FALSE(enthaelt(df4.ausgabe, "ist eine getrackte DATEI")) << df4.ausgabe;
+    EXPECT_TRUE(zeile_exakt(df4.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << df4.ausgabe;
+    EXPECT_TRUE(zeile_exakt(df4.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << df4.ausgabe;
+
+    // (g5) UNTEREINTRAEGE AUF ZWEI STUFEN (Lens C r5 LC5W-07, Fix-r7; Probe X39): Gitlink G-sub auf Stufe 2, darunter
+    //      x.txt auf Stufe 1 und y.txt auf Stufe 3. Die Meldung nennt die Stufen als Liste 'Stufe 1, Stufe 3' in
+    //      Stufenreihenfolge -- bis 8ae59179 stand 'Stufe 1 3', mehrdeutig und an der Pfadsortierung haengend.
+    std::string const gsub  = dir + "/G-sub";
+    std::string const sha_g = "000000000000000000000000000000000000000c";
+    ASSERT_TRUE(fall.repo().schreibe("df5_" + marke + ".txt", "160000 " + sha_g + " 2\t" + gsub + "\n100644 " +
+                                                                  blob.ausgabe + " 1\t" + gsub + "/x.txt\n100644 " +
+                                                                  blob.ausgabe + " 3\t" + gsub + "/y.txt\n"));
+    Lauf const fidx5 = im_repo(fall.repo(), "git update-index --index-info < " +
+                                                zitiert(fall.repo().pfad() / ("df5_" + marke + ".txt")));
+    ASSERT_EQ(fidx5.code, 0) << fidx5.ausgabe;
+    Lauf const fstufen5 = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + gsub));
+    ASSERT_TRUE(zeile_exakt(fstufen5.ausgabe, "160000 " + sha_g + " 2\t" + gsub)) << fstufen5.ausgabe;
+    ASSERT_TRUE(zeile_exakt(fstufen5.ausgabe, "100644 " + blob.ausgabe + " 1\t" + gsub + "/x.txt")) << fstufen5.ausgabe;
+    ASSERT_TRUE(zeile_exakt(fstufen5.ausgabe, "100644 " + blob.ausgabe + " 3\t" + gsub + "/y.txt")) << fstufen5.ausgabe;
+    ASSERT_FALSE(enthaelt(fstufen5.ausgabe, " 0\t" + gsub)) << "Arrangement: Stufe 0 steht:\n" << fstufen5.ausgabe;
+    std::string const unter_g5 = gsub + "/tief/y_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_g5));
+    Lauf const df5 = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/DF-Untereintraege-Stufe-1-und-3", df5, marke);
+    EXPECT_EQ(df5.code, 1) << df5.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(
+        df5.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_g5 + "\" existiert nicht, und sein Vorfahr " + gsub +
+                         " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe" +
+                         " (Stufe 2: Gitlink; dazu Eintraege DARUNTER auf Stufe 1, Stufe 3 = Verzeichnis" + " (D/F))"))
+        << df5.ausgabe;
+    EXPECT_FALSE(enthaelt(df5.ausgabe, "Stufe 1 3")) << "Die alte, mehrdeutige Form darf nicht mehr erscheinen.\n"
+                                                     << df5.ausgabe;
+    EXPECT_TRUE(zeile_exakt(df5.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << df5.ausgabe;
+    EXPECT_TRUE(zeile_exakt(df5.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << df5.ausgabe;
+
+    // (i) DIE AHNENREIHE BIS ZUR WURZEL (Lens C r5 LC5W-01, Fix-r7; Probe X37): Gitlink I-sub auf Stufe 2, DATEI
+    //     I-sub/x auf Stufe 3 (= D/F an I-sub), Gegenstand I-sub/x/y.hpp. Bis 8ae59179 endete der Ahnenscan an
+    //     der naechsten Datei I-sub/x mit TOT -- der D/F-Konflikt am hoeheren Ahnen I-sub wurde nie erreicht.
+    //     Rangfolge jetzt: UNPRUEFBAR (naechster Konflikt/Symlink) vor TOT (naechste Datei) vor Gitlink.
+    std::string const isub  = dir + "/I-sub";
+    std::string const sha_i = "000000000000000000000000000000000000000d";
+    ASSERT_TRUE(fall.repo().schreibe("df6_" + marke + ".txt", "160000 " + sha_i + " 2\t" + isub + "\n100644 " +
+                                                                  blob.ausgabe + " 3\t" + isub + "/x\n"));
+    Lauf const fidx6 = im_repo(fall.repo(), "git update-index --index-info < " +
+                                                zitiert(fall.repo().pfad() / ("df6_" + marke + ".txt")));
+    ASSERT_EQ(fidx6.code, 0) << fidx6.ausgabe;
+    Lauf const fstufen6 = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + isub));
+    ASSERT_TRUE(zeile_exakt(fstufen6.ausgabe, "160000 " + sha_i + " 2\t" + isub)) << fstufen6.ausgabe;
+    ASSERT_TRUE(zeile_exakt(fstufen6.ausgabe, "100644 " + blob.ausgabe + " 3\t" + isub + "/x")) << fstufen6.ausgabe;
+    ASSERT_FALSE(enthaelt(fstufen6.ausgabe, " 0\t" + isub)) << "Arrangement: Stufe 0 steht:\n" << fstufen6.ausgabe;
+    std::string const unter_i = isub + "/x/y_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_i));
+    Lauf const tief_i = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/Datei-Ahne-unter-DF-Konflikt", tief_i, marke);
+    EXPECT_EQ(tief_i.code, 1) << tief_i.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(tief_i.ausgabe,
+                              fall.waise() + " -- UNPRUEFBAR: \"" + unter_i + "\" existiert nicht, und sein Vorfahr " +
+                                  isub + " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe" +
+                                  " (Stufe 2: Gitlink; dazu Eintraege DARUNTER auf Stufe 3 = Verzeichnis (D/F))"))
+        << tief_i.ausgabe;
+    EXPECT_FALSE(enthaelt(tief_i.ausgabe, "ist eine getrackte DATEI"))
+        << "Der Scan darf nicht an der naechsten Datei enden -- der Konflikt darueber gewinnt.\n"
+        << tief_i.ausgabe;
+    EXPECT_TRUE(zeile_exakt(tief_i.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << tief_i.ausgabe;
+    EXPECT_TRUE(zeile_exakt(tief_i.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << tief_i.ausgabe;
+
+    // (j) DATEI-AHNE UNTER EINEM ARBEITSBAUM-SYMLINK (Lens C r5 LC5W-02, Fix-r7; Probe X38): J-sub/x getrackt
+    //     (Stufe 0), danach J-sub im Arbeitsbaum durch einen Symlink ersetzt; Gegenstand J-sub/x/y.hpp. Bis
+    //     8ae59179 gewann die Datei J-sub/x (TOT), der Link an J-sub wurde nie geprueft -- jetzt UNPRUEFBAR.
+    std::string const jsub = dir + "/J-sub";
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(jsub + "/x", "x " + marke + "\n"));
+    fs::remove_all(fall.repo().pfad() / jsub, ec);
+    ASSERT_FALSE(ec) << ec.message();
+    fs::create_directories(fall.repo().pfad() / dir / "jreal", ec);
+    ASSERT_FALSE(ec) << ec.message();
+    fs::create_symlink("jreal", fall.repo().pfad() / jsub, ec);
+    ASSERT_FALSE(ec) << "Symlink nicht anlegbar: " << ec.message();
+    ASSERT_TRUE(fs::is_symlink(fall.repo().pfad() / jsub)) << "Arrangement: J-sub ist kein Link.";
+    // ist_verfolgt(jsub) traefe auch J-sub/x (git ls-files matcht Verzeichnis-Praefixe) -- der Index wird
+    // deshalb pfadgenau gelesen: J-sub/x muss stehen, ein Eintrag fuer den Link J-sub selbst darf nicht stehen.
+    Lauf const j_index = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(jsub) + " | awk -F'\\t' '{ print $2 }'");
+    ASSERT_EQ(j_index.code, 0) << j_index.ausgabe;
+    ASSERT_TRUE(zeile_exakt(j_index.ausgabe, jsub + "/x")) << "Arrangement: J-sub/x muss im Index bleiben.\n"
+                                                           << j_index.ausgabe;
+    ASSERT_FALSE(zeile_exakt(j_index.ausgabe, jsub)) << "Arrangement: der Link selbst darf nicht im Index stehen.\n"
+                                                     << j_index.ausgabe;
+    std::string const unter_j = jsub + "/x/y_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_j));
+    Lauf const tief_j = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/Datei-Ahne-unter-Arbeitsbaum-Symlink", tief_j,
+              marke);
+    EXPECT_EQ(tief_j.code, 1) << tief_j.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(tief_j.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_j +
+                                                  "\" existiert nicht, und sein Vorfahr " + jsub +
+                                                  " ist im Arbeitsbaum ein SYMLINK (nicht im Index)"))
+        << tief_j.ausgabe;
+    EXPECT_FALSE(enthaelt(tief_j.ausgabe, "ist eine getrackte DATEI")) << tief_j.ausgabe;
+    EXPECT_TRUE(zeile_exakt(tief_j.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << tief_j.ausgabe;
+    EXPECT_TRUE(zeile_exakt(tief_j.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << tief_j.ausgabe;
 }
 
 // =============================================================================
@@ -2841,6 +3211,73 @@ TEST(Pa1ToteAusnahme, NichtAsciiPfadZaehltImSollUndAnkert) {
     EXPECT_TRUE(zeile_exakt(anker.ausgabe, nenner_getrackt(4))) << anker.ausgabe;
     EXPECT_TRUE(zeile_exakt(anker.ausgabe, nenner_archiv(1, 1, 3))) << anker.ausgabe;
     EXPECT_TRUE(zeile_exakt(anker.ausgabe, endzeile_ok(3, 1))) << anker.ausgabe;
+
+    // (d) EINE VON GIT AUCH MIT core.quotePath=false QUOTIERTE TEST-QUELLDATEI (Lens A r7 LA7-01 = Lens C r5
+    //     LC5W-06, Fix-r7; Probe X23): ein Anfuehrungszeichen im Namen quotiert git IMMER (ebenso Tabulator,
+    //     Steuerzeichen, Backslash) -- die Index-Zeile beginnt mit '"' und endet auf '"', das SOLL-Muster traf
+    //     nicht, die Datei fiel bis 8ae59179 STILL aus dem SOLL ("2 getrackte", Exit 0). Jetzt: nicht im SOLL
+    //     (weiter '4 getrackte'), aber im Nenner gezaehlt ('Quotierte Index-Pfade: 1 ... davon 1 im SOLL-Muster')
+    //     und als eigene UNPRUEFBAR-Klasse mit Zeile gelistet -- Exit 1; die Datei ist nicht im Bauweg.
+    std::string const quotiert_datei = "tests/unit/test_" + marke + "_a\"b.cpp";
+    ASSERT_TRUE(
+        schreibe_und_verfolge_einfach_zitiert(fall.repo(), quotiert_datei, "// quotierte Datei " + marke + "\n"));
+    Lauf const q_index =
+        im_repo(fall.repo(), "git -c core.quotePath=false ls-files -- ':(literal)" + quotiert_datei + "'");
+    ASSERT_EQ(q_index.code, 0) << q_index.ausgabe;
+    ASSERT_TRUE(zeile_exakt(q_index.ausgabe, "\"tests/unit/test_" + marke + "_a\\\"b.cpp\""))
+        << "Arrangement: git quotiert den Pfad auch mit core.quotePath=false nicht:\n"
+        << q_index.ausgabe;
+    Lauf const q_soll = fall.fahren();
+    berichten("NichtAsciiPfadZaehltImSollUndAnkert/quotierte-Testdatei", q_soll, marke);
+    EXPECT_EQ(q_soll.code, 1) << "Eine von git quotierte Test-Quelldatei ist UNPRUEFBAR -- ROT, nie still.\n"
+                              << q_soll.ausgabe;
+    EXPECT_TRUE(zeile_exakt(q_soll.ausgabe, "\"tests/unit/test_" + marke + "_a\\\"b.cpp\" -- UNPRUEFBAR:" +
+                                                " Test-Quelldatei, deren Pfad git auch mit core.quotePath=false" +
+                                                " quotiert (Tabulator, Steuerzeichen, Anfuehrungszeichen oder" +
+                                                " Backslash) -- die Wache kann sie weder im SOLL zaehlen noch im" +
+                                                " Bauweg suchen; die Datei umbenennen"))
+        << q_soll.ausgabe;
+    EXPECT_TRUE(zeile_exakt(q_soll.ausgabe, nenner_getrackt(4))) << "Die quotierte Datei steht NICHT im SOLL.\n"
+                                                                 << q_soll.ausgabe;
+    EXPECT_TRUE(zeile_exakt(q_soll.ausgabe, nenner_quotiert(1, 1, 0))) << q_soll.ausgabe;
+    EXPECT_TRUE(zeile_exakt(q_soll.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0, 0, 1))) << q_soll.ausgabe;
+    EXPECT_TRUE(zeile_exakt(q_soll.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << q_soll.ausgabe;
+    EXPECT_TRUE(zeile_exakt(q_soll.ausgabe, endzeile_rot(0, 3, 0, 0, 1, 1))) << q_soll.ausgabe;
+
+    // (e) EIN QUOTIERTER ANKER-ORDNER (Probe X27): tests/deprecated/a"b_<marke>/VERMERK.md und eine Test-Datei
+    //     darin -- beide Zeilen quotiert; der Anker ankert nichts (UNPRUEFBARER ANKER), die Datei ist UNPRUEFBAR,
+    //     nichts davon zaehlt still als archiviert. Der Nenner: 3 quotierte Pfade (mit (d)), 2 im SOLL-Muster,
+    //     1 als Anker; Exit 1.
+    std::string const q_ordner = "tests/deprecated/a\"b_" + marke;
+    std::string const q_anker  = q_ordner + "/VERMERK.md";
+    std::string const q_test   = q_ordner + "/test_x_" + marke + ".cpp";
+    ASSERT_TRUE(schreibe_und_verfolge_einfach_zitiert(fall.repo(), q_anker, "# quotierter Anker " + marke + "\n"));
+    ASSERT_TRUE(
+        schreibe_und_verfolge_einfach_zitiert(fall.repo(), q_test, "// Datei im quotierten Ordner " + marke + "\n"));
+    std::string const q_ordner_roh = "\"tests/deprecated/a\\\"b_" + marke;
+    Lauf const        q_anker_lauf = fall.fahren();
+    berichten("NichtAsciiPfadZaehltImSollUndAnkert/quotierter-Anker-Ordner", q_anker_lauf, marke);
+    EXPECT_EQ(q_anker_lauf.code, 1) << q_anker_lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(q_anker_lauf.ausgabe, q_ordner_roh + "/VERMERK.md\" -- UNPRUEFBARER ANKER: Pfad von git" +
+                                                      " auch mit core.quotePath=false quotiert (Tabulator," +
+                                                      " Steuerzeichen, Anfuehrungszeichen oder Backslash) -- ankert" +
+                                                      " nichts, die Dateien seines Ordners bleiben fuer diese Wache" +
+                                                      " unsichtbar; den Ordner umbenennen"))
+        << q_anker_lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(
+        q_anker_lauf.ausgabe,
+        q_ordner_roh + "/test_x_" + marke +
+            ".cpp\" -- UNPRUEFBAR:" + " Test-Quelldatei, deren Pfad git auch mit core.quotePath=false" +
+            " quotiert (Tabulator, Steuerzeichen, Anfuehrungszeichen oder" +
+            " Backslash) -- die Wache kann sie weder im SOLL zaehlen noch im" + " Bauweg suchen; die Datei umbenennen"))
+        << q_anker_lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(q_anker_lauf.ausgabe, nenner_getrackt(4))) << q_anker_lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(q_anker_lauf.ausgabe, nenner_archiv(1, 1, 3)))
+        << "Der quotierte Ordner darf nicht als zweiter Archiv-Ordner zaehlen.\n"
+        << q_anker_lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(q_anker_lauf.ausgabe, nenner_quotiert(3, 2, 1))) << q_anker_lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(q_anker_lauf.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0, 0, 3))) << q_anker_lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(q_anker_lauf.ausgabe, endzeile_rot(0, 3, 0, 0, 3, 1))) << q_anker_lauf.ausgabe;
 }
 
 #endif // _WIN32
