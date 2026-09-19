@@ -22,8 +22,10 @@
 #
 # DREI ARTEN VON GEGENSTAND, und das PRAEFIX benennt die Art (2026-08-10):
 #
-#   datei:<pfad>                Die Ausnahme traegt, solange der Pfad NICHT existiert.
-#                               Geprueft mit '[ -e ]' im Arbeitsbaum -- UND der Pfad muss
+#   datei:<pfad>                Die Ausnahme traegt, solange der Pfad NICHT existiert und
+#                               nicht belegt ist. Geprueft mit '[ -e ] || [ -L ]' im
+#                               Arbeitsbaum (auch ein Symlink ohne Ziel belegt den Pfad;
+#                               Fix-r6 LA6-06, Wortlaut Fix-r7 LC5W-08) -- UND der Pfad muss
 #                               ueberhaupt entstehen koennen (s. TOTE AUSNAHME unten).
 #   isa:<merkmal>[+<merkmal>]   Die Ausnahme traegt, solange MINDESTENS EIN Merkmal auf
 #                               dem Bau-Host fehlt. Bekannt sind genau zwei: avx2 und
@@ -86,8 +88,11 @@
 # WAS DAS NICHT BEWEIST, ausdruecklich: nicht, dass der Gegenstand nie existieren KANN.
 # Jemand kann ihn morgen 'git add'en, ein Pruefling-Repo kann eingehaengt werden, ein
 # CI-Job kann ihn hineinkopieren. Gemessen ist nur, dass ihn HEUTE keine Quelle dieses
-# Repos nennt. Ein Pfad AUSSERHALB des Repos (absolut oder mit '..'-Segment) wird gar
-# nicht beurteilt und nie als tot gemeldet; die Wache weist ihre Zahl im Nenner aus.
+# Repos nennt. Ein Pfad AUSSERHALB des Repos (absolut, oder mit '..'-Segmenten, die ueber
+# die Repo-Wurzel HINAUSFUEHREN -- Tiefenzaehler, Fix-r7 LA7-02) wird gar nicht beurteilt
+# und nie als tot gemeldet; die Wache weist ihre Zahl im Nenner aus. Ein '..', das
+# INNERHALB des Repos aufloest ('ext/x/../y'), ist dagegen eine nicht kanonische
+# Schreibweise und UNPRUEFBAR (rot), s. u.
 #
 # WAS EIN VORFAHR SEIN MUSS, DAMIT ER TRAEGT (2026-09-19, Fix-r5 des OV-2-Zuges; Lens A r5 LA5-01/02/03/06,
 # Lens B r4 LB4-01/03; Wache, Kopf Folgen (11) und (12)): 'vorhandenes Verzeichnis' heisst ein Verzeichnis
@@ -106,10 +111,11 @@
 # VERZEICHNIS darunter steht (D/F: Gitlink oder Datei auf einer Stufe, Eintraege darunter auf einer anderen) --
 # die Meldung nennt die Stufen und Typen, nicht mehr fest 'Datei gegen Gitlink' --, und ein Vorfahr, der NUR im
 # Arbeitsbaum ein Symlink ist (nicht im Index). Die Formregel fuer den 'datei:'-Pfad gilt nur INNERHALB des Repos:
-# ein absoluter Pfad und ein Pfad mit '..'-Segment werden wie bisher gar nicht beurteilt (Nenner-Zeile 'AUSSERHALB',
-# s. o.). Ein Gegenstand, der als Symlink ohne Ziel vorliegt, ist ERLOSCHEN (der Pfad ist belegt). Nicht-ASCII-
-# Pfade zaehlen seit Fix-r6 auch im SOLL und am VERMERK.md-Anker (die Wache liest beide roh; bis 9223cbd5 fielen
-# sie dort STILL heraus). Faelle (6b), (27e2/e3/f2), (27g)-(27g3), (27h), (28f), (31).]
+# ein absoluter Pfad und ein Pfad, der per '..' ueber die Wurzel hinausfuehrt, werden wie bisher gar nicht beurteilt
+# (Nenner-Zeile 'AUSSERHALB', s. o.); ein '..', das innerhalb des Repos aufloest, ist seit Fix-r7 UNPRUEFBAR (LA7-02,
+# Faelle (5b)-(5d)). Ein Gegenstand, der als Symlink ohne Ziel vorliegt, ist ERLOSCHEN (der Pfad ist belegt).
+# Nicht-ASCII-Pfade zaehlen seit Fix-r6 auch im SOLL und am VERMERK.md-Anker (die Wache liest beide roh; bis
+# 9223cbd5 fielen sie dort STILL heraus). Faelle (6b), (27e2/e3/f2), (27g)-(27g3), (27h), (28f), (31).]
 #
 # -----------------------------------------------------------------------------
 # prt-art-Legacy: VIER GEPARKTE POSTEN. Frueher stand hier

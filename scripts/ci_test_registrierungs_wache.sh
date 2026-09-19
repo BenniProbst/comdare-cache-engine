@@ -65,7 +65,8 @@
 #   ohne AVX-512 entsteht das Ziel nie, die Quelldatei wird nie uebersetzt -- und es gibt
 #   keine Datei, deren Abwesenheit man dafuer nennen koennte.
 # Feld 2 traegt deshalb ab hier ein PRAEFIX, das die ART benennt:
-#   datei:<pfad>              Ausnahme traegt, solange der Pfad NICHT existiert.
+#   datei:<pfad>              Ausnahme traegt, solange der Pfad NICHT existiert und nicht belegt ist
+#                             ('[ -e ] || [ -L ]', Fix-r6 LA6-06; Wortlaut Fix-r7, Lens C r5 LC5W-08).
 #   isa:<merkmal>[+<merkmal>] Ausnahme traegt, solange MINDESTENS EIN Merkmal auf dem
 #                             Bau-Host fehlt -- die Negation des CMake-UND-Gatters.
 # Eine Art, die diese Wache nicht kennt, ist NICHT pruefbar: die Zeile wird ROT (Abschnitt
@@ -128,19 +129,25 @@
 # Bewiesen ist nur: heute nennt ihn keine Quelle dieses Repos. Das genuegt fuer den Zweck --
 # eine Begruendung, deren Gegenstand kein Erzeuger dieses Baums kennt, ist keine
 # Begruendung, sondern ein Freibrief.
-# WEITERE GRENZEN, ausdruecklich: (a) ein Pfad AUSSERHALB des Repos (absolut oder mit einem
-# '..'-Segment) ist so nicht beurteilbar -- er zaehlt als NICHT BEURTEILBAR und wird nie als
-# tot gemeldet; (b) ein Gegenstand OHNE Verzeichnisanteil hat die Repo-Wurzel als Elternteil,
+# WEITERE GRENZEN, ausdruecklich: (a) ein Pfad AUSSERHALB des Repos (absolut, oder mit '..'-
+# Segmenten, die ueber die Repo-Wurzel HINAUSFUEHREN -- Tiefenzaehler, Fix-r7 LA7-02) ist so nicht
+# beurteilbar -- er zaehlt als NICHT BEURTEILBAR und wird nie als tot gemeldet; ein '..', das
+# INNERHALB des Repos aufloest ('ext/x/../y'), ist dagegen eine nicht kanonische Schreibweise
+# und UNPRUEFBAR (Grenze (d)); (b) ein Gegenstand OHNE Verzeichnisanteil hat die Repo-Wurzel als Elternteil,
 # und die ist immer bekannt -- er kann deshalb nie als tot auffallen; (c) ein Gegenstand
 # DIREKT in einem vorhandenen Verzeichnis ist immer erreichbar, auch wenn ihn dort nie jemand
 # anlegen wird -- 'tests/unit/erfunden.hpp' faellt nicht auf. Die Regel faengt den Fall, dass
 # ein ganzer ZWEIG fehlt, nicht den, dass ein einzelner Name erfunden ist. 'Vorhanden' heisst:
 # ein VERZEICHNIS mit getracktem Inhalt -- eine getrackte Datei gleichen Namens ist keines
-# (Folge (11), Fix-r5); (d) ein 'datei:'-Pfad INNERHALB des Repos (weder absolut noch mit einem
-# '..'-Segment -- solche bleiben Grenze (a)) mit einem Zeichen, das git in seiner Ausgabe quotiert
+# (Folge (11), Fix-r5); (d) ein 'datei:'-Pfad INNERHALB des Repos (weder absolut noch die Wurzel
+# verlassend -- solche bleiben Grenze (a)) mit einem Zeichen, das git in seiner Ausgabe quotiert
 # (Tabulator, Steuerzeichen, Anfuehrungszeichen, Backslash), oder ohne kanonische Form (Segment '.',
-# leeres Segment: './', '//', '/' am Ende) ist UNPRUEFBAR, nie erreichbar oder tot (Folge (12),
-# Fix-r5; auf repo-interne Pfade eingeschraenkt mit Fix-r6, Lens C r4 LC3W-18, Folge (13e)).
+# leeres Segment: './', '//', '/' am Ende; seit Fix-r7 auch ein repo-intern aufloesendes '..',
+# Folge (14e)) ist UNPRUEFBAR, nie erreichbar oder tot (Folge (12), Fix-r5; auf repo-interne Pfade
+# eingeschraenkt mit Fix-r6, Lens C r4 LC3W-18, Folge (13e)); (e) ein Pfad, den git AUCH mit
+# core.quotePath=false quotiert (Tabulator, Steuerzeichen, Anfuehrungszeichen, Backslash im Namen
+# einer getrackten Datei), ist fuer diese Wache unvergleichbar: er zaehlt weder im SOLL noch als
+# Anker, wird aber gezaehlt und -- im Test-Muster oder als Anker -- als UNPRUEFBAR gemeldet (Folge (14d)).
 #
 # WARUM DIE VERZEICHNISSE UND NICHT NUR DER PFAD: ein nicht existierender Pfad ist per
 # Definition weder getrackt noch (meist) ignoriert -- die Frage waere fuer JEDEN abwesenden
@@ -155,7 +162,8 @@
 #   Symlink (im Index 120000 oder NUR im Arbeitsbaum, Fix-r6) oder Merge-Konflikt -- ungleiche
 #                      Typen je Stufe ODER ein Eintrag gegen ein Verzeichnis darunter (D/F, Fix-r6)
 #                      -> UNPRUEFBAR (rot). Die Wache loest keinen Link auf und raet keinen
-#                      Merge-Ausgang (Folgen (11) und (13)).
+#                      Merge-Ausgang (Folgen (11) und (13)). Seit Fix-r7 gilt das auf JEDER Stufe
+#                      der Ahnenreihe, auch OBERHALB einer Datei: UNPRUEFBAR schlaegt TOT (Folge (14a)).
 #   getrackter Inhalt DARUNTER (ein Verzeichnis, Folge (11)), und es ist der DIREKTE
 #                      Elternteil -> erreichbar. Eine neue Datei in einem vorhandenen
 #                      Verzeichnis ist der Normalfall.
@@ -307,8 +315,11 @@
 #       statt 3, Exit 0) -- nicht 'laut rot', wie dieser Absatz bis dahin behauptete. Seit Fix-r6 lesen
 #       beide roh, Folge (13c).]
 #   (13) FIX-R6 (2026-09-19; Lens A r6 LA6-01..06, Lens B r5 LB5-I3, Lens C r4 LC3W-15..18): (a) EIN
-#       EINTRAG GEGEN EIN VERZEICHNIS DARUNTER (D/F-Konflikt; nur auf den Index-Stufen 1-3 moeglich, auf
-#       Stufe 0 verweigert git ihn) ist ein Typ-Konflikt: der Ausgang 'Eintrag' machte den Gegenstand tot,
+#       EINTRAG GEGEN EIN VERZEICHNIS DARUNTER (D/F-Konflikt; der exakte Eintrag und die Eintraege darunter
+#       liegen auf VERSCHIEDENEN Stufen: beides auf Stufe 0 verweigert git (Probe X17), ein Eintrag auf
+#       Stufe 0 gegen Eintraege darunter auf Stufe 1-3 ist per 'update-index --index-info' anlegbar und wird
+#       erkannt (Probe X36, Fall (27g4); Satz berichtigt mit Fix-r7, Lens A r7 LA7-03)) ist ein Typ-Konflikt:
+#       der Ausgang 'Eintrag' machte den Gegenstand tot,
 #       der Ausgang 'Verzeichnis' erreichbar -- UNPRUEFBAR (bis 9223cbd5 gruen, Probe X01: Gitlink auf
 #       Stufe 2, Datei darunter auf Stufe 3, Gegenstand in Tiefe 2). index_eintrag() merkt sich dafuer, ob
 #       unter dem Pfad Eintraege liegen, und die Ahnenschleife laeuft ueber einen Gitlink WEITER hinauf:
@@ -333,6 +344,42 @@
 #       Exit 1 in bash und busybox = ein Befund, der keiner ist; Probe messungen/fix-r6/trap). (h) Der
 #       Wortlaut 'in JEDEM Merge-Ausgang' zum Gitlink auf Stufe 1-3 ist zu 'in mindestens einem'
 #       berichtigt (LA6-05 = LB5-I3): 'erreichbar' ist dort die Vorsichtsregel, TOT die starke Behauptung.
+#   (14) FIX-R7 (2026-09-19; Lens A r7 LA7-01..05, Lens C r5 LC5W-01..08): (a) DIE AHNENREIHE WIRD BIS ZUR
+#       WURZEL KLASSIFIZIERT (LC5W-01/02): bis 8ae59179 endete der Scan an der naechsten DATEI (TOT) und sah
+#       weder einen D/F-Konflikt (Probe X37: Gitlink ext/d Stufe 2 ueber Datei ext/d/x Stufe 3) noch einen
+#       Arbeitsbaum-Symlink (Probe X38: ext/d durch einen Link ersetzt) an einem HOEHEREN Ahnen. Jetzt gilt
+#       die Rangfolge UNPRUEFBAR (naechster Symlink/Konflikt) vor TOT (naechste Datei) vor Gitlink. Faelle
+#       (27i), (27j). (b) DIE TRAPS STEHEN VOR MKTEMP UND VOR DEM ERSTEN WERKZEUG, HUP IST GEFANGEN (LC5W-03,
+#       LA7-05): der Signalvertrag 'INT/TERM/HUP = Exit 2, EXIT-trap raeumt' gilt fuer den GANZEN Lauf (Probe
+#       messungen/fix-r7/rot-zuerst/trap-VOR: vorher Rohstatus 130/143/129, TMP-Rest nach Signal waehrend
+#       mktemp, HUP ohne EXIT-trap in dash und busybox). Der EXIT-trap ist die Funktion aufraeumen: sie gibt
+#       den Status VOR dem trap zurueck -- ein scheiterndes 'rm' im trap-Rumpf machte unter 'set -e' aus Exit 2
+#       eine 1 (Probe schreib-NEU der ersten Fix-r7-Fassung); bleibt TMP liegen, wird nur ein Gruen zu Exit 2.
+#       (c) JEDE UMLEITUNG IN EINE ZWISCHENDATEI IST GEPRUEFT
+#       (LC5W-04): ': >' und 'printf >>' liefen roh -- unter 'set -e' Exit 1 (dash 2) ohne ABBRUCH-Zeile, also
+#       ein Befund, der keiner ist (Probe schreib-VOR: read-only TMP, 'cannot create ... Permission denied',
+#       rc=1). Jetzt datei_leeren/anhaengen, jeder Fehler ist Exit 2 (Helfer unten: warum nicht ': >'). (d)
+#       VON GIT AUCH MIT core.quotePath=false QUOTIERTE PFADE WERDEN GEZAEHLT (LA7-01 = LC5W-06): Tabulator,
+#       Steuerzeichen, Anfuehrungszeichen und Backslash quotiert git immer, die Zeile beginnt mit '"' und
+#       traf weder SOLL- noch Anker-Muster -- die Datei fiel STILL heraus (Proben X23-X27b: "2 getrackte" statt
+#       3, Exit 0). Jetzt steht die Zahl aller quotierten Index-Pfade im Nenner (immer), und die davon im
+#       Test-Muster oder in Anker-Form sind eine eigene UNPRUEFBAR-Klasse mit Zeilenliste (Exit 1); Lead-
+#       Entscheid Weg (ii). Fall (31d/e). (e) '..' MIT TIEFENZAEHLER (LA7-02): '..' senkt, jedes andere
+#       Segment hebt die Tiefe; sinkt sie unter 0, verlaesst der Pfad die Wurzel = Grenze (a), NICHT
+#       beurteilt wie bisher (Probe X20 '../aussen/./y.hpp' Exit 0); bleibt sie >= 0, loest das '..' INNERHALB
+#       des Repos auf (Probe X30 'ext/README.md/../README.md/x.hpp', am echten Baum Koeder K6) -- eine nicht
+#       kanonische Schreibweise, die bis 8ae59179 als 'ausserhalb des Repos' begruendet durchlief und die
+#       TOT-Frage umging; jetzt UNPRUEFBAR mit eigener Diagnose (Folge (12)). Faelle (5b)-(5d). (f) LESEFEHLER
+#       SIND KEIN DATEIENDE (LC5W-05): 'read' meldet EIO und EOF gleich (Status 1); jede read-Schleife zaehlt
+#       ihre LF-Zeilen und gleicht sie nach dem Ende mit 'wc -l' der Datei ab (lese_abgleich), Abweichung =
+#       Exit 2. Probe X41 (Allowlist als Symlink auf /proc/self/mem): vorher rc 1 'OHNE BEGRUENDUNG' fuer eine
+#       begruendete Datei, jetzt Exit 2. allow_zeile antwortet ueber die Variable ALLOW_Z statt ueber stdout.
+#       Jede Schleifenvariable wird VOR dem read geleert: bash laesst sie bei einem Lesefehler unberuehrt
+#       (dash und busybox leeren sie) -- unter 'set -u' hiesse das 'unbound variable' mit rc 1 (Probe lese-NEU
+#       X41, bash --posix, erste Fix-r7-Fassung) oder eine stale, doppelt verarbeitete Zeile.
+#       (g) INDEX_TYPEN nennt Untereintraege auf mehreren Stufen als 'Stufe 1, Stufe 3' in Stufenreihenfolge
+#       (LC5W-07; 'Stufe 1 3' war mehrdeutig und hing an der Pfadsortierung). Fall (27g5). (h) Wortlaut
+#       '[ -e ] || [ -L ]' an Kopf, Allowlist-Kopf und Auswertungs-Kommentar (LC5W-08 = LA7-07).
 #
 # DER GEMESSENE BAUM MUSS DERSELBE SEIN WIE DER DER CI (J-0b, am Objekt 2026-09-17): der CI-Baum
 # build-covguard wird MIT -DCOMDARE_CE_PRUEFLINGE=<repo>/tests/pruefling_fixture konfiguriert, und
@@ -358,11 +405,17 @@
 #              Form, Folgen (11), (12) und (13))
 #          2 = die Wache konnte nicht pruefen (fail-closed, ausdruecklich KEIN Gruen) -- auch bei
 #              jedem Ausfall eines Werkzeugs (git, grep, sort, uniq, wc, date, mktemp; cut, sed und
-#              tr kommen seit Fix-r3 nicht mehr vor; rm laeuft NUR im EXIT-trap zum Aufraeumen der
-#              Zwischendateien, also nach dem 'exit' -- sein Ausfall aendert keinen Exit-Status, Lens A
+#              tr kommen seit Fix-r3 nicht mehr vor; rm laeuft NUR im EXIT-trap (aufraeumen) zum
+#              Aufraeumen der Zwischendateien, also nach dem 'exit' -- sein Ausfall aendert keinen Befund:
+#              aufraeumen gibt den Status vor dem trap zurueck, nur ein Gruen wird bei liegengebliebenem
+#              TMP zu Exit 2 (bis 8ae59179 machte 'set -e' aus Exit 2 eine 1, Fix-r7 Folge (14b)); Lens A
 #              r5 LA5-08; INT und TERM sind seit Fix-r6 'exit 2' und loesen genau diesen EXIT-trap aus,
-#              Lens C r4 LC3W-17, Folge (13g)), bei jedem ISA-Beleg, der nicht eindeutig ist, und bei
-#              einem Signal INT oder TERM
+#              Lens C r4 LC3W-17, Folge (13g); seit Fix-r7 auch HUP, und die traps stehen VOR mktemp und
+#              vor dem ersten Werkzeug, Folge (14b)), bei jedem Schreib- oder Lesefehler an einer
+#              Zwischendatei (Folgen (14c) und (14f)), bei jedem ISA-Beleg, der nicht eindeutig ist, und
+#              bei einem Signal INT, TERM oder HUP -- vom ersten Kommando an. Andere Exit-Werte gibt es
+#              nicht; GRENZE: ein Signal, das beim Start der Wache schon ignoriert war (POSIX: ein
+#              solches kann die Shell nicht neu fangen), beendet sie wie den Aufrufer.
 #
 # GRENZE, EHRLICH BENANNT -- was diese Wache NICHT deckt:
 # Sie prueft, ob die Quelldatei UEBERSETZT wird. Sie prueft NICHT, ob das entstehende
@@ -384,6 +437,31 @@ set -eu
 # nur fuer sich.
 LC_ALL=C
 export LC_ALL
+
+# SIGNALE UND ZWISCHENDATEIEN (Fix-r7, Lens C r5 LC5W-03 + Lens A r7 LA7-05, Kopf Folge (14b)): die traps stehen
+# VOR mktemp und vor dem ersten Werkzeug-Aufruf. Bis 8ae59179 standen sie hinter mktemp -- INT/TERM/HUP davor
+# endeten mit dem Rohstatus 130/143/129, ein Signal WAEHREND mktemp liess das Verzeichnis liegen, und HUP war gar
+# nicht gefangen (dash und busybox beenden dann ohne EXIT-trap; Probe messungen/fix-r7/rot-zuerst/trap-VOR). TMP
+# ist leer initialisiert; der EXIT-trap (aufraeumen) raeumt nur, was mktemp angelegt hat, und 'rm' laeuft NUR dort
+# (LC3W-17). GRENZE (POSIX): ein Signal, das beim Start bereits ignoriert war (etwa INT nach einem '&'-Start ohne
+# Job-Control), kann eine Shell nicht neu fangen -- die Wache endet dann wie ihr Aufrufer, nicht mit Exit 2.
+TMP=""
+aufraeumen() {
+    # EXIT-trap. Der Exit-Status ist der Status VOR dem trap ($? beim Eintritt): unter 'set -e' beendet ein
+    # scheiterndes 'rm' im trap-Rumpf die Shell sonst mit DESSEN Status -- aus 'exit 2' wurde 1 (dash, bash,
+    # busybox; Probe messungen/fix-r7/proben/schreib-NEU der ersten Fix-r7-Fassung, read-only TMP). Bleibt TMP
+    # liegen, ist das ein Werkzeug-Ausfall: ein Gruen wird zu Exit 2, ein Befund (1) oder Abbruch (2) bleibt.
+    _rc=$?
+    if [ -n "$TMP" ]; then
+        if ! rm -rf "$TMP" 2>/dev/null; then
+            printf '%s\n' "ABBRUCH: Werkzeug-Ausfall -- Zwischenverzeichnis $TMP nicht entfernt (rm -rf)." >&2 || :
+            if [ "$_rc" -eq 0 ]; then _rc=2; fi
+        fi
+    fi
+    exit "$_rc"
+}
+trap 'aufraeumen' EXIT
+trap 'exit 2' INT TERM HUP
 
 BUILD="${1:-}"
 if [ -z "$BUILD" ]; then
@@ -469,6 +547,34 @@ grep_in_datei() {
     fi
 }
 
+datei_leeren() {
+    # $1 = Zwischendatei: anlegen bzw. leeren (Lens C r5 LC5W-04, Fix-r7, Kopf Folge (14c)). NICHT ': > datei':
+    # eine gescheiterte Umleitung an einem SPEZIELLEN Builtin beendet die nicht-interaktive Shell mit dem
+    # Rohstatus (dash 2, bash/busybox 1) -- ohne ABBRUCH-Zeile, ausserhalb des 0/1/2-Vertrags, und weder '||'
+    # noch eine Funktionshuelle fangen das (Probe messungen/fix-r7/rot-zuerst/schreib-VOR). printf ist ein
+    # regulaeres Builtin: dort scheitert die Umleitung als Kommando, '||' greift, werkzeug_abbruch meldet.
+    printf '' > "$1" 2>/dev/null || werkzeug_abbruch "Zwischendatei $1 nicht anlegbar" "$?"
+}
+
+anhaengen() {
+    # $1 = Zwischendatei, $2 = die Zeile (fertig gebaut): anhaengen. Ein Schreibfehler (volle Platte, entzogenes
+    # Schreibrecht, EIO) ist Exit 2 mit Meldung, nie der stumme Rohstatus von 'set -e' (LC5W-04, Folge (14c)).
+    printf '%s\n' "$2" >> "$1" 2>/dev/null || werkzeug_abbruch "Schreiben nach $1" "$?"
+}
+
+lese_abgleich() {
+    # $1 = gelesene Datei, $2 = Zahl der mit Zeilenumbruch gelesenen Zeilen. 'read' meldet Dateiende und
+    # Lesefehler gleich (Status 1, auch bei EIO; Lens C r5 LC5W-05, Fix-r7, Kopf Folge (14f)) -- erst der
+    # Abgleich mit 'wc -l' trennt beide: jede LF-Zeile der Datei muss genau einmal gelesen worden sein, sonst
+    # hat die Schleife einen Teilbestand verarbeitet. Eine letzte Zeile OHNE Zeilenumbruch zaehlt weder hier
+    # noch bei wc (die Schleifen lesen sie trotzdem, Lens C LCW-04). Abweichung = Exit 2. Die Schleifen leeren
+    # ihre Variable VOR jedem read: bash laesst sie bei einem Lesefehler unberuehrt, dash/busybox leeren sie.
+    zeilen_zaehlen "$1"
+    if [ "$2" -ne "$ZAHL" ]; then
+        werkzeug_abbruch "'read' ueber $1 endete nach $2 von $ZAHL Zeile(n) -- Lesefehler statt Dateiende" 1
+    fi
+}
+
 trim() {
     # $1 -> TRIM: fuehrender und schliessender Leerraum entfernt (Parametererweiterung, kein sed).
     TRIM="$1"
@@ -498,9 +604,14 @@ eingerueckt() {
     # Jede Zeile der genannten Dateien um zwei Leerzeichen eingerueckt ausgeben -- ohne sed, dessen
     # Ausfall die Ausgabe still kuerzte (Lens C LC3W-04).
     for _ed in "$@"; do
-        while IFS= read -r _el || [ -n "$_el" ]; do
+        _nE=0
+        while :; do
+            _el=""; _lr=0; IFS= read -r _el || _lr=$?
+            if [ "$_lr" -ne 0 ] && [ -z "$_el" ]; then break; fi
+            if [ "$_lr" -eq 0 ]; then _nE=$((_nE + 1)); fi
             printf '  %s\n' "$_el"
         done < "$_ed"
+        lese_abgleich "$_ed" "$_nE"
     done
 }
 
@@ -569,14 +680,10 @@ ALLOWLIST="scripts/ci_test_registrierungs_allowlist.txt"
 # Datei, die kein Test ist. Am Objekt geprueft: Pathspec 460 Treffer,
 # Basename-Filter 459.
 # ---------------------------------------------------------------------------
-TMP=$(mktemp -d) || exit 2
-# rm NUR im EXIT-trap (Lens C r4 LC3W-17, Fix-r6, Kopf Folge (13g)). Bis 9223cbd5 stand 'rm' auch im INT-
-# und TERM-trap: nach dem Signal raeumte er -- und das Skript LIEF WEITER (ein trap-Rumpf ohne 'exit'
-# beendet nichts), die naechste Umleitung nach "$TMP" scheiterte, und unter 'set -e' endete das in bash
-# und busybox mit Exit 1 = einem Befund, der keiner ist (Probe messungen/fix-r6/trap/). Jetzt beenden INT
-# und TERM mit Exit 2 (konnte nicht pruefen); 'exit' loest den EXIT-trap aus, der genau einmal raeumt.
-trap 'rm -rf "$TMP"' EXIT
-trap 'exit 2' INT TERM
+# Die traps (EXIT raeumt, INT/TERM/HUP = 'exit 2') stehen seit Fix-r7 direkt nach 'set -eu', VOR diesem mktemp
+# (Kopf Folge (14b)); bis 9223cbd5 stand 'rm' auch im INT-/TERM-trap und das Skript lief nach dem Signal weiter
+# (Lens C r4 LC3W-17, Fix-r6, Folge (13g); Probe messungen/fix-r6/trap/).
+TMP=$(mktemp -d) || werkzeug_abbruch "'mktemp -d' (Zwischendateien)" "$?"
 
 # Glied fuer Glied mit Status (Kopf, Folge (6)); 'sort -u', weil 'git ls-files' im
 # MERGE-KONFLIKT eine Datei je Index-Stufe listet (Lens A LA3-06: "4 getrackte" fuer drei).
@@ -628,10 +735,14 @@ git -c core.quotePath=false ls-files -s > "$TMP/index_s.txt" 2>/dev/null ||
 grep_in_datei "$TMP/archiv_anker_roh.txt" "-E ueber den Index (ARCHIV-Anker)" \
     -E "^[0-9]+ [0-9a-f]+ [0-9]+${_TAB}tests/deprecated/[^/]+/VERMERK\.md$" "$TMP/index_s.txt"
 
-: > "$TMP/archiv_anker.txt"
-: > "$TMP/anker_unpruefbar.txt"
-: > "$TMP/anker_konflikt.txt"
-while IFS= read -r z || [ -n "$z" ]; do
+datei_leeren "$TMP/archiv_anker.txt"
+datei_leeren "$TMP/anker_unpruefbar.txt"
+datei_leeren "$TMP/anker_konflikt.txt"
+_nA=0
+while :; do
+    z=""; _lr=0; IFS= read -r z || _lr=$?
+    if [ "$_lr" -ne 0 ] && [ -z "$z" ]; then break; fi
+    if [ "$_lr" -eq 0 ]; then _nA=$((_nA + 1)); fi
     [ -n "$z" ] || continue
     _am=${z%% *}
     _as=${z#* }; _as=${_as%% *}
@@ -643,10 +754,10 @@ while IFS= read -r z || [ -n "$z" ]; do
         # Einmal melden, nie ankern.
         grep_in_datei /dev/null "-F -x ueber die Konflikt-Anker" -q -F -x -- "$_ap" "$TMP/anker_konflikt.txt"
         if [ "$GREP_RC" -ne 0 ]; then
-            printf '%s\n' "$_ap" >> "$TMP/anker_konflikt.txt"
+            anhaengen "$TMP/anker_konflikt.txt" "$_ap"
             _msg="UNPRUEFBARER ANKER: Index-Stufe $_ast statt 0 (Merge-Konflikt, keine aufgeloeste"
             _msg="$_msg Fassung) -- traegt keine Begruendung, ankert nichts"
-            printf '%s -- %s\n' "$_ap" "$_msg" >> "$TMP/anker_unpruefbar.txt"
+            anhaengen "$TMP/anker_unpruefbar.txt" "$_ap -- $_msg"
         fi
         continue
     fi
@@ -654,7 +765,7 @@ while IFS= read -r z || [ -n "$z" ]; do
         100644|100755) ;;
         *)  _msg="UNPRUEFBARER ANKER: Index-Modus $_am ist kein regulaeres Blob (Symlink 120000 oder"
             _msg="$_msg Gitlink 160000) -- traegt keine Begruendung, ankert nichts"
-            printf '%s -- %s\n' "$_ap" "$_msg" >> "$TMP/anker_unpruefbar.txt"
+            anhaengen "$TMP/anker_unpruefbar.txt" "$_ap -- $_msg"
             continue ;;
     esac
     # DAS OBJEKT HINTER DEM EINTRAG (Lens C LC3W-03 / LC3W-06, Fix-r3). Erst 'cat-file -e': 0 = das
@@ -666,7 +777,7 @@ while IFS= read -r z || [ -n "$z" ]; do
     if [ "$_ae" -ge 2 ]; then werkzeug_abbruch "'git cat-file -e' fuer den Anker $_ap ($_as)" "$_ae"; fi
     if [ "$_ae" -eq 1 ]; then
         _msg="UNPRUEFBARER ANKER: Blob $_as fehlt in der Objektdatenbank (git cat-file -e) -- ankert nichts"
-        printf '%s -- %s\n' "$_ap" "$_msg" >> "$TMP/anker_unpruefbar.txt"
+        anhaengen "$TMP/anker_unpruefbar.txt" "$_ap -- $_msg"
         continue
     fi
     # DER OBJEKTTYP (Kopf, Folge (7)): der Modus 100644/100755 verspricht ein Blob, 'update-index
@@ -676,7 +787,7 @@ while IFS= read -r z || [ -n "$z" ]; do
     if [ "$_at" != blob ]; then
         _msg="UNPRUEFBARER ANKER: Objekttyp $_at ist kein Blob (Index-Modus $_am verspricht eines) --"
         _msg="$_msg traegt keine Begruendung, ankert nichts"
-        printf '%s -- %s\n' "$_ap" "$_msg" >> "$TMP/anker_unpruefbar.txt"
+        anhaengen "$TMP/anker_unpruefbar.txt" "$_ap -- $_msg"
         continue
     fi
     _ag=$(git cat-file -s "$_as" 2>/dev/null) || werkzeug_abbruch "'git cat-file -s' fuer den Anker $_ap" "$?"
@@ -685,7 +796,7 @@ while IFS= read -r z || [ -n "$z" ]; do
     esac
     if [ "$_ag" -eq 0 ]; then
         _msg="UNPRUEFBARER ANKER: Blob mit 0 Byte -- eine leere Begruendung traegt nichts, ankert nichts"
-        printf '%s -- %s\n' "$_ap" "$_msg" >> "$TMP/anker_unpruefbar.txt"
+        anhaengen "$TMP/anker_unpruefbar.txt" "$_ap -- $_msg"
         continue
     fi
     # INHALT, nicht nur GROESSE (Lens A LA3-01 / Lens B LB2-01): ein Blob aus Zeilenumbruechen
@@ -697,18 +808,71 @@ while IFS= read -r z || [ -n "$z" ]; do
     if [ "$GREP_RC" -ne 0 ]; then
         _msg="UNPRUEFBARER ANKER: Blob mit $_ag Byte, aber ohne Nicht-Leerraum-Zeichen (nur Zeilenumbrueche"
         _msg="$_msg oder Leerraum) -- eine leere Begruendung traegt nichts, ankert nichts"
-        printf '%s -- %s\n' "$_ap" "$_msg" >> "$TMP/anker_unpruefbar.txt"
+        anhaengen "$TMP/anker_unpruefbar.txt" "$_ap -- $_msg"
         continue
     fi
-    printf '%s\n' "$_ap" >> "$TMP/archiv_anker.txt"
+    anhaengen "$TMP/archiv_anker.txt" "$_ap"
 done < "$TMP/archiv_anker_roh.txt"
+lese_abgleich "$TMP/archiv_anker_roh.txt" "$_nA"
 sort -u -o "$TMP/archiv_anker.txt" "$TMP/archiv_anker.txt" ||
     werkzeug_abbruch "'sort -u' ueber die ARCHIV-Anker" "$?"
 zeilen_zaehlen "$TMP/anker_unpruefbar.txt"; ANKER_UNPR_N=$ZAHL
 
-: > "$TMP/archiv.txt"
-: > "$TMP/soll.txt"
-while IFS= read -r f; do
+# ---------------------------------------------------------------------------
+# VON GIT AUCH MIT core.quotePath=false QUOTIERTE PFADE (Lens A r7 LA7-01 = Lens C r5 LC5W-06, Fix-r7, Kopf
+# Folge (14d)). core.quotePath=false gibt nur Bytes >= 0x80 roh aus; Tabulator, Steuerzeichen,
+# Anfuehrungszeichen und Backslash quotiert git IMMER ("tests/unit/test_a\"b.cpp"): die Zeile beginnt und
+# endet mit '"', das SOLL-Muster '\.cpp$' und das Anker-Muster 'VERMERK\.md$' oben treffen nicht -- solche
+# Dateien fielen bis 8ae59179 STILL aus SOLL und Anker (Proben X23-X27b: "2 getrackte" statt 3, Exit 0).
+# Kein Werkzeug dieser Wache entquotiert; sie kann solche Pfade nicht vergleichen und ZAEHLT sie deshalb:
+# alle quotierten Index-Pfade im Nenner (immer, auch 0), und die davon, die dem SOLL-Muster oder der
+# Anker-Form entsprechen, als eigene UNPRUEFBAR-Klasse mit Zeilenliste (Exit 1). Die quotierte Zeile ist
+# der Vergleichsgegenstand; das Muster wird um das schliessende '"' verlaengert (Lead-Entscheid Weg (ii)).
+# ---------------------------------------------------------------------------
+grep_in_datei "$TMP/quotiert_roh.txt" "'^\"' ueber den Index (quotierte Pfade)" '^"' "$TMP/index.txt"
+sort -u "$TMP/quotiert_roh.txt" > "$TMP/quotiert.txt" || werkzeug_abbruch "'sort -u' ueber die quotierten Pfade" "$?"
+zeilen_zaehlen "$TMP/quotiert.txt"; QUOT_N=$ZAHL
+grep_in_datei "$TMP/quotiert_1.txt" "-v '^\"ext/' (quotiert)" -v '^"ext/' "$TMP/quotiert.txt"
+grep_in_datei "$TMP/quotiert_2.txt" "-v '/ext/' (quotiert)" -v '/ext/' "$TMP/quotiert_1.txt"
+grep_in_datei "$TMP/quotiert_soll.txt" "-E 'test_*.cpp\"' (quotiert)" -E '(^"|/)test_[^/]*\.cpp"$' "$TMP/quotiert_2.txt"
+grep_in_datei "$TMP/quotiert_anker.txt" "-E 'VERMERK.md\"' (quotiert)" \
+    -E '^"tests/deprecated/[^/]+/VERMERK\.md"$' "$TMP/quotiert.txt"
+zeilen_zaehlen "$TMP/quotiert_soll.txt"; QUOT_SOLL_N=$ZAHL
+zeilen_zaehlen "$TMP/quotiert_anker.txt"; QUOT_ANKER_N=$ZAHL
+datei_leeren "$TMP/quotiert_unpruefbar.txt"
+_nQ=0
+while :; do
+    _q=""; _lr=0; IFS= read -r _q || _lr=$?
+    if [ "$_lr" -ne 0 ] && [ -z "$_q" ]; then break; fi
+    if [ "$_lr" -eq 0 ]; then _nQ=$((_nQ + 1)); fi
+    [ -n "$_q" ] || continue
+    _msg="UNPRUEFBAR: Test-Quelldatei, deren Pfad git auch mit core.quotePath=false quotiert (Tabulator,"
+    _msg="$_msg Steuerzeichen, Anfuehrungszeichen oder Backslash) -- die Wache kann sie weder im SOLL zaehlen"
+    _msg="$_msg noch im Bauweg suchen; die Datei umbenennen"
+    anhaengen "$TMP/quotiert_unpruefbar.txt" "$_q -- $_msg"
+done < "$TMP/quotiert_soll.txt"
+lese_abgleich "$TMP/quotiert_soll.txt" "$_nQ"
+_nQ2=0
+while :; do
+    _q=""; _lr=0; IFS= read -r _q || _lr=$?
+    if [ "$_lr" -ne 0 ] && [ -z "$_q" ]; then break; fi
+    if [ "$_lr" -eq 0 ]; then _nQ2=$((_nQ2 + 1)); fi
+    [ -n "$_q" ] || continue
+    _msg="UNPRUEFBARER ANKER: Pfad von git auch mit core.quotePath=false quotiert (Tabulator, Steuerzeichen,"
+    _msg="$_msg Anfuehrungszeichen oder Backslash) -- ankert nichts, die Dateien seines Ordners bleiben fuer"
+    _msg="$_msg diese Wache unsichtbar; den Ordner umbenennen"
+    anhaengen "$TMP/quotiert_unpruefbar.txt" "$_q -- $_msg"
+done < "$TMP/quotiert_anker.txt"
+lese_abgleich "$TMP/quotiert_anker.txt" "$_nQ2"
+QUOT_UNPR_N=$((QUOT_SOLL_N + QUOT_ANKER_N))
+
+datei_leeren "$TMP/archiv.txt"
+datei_leeren "$TMP/soll.txt"
+_nS=0
+while :; do
+    f=""; _lr=0; IFS= read -r f || _lr=$?
+    if [ "$_lr" -ne 0 ] && [ -z "$f" ]; then break; fi
+    if [ "$_lr" -eq 0 ]; then _nS=$((_nS + 1)); fi
     [ -n "$f" ] || continue
     _arch=nein
     case "$f" in
@@ -726,21 +890,27 @@ while IFS= read -r f; do
             ;;
     esac
     if [ "$_arch" = ja ]; then
-        printf '%s\n' "$f" >> "$TMP/archiv.txt"
+        anhaengen "$TMP/archiv.txt" "$f"
     else
-        printf '%s\n' "$f" >> "$TMP/soll.txt"
+        anhaengen "$TMP/soll.txt" "$f"
     fi
 done < "$TMP/soll_roh.txt"
+lese_abgleich "$TMP/soll_roh.txt" "$_nS"
 
 zeilen_zaehlen "$TMP/archiv.txt"; ARCHIV_N=$ZAHL
 ARCHIV_ORD_N=0
 if [ "$ARCHIV_N" -gt 0 ]; then
     # Der <ordner> ist das dritte Pfadsegment -- per Parametererweiterung statt sed (Folge (6)).
-    : > "$TMP/archiv_ordner_roh.txt"
-    while IFS= read -r _af || [ -n "$_af" ]; do
+    datei_leeren "$TMP/archiv_ordner_roh.txt"
+    _nO=0
+    while :; do
+        _af=""; _lr=0; IFS= read -r _af || _lr=$?
+        if [ "$_lr" -ne 0 ] && [ -z "$_af" ]; then break; fi
+        if [ "$_lr" -eq 0 ]; then _nO=$((_nO + 1)); fi
         _ao=${_af#tests/deprecated/}
-        printf '%s\n' "${_ao%%/*}" >> "$TMP/archiv_ordner_roh.txt"
+        anhaengen "$TMP/archiv_ordner_roh.txt" "${_ao%%/*}"
     done < "$TMP/archiv.txt"
+    lese_abgleich "$TMP/archiv.txt" "$_nO"
     sort -u "$TMP/archiv_ordner_roh.txt" > "$TMP/archiv_ordner.txt" ||
         werkzeug_abbruch "'sort -u' ueber die ARCHIV-Ordner" "$?"
     zeilen_zaehlen "$TMP/archiv_ordner.txt"; ARCHIV_ORD_N=$ZAHL
@@ -759,14 +929,19 @@ fi
 # '/test_value_handle.cpp' faelschlich in '/test_value_handle_real.cpp'
 # treffen (gemessen 09.08.2026: 0 vs. 10 Treffer -- die Verankerung trennt).
 # ---------------------------------------------------------------------------
-: > "$TMP/fehlend.txt"
-while IFS= read -r f; do
+datei_leeren "$TMP/fehlend.txt"
+_nF=0
+while :; do
+    f=""; _lr=0; IFS= read -r f || _lr=$?
+    if [ "$_lr" -ne 0 ] && [ -z "$f" ]; then break; fi
+    if [ "$_lr" -eq 0 ]; then _nF=$((_nF + 1)); fi
     [ -n "$f" ] || continue
     grep_in_datei /dev/null "-F '/$f' in $IST_ART (Abgleich)" -q -F -- "/$f" "$IST_DATEI"
     if [ "$GREP_RC" -ne 0 ]; then
-        printf '%s\n' "$f" >> "$TMP/fehlend.txt"
+        anhaengen "$TMP/fehlend.txt" "$f"
     fi
 done < "$TMP/soll.txt"
+lese_abgleich "$TMP/soll.txt" "$_nF"
 
 zeilen_zaehlen "$TMP/fehlend.txt"; FEHLEND_N=$ZAHL
 
@@ -1001,7 +1176,11 @@ index_eintrag() {
     INDEX_ART=leer
     INDEX_TYPEN=""
     _gtyp=""; _gtl=""; _ginh=nein; _ginhs=""
-    while IFS= read -r _gl || [ -n "$_gl" ]; do
+    _nG=0
+    while :; do
+        _gl=""; _lr=0; IFS= read -r _gl || _lr=$?
+        if [ "$_lr" -ne 0 ] && [ -z "$_gl" ]; then break; fi
+        if [ "$_lr" -eq 0 ]; then _nG=$((_nG + 1)); fi
         [ -n "$_gl" ] || continue
         if [ "$INDEX_ART" = leer ]; then INDEX_ART=inhalt; fi
         _gm=${_gl%% *}
@@ -1023,14 +1202,21 @@ index_eintrag() {
         _gtl="$_gtl, Stufe $_gs: $_g1n"
         if [ -z "$_gtyp" ]; then _gtyp=$_g1; elif [ "$_gtyp" != "$_g1" ]; then _gtyp=konflikt; fi
     done < "$TMP/index_eintrag.txt"
+    lese_abgleich "$TMP/index_eintrag.txt" "$_nG"
     if [ -n "$_gtyp" ]; then
         INDEX_TYPEN=${_gtl#, }
         if [ "$_ginh" = ja ]; then
             # D/F (Fix-r6, Lens A r6 LA6-01): der exakte Eintrag UND ein Verzeichnis darunter -- nur im
             # Konflikt-Index moeglich, git verweigert beides auf Stufe 0 (Probe X17). Der Merge-Ausgang
             # entscheidet, ob darunter etwas entstehen kann: 'konflikt', wie ungleiche Typen je Stufe.
+            # Die Stufen der Untereintraege als Liste 'Stufe N, Stufe M' in Stufenreihenfolge (Lens C r5
+            # LC5W-07, Fix-r7): 'Stufe 1 3' war mehrdeutig, und die Reihenfolge hing an der Pfadsortierung.
             _gtyp=konflikt
-            INDEX_TYPEN="$INDEX_TYPEN; dazu Eintraege DARUNTER auf Stufe$_ginhs = Verzeichnis (D/F)"
+            _gil=""
+            for _gsx in 0 1 2 3; do
+                case " $_ginhs " in *" $_gsx "*) _gil="$_gil, Stufe $_gsx" ;; esac
+            done
+            INDEX_TYPEN="$INDEX_TYPEN; dazu Eintraege DARUNTER auf ${_gil#, } = Verzeichnis (D/F)"
         fi
         INDEX_ART=$_gtyp
     fi
@@ -1048,6 +1234,28 @@ hat_getrackten_inhalt() {
     return 1
 }
 
+pfad_tiefe() {
+    # $1 = repo-relativer Pfad -> TIEFE_MIN (kleinste Tiefe, die ein Praefix des Pfads erreicht; < 0 = der Pfad
+    # verlaesst die Repo-Wurzel), TIEFE_DD (ja = ein '..'-Segment kommt vor), TIEFE_LEER (ja = Segment '.'
+    # oder leeres Segment: './', '//', '/' am Ende). '..' senkt die Tiefe, '.' und '' lassen sie, jedes andere
+    # Segment hebt sie (Lens A r7 LA7-02, Fix-r7, Kopf Folge (14e)). Segmentweise, nicht als Teilzeichenkette:
+    # 'libs/a..b/x' ist ein normaler Pfad (Fallen-Register: '/build' frisst sonst '/builds').
+    _ptr="$1"; _ptt=0; TIEFE_MIN=0; TIEFE_DD=nein; TIEFE_LEER=nein
+    while :; do
+        case "$_ptr" in
+            */*) _pts=${_ptr%%/*}; _ptr=${_ptr#*/}; _ptl=nein ;;
+            *)   _pts="$_ptr";     _ptr="";         _ptl=ja ;;
+        esac
+        case "$_pts" in
+            ..)   TIEFE_DD=ja; _ptt=$((_ptt - 1))
+                  if [ "$_ptt" -lt "$TIEFE_MIN" ]; then TIEFE_MIN=$_ptt; fi ;;
+            .|'') TIEFE_LEER=ja ;;
+            *)    _ptt=$((_ptt + 1)) ;;
+        esac
+        if [ "$_ptl" = ja ]; then break; fi
+    done
+}
+
 erreichbarkeit() {
     # $1 = repo-relativer Pfad aus Feld 2. Setzt ERR_ANTWORT und ERR_GRUND.
     _p="$1"
@@ -1055,16 +1263,12 @@ erreichbarkeit() {
     case "$_p" in
         /*) ERR_ANTWORT=unbekannt; return 0 ;;
     esac
-    # '..' SEGMENTWEISE pruefen, nicht als Teilzeichenkette: 'libs/a..b/x' ist ein
-    # ganz normaler Pfad im Repo. (Fallen-Register: '/build' frisst sonst '/builds'.)
-    _rest="$_p"
-    while [ -n "$_rest" ]; do
-        case "$_rest" in
-            */*) _seg=${_rest%%/*}; _rest=${_rest#*/} ;;
-            *)   _seg="$_rest";     _rest="" ;;
-        esac
-        if [ "$_seg" = ".." ]; then ERR_ANTWORT=unbekannt; return 0; fi
-    done
+    # '..' MIT TIEFENZAEHLER (Fix-r7, Lens A r7 LA7-02): nur ein Pfad, der die Wurzel VERLAESST, ist Grenze (a)
+    # und NICHT beurteilt; ein repo-intern aufloesendes '..' hat feld_form schon als UNPRUEFBAR abgewiesen --
+    # kaeme es hierher, waere das ein Fehler dieser Wache, kein Datenbefund (wie der '*)'-Zweig unten).
+    pfad_tiefe "$_p"
+    if [ "$TIEFE_MIN" -lt 0 ]; then ERR_ANTWORT=unbekannt; return 0; fi
+    if [ "$TIEFE_DD" = ja ]; then werkzeug_abbruch "pfad_form liess den repo-internen '..'-Pfad $_p durch" 1; fi
     # ---------------------------------------------------------------------
     # ZUERST DIE INDEX-EINTRAEGE DER AHNENREIHE (Fix-r3: Gitlinks, am Objekt gefunden
     # in Fall SubmodulGitlinkIstErreichbar; Fix-r5: auch Datei, Symlink, Typ-Konflikt,
@@ -1083,7 +1287,13 @@ erreichbarkeit() {
     # (Lens A r5, Koeder K4): 'ext/queuing/REPOS_OVERVIEW.md/x.hpp' galt bis c62cfc7e
     # als erreichbar, weil die Datei REPOS_OVERVIEW.md 'getrackten Inhalt' hatte.
     # ---------------------------------------------------------------------
-    _ga="$_p"; _ggl=nein
+    # ALLE AHNEN BIS ZUR WURZEL (Fix-r7, Lens C r5 LC5W-01/02, Kopf Folge (14a)): bis 8ae59179 endete die
+    # Schleife an der naechsten DATEI mit TOT -- ein D/F-Konflikt (Probe X37) oder ein Arbeitsbaum-Symlink
+    # (Probe X38) an einem HOEHEREN Ahnen wurde nie erreicht. Jetzt merkt sie sich die NAECHSTE Datei (_gtot)
+    # und den NAECHSTEN Symlink/Konflikt (_gunp) und entscheidet nach der Schleife in der Rangfolge
+    # UNPRUEFBAR vor TOT vor Gitlink: TOT waere die starke Behauptung, die ein Konflikt-Ausgang oder ein
+    # Link-Ziel widerlegen koennte. Faelle (27i), (27j).
+    _ga="$_p"; _ggl=nein; _gtot=""; _gunp=""
     while :; do
         case "$_ga" in
             */*) _ga=${_ga%/*} ;;
@@ -1099,37 +1309,42 @@ erreichbarkeit() {
                 # exakter Eintrag, das Urteil bleibt dort dasselbe (Koeder K2 am echten Baum).
                 _ggl=ja ;;
             datei)
-                ERR_GRUND="sein Vorfahr $_ga ist eine getrackte DATEI (Index-Modus 100644/100755) --"
-                ERR_GRUND="$ERR_GRUND unter einer Datei kann nie ein Kind entstehen, weder im Index noch im"
-                ERR_GRUND="$ERR_GRUND Arbeitsbaum"
-                ERR_ANTWORT=ja; return 0 ;;
+                if [ -z "$_gtot" ]; then
+                    _gtot="sein Vorfahr $_ga ist eine getrackte DATEI (Index-Modus 100644/100755) --"
+                    _gtot="$_gtot unter einer Datei kann nie ein Kind entstehen, weder im Index noch im"
+                    _gtot="$_gtot Arbeitsbaum"
+                fi ;;
             symlink)
-                ERR_GRUND="sein Vorfahr $_ga ist im Index ein SYMLINK (Modus 120000) -- die Wache loest"
-                ERR_GRUND="$ERR_GRUND keinen Link auf und beurteilt den Zweig dahinter nicht; nenne den Zielpfad"
-                ERR_GRUND="$ERR_GRUND des Links"
-                ERR_ANTWORT=unpruefbar; return 0 ;;
+                if [ -z "$_gunp" ]; then
+                    _gunp="sein Vorfahr $_ga ist im Index ein SYMLINK (Modus 120000) -- die Wache loest"
+                    _gunp="$_gunp keinen Link auf und beurteilt den Zweig dahinter nicht; nenne den Zielpfad"
+                    _gunp="$_gunp des Links"
+                fi ;;
             konflikt)
                 # Die Typen je Stufe kommen aus index_eintrag (INDEX_TYPEN, Lens C r4 LC3W-16, Fix-r6);
                 # bis 9223cbd5 stand hier fest '(Datei gegen Gitlink)', auch fuer Symlink gegen Gitlink.
-                ERR_GRUND="sein Vorfahr $_ga steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe"
-                ERR_GRUND="$ERR_GRUND ($INDEX_TYPEN) -- ohne aufgeloeste Fassung ist nicht entscheidbar,"
-                ERR_GRUND="$ERR_GRUND ob darunter etwas entstehen kann; erst den Konflikt aufloesen"
-                ERR_ANTWORT=unpruefbar; return 0 ;;
+                if [ -z "$_gunp" ]; then
+                    _gunp="sein Vorfahr $_ga steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe"
+                    _gunp="$_gunp ($INDEX_TYPEN) -- ohne aufgeloeste Fassung ist nicht entscheidbar,"
+                    _gunp="$_gunp ob darunter etwas entstehen kann; erst den Konflikt aufloesen"
+                fi ;;
             *)
                 # Kein exakter Eintrag -- ist der Ahne im ARBEITSBAUM ein Symlink? (Fix-r6, Lens A r6
                 # LA6-03, Kopf Folge (13b)): 'git check-ignore' stirbt unter einem Symlink mit 128
                 # ("beyond a symbolic link"), schon fuer den Gegenstand selbst (Probe X04: Exit 2 mit der
                 # falschen Diagnose). Hier, VOR jedem check-ignore, gilt fuer ihn dasselbe wie fuer den
                 # Index-Symlink: die Wache loest keinen Link auf -- UNPRUEFBAR mit Grund.
-                if [ -L "$_ga" ]; then
-                    ERR_GRUND="sein Vorfahr $_ga ist im Arbeitsbaum ein SYMLINK (nicht im Index) -- die"
-                    ERR_GRUND="$ERR_GRUND Wache loest keinen Link auf und beurteilt den Zweig dahinter nicht;"
-                    ERR_GRUND="$ERR_GRUND nenne den Zielpfad des Links oder nimm den Link in den Index"
-                    ERR_ANTWORT=unpruefbar; return 0
+                if [ -L "$_ga" ] && [ -z "$_gunp" ]; then
+                    _gunp="sein Vorfahr $_ga ist im Arbeitsbaum ein SYMLINK (nicht im Index) -- die"
+                    _gunp="$_gunp Wache loest keinen Link auf und beurteilt den Zweig dahinter nicht;"
+                    _gunp="$_gunp nenne den Zielpfad des Links oder nimm den Link in den Index"
                 fi ;;
         esac
     done
-    # Ein Gitlink in der Ahnenreihe, und kein hoeherer Ahne war Datei, Symlink oder Konflikt: erreichbar.
+    # Rangfolge (Folge (14a)): der naechste Symlink/Konflikt (UNPRUEFBAR) vor der naechsten Datei (TOT) vor
+    # einem Gitlink in der Ahnenreihe (erreichbar, wenn kein hoeherer Ahne dagegen spricht).
+    if [ -n "$_gunp" ]; then ERR_GRUND="$_gunp"; ERR_ANTWORT=unpruefbar; return 0; fi
+    if [ -n "$_gtot" ]; then ERR_GRUND="$_gtot"; ERR_ANTWORT=ja; return 0; fi
     if [ "$_ggl" = ja ]; then ERR_ANTWORT=nein; return 0; fi
     # Der Gegenstand selbst: getrackt oder als Bauprodukt angemeldet?
     if hat_getrackten_inhalt "$_p"; then ERR_ANTWORT=nein; return 0; fi
@@ -1197,7 +1412,7 @@ esac
 # Allowlist auswerten. Format je Zeile, drei Felder, '|'-getrennt:
 #   <test-quelldatei> | <art>:<gegenstand-der-fehlen-muss> | <begruendung>
 # Feld 2 ist die Gegenprobe der Begruendung. Drei Arten, s. Kopf:
-#   datei:<pfad>              existiert der Pfad -> ERLOSCHEN
+#   datei:<pfad>              existiert der Pfad oder ist er belegt ('[ -e ] || [ -L ]') -> ERLOSCHEN
 #                             kennt ihn keine Quelle des Repos -> TOTE AUSNAHME
 #   isa:<merkmal>[+<merkmal>] sind ALLE Merkmale auf dem Bau-Host da -> ERLOSCHEN
 #   frist:<JJJJ-MM-TT>        ist das Datum verstrichen -> ABGELAUFEN
@@ -1205,11 +1420,11 @@ esac
 # Merkmal, kein Datum) ist UNPRUEFBAR und damit ROT -- geprueft von feld_form, das
 # auch der Nachscan fuer JEDE Datenzeile fragt (Kopf, Folge (8)).
 # ---------------------------------------------------------------------------
-: > "$TMP/begruendet.txt"
-: > "$TMP/unbegruendet.txt"
-: > "$TMP/erloschen.txt"
-: > "$TMP/unpruefbar.txt"
-: > "$TMP/tot.txt"
+datei_leeren "$TMP/begruendet.txt"
+datei_leeren "$TMP/unbegruendet.txt"
+datei_leeren "$TMP/erloschen.txt"
+datei_leeren "$TMP/unpruefbar.txt"
+datei_leeren "$TMP/tot.txt"
 NBEURT_N=0
 
 pfad_form() {
@@ -1217,33 +1432,33 @@ pfad_form() {
     # das 'git ls-files' in seiner Ausgabe quotiert (Tabulator, Steuerzeichen, Anfuehrungszeichen,
     # Backslash), macht den Pfad unvergleichbar; (b) ein Segment '.' oder ein leeres Segment ('./',
     # '//', '/' am Ende) steht so in keinem Index. Ein absoluter Pfad bleibt Sache der Erreichbarkeits-
-    # Probe (NICHT beurteilt, Kopf-Grenze (a)), ebenso '..'; Leerzeichen und Nicht-ASCII-Bytes sind
-    # erlaubt (roh vergleichbar, Folge (12)). Segmentweise per Parametererweiterung, kein Werkzeug.
+    # Probe (NICHT beurteilt, Kopf-Grenze (a)), ebenso ein '..', das ueber die Wurzel HINAUSFUEHRT; Leerzeichen
+    # und Nicht-ASCII-Bytes sind erlaubt (roh vergleichbar, Folge (12)). Segmentweise per Parametererweiterung
+    # (pfad_tiefe), kein Werkzeug.
     # '..' GILT SEIT FIX-R6 AUCH IM CODE (Lens C r4 LC3W-18, Kopf Folge (13e)): bis 9223cbd5 sagte dieser
     # Kommentar 'ebenso '..'', geprueft wurde der Pfad trotzdem -- '../x/./y' war UNPRUEFBAR (rot) statt
-    # NICHT BEURTEILT (Probe X20). Erst die Segmente lesen, dann entscheiden.
+    # NICHT BEURTEILT (Probe X20). SEIT FIX-R7 MIT TIEFENZAEHLER (Lens A r7 LA7-02, Folge (14e)): ein '..',
+    # das INNERHALB des Repos aufloest ('ext/README.md/../README.md/x.hpp', Probe X30, Koeder K6), ist keine
+    # Grenze, sondern eine nicht kanonische Schreibweise -- so steht kein Pfad im Index -- und UNPRUEFBAR; bis
+    # 8ae59179 lief sie als 'ausserhalb des Repos' begruendet durch und umging die TOT-Frage.
     PFAD_FEHLER=""
     case "$1" in /*) return 0 ;; esac
-    _pfr="$1"; _pfdd=nein; _pfleer=nein
-    while :; do
-        case "$_pfr" in
-            */*) _pfs=${_pfr%%/*}; _pfr=${_pfr#*/}; _pfl=nein ;;
-            *)   _pfs="$_pfr";     _pfr="";         _pfl=ja ;;
-        esac
-        if [ "$_pfs" = .. ]; then _pfdd=ja; fi
-        if [ -z "$_pfs" ] || [ "$_pfs" = . ]; then _pfleer=ja; fi
-        if [ "$_pfl" = ja ]; then break; fi
-    done
-    # Ein '..'-Segment: der Pfad liegt ausserhalb des Repos (Grenze (a)) -- keine Formregel; die
-    # Erreichbarkeits-Probe meldet ihn als NICHT BEURTEILT, und der Nenner weist ihn aus.
-    if [ "$_pfdd" = ja ]; then return 0; fi
+    pfad_tiefe "$1"
+    # Der Pfad verlaesst die Wurzel (Grenze (a)) -- keine Formregel; die Erreichbarkeits-Probe meldet ihn als
+    # NICHT BEURTEILT, und der Nenner weist ihn aus.
+    if [ "$TIEFE_MIN" -lt 0 ]; then return 0; fi
     case "$1" in
         *[[:cntrl:]]*|*'"'*|*'\'*)
             PFAD_FEHLER="enthaelt ein Zeichen, das git in seiner Ausgabe quotiert (Tabulator, Steuerzeichen,"
             PFAD_FEHLER="$PFAD_FEHLER Anfuehrungszeichen oder Backslash) -- die Wache vergleicht Pfade nur unquotiert"
             return 0 ;;
     esac
-    if [ "$_pfleer" = ja ]; then
+    if [ "$TIEFE_DD" = ja ]; then
+        PFAD_FEHLER="ist kein kanonischer repo-relativer Pfad (Segment '..', das INNERHALB des Repos aufloest)"
+        PFAD_FEHLER="$PFAD_FEHLER -- so steht kein Pfad im Index; nenne den aufgeloesten Pfad"
+        return 0
+    fi
+    if [ "$TIEFE_LEER" = ja ]; then
         PFAD_FEHLER="ist kein kanonischer repo-relativer Pfad (Segment '.' oder leeres Segment: './', '//',"
         PFAD_FEHLER="$PFAD_FEHLER '/' am Ende) -- so steht kein Pfad im Index"
     fi
@@ -1313,37 +1528,50 @@ feld_form() {
 }
 
 allow_zeile() {
-    # $1 = gesuchte Datei; gibt die Allowlist-Zeile aus oder nichts
+    # $1 = gesuchte Datei -> ALLOW_Z: die erste Allowlist-Zeile mit Feld 1 == $1, leer = keine. Antwort UEBER
+    # EINE VARIABLE, nicht ueber stdout (Fix-r7): ein werkzeug_abbruch in '$( )' beendete nur die Subshell
+    # (dieselbe Falle wie bei der ISA-Gegenprobe oben).
+    ALLOW_Z=""
     [ -f "$ALLOWLIST" ] || return 0
     # Ein Pfad unter tests/deprecated/ hat per Definition keine Allowlist-Zeile: der Archiv-Ort
     # kennt nur den VERMERK.md-Anker (Kopf, Folge (3)); eine Zeile dafuer meldet der Nachscan.
     case "$1" in tests/deprecated/*) return 0 ;; esac
-    # '|| [ -n "$z" ]': auch eine LETZTE Zeile OHNE Zeilenumbruch wird gelesen (Lens C LCW-04,
-    # Lens A LA3-05) -- 'read' liefert dort Status 1, obwohl es Zeichen gelesen hat.
-    while IFS= read -r z || [ -n "$z" ]; do
-        case "$z" in ''|'#'*) continue ;; esac
-        felder "$z"
+    # Auch eine LETZTE Zeile OHNE Zeilenumbruch wird gelesen (Lens C LCW-04, Lens A LA3-05): 'read' liefert
+    # dort Status 1, obwohl es Zeichen gelesen hat -- und ebenso bei einem Lesefehler (LC5W-05): deshalb
+    # zaehlt die Schleife ihre LF-Zeilen und lese_abgleich prueft sie gegen die Datei (Folge (14f)).
+    _nL=0
+    while :; do
+        _az=""; _lr=0; IFS= read -r _az || _lr=$?
+        if [ "$_lr" -ne 0 ] && [ -z "$_az" ]; then break; fi
+        if [ "$_lr" -eq 0 ]; then _nL=$((_nL + 1)); fi
+        case "$_az" in ''|'#'*) continue ;; esac
+        felder "$_az"
         [ "$FELD1" = "$1" ] || continue
-        printf '%s\n' "$z"
+        ALLOW_Z="$_az"
         return 0
     done < "$ALLOWLIST"
+    lese_abgleich "$ALLOWLIST" "$_nL"
 }
 
-while IFS= read -r f; do
+_nZ=0
+while :; do
+    f=""; _lr=0; IFS= read -r f || _lr=$?
+    if [ "$_lr" -ne 0 ] && [ -z "$f" ]; then break; fi
+    if [ "$_lr" -eq 0 ]; then _nZ=$((_nZ + 1)); fi
     [ -n "$f" ] || continue
-    z=$(allow_zeile "$f")
-    if [ -z "$z" ]; then
-        printf '%s\n' "$f" >> "$TMP/unbegruendet.txt"
+    allow_zeile "$f"
+    if [ -z "$ALLOW_Z" ]; then
+        anhaengen "$TMP/unbegruendet.txt" "$f"
         continue
     fi
-    felder "$z"
+    felder "$ALLOW_Z"
     geg=$FELD2
     txt=$FELD3
 
     # ERST DIE FORM (feld_form: Feld 3, Art, Wert; Kopf Folgen (5), (8), (9)), dann der Gegenstand.
     feld_form "$geg" "$txt"
     if [ -n "$FORM_FEHLER" ]; then
-        printf '%s -- %s\n' "$f" "$FORM_FEHLER" >> "$TMP/unpruefbar.txt"
+        anhaengen "$TMP/unpruefbar.txt" "$f -- $FORM_FEHLER"
         continue
     fi
     art=$ART
@@ -1361,8 +1589,7 @@ while IFS= read -r f; do
             else
                 _ewie="existiert wieder (als SYMLINK ohne Ziel)"
             fi
-            printf '%s -- ERLOSCHEN: "%s" %s, die Ausnahme traegt nicht mehr\n' \
-                "$f" "$wert" "$_ewie" >> "$TMP/erloschen.txt"
+            anhaengen "$TMP/erloschen.txt" "$f -- ERLOSCHEN: \"$wert\" $_ewie, die Ausnahme traegt nicht mehr"
         else
             # ZWEITE RICHTUNG (PA-1): abwesend genuegt nicht. Ein Gegenstand, den keine
             # Quelle dieses Repos kennt, kann nicht wiederkommen -- die Ausnahme koennte
@@ -1379,18 +1606,18 @@ while IFS= read -r f; do
                     _tmsg="$_tmsg noch .gitignore, bis hinauf zur Wurzel)"
                 fi
                 _tmsg="$_tmsg -- diese Zeile koennte nie erloeschen"
-                printf '%s -- %s\n' "$f" "$_tmsg" >> "$TMP/tot.txt"
+                anhaengen "$TMP/tot.txt" "$f -- $_tmsg"
             elif [ "$ERR_ANTWORT" = unpruefbar ]; then
                 # Symlink oder Typ-Konflikt in der Ahnenreihe (Folge (11)): UNPRUEFBAR, in derselben Liste
                 # und Zaehlung wie ein Formfehler der Zeile -- die Wache kann die Begruendung nicht pruefen.
                 _umsg="UNPRUEFBAR: \"$wert\" existiert nicht, und $ERR_GRUND"
-                printf '%s -- %s\n' "$f" "$_umsg" >> "$TMP/unpruefbar.txt"
+                anhaengen "$TMP/unpruefbar.txt" "$f -- $_umsg"
             elif [ "$ERR_ANTWORT" = unbekannt ]; then
                 NBEURT_N=$((NBEURT_N + 1))
-                printf '%s -- %s (datei abwesend: %s -- ausserhalb des Repos, Erreichbarkeit NICHT beurteilt)\n' \
-                    "$f" "$txt" "$wert" >> "$TMP/begruendet.txt"
+                _bmsg="$f -- $txt (datei abwesend: $wert -- ausserhalb des Repos, Erreichbarkeit NICHT beurteilt)"
+                anhaengen "$TMP/begruendet.txt" "$_bmsg"
             else
-                printf '%s -- %s (datei abwesend: %s)\n' "$f" "$txt" "$wert" >> "$TMP/begruendet.txt"
+                anhaengen "$TMP/begruendet.txt" "$f -- $txt (datei abwesend: $wert)"
             fi
         fi
         ;;
@@ -1400,11 +1627,9 @@ while IFS= read -r f; do
         # ein reiner Zeichenkettenvergleich -- JJJJ-MM-TT sortiert lexikografisch wie
         # chronologisch, und genau darum ist das Format Pflicht (feld_form prueft es).
         if [ "$HEUTE" \> "$wert" ]; then
-            printf '%s -- ABGELAUFEN: die Frist %s ist am %s verstrichen -- %s\n' \
-                "$f" "$wert" "$HEUTE" "$txt" >> "$TMP/erloschen.txt"
+            anhaengen "$TMP/erloschen.txt" "$f -- ABGELAUFEN: die Frist $wert ist am $HEUTE verstrichen -- $txt"
         else
-            printf '%s -- %s (Frist laeuft bis %s, heute %s)\n' \
-                "$f" "$txt" "$wert" "$HEUTE" >> "$TMP/begruendet.txt"
+            anhaengen "$TMP/begruendet.txt" "$f -- $txt (Frist laeuft bis $wert, heute $HEUTE)"
         fi
         ;;
     isa)
@@ -1428,9 +1653,9 @@ while IFS= read -r f; do
             # ERLOSCHENER Begruendung" fuer eine einzige Datei.
             _emsg="ERLOSCHEN: der Bau-Host hat ALLE genannten ISA-Merkmale ($_bericht ) --"
             _emsg="$_emsg das Gatter waere wahr gewesen, die Datei haette uebersetzt werden muessen"
-            printf '%s -- %s\n' "$f" "$_emsg" >> "$TMP/erloschen.txt"
+            anhaengen "$TMP/erloschen.txt" "$f -- $_emsg"
         else
-            printf '%s -- %s (ISA am Bau-Host:%s )\n' "$f" "$txt" "$_bericht" >> "$TMP/begruendet.txt"
+            anhaengen "$TMP/begruendet.txt" "$f -- $txt (ISA am Bau-Host:$_bericht )"
         fi
         ;;
     *)
@@ -1439,6 +1664,7 @@ while IFS= read -r f; do
         ;;
     esac
 done < "$TMP/fehlend.txt"
+lese_abgleich "$TMP/fehlend.txt" "$_nZ"
 
 # ---------------------------------------------------------------------------
 # JEDE WIRKSAME ALLOWLIST-ZEILE BRAUCHT EINEN GEGENSTAND IM SOLL (Lens B LB-01 /
@@ -1470,15 +1696,19 @@ done < "$TMP/fehlend.txt"
 # als UNPRUEFBAR, in derselben Liste wie eine Zeile mit unbekannter Art: eine
 # Begruendung ohne Gegenstand ist keine. Abhilfe: die Zeile loeschen bzw. berichtigen.
 # ---------------------------------------------------------------------------
-: > "$TMP/zeilen_unpruefbar.txt"
-: > "$TMP/zeilen_feld1.txt"
+datei_leeren "$TMP/zeilen_unpruefbar.txt"
+datei_leeren "$TMP/zeilen_feld1.txt"
 ARCHIV_ZEILE_N=0
 ORT_ZEILE_N=0
 GEIST_ZEILE_N=0
 DOPPEL_ZEILE_N=0
 FORM_ZEILE_N=0
 if [ -f "$ALLOWLIST" ]; then
-    while IFS= read -r z || [ -n "$z" ]; do
+    _nN=0
+    while :; do
+        z=""; _lr=0; IFS= read -r z || _lr=$?
+        if [ "$_lr" -ne 0 ] && [ -z "$z" ]; then break; fi
+        if [ "$_lr" -eq 0 ]; then _nN=$((_nN + 1)); fi
         case "$z" in ''|'#'*) continue ;; esac
         case "$z" in *[![:space:]]*) ;; *) continue ;; esac
         felder "$z"
@@ -1486,11 +1716,11 @@ if [ -f "$ALLOWLIST" ]; then
         if [ -z "$_d" ]; then
             _msg="UNPRUEFBAR: Allowlist-Zeile ohne Gegenstand -- Feld 1 ist leer; die Zeile wird nie"
             _msg="$_msg ausgewertet und gehoert geloescht"
-            printf '(leeres Feld 1) -- %s\n' "$_msg" >> "$TMP/zeilen_unpruefbar.txt"
+            anhaengen "$TMP/zeilen_unpruefbar.txt" "(leeres Feld 1) -- $_msg"
             GEIST_ZEILE_N=$((GEIST_ZEILE_N + 1))
             continue
         fi
-        printf '%s\n' "$_d" >> "$TMP/zeilen_feld1.txt"
+        anhaengen "$TMP/zeilen_feld1.txt" "$_d"
         case "$_d" in
             '#'*)
                 # Ein Kommentar beginnt in Spalte 1; eingerueckt ist er fuer beide Leser eine
@@ -1498,7 +1728,7 @@ if [ -f "$ALLOWLIST" ]; then
                 _msg="UNPRUEFBAR: Allowlist-Zeile ohne Gegenstand -- Feld 1 beginnt mit '#': ein"
                 _msg="$_msg EINGERUECKTER Kommentar? Kommentare beginnen in Spalte 1; so ist die Zeile"
                 _msg="$_msg eine Datenzeile ohne Gegenstand und wird nie ausgewertet"
-                printf '%s -- %s\n' "$_d" "$_msg" >> "$TMP/zeilen_unpruefbar.txt"
+                anhaengen "$TMP/zeilen_unpruefbar.txt" "$_d -- $_msg"
                 GEIST_ZEILE_N=$((GEIST_ZEILE_N + 1))
                 continue ;;
         esac
@@ -1506,7 +1736,7 @@ if [ -f "$ALLOWLIST" ]; then
         if [ "$GREP_RC" -eq 0 ]; then
             _msg="UNPRUEFBAR: ARCHIV-Datei mit Allowlist-Zeile -- Ausnahme ohne Anlass (der VERMERK.md-"
             _msg="${_msg}Anker nimmt die Datei aus dem SOLL; die Zeile wird nie ausgewertet, gehoert geloescht)"
-            printf '%s -- %s\n' "$_d" "$_msg" >> "$TMP/zeilen_unpruefbar.txt"
+            anhaengen "$TMP/zeilen_unpruefbar.txt" "$_d -- $_msg"
             ARCHIV_ZEILE_N=$((ARCHIV_ZEILE_N + 1))
             continue
         fi
@@ -1515,7 +1745,7 @@ if [ -f "$ALLOWLIST" ]; then
                 _msg="UNPRUEFBAR: Allowlist-Zeile fuer einen Pfad unter tests/deprecated/ -- der Archiv-Ort"
                 _msg="$_msg kennt nur den VERMERK.md-Anker, keine Ausnahme (Owner-Order 206: frist-Zeilen"
                 _msg="$_msg entfernt); ohne Anker bleibt die Datei OHNE BEGRUENDUNG, die Zeile gehoert geloescht"
-                printf '%s -- %s\n' "$_d" "$_msg" >> "$TMP/zeilen_unpruefbar.txt"
+                anhaengen "$TMP/zeilen_unpruefbar.txt" "$_d -- $_msg"
                 ORT_ZEILE_N=$((ORT_ZEILE_N + 1))
                 continue ;;
         esac
@@ -1524,7 +1754,7 @@ if [ -f "$ALLOWLIST" ]; then
             _msg="UNPRUEFBAR: Allowlist-Zeile ohne Gegenstand -- Feld 1 steht nicht im SOLL-Bestand der"
             _msg="$_msg getrackten Test-Quelldateien ausserhalb ext/ (geloescht, umbenannt, unter ext/, kein"
             _msg="$_msg test_*.cpp?); die Zeile wird nie ausgewertet"
-            printf '%s -- %s\n' "$_d" "$_msg" >> "$TMP/zeilen_unpruefbar.txt"
+            anhaengen "$TMP/zeilen_unpruefbar.txt" "$_d -- $_msg"
             GEIST_ZEILE_N=$((GEIST_ZEILE_N + 1))
             continue
         fi
@@ -1537,17 +1767,22 @@ if [ -f "$ALLOWLIST" ]; then
         if [ -n "$FORM_FEHLER" ]; then
             _msg="$FORM_FEHLER -- die Zeile gilt einer Datei IM Bauweg und ist stumm, ihre Form gilt"
             _msg="$_msg trotzdem (sie erwachte mit dem naechsten Fehlen der Datei als Freibrief)"
-            printf '%s -- %s\n' "$_d" "$_msg" >> "$TMP/zeilen_unpruefbar.txt"
+            anhaengen "$TMP/zeilen_unpruefbar.txt" "$_d -- $_msg"
             FORM_ZEILE_N=$((FORM_ZEILE_N + 1))
         fi
     done < "$ALLOWLIST"
+    lese_abgleich "$ALLOWLIST" "$_nN"
     # DOPPELTE ZEILEN JE PFAD (Lens C LCW-08): Feld 1 aller Datenzeilen, sortiert, 'uniq -d'
     # nennt jeden mehrfachen Pfad genau einmal; die Haeufigkeit kommt aus der ungekuerzten Liste.
     sort "$TMP/zeilen_feld1.txt" > "$TMP/zeilen_feld1_sortiert.txt" ||
         werkzeug_abbruch "'sort' ueber Feld 1 der Allowlist" "$?"
     uniq -d "$TMP/zeilen_feld1_sortiert.txt" > "$TMP/zeilen_doppelt.txt" ||
         werkzeug_abbruch "'uniq -d' ueber Feld 1 der Allowlist" "$?"
-    while IFS= read -r _dd || [ -n "$_dd" ]; do
+    _nD=0
+    while :; do
+        _dd=""; _lr=0; IFS= read -r _dd || _lr=$?
+        if [ "$_lr" -ne 0 ] && [ -z "$_dd" ]; then break; fi
+        if [ "$_lr" -eq 0 ]; then _nD=$((_nD + 1)); fi
         [ -n "$_dd" ] || continue
         grep_in_datei "$TMP/zeilen_doppelt_treffer.txt" "-F -x ueber Feld 1 (DOPPELT)" \
             -F -x -- "$_dd" "$TMP/zeilen_feld1.txt"
@@ -1555,9 +1790,10 @@ if [ -f "$ALLOWLIST" ]; then
         _msg="UNPRUEFBAR: DOPPELTE ALLOWLIST-ZEILE -- Feld 1 steht ${ZAHL}-mal in der Allowlist; nur die"
         _msg="$_msg erste Zeile wuerde gelesen, die weiteren schlafen und erwachen mit der Reihenfolge --"
         _msg="$_msg gehoert auf EINE Zeile"
-        printf '%s -- %s\n' "$_dd" "$_msg" >> "$TMP/zeilen_unpruefbar.txt"
+        anhaengen "$TMP/zeilen_unpruefbar.txt" "$_dd -- $_msg"
         DOPPEL_ZEILE_N=$((DOPPEL_ZEILE_N + 1))
     done < "$TMP/zeilen_doppelt.txt"
+    lese_abgleich "$TMP/zeilen_doppelt.txt" "$_nD"
 fi
 
 zeilen_zaehlen "$TMP/begruendet.txt"; BEGR_N=$ZAHL
@@ -1568,9 +1804,10 @@ zeilen_zaehlen "$TMP/tot.txt"; TOT_N=$ZAHL
 # UNPRUEFBAR gesamt: die Zeilen aus der Schleife (je eine dem Bauweg fehlende Datei)
 # PLUS die Klassen ohne Bezug zum Bauweg (Anker ohne Inhalt/Form/Blob, Zeilen fuer ARCHIV-
 # Dateien und Archiv-Pfade, Zeilen ohne Gegenstand, doppelte Pfade, Formfehler stummer
-# Zeilen). Der Nenner unten weist alle Anteile getrennt aus.
+# Zeilen, von git quotierte Pfade im Test-Muster oder in Anker-Form -- Fix-r7, Folge (14d)).
+# Der Nenner unten weist alle Anteile getrennt aus.
 UNPR_N=$((UNPR_FEHLEND_N + ANKER_UNPR_N + ARCHIV_ZEILE_N + ORT_ZEILE_N + GEIST_ZEILE_N + DOPPEL_ZEILE_N))
-UNPR_N=$((UNPR_N + FORM_ZEILE_N))
+UNPR_N=$((UNPR_N + FORM_ZEILE_N + QUOT_UNPR_N))
 
 echo "-----------------------------------------------------------------------------"
 echo "TEST-REGISTRIERUNGS-WACHE (MT-L4) -- Quelldatei gegen Bauweg"
@@ -1596,8 +1833,10 @@ fi
 if [ "$UNPR_N" -gt 0 ]; then
     echo ""
     echo "UNPRUEFBARE BEGRUENDUNG -- nichts davon kann diese Wache nachpruefen (Feld 2 oder 3, Anker-Form," \
-         "Zeile ohne Gegenstand, Archiv-Pfad, doppelter Pfad, Formfehler einer stummen Zeile):"
-    eingerueckt "$TMP/unpruefbar.txt" "$TMP/anker_unpruefbar.txt" "$TMP/zeilen_unpruefbar.txt"
+         "Zeile ohne Gegenstand, Archiv-Pfad, doppelter Pfad, Formfehler einer stummen Zeile, von git" \
+         "quotierter Pfad):"
+    eingerueckt "$TMP/unpruefbar.txt" "$TMP/anker_unpruefbar.txt" "$TMP/zeilen_unpruefbar.txt" \
+        "$TMP/quotiert_unpruefbar.txt"
 fi
 if [ "$BEGR_N" -gt 0 ]; then
     echo ""
@@ -1624,7 +1863,11 @@ echo "  davon $BEGR_N begruendet, $ERL_N mit ERLOSCHENER, $TOT_N TOTE AUSNAHME,"
 echo "  dazu UNPRUEFBAR ohne Bezug zum Bauweg: $ANKER_UNPR_N ARCHIV-Anker ohne Inhalt/Form," \
      "$ARCHIV_ZEILE_N Allowlist-Zeile(n) fuer ARCHIV-Dateien, $ORT_ZEILE_N fuer Pfade unter tests/deprecated/" \
      "ohne wirksamen Anker, $GEIST_ZEILE_N ohne Gegenstand im SOLL-Bestand, $DOPPEL_ZEILE_N Pfad(e) mit" \
-     "doppelter Zeile, $FORM_ZEILE_N mit Formfehler fuer Dateien im Bauweg."
+     "doppelter Zeile, $FORM_ZEILE_N mit Formfehler fuer Dateien im Bauweg, $QUOT_UNPR_N mit von git" \
+     "quotiertem Pfad."
+echo "  Quotierte Index-Pfade: $QUOT_N von git auch mit core.quotePath=false quotiert (Tabulator," \
+     "Steuerzeichen, Anfuehrungszeichen, Backslash), davon $QUOT_SOLL_N im SOLL-Muster und $QUOT_ANKER_N als" \
+     "VERMERK.md-Anker (beide UNPRUEFBAR)."
 echo "  Erreichbarkeit: $NBEURT_N der $BEGR_N begruendeten nennen einen Gegenstand AUSSERHALB"
 echo "                  des Repos -- fuer die ist 'kann nie entstehen' NICHT beurteilt worden."
 echo "  Heute (fuer 'frist:'): $HEUTE -- Herkunft: $HEUTE_HERKUNFT."
