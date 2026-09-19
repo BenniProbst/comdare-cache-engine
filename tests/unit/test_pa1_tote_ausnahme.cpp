@@ -192,6 +192,9 @@
 // leeren, (15i) modify/delete und (15j) Gitlink als Arbeitsbaum-Symlink google-seitig -- ihre Mutanten M-R8-05,
 // M-R8-07, M-R8-08, M-R8-09 und M-R8-12b ueberlebten den Google-Test 35/35 und waren nur shell-seitig
 // getoetet (LB7-06-Klasse). Rot zuerst je Stufe am Mutanten, gruen gegen HEAD in 4 Zellen -- FIX-r8.md Abschn. 5b.
+// KILL-DECKEL (r8b): die Koeder-Stufen (32c)-(32f), (33e), (34b), (34c) laufen unter 'timeout --preserve-status
+// -s KILL 60' -- unter dem Mutanten M-W4c las 'wc -l' den /dev/full-Link von (32d) endlos (945 s), weil der
+// Rueckbau nie hineinschrieb; ein Rueckbau muss FAILED ergeben, nie haengen (FIX-r8.md Abschn. 5c).
 //
 // ASCII-only, Zeilen <= 120 Byte.
 // =============================================================================
@@ -3411,8 +3414,12 @@ TEST(Pa1ToteAusnahme, SignaleUndZwischendateiFehlerSindExit2) {
                                   << wo_timeout.ausgabe;
     Lauf const wo_wc = im_repo(fall.repo(), "command -v wc");
     ASSERT_EQ(wo_wc.code, 0) << wo_wc.ausgabe;
-    fs::path const    bin        = fall.repo().pfad() / "koeder_bin";
-    std::string const pfad       = "PATH=\"" + bin.string() + ":$PATH\" TMPDIR=" + zitiert(tmp);
+    fs::path const    bin  = fall.repo().pfad() / "koeder_bin";
+    std::string const pfad = "PATH=\"" + bin.string() + ":$PATH\" TMPDIR=" + zitiert(tmp);
+    // KILL-DECKEL (Fixer r8b): unter einem Rueckbau, der die Zwischendatei nie schreibt, liest die Wache den
+    // /dev/full-Link von Stufe (d) endlos (wc -l) -- der Mutant M-W4c hing so 945 s. Ein Rueckbau muss FAILED
+    // ergeben, nie haengen: coreutils timeout beendet die Prozessgruppe der Wache nach 60 s mit KILL (137).
+    std::string const deckel     = pfad + " timeout --preserve-status -s KILL 60";
     auto const        koeder_weg = [&bin, &ec](char const* name) {
         fs::remove(bin / name, ec);
         return !fs::exists(bin / name);
@@ -3446,7 +3453,7 @@ TEST(Pa1ToteAusnahme, SignaleUndZwischendateiFehlerSindExit2) {
                                    "#!/bin/sh\nd=$(" + wo_mktemp.ausgabe +
                                        " \"$@\") || exit 1\nmkdir \"$d/archiv_anker.txt\" \"$d/halt\"\n"
                                        ": > \"$d/halt/x\"\nchmod 555 \"$d/halt\"\nprintf '%s\\n' \"$d\"\n"));
-    Lauf const halt = fall.fahren("", pfad);
+    Lauf const halt = fall.fahren("", deckel);
     berichten("SignaleUndZwischendateiFehlerSindExit2/rm-scheitert-nach-Abbruch", halt, marke);
     EXPECT_EQ(halt.code, 2) << "Der Status des Abbruchs muss den rm-Ausfall im EXIT-trap ueberleben.\n" << halt.ausgabe;
     EXPECT_TRUE(zeile_beginnt(halt.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- Zwischendatei ")) << halt.ausgabe;
@@ -3462,7 +3469,7 @@ TEST(Pa1ToteAusnahme, SignaleUndZwischendateiFehlerSindExit2) {
                                    "#!/bin/sh\nd=$(" + wo_mktemp.ausgabe +
                                        " \"$@\") || exit 1\nln -s /dev/full \"$d/begruendet.txt\"\n"
                                        "printf '%s\\n' \"$d\"\n"));
-    Lauf const voll = fall.fahren("", pfad);
+    Lauf const voll = fall.fahren("", deckel);
     berichten("SignaleUndZwischendateiFehlerSindExit2/anhaengen-auf-dev-full", voll, marke);
     EXPECT_EQ(voll.code, 2) << voll.ausgabe;
     EXPECT_TRUE(zeile_beginnt(voll.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- Schreiben nach ")) << voll.ausgabe;
@@ -3476,7 +3483,7 @@ TEST(Pa1ToteAusnahme, SignaleUndZwischendateiFehlerSindExit2) {
     ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "mktemp",
                                    "#!/bin/sh\nd=$(" + wo_mktemp.ausgabe +
                                        " \"$@\") || exit 1\nmkdir \"$d/archiv_anker.txt\"\nprintf '%s\\n' \"$d\"\n"));
-    Lauf const verz = fall.fahren("", pfad);
+    Lauf const verz = fall.fahren("", deckel);
     berichten("SignaleUndZwischendateiFehlerSindExit2/datei-leeren-auf-Verzeichnis", verz, marke);
     EXPECT_EQ(verz.code, 2) << verz.ausgabe;
     EXPECT_TRUE(zeile_beginnt(verz.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- Zwischendatei ")) << verz.ausgabe;
@@ -3493,7 +3500,7 @@ TEST(Pa1ToteAusnahme, SignaleUndZwischendateiFehlerSindExit2) {
                                        " \"$@\") || exit $?; n=${out%% *}; rest=${out#* }; "
                                        "printf '%s %s\\n' \"$((n+1))\" \"$rest\"; exit 0 ;;\nesac\nexec " +
                                        wo_wc.ausgabe + " \"$@\"\n"));
-    Lauf const plus1 = fall.fahren("", pfad);
+    Lauf const plus1 = fall.fahren("", deckel);
     berichten("SignaleUndZwischendateiFehlerSindExit2/wc-plus-1-an-soll", plus1, marke);
     EXPECT_EQ(plus1.code, 2) << "Ein Teilbestand ist ein Werkzeug-Ausfall -- Exit 2, nie OK.\n" << plus1.ausgabe;
     EXPECT_TRUE(zeile_beginnt(plus1.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'read' ueber ")) << plus1.ausgabe;
@@ -3532,7 +3539,10 @@ TEST(Pa1ToteAusnahme, BerichtsUndEingabekanalFehlerSindExit2) {
     std::error_code ec;
     fs::create_directory(tmp, ec);
     ASSERT_FALSE(ec) << ec.message();
-    std::string const tmpdir = "TMPDIR=" + zitiert(tmp);
+    std::string const tmpdir     = "TMPDIR=" + zitiert(tmp);
+    Lauf const        wo_timeout = im_repo(fall.repo(), "command -v timeout");
+    ASSERT_EQ(wo_timeout.code, 0) << "coreutils 'timeout' fehlt (KILL-Deckel der FIFO-Stufe):\n" << wo_timeout.ausgabe;
+    std::string const deckel = tmpdir + " timeout --preserve-status -s KILL 60";
 
     // (b) stdout auf /dev/full: die erste Berichtszeile scheitert (ENOSPC).
     Lauf const devfull = fall.fahren("", tmpdir + " sh -c 'exec \"$@\" >/dev/full' pa1");
@@ -3553,7 +3563,7 @@ TEST(Pa1ToteAusnahme, BerichtsUndEingabekanalFehlerSindExit2) {
     // (e) SIGPIPE: eine FIFO, deren Leser nach dem Oeffnen sofort schliesst; die Wache schreibt ihren Bericht
     //     hinein -- ohne PIPE in der trap-Liste stirbt sie mit 141 (dash/busybox ohne EXIT-trap, TMP bleibt).
     fs::path const fifo = fall.baum() / ("fifo_" + marke);
-    Lauf const     pipe = fall.fahren("", tmpdir +
+    Lauf const     pipe = fall.fahren("", deckel +
                                               " sh -c 'f=\"$1\"; shift; mkfifo \"$f\" || exit 99; "
                                               "( exec 3<\"$f\"; exec 3<&- ) & exec \"$@\" >\"$f\"' pa1 " +
                                               zitiert(fifo));
@@ -3695,6 +3705,12 @@ TEST(Pa1ToteAusnahme, AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSindUnpruefb
     ASSERT_EQ(wo_wc.code, 0) << wo_wc.ausgabe;
     Lauf const wo_mktemp = im_repo(fall.repo(), "command -v mktemp");
     ASSERT_EQ(wo_mktemp.code, 0) << wo_mktemp.ausgabe;
+    Lauf const wo_timeout = im_repo(fall.repo(), "command -v timeout");
+    ASSERT_EQ(wo_timeout.code, 0) << "coreutils 'timeout' fehlt (KILL-Deckel der Koeder-Stufen):\n"
+                                  << wo_timeout.ausgabe;
+    // KILL-Deckel wie in Fall (32): ein Rueckbau darf den Test nicht haengen lassen (Stufe (c) legt eine Datei,
+    // die die Wache liest).
+    std::string const deckel = pfad + " timeout --preserve-status -s KILL 60";
     ASSERT_TRUE(fall.allowlist_setzen("datei:tests/unit/kommt_vielleicht_" + marke + ".hpp"));
     Lauf const gesund = fall.fahren("", tmpdir);
     berichten("AnkerDFTeilrest.../ohne-Koeder", gesund, marke);
@@ -3707,7 +3723,7 @@ TEST(Pa1ToteAusnahme, AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSindUnpruefb
                                        " \"$@\") || exit $?; n=${out%% *}; rest=${out#* }; "
                                        "printf '%s %s\\n' \"$((n+1))\" \"$rest\"; exit 0 ;;\nesac\nexec " +
                                        wo_wc.ausgabe + " \"$@\"\n"));
-    Lauf const plus1 = fall.fahren("", pfad);
+    Lauf const plus1 = fall.fahren("", deckel);
     berichten("AnkerDFTeilrest.../wc-c-plus-1-an-der-Allowlist", plus1, marke);
     EXPECT_EQ(plus1.code, 2) << "Ein Byte-Teilrest ist ein Werkzeug-Ausfall -- Exit 2, nie OK.\n" << plus1.ausgabe;
     EXPECT_TRUE(zeile_beginnt(plus1.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'read' ueber "
@@ -3724,7 +3740,7 @@ TEST(Pa1ToteAusnahme, AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSindUnpruefb
                                    "#!/bin/sh\nd=$(" + wo_mktemp.ausgabe +
                                        " \"$@\") || exit 1\nprintf 'stale\\n' > \"$d/soll_1.txt\"\n"
                                        "chmod 444 \"$d/soll_1.txt\"\nprintf '%s\\n' \"$d\"\n"));
-    Lauf const stale = fall.fahren("", pfad);
+    Lauf const stale = fall.fahren("", deckel);
     berichten("AnkerDFTeilrest.../grep-Ziel-stale-und-444", stale, marke);
     EXPECT_EQ(stale.code, 2) << stale.ausgabe;
     EXPECT_TRUE(zeile_beginnt(stale.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- Zwischendatei ")) << stale.ausgabe;
