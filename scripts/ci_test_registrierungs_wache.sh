@@ -134,7 +134,12 @@
 # und die ist immer bekannt -- er kann deshalb nie als tot auffallen; (c) ein Gegenstand
 # DIREKT in einem vorhandenen Verzeichnis ist immer erreichbar, auch wenn ihn dort nie jemand
 # anlegen wird -- 'tests/unit/erfunden.hpp' faellt nicht auf. Die Regel faengt den Fall, dass
-# ein ganzer ZWEIG fehlt, nicht den, dass ein einzelner Name erfunden ist.
+# ein ganzer ZWEIG fehlt, nicht den, dass ein einzelner Name erfunden ist. 'Vorhanden' heisst:
+# ein VERZEICHNIS mit getracktem Inhalt -- eine getrackte Datei gleichen Namens ist keines
+# (Folge (11), Fix-r5); (d) ein 'datei:'-Pfad mit einem Zeichen, das git in seiner Ausgabe
+# quotiert (Tabulator, Steuerzeichen, Anfuehrungszeichen, Backslash), oder ohne kanonische Form
+# (Segment '.', leeres Segment: './', '//', '/' am Ende) ist UNPRUEFBAR, nie erreichbar oder tot
+# (Folge (12), Fix-r5).
 #
 # WARUM DIE VERZEICHNISSE UND NICHT NUR DER PFAD: ein nicht existierender Pfad ist per
 # Definition weder getrackt noch (meist) ignoriert -- die Frage waere fuer JEDEN abwesenden
@@ -144,8 +149,13 @@
 #   ignoriert       -> erreichbar. 'build/tools/y' darf bei jedem Bau entstehen.
 #   Gitlink (160000)-> erreichbar. Ein nicht ausgechecktes Submodul kann beliebig tief
 #                      etwas mitbringen; sein Inhalt steht nie im Index des Obenprojekts.
-#   getrackter Inhalt, und es ist der DIREKTE Elternteil -> erreichbar. Eine neue Datei in
-#                      einem vorhandenen Verzeichnis ist der Normalfall.
+#   getrackte DATEI (100644/100755) -> tot. Unter einer Datei kann nie ein Kind entstehen,
+#                      weder im Index noch im Arbeitsbaum (Folge (11), Fix-r5).
+#   Symlink (120000) oder Merge-Konflikt mit ungleichen Typen je Stufe -> UNPRUEFBAR (rot).
+#                      Die Wache loest keinen Link auf und raet keinen Merge-Ausgang (Folge (11)).
+#   getrackter Inhalt DARUNTER (ein Verzeichnis, Folge (11)), und es ist der DIREKTE
+#                      Elternteil -> erreichbar. Eine neue Datei in einem vorhandenen
+#                      Verzeichnis ist der Normalfall.
 #   getrackter Inhalt, aber WEITER OBEN -> tot. git zaehlt dieses Verzeichnis vollstaendig
 #                      auf, und der Zweig, den der Gegenstand darunter braucht, ist nicht
 #                      dabei.
@@ -262,6 +272,34 @@
 #       Richtung, die Wache blieb gruen. Vorbestand seit 806629ca; seit Fix-r3 die ERSTE Frage
 #       der Erreichbarkeits-Probe. Seit Fix-r4 zaehlt eine ls-files-Zeile nur mit Modus 160000
 #       UND Pfadfeld == Pfad (zeilenweise ueber eine Zwischendatei, Folge (6)). Fall (27).
+#   (11) EINE DATEI IST KEIN VERZEICHNIS, EIN SYMLINK KEINES, EIN TYP-KONFLIKT KEIN GITLINK (Lens A r5
+#       LA5-01/LA5-02/LA5-06, Lens B r4 LB4-01/LB4-03; Fix-r5): die Erreichbarkeits-Probe fragte je Ahnen
+#       nur 'Gitlink?' und danach 'hat getrackten Inhalt?' -- und 'git ls-files <pfad>' listet fuer eine
+#       getrackte DATEI die Datei selbst. Ein Gegenstand DIREKT unter einer Datei ('ext/README.md/x.hpp';
+#       am Objekt Koeder K4 'ext/queuing/REPOS_OVERVIEW.md/x.hpp') galt so als 'neue Datei in einem
+#       vorhandenen Verzeichnis' = erreichbar, obwohl unter einer Datei nie ein Kind entstehen kann --
+#       fail-open in der PA-1-Richtung, Vorbestand seit 806629ca. Ein SYMLINK (120000) als Ahne lief in
+#       'git check-ignore' ("beyond a symbolic link": 128 = Exit 2 mit der falschen Diagnose) oder, nur
+#       im Index eingetragen, ebenso als erreichbar durch. Ein Pfad im MERGE-KONFLIKT mit ungleichen
+#       Typen je Stufe (Datei gegen Gitlink) zaehlte als Gitlink, sobald EINE Stufe einer war. Seit
+#       Fix-r5 liest index_eintrag() je Ahnen die exakten Index-Zeilen (Modus, Stufe, Pfadfeld) und
+#       entscheidet: Gitlink auf jeder vorhandenen Stufe (auch nur Stufe 1-3, alle vom selben Typ) ->
+#       erreichbar; Datei -> TOT; Symlink -> UNPRUEFBAR (die Wache loest keinen Link auf); ungleiche
+#       Typen je Stufe -> UNPRUEFBAR (nicht aufgeloest, die Antwort haengt vom Ausgang ab -- wie der
+#       Anker im Konflikt, Folge (1)). check-ignore wird fuer solche Pfade nie gefragt. Faelle (27d-f)
+#       und (28).
+#   (12) DIE SCHREIBWEISE DES GEGENSTANDS MUSS DER DES INDEX ENTSPRECHEN (Lens A r5 LA5-03, Rest des
+#       LA-07-Postens; Fix-r5): der Pfadvergleich in index_eintrag() ist exakt, 'git ls-files' quotiert
+#       aber Pfade mit Nicht-ASCII-Bytes (core.quotePath: "...\303\244..."), Tabulator, Steuerzeichen,
+#       Anfuehrungszeichen oder Backslash, und ein Gegenstand mit './', '//' oder Segment '.' steht so
+#       in keinem Index. Bis c62cfc7e traf keiner dieser Pfade seinen Gitlink-Ahnen und lief in
+#       check-ignore (Exit 2 mit der falschen Diagnose 'is in submodule'); './' und '//' waren bis
+#       63f8abd4 zufaellig gruen. Seit Fix-r5 liest die Probe den Index mit '-c core.quotePath=false'
+#       (Nicht-ASCII-Bytes roh und damit vergleichbar), und feld_form weist einen 'datei:'-Pfad mit
+#       quotierbarem Zeichen oder ohne kanonische Form als UNPRUEFBAR ab -- fail-closed mit der richtigen
+#       Diagnose, auch fuer die stumme Zeile einer Datei im Bauweg (Folge (8)). Fall (29). Die SOLL-
+#       und die Anker-Lesung (git ls-files ohne '-c') bleiben der LA-07-Posten: ein Nicht-ASCII-Pfad
+#       dort ist weiterhin laut rot (OHNE BEGRUENDUNG bzw. kein Anker), nie still gruen.
 #
 # DER GEMESSENE BAUM MUSS DERSELBE SEIN WIE DER DER CI (J-0b, am Objekt 2026-09-17): der CI-Baum
 # build-covguard wird MIT -DCOMDARE_CE_PRUEFLINGE=<repo>/tests/pruefling_fixture konfiguriert, und
@@ -280,10 +318,15 @@
 #              Begruendung (dazu zaehlen ein ARCHIV-Anker ohne Inhalt/Form oder ohne Blob-Objekt,
 #              eine Allowlist-Zeile fuer eine ARCHIV-Datei oder einen Pfad unter tests/deprecated/,
 #              eine Zeile ohne Gegenstand im SOLL-Bestand, ein doppelt genannter Pfad, ein leeres
-#              Feld 3 und ein Formfehler in der stummen Zeile einer Datei im Bauweg, s. oben)
+#              Feld 3 und ein Formfehler in der stummen Zeile einer Datei im Bauweg, s. oben; seit
+#              Fix-r5 auch ein 'datei:'-Gegenstand, dessen Ahnenreihe durch einen Symlink oder einen
+#              Typ-Konflikt im Index laeuft, und ein 'datei:'-Pfad mit quotierbarem Zeichen oder ohne
+#              kanonische Form, Folgen (11) und (12))
 #          2 = die Wache konnte nicht pruefen (fail-closed, ausdruecklich KEIN Gruen) -- auch bei
 #              jedem Ausfall eines Werkzeugs (git, grep, sort, uniq, wc, date, mktemp; cut, sed und
-#              tr kommen seit Fix-r3 nicht mehr vor) und bei jedem ISA-Beleg, der nicht eindeutig ist
+#              tr kommen seit Fix-r3 nicht mehr vor; rm laeuft NUR im EXIT-trap zum Aufraeumen der
+#              Zwischendateien, also nach dem 'exit' -- sein Ausfall aendert keinen Exit-Status, Lens A
+#              r5 LA5-08) und bei jedem ISA-Beleg, der nicht eindeutig ist
 #
 # GRENZE, EHRLICH BENANNT -- was diese Wache NICHT deckt:
 # Sie prueft, ob die Quelldatei UEBERSETZT wird. Sie prueft NICHT, ob das entstehende
@@ -303,7 +346,7 @@ if [ -z "$BUILD" ]; then
     exit 2
 fi
 if [ ! -d "$BUILD" ]; then
-    echo "ABBRUCH: '$BUILD' ist kein Verzeichnis -- die Wache konnte nicht pruefen." >&2
+    printf '%s\n' "ABBRUCH: '$BUILD' ist kein Verzeichnis -- die Wache konnte nicht pruefen." >&2
     exit 2
 fi
 
@@ -337,11 +380,15 @@ GREP=/usr/bin/grep
 # cut, sed und tr kommen nicht mehr vor: Felder, Ordnernamen und die eingerueckte Ausgabe
 # entstehen mit Parametererweiterung der Shell (trim, felder, eingerueckt) -- kein
 # Werkzeug, kein Ausfall (Lens C LC3W-01/LC3W-04).
+# PRINTF STATT ECHO, WO NUTZERTEXT IN DER ZEILE STEHT (Lens A r5 LA5-07, Fix-r5): 'echo' von
+# dash und busybox deutet Backslash-Folgen im Text ('\b' wird zum Backspace, '\t' zum
+# Tabulator) -- eine Diagnose, die einen Pfad oder ein Bauverzeichnis nennt, kaeme verstuemmelt
+# an (am Objekt: 'ext/a\b' erschien als 'ext/a<BS>'). printf '%s\n' gibt den Text unveraendert.
 # ---------------------------------------------------------------------------
 werkzeug_abbruch() {
     # $1 = was scheiterte, $2 = Exit-Status des Werkzeugs
-    echo "ABBRUCH: Werkzeug-Ausfall -- $1 (Exit ${2:-?})." >&2
-    echo "         Der Nenner ist damit nicht erhebbar. Fail-closed: Exit 2, ausdruecklich KEIN Gruen." >&2
+    printf '%s\n' "ABBRUCH: Werkzeug-Ausfall -- $1 (Exit ${2:-?})." >&2
+    printf '%s\n' "         Der Nenner ist damit nicht erhebbar. Fail-closed: Exit 2, ausdruecklich KEIN Gruen." >&2
     exit 2
 }
 
@@ -425,7 +472,7 @@ elif [ -f "$BUILD_ABS/build.ninja" ]; then
     IST_DATEI="$BUILD_ABS/build.ninja"
     IST_ART="build.ninja"
 else
-    echo "ABBRUCH: weder compile_commands.json noch build.ninja unter '$BUILD'." >&2
+    printf '%s\n' "ABBRUCH: weder compile_commands.json noch build.ninja unter '$BUILD'." >&2
     echo "         Der IST-Nenner waere leer -- jede Datei erschiene als unregistriert." >&2
     echo "         Das ist fail-closed und ausdruecklich KEIN Gruen." >&2
     exit 2
@@ -679,9 +726,10 @@ ISA_AVX512F=""  #        einmal statt je Zeile gelesen wird)
 ISA_GEFRAGT=nein
 
 isa_abbruch() {
-    echo "ABBRUCH: $1" >&2
-    echo "         Die ISA-Frage ist damit UNBEANTWORTBAR. Fail-closed: das ist Exit 2," >&2
-    echo "         nicht 'Merkmal fehlt' und damit eine stillschweigend gehaltene Ausnahme." >&2
+    # printf statt echo: $1 nennt den CMakeCache-Pfad des Bauverzeichnisses (Lens A r5 LA5-07).
+    printf '%s\n' "ABBRUCH: $1" >&2
+    printf '%s\n' "         Die ISA-Frage ist damit UNBEANTWORTBAR. Fail-closed: das ist Exit 2," >&2
+    printf '%s\n' "         nicht 'Merkmal fehlt' und damit eine stillschweigend gehaltene Ausnahme." >&2
     exit 2
 }
 
@@ -814,10 +862,14 @@ isa_merkmal() {
 # ---------------------------------------------------------------------------
 # DIE ERREICHBARKEITS-PROBE (PA-1, zweite ERLOSCHEN-Richtung).
 # Setzt ERR_ANTWORT auf
-#   nein      -- dieses Repo erklaert den Gegenstand (Index, Gitlink oder .gitignore).
-#                Er kann entstehen; die Ausnahme darf getragen werden.
-#   ja        -- KEINE Quelle dieses Repos kennt ihn. TOTE AUSNAHME.
-#   unbekannt -- der Pfad liegt ausserhalb des Repos; so nicht beurteilbar.
+#   nein       -- dieses Repo erklaert den Gegenstand (Index, Gitlink oder .gitignore).
+#                 Er kann entstehen; die Ausnahme darf getragen werden.
+#   ja         -- KEINE Quelle dieses Repos kennt ihn, oder ein Vorfahr ist eine DATEI
+#                 (Folge (11)). TOTE AUSNAHME. ERR_GRUND nennt den Grund, wenn er nicht
+#                 der allgemeine ist (leer = 'keine Quelle kennt den Zweig').
+#   unbekannt  -- der Pfad liegt ausserhalb des Repos; so nicht beurteilbar.
+#   unpruefbar -- ein Vorfahr ist ein Symlink oder steht im Typ-Konflikt (Folge (11));
+#                 ERR_GRUND nennt ihn. UNPRUEFBARE Begruendung, rot.
 # Was das NICHT beweist, steht im Kopf. Hier nur die Mechanik.
 # ---------------------------------------------------------------------------
 # JEDE PRUEFUNG STEHT IN EINEM 'if'. Ein blankes '[ ... ] && return 0' waere unter
@@ -844,41 +896,77 @@ ist_ignoriert() {
     return 1
 }
 
-ist_gitlink() {
-    # Modus 160000 = 'commit', also ein Submodul-Eintrag. Der Inhalt eines nicht
-    # ausgecheckten Submoduls steht NICHT im Index -- der Gitlink schon. 'git ls-files'
-    # meldet 0 auch ohne Treffer; jeder andere Status ist ein Werkzeug-Ausfall (Exit 2).
+index_eintrag() {
+    # $1 = repo-relativer Pfad. Setzt INDEX_ART -- was der Index GENAU ueber diesen Pfad sagt:
+    #   gitlink   ein Submodul-Gitlink (Modus 160000 = 'commit'), auf Stufe 0 oder auf jeder
+    #             vorhandenen Konfliktstufe. Der Inhalt eines nicht ausgecheckten Submoduls steht
+    #             NICHT im Index -- der Gitlink schon.
+    #   datei     ein regulaeres Blob (100644/100755): eine DATEI, unter der nie ein Kind entsteht.
+    #   symlink   ein Symlink (120000).
+    #   konflikt  ein Merge-Konflikt mit UNGLEICHEN Typen je Stufe (etwa Datei gegen Gitlink).
+    #   inhalt    kein Eintrag fuer den Pfad selbst, aber Eintraege DARUNTER: ein Verzeichnis.
+    #   leer      gar kein Eintrag.
+    # 'git ls-files' meldet 0 auch ohne Treffer; jeder andere Status ist ein Werkzeug-Ausfall (Exit 2).
     # DIE VERZEICHNIS-FALLE (Fix-r4, Fund N-1 der Fix-r3-Berichtsfassung, Lead-Objektprobe
     # K205): fuer ein VERZEICHNIS liefert 'git ls-files -s' ALLE Eintraege darunter, und die
     # Fassungen 806629ca..63f8abd4 prueften nur, ob die Ausgabe mit '160000 ' BEGINNT. Am
     # Objekt: ':(literal)ext/queuing' liefert 9 Zeilen, die erste ist der Gitlink
     # ext/queuing/Q01-concurrentqueue -- das Verzeichnis ext/queuing galt damit selbst als
     # Gitlink, und 'ext/queuing/nicht_da/x.hpp' war erreichbar statt TOT (fail-open in der
-    # PA-1-Richtung). Deshalb zeilenweise: ein Gitlink ist es NUR, wenn eine Zeile den
-    # Modus 160000 traegt UND ihr Pfadfeld (nach dem TAB) genau "$1" ist. Die Index-Stufe
-    # bleibt wie bisher ungeprueft (ein Gitlink im Merge-Konflikt ist ein Gitlink).
+    # PA-1-Richtung). Deshalb zeilenweise: nur eine Zeile, deren Pfadfeld (nach dem TAB) genau
+    # "$1" ist, sagt etwas ueber den Pfad SELBST; ihr Modus sagt, was er ist.
+    # TYP UND STUFE (Fix-r5, Kopf Folge (11); Lens A r5 LA5-01/LA5-02/LA5-06, Lens B r4 LB4-01/
+    # LB4-03, Lead-Entscheid O-12): bis c62cfc7e zaehlte nur '160000', alles andere galt als
+    # 'kein Gitlink' und lief in hat_getrackten_inhalt -- eine Datei als Ahne wurde so zum
+    # 'vorhandenen Verzeichnis' (fail-open). Jetzt traegt jede exakte Zeile ihren Typ; stimmen
+    # alle vorhandenen Stufen im Typ ueberein, gilt dieser Typ (ein Gitlink, der nur auf Stufe
+    # 1-3 steht, ist ein Gitlink -- in JEDEM Merge-Ausgang bleibt der Pfad darunter erreichbar);
+    # weichen die Typen je Stufe ab, ist es ein 'konflikt' (die Antwort haengt vom Ausgang ab).
+    # Ein Modus ausserhalb der vier, die git in den Index schreibt, ist kein Datenbefund: Exit 2.
+    # SCHREIBWEISE (Fix-r5, Kopf Folge (12); Lens A r5 LA5-03): '-c core.quotePath=false' gibt
+    # Nicht-ASCII-Bytes roh aus, damit ein Pfad wie 'ext/ae-sub-<0xC3 0xA4>' seinem Eintrag
+    # gleicht; Tabulator, Steuerzeichen, Anfuehrungszeichen und Backslash quotiert git trotzdem --
+    # solche Pfade weist feld_form vorher als UNPRUEFBAR ab, hier begegnen sie keinem Vergleich.
     # Zwischendatei statt Pipe (Folge (6)); Zerlegung per Parametererweiterung wie am Anker.
-    git ls-files -s -- ":(literal)$1" > "$TMP/gitlink.txt" 2>/dev/null ||
+    git -c core.quotePath=false ls-files -s -- ":(literal)$1" > "$TMP/index_eintrag.txt" 2>/dev/null ||
         werkzeug_abbruch "'git ls-files -s' fuer $1" "$?"
     _gt=$(printf '\t')
+    INDEX_ART=leer
+    _gtyp=""
     while IFS= read -r _gl || [ -n "$_gl" ]; do
         [ -n "$_gl" ] || continue
+        if [ "$INDEX_ART" = leer ]; then INDEX_ART=inhalt; fi
         _gm=${_gl%% *}
         _gp=${_gl#*"$_gt"}
-        if [ "$_gm" = 160000 ] && [ "$_gp" = "$1" ]; then return 0; fi
-    done < "$TMP/gitlink.txt"
-    return 1
+        if [ "$_gp" != "$1" ]; then continue; fi
+        case "$_gm" in
+            160000)        _g1=gitlink ;;
+            100644|100755) _g1=datei ;;
+            120000)        _g1=symlink ;;
+            *)  _gmsg="'git ls-files -s' fuer $1 lieferte den Index-Modus '$_gm'"
+                werkzeug_abbruch "$_gmsg (kein 100644/100755/120000/160000)" 1 ;;
+        esac
+        if [ -z "$_gtyp" ]; then _gtyp=$_g1; elif [ "$_gtyp" != "$_g1" ]; then _gtyp=konflikt; fi
+    done < "$TMP/index_eintrag.txt"
+    if [ -n "$_gtyp" ]; then INDEX_ART=$_gtyp; fi
+    return 0
 }
 
 hat_getrackten_inhalt() {
+    # Gibt es IRGENDEINEN Index-Eintrag fuer den Pfad oder darunter? Gefragt fuer den Gegenstand selbst
+    # (eine getrackte, im Arbeitsbaum fehlende Datei kann per Checkout wiederkommen) und fuer die Ahnen in
+    # der Aufwaerts-Schleife (dort nur noch Verzeichnisse: Datei, Symlink und Typ-Konflikt hat die
+    # Index-Lesung davor entschieden). Hier zaehlt nur, OB Zeilen kommen -- ohne '-s', ohne quotePath-
+    # Schalter; Fall (23b) pinnt genau diese Aufrufform ('git ls-files --' mit 128 = Exit 2).
     _t=$(git ls-files -- ":(literal)$1" 2>/dev/null) || werkzeug_abbruch "'git ls-files' fuer $1" "$?"
     if [ -n "$_t" ]; then return 0; fi
     return 1
 }
 
 erreichbarkeit() {
-    # $1 = repo-relativer Pfad aus Feld 2. Setzt ERR_ANTWORT.
+    # $1 = repo-relativer Pfad aus Feld 2. Setzt ERR_ANTWORT und ERR_GRUND.
     _p="$1"
+    ERR_GRUND=""
     case "$_p" in
         /*) ERR_ANTWORT=unbekannt; return 0 ;;
     esac
@@ -893,17 +981,22 @@ erreichbarkeit() {
         if [ "$_seg" = ".." ]; then ERR_ANTWORT=unbekannt; return 0; fi
     done
     # ---------------------------------------------------------------------
-    # ZUERST DIE GITLINKS DER AHNENREIHE (Fix-r3, am Objekt gefunden in Fall
-    # SubmodulGitlinkIstErreichbar): 'git check-ignore' antwortet fuer einen Pfad
-    # UNTER einem Gitlink nicht mit 0/1, sondern stirbt mit 128 ("is in submodule").
-    # Bis 806629ca galt diese 128 als 'nicht ignoriert' -- richtig nur durch Zufall,
-    # denn seit Fix-r3 ist 128 ein Werkzeug-Ausfall (Lens C LC3W-03). Ein Gitlink
-    # darf beliebig tief Ausgechecktes aufnehmen (Kopf): liegt einer in der Ahnen-
-    # reihe, ist der Pfad erreichbar, und check-ignore wird nie gefragt. Am Objekt
-    # gefunden (2026-08-10): der direkte Elternteil von 'ext/<submodul>/include/
-    # kopf.hpp' ist 'ext/<submodul>/include' -- und der steht NICHT im Index, weil
-    # nur der GITLINK 'ext/<submodul>' dort steht; die erste Fassung erklaerte den
-    # Pfad deshalb faelschlich fuer tot.
+    # ZUERST DIE INDEX-EINTRAEGE DER AHNENREIHE (Fix-r3: Gitlinks, am Objekt gefunden
+    # in Fall SubmodulGitlinkIstErreichbar; Fix-r5: auch Datei, Symlink, Typ-Konflikt,
+    # Kopf Folge (11)): 'git check-ignore' antwortet fuer einen Pfad UNTER einem
+    # Gitlink nicht mit 0/1, sondern stirbt mit 128 ("is in submodule"), unter einem
+    # Symlink im Arbeitsbaum ebenso ("beyond a symbolic link"). Bis 806629ca galt
+    # diese 128 als 'nicht ignoriert' -- richtig nur durch Zufall, denn seit Fix-r3
+    # ist 128 ein Werkzeug-Ausfall (Lens C LC3W-03). Ein Gitlink darf beliebig tief
+    # Ausgechecktes aufnehmen (Kopf): liegt einer in der Ahnenreihe, ist der Pfad
+    # erreichbar; eine DATEI in der Ahnenreihe kann kein Kind haben: TOT; ein Symlink
+    # oder ein Typ-Konflikt ist UNPRUEFBAR -- und check-ignore wird fuer keinen dieser
+    # Pfade gefragt. Am Objekt gefunden (2026-08-10): der direkte Elternteil von
+    # 'ext/<submodul>/include/kopf.hpp' ist 'ext/<submodul>/include' -- und der steht
+    # NICHT im Index, weil nur der GITLINK 'ext/<submodul>' dort steht; die erste
+    # Fassung erklaerte den Pfad deshalb faelschlich fuer tot. Am Objekt gefunden
+    # (Lens A r5, Koeder K4): 'ext/queuing/REPOS_OVERVIEW.md/x.hpp' galt bis c62cfc7e
+    # als erreichbar, weil die Datei REPOS_OVERVIEW.md 'getrackten Inhalt' hatte.
     # ---------------------------------------------------------------------
     _ga="$_p"
     while :; do
@@ -911,7 +1004,26 @@ erreichbarkeit() {
             */*) _ga=${_ga%/*} ;;
             *)   break ;;   # der naechste waere die Wurzel
         esac
-        if ist_gitlink "$_ga"; then ERR_ANTWORT=nein; return 0; fi
+        index_eintrag "$_ga"
+        case "$INDEX_ART" in
+            gitlink)
+                ERR_ANTWORT=nein; return 0 ;;
+            datei)
+                ERR_GRUND="sein Vorfahr $_ga ist eine getrackte DATEI (Index-Modus 100644/100755) --"
+                ERR_GRUND="$ERR_GRUND unter einer Datei kann nie ein Kind entstehen, weder im Index noch im"
+                ERR_GRUND="$ERR_GRUND Arbeitsbaum"
+                ERR_ANTWORT=ja; return 0 ;;
+            symlink)
+                ERR_GRUND="sein Vorfahr $_ga ist im Index ein SYMLINK (Modus 120000) -- die Wache loest"
+                ERR_GRUND="$ERR_GRUND keinen Link auf und beurteilt den Zweig dahinter nicht; nenne den Zielpfad"
+                ERR_GRUND="$ERR_GRUND des Links"
+                ERR_ANTWORT=unpruefbar; return 0 ;;
+            konflikt)
+                ERR_GRUND="sein Vorfahr $_ga steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe"
+                ERR_GRUND="$ERR_GRUND (Datei gegen Gitlink) -- ohne aufgeloeste Fassung ist nicht entscheidbar,"
+                ERR_GRUND="$ERR_GRUND ob darunter etwas entstehen kann; erst den Konflikt aufloesen"
+                ERR_ANTWORT=unpruefbar; return 0 ;;
+        esac
     done
     # Der Gegenstand selbst: getrackt oder als Bauprodukt angemeldet?
     if hat_getrackten_inhalt "$_p"; then ERR_ANTWORT=nein; return 0; fi
@@ -923,7 +1035,9 @@ erreichbarkeit() {
     esac
     # ---------------------------------------------------------------------
     # DIE AHNENREIHE HOCHLAUFEN, nicht nur den direkten Elternteil fragen (die
-    # Gitlinks sind oben schon abgefragt; hier zaehlen Ignore-Regeln und Inhalt).
+    # exakten Index-Eintraege -- Gitlink, Datei, Symlink, Konflikt -- sind oben schon
+    # entschieden; hier zaehlen Ignore-Regeln und getrackter Inhalt DARUNTER, also
+    # Verzeichnisse).
     # ---------------------------------------------------------------------
     _erster=ja
     while :; do
@@ -931,8 +1045,9 @@ erreichbarkeit() {
         if ist_ignoriert "$_a"; then ERR_ANTWORT=nein; return 0; fi
         if hat_getrackten_inhalt "$_a"; then
             if [ "$_erster" = ja ]; then
-                # Eine NEUE Datei in einem Verzeichnis, das es schon gibt, ist der
-                # Normalfall -- daraus darf nie 'tot' werden.
+                # Eine NEUE Datei in einem VERZEICHNIS, das es schon gibt, ist der
+                # Normalfall -- daraus darf nie 'tot' werden. (Dass es ein Verzeichnis
+                # ist und keine Datei, hat die Index-Lesung oben entschieden, Folge (11).)
                 ERR_ANTWORT=nein
             else
                 # git zaehlt dieses Verzeichnis VOLLSTAENDIG auf, und der Zweig, den
@@ -967,8 +1082,8 @@ else
 fi
 case "$HEUTE" in
     [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;;
-    *)  echo "ABBRUCH: '$HEUTE' ist kein Datum JJJJ-MM-TT (Herkunft: $HEUTE_HERKUNFT)." >&2
-        echo "         Ohne belastbares Heute ist keine 'frist:'-Zeile pruefbar. Fail-closed." >&2
+    *)  printf '%s\n' "ABBRUCH: '$HEUTE' ist kein Datum JJJJ-MM-TT (Herkunft: $HEUTE_HERKUNFT)." >&2
+        printf '%s\n' "         Ohne belastbares Heute ist keine 'frist:'-Zeile pruefbar. Fail-closed." >&2
         exit 2 ;;
 esac
 
@@ -991,6 +1106,37 @@ esac
 : > "$TMP/tot.txt"
 NBEURT_N=0
 
+pfad_form() {
+    # $1 = Pfad aus 'datei:' -> PFAD_FEHLER (leer = Form in Ordnung). Kopf, Folge (12): (a) ein Zeichen,
+    # das 'git ls-files' in seiner Ausgabe quotiert (Tabulator, Steuerzeichen, Anfuehrungszeichen,
+    # Backslash), macht den Pfad unvergleichbar; (b) ein Segment '.' oder ein leeres Segment ('./',
+    # '//', '/' am Ende) steht so in keinem Index. Ein absoluter Pfad bleibt Sache der Erreichbarkeits-
+    # Probe (NICHT beurteilt, Kopf-Grenze (a)), ebenso '..'; Leerzeichen und Nicht-ASCII-Bytes sind
+    # erlaubt (roh vergleichbar, Folge (12)). Segmentweise per Parametererweiterung, kein Werkzeug.
+    PFAD_FEHLER=""
+    case "$1" in /*) return 0 ;; esac
+    case "$1" in
+        *[[:cntrl:]]*|*'"'*|*'\'*)
+            PFAD_FEHLER="enthaelt ein Zeichen, das git in seiner Ausgabe quotiert (Tabulator, Steuerzeichen,"
+            PFAD_FEHLER="$PFAD_FEHLER Anfuehrungszeichen oder Backslash) -- die Wache vergleicht Pfade nur unquotiert"
+            return 0 ;;
+    esac
+    _pfr="$1"
+    while :; do
+        case "$_pfr" in
+            */*) _pfs=${_pfr%%/*}; _pfr=${_pfr#*/}; _pfl=nein ;;
+            *)   _pfs="$_pfr";     _pfr="";         _pfl=ja ;;
+        esac
+        if [ -z "$_pfs" ] || [ "$_pfs" = . ]; then
+            PFAD_FEHLER="ist kein kanonischer repo-relativer Pfad (Segment '.' oder leeres Segment: './', '//',"
+            PFAD_FEHLER="$PFAD_FEHLER '/' am Ende) -- so steht kein Pfad im Index"
+            return 0
+        fi
+        if [ "$_pfl" = ja ]; then break; fi
+    done
+    return 0
+}
+
 feld_form() {
     # $1 = Feld 2, $2 = Feld 3 -> FORM_FEHLER (leer = Form in Ordnung) sowie ART und WERT aus Feld 2.
     # Die FORM einer Zeile, getrennt von der Bewertung ihres Gegenstands: ein leeres Feld 3 (Folge (5)),
@@ -1010,7 +1156,11 @@ feld_form() {
     esac
     case "$ART" in
     datei)
-        if [ -z "$WERT" ]; then FORM_FEHLER='UNPRUEFBAR: "datei:" ohne Pfad'; fi
+        if [ -z "$WERT" ]; then FORM_FEHLER='UNPRUEFBAR: "datei:" ohne Pfad'; return 0; fi
+        # Die FORM des Pfads (Folge (12), Fix-r5): quotierbare Zeichen und nicht kanonische Segmente sind
+        # UNPRUEFBAR -- vor jeder Frage an den Index, auch in der stummen Zeile (Nachscan, Folge (8)).
+        pfad_form "$WERT"
+        if [ -n "$PFAD_FEHLER" ]; then FORM_FEHLER="UNPRUEFBAR: \"datei:$WERT\" $PFAD_FEHLER"; fi
         ;;
     frist)
         # JJJJ-MM-TT ist Pflicht: der Vergleich in der Schleife ist ein Zeichenkettenvergleich,
@@ -1097,10 +1247,22 @@ while IFS= read -r f; do
             # dann per Konstruktion nie erloeschen und waere eine Freistellung ohne Ende.
             erreichbarkeit "$wert"
             if [ "$ERR_ANTWORT" = ja ]; then
-                _tmsg="TOTE AUSNAHME: \"$wert\" existiert nicht, und keine Quelle dieses Repos"
-                _tmsg="$_tmsg kennt den Zweig, in dem er liegt (weder Index noch Submodul-Gitlink"
-                _tmsg="$_tmsg noch .gitignore, bis hinauf zur Wurzel) -- diese Zeile koennte nie erloeschen"
+                _tmsg="TOTE AUSNAHME: \"$wert\" existiert nicht, und"
+                if [ -n "$ERR_GRUND" ]; then
+                    # Ein Vorfahr ist eine DATEI (Folge (11)): der Grund steht dabei.
+                    _tmsg="$_tmsg $ERR_GRUND"
+                else
+                    _tmsg="$_tmsg keine Quelle dieses Repos"
+                    _tmsg="$_tmsg kennt den Zweig, in dem er liegt (weder Index noch Submodul-Gitlink"
+                    _tmsg="$_tmsg noch .gitignore, bis hinauf zur Wurzel)"
+                fi
+                _tmsg="$_tmsg -- diese Zeile koennte nie erloeschen"
                 printf '%s -- %s\n' "$f" "$_tmsg" >> "$TMP/tot.txt"
+            elif [ "$ERR_ANTWORT" = unpruefbar ]; then
+                # Symlink oder Typ-Konflikt in der Ahnenreihe (Folge (11)): UNPRUEFBAR, in derselben Liste
+                # und Zaehlung wie ein Formfehler der Zeile -- die Wache kann die Begruendung nicht pruefen.
+                _umsg="UNPRUEFBAR: \"$wert\" existiert nicht, und $ERR_GRUND"
+                printf '%s -- %s\n' "$f" "$_umsg" >> "$TMP/unpruefbar.txt"
             elif [ "$ERR_ANTWORT" = unbekannt ]; then
                 NBEURT_N=$((NBEURT_N + 1))
                 printf '%s -- %s (datei abwesend: %s -- ausserhalb des Repos, Erreichbarkeit NICHT beurteilt)\n' \
@@ -1291,7 +1453,7 @@ UNPR_N=$((UNPR_N + FORM_ZEILE_N))
 echo "-----------------------------------------------------------------------------"
 echo "TEST-REGISTRIERUNGS-WACHE (MT-L4) -- Quelldatei gegen Bauweg"
 echo "  SOLL-Quelle: git ls-files (Git-Index)"
-echo "  IST-Quelle : $IST_ART im Baum '$BUILD'"
+printf '%s\n' "  IST-Quelle : $IST_ART im Baum '$BUILD'"
 echo "-----------------------------------------------------------------------------"
 
 if [ "$UNBEGR_N" -gt 0 ]; then
@@ -1334,7 +1496,7 @@ echo "NENNER (nie eine nackte Zahl):"
 echo "  $SOLL_ROH_N getrackte Test-Quelldatei(en) im Baum (ohne ext/)."
 echo "  davon $ARCHIV_N ARCHIV-Datei(en) in $ARCHIV_ORD_N Ordner(n) unter tests/deprecated/ mit" \
      "VERMERK.md-Anker abgezogen -- SOLL: $SOLL_N."
-echo "  $FEHLEND_N davon NICHT im Bauweg des Baums '$BUILD'."
+printf '%s\n' "  $FEHLEND_N davon NICHT im Bauweg des Baums '$BUILD'."
 echo "  davon $BEGR_N begruendet, $ERL_N mit ERLOSCHENER, $TOT_N TOTE AUSNAHME," \
      "$UNPR_FEHLEND_N mit UNPRUEFBARER Begruendung, $UNBEGR_N ohne."
 echo "  dazu UNPRUEFBAR ohne Bezug zum Bauweg: $ANKER_UNPR_N ARCHIV-Anker ohne Inhalt/Form," \
@@ -1346,7 +1508,7 @@ echo "                  des Repos -- fuer die ist 'kann nie entstehen' NICHT beu
 echo "  Heute (fuer 'frist:'): $HEUTE -- Herkunft: $HEUTE_HERKUNFT."
 echo "  Gegenprobe des Messgeraets: '$GEGENPROBE' trifft in $IST_ART (das Muster sucht)."
 if [ "$ISA_GEFRAGT" = ja ]; then
-    echo "  ISA-Gegenprobe: $ISA_QUELLE"
+    printf '%s\n' "  ISA-Gegenprobe: $ISA_QUELLE"
     echo "                  avx2=${ISA_AVX2:-nicht gefragt}, avx512f=${ISA_AVX512F:-nicht gefragt}"
     echo "                  (vier Merkmale je Variable geprueft: einmalig, Typ INTERNAL,"
     echo "                   _COMPILED=TRUE, Wert deckt _EXITCODE)"
