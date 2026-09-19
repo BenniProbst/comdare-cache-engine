@@ -162,3 +162,31 @@ ohne Anfuehrungszeichen, Backslash oder Tabulator; die drei Zeilen aus NACHTRAG 
 Ahnenreihe eines Allowlist-Gegenstands wird bis zur Wurzel geprueft (Rangfolge UNPRUEFBAR vor TOT vor
 Gitlink), ein `..` zaehlt per Tiefenzaehler (verlaesst die Wurzel = Grenze (a), repo-intern aufgeloest =
 UNPRUEFBAR), und die Existenzprobe der Allowlist-Datei nimmt auch einen Symlink an (`[ -e ] || [ -L ]`).
+
+## NACHTRAG 6 (Fix-r8: Lens A r8, Lens B r7, Lens C r6; 2026-09-19)
+
+BERICHTIGUNG ZU NACHTRAG 5 (Lens B r7 LB7-04 = Lens C r6 LC6T-04): der Satz "Die zwei Anker-Unterfaelle aus NACHTRAG 2
+(Gitlink = Index-Modus 160000, und ein Commit-Objekt unter Modus 100644)" ordnet den Commit-Fall falsch zu. NACHTRAG 2
+nennt "als Symlink oder Gitlink, oder im Merge-Konflikt" -- keinen Commit; der Commit unter 100644 steht erst in
+NACHTRAG 4 ("ein Tree oder Commit unter 100644 ankert nicht"). Richtig lautet der Satz: die zwei Anker-Unterfaelle
+aus NACHTRAG 2 (Gitlink = Index-Modus 160000) und NACHTRAG 4 (Commit-Objekt unter Modus 100644). Der Gitlink-Teil war
+richtig. NACHTRAG 5 bleibt unveraendert stehen; dieser Nachtrag gilt.
+
+BERICHTIGUNG ZU NACHTRAG 5, ZWEITER SATZ (Lens B r7 LB7-05 = Lens C r6 LC6T-05): "Neu in JEDER Ausgabe der Wache steht
+die Nenner-Zeile" ist zu weit. Die Zeile "Quotierte Index-Pfade: ..." steht in jedem VOLLSTAENDIGEN Wachen-Bericht
+(Exit 0 oder 1); Abbrueche mit Exit 2 (AUFRUF ohne Argument, kein Verzeichnis, Werkzeug-Ausfall, Signal) enden VOR dem
+Nenner-Block und tragen sie nicht (Lens B r7, Proben B1a/B1b/B1c/B2: je rc=2, Quotierte-Zeile=0).
+
+Die Stufen-Etiketten des Falls `ArchivAnkerMussBlobInDerObjektdatenbankSein` sind seit Fix-r8 eindeutig: (a) Tree,
+(b) Fantasie-SHA, (c) echtes Blob, (d) Commit unter 100644, (e) Index-Modus 160000, (f) git-Koeder 'cat-file -t'
+128 (Lens B r7 LB7-03; bis 89cf7103 hiessen Commit und git-Koeder beide "(d)"). Der Verweis "Stufen (d) und (e)" in
+NACHTRAG 5 meint damit genau Commit und Modus 160000.
+
+Fix-r8 der Wache ohne Wirkung auf diesen Ordner: (a) ein VERMERK.md auf Index-Stufe 0 gegen Eintraege DARUNTER
+(`VERMERK.md/...` auf Stufe 1-3, D/F-Konflikt) ankert NICHT mehr (UNPRUEFBARER ANKER; Lens C r6 LC6W-01, Fall (27g4)
+zeigt die Form am Ahnen); (b) jede Eingabe-Umleitung, der Berichtskanal stdout, der Abbruchkanal stderr und das Signal
+PIPE sind im 0/1/2-Vertrag (Lens A r8 LA8-01..04; Google-Faelle (32) und (33)); (c) der Lese-Abgleich zaehlt auch
+Bytes; (d) die OK-Zeile steht erst nach dem Aufraeumen des Zwischenverzeichnisses. Fuer DIESEN Ordner gemessen am
+Fix-r8-Stand (`sh scripts/ci_test_registrierungs_wache.sh build-gcc-release`, sh = dash, ebenso bash --posix und
+busybox sh): weiterhin 544 getrackt, 4 ARCHIV in 1 Ordner, SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4; die Bilanz
+ohne Heute-Zeile ist byte-gleich zu Fix-r7 (md5 09ddc181 gcc / f644b9fb clang).
