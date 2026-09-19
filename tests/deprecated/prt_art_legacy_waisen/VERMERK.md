@@ -145,3 +145,20 @@ Nenner-Zeile "dazu UNPRUEFBAR ohne Bezug zum Bauweg" endet neu auf "0 mit Formfe
 Bauweg." Am Objekt gefunden: `git check-ignore` stirbt fuer Pfade unter einem Submodul-Gitlink mit 128
 (kein Werkzeugfehler, eine Datenlage) -- die Wache prueft die Gitlink-Ahnenreihe deshalb zuerst (Fall
 `SubmodulGitlinkIstErreichbar`).
+
+## NACHTRAG 5 (Fix-r7: Lens A r7, Lens B r6, Lens C r5; 2026-09-19)
+
+Die zwei Anker-Unterfaelle aus NACHTRAG 2 ("Gitlink" = Index-Modus 160000, und ein Commit-Objekt unter
+Modus 100644) sind seit Fix-r7 direkte Google-Stufen (Fall `ArchivAnkerMussBlobInDerObjektdatenbankSein`,
+Stufen (d) und (e)): `git update-index --cacheinfo` legt beide Formen an (Machbarkeitsprobe im Beweisort,
+FIX-r7.md), die Wache meldet je UNPRUEFBARER ANKER mit Exit 1. Der Satz "oder Gitlink [...] ankert NICHT"
+ist damit am Google-Test belegt, nicht nur an Shell-Proben. Neu in JEDER Ausgabe der Wache steht die
+Nenner-Zeile "Quotierte Index-Pfade: N von git auch mit core.quotePath=false quotiert (Tabulator,
+Steuerzeichen, Anfuehrungszeichen, Backslash), davon S im SOLL-Muster und A als VERMERK.md-Anker (beide
+UNPRUEFBAR)." -- solche Pfade fielen bis 8ae59179 still aus dem SOLL, jetzt sind sie eine eigene
+UNPRUEFBAR-Klasse (Exit 1). Fuer DIESEN Ordner: 0/0/0, die vier Dateien und der Anker tragen ASCII-Namen
+ohne Anfuehrungszeichen, Backslash oder Tabulator; die drei Zeilen aus NACHTRAG 3 bleiben (544 getrackt,
+4 ARCHIV in 1 Ordner, SOLL 540, Endzeile OK 540/0/4). Ebenfalls ohne Wirkung auf diesen Ordner: die
+Ahnenreihe eines Allowlist-Gegenstands wird bis zur Wurzel geprueft (Rangfolge UNPRUEFBAR vor TOT vor
+Gitlink), ein `..` zaehlt per Tiefenzaehler (verlaesst die Wurzel = Grenze (a), repo-intern aufgeloest =
+UNPRUEFBAR), und die Existenzprobe der Allowlist-Datei nimmt auch einen Symlink an (`[ -e ] || [ -L ]`).
