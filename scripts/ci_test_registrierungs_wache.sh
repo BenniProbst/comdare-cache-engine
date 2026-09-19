@@ -151,8 +151,10 @@
 #                      etwas mitbringen; sein Inhalt steht nie im Index des Obenprojekts.
 #   getrackte DATEI (100644/100755) -> tot. Unter einer Datei kann nie ein Kind entstehen,
 #                      weder im Index noch im Arbeitsbaum (Folge (11), Fix-r5).
-#   Symlink (120000) oder Merge-Konflikt mit ungleichen Typen je Stufe -> UNPRUEFBAR (rot).
-#                      Die Wache loest keinen Link auf und raet keinen Merge-Ausgang (Folge (11)).
+#   Symlink (im Index 120000 oder NUR im Arbeitsbaum, Fix-r6) oder Merge-Konflikt -- ungleiche
+#                      Typen je Stufe ODER ein Eintrag gegen ein Verzeichnis darunter (D/F, Fix-r6)
+#                      -> UNPRUEFBAR (rot). Die Wache loest keinen Link auf und raet keinen
+#                      Merge-Ausgang (Folgen (11) und (13)).
 #   getrackter Inhalt DARUNTER (ein Verzeichnis, Folge (11)), und es ist der DIREKTE
 #                      Elternteil -> erreichbar. Eine neue Datei in einem vorhandenen
 #                      Verzeichnis ist der Normalfall.
@@ -903,7 +905,10 @@ index_eintrag() {
     #             NICHT im Index -- der Gitlink schon.
     #   datei     ein regulaeres Blob (100644/100755): eine DATEI, unter der nie ein Kind entsteht.
     #   symlink   ein Symlink (120000).
-    #   konflikt  ein Merge-Konflikt mit UNGLEICHEN Typen je Stufe (etwa Datei gegen Gitlink).
+    #   konflikt  ein Merge-Konflikt mit UNGLEICHEN Typen je Stufe (etwa Datei gegen Gitlink) ODER ein
+    #             exakter Eintrag GEGEN Eintraege darunter (Eintrag gegen Verzeichnis, D/F; Fix-r6, Lens A
+    #             r6 LA6-01, Kopf Folge (13a)). INDEX_TYPEN nennt dann die Stufen und Typen (Lens C r4
+    #             LC3W-16) -- die Meldung sagte bis 9223cbd5 fest '(Datei gegen Gitlink)'.
     #   inhalt    kein Eintrag fuer den Pfad selbst, aber Eintraege DARUNTER: ein Verzeichnis.
     #   leer      gar kein Eintrag.
     # 'git ls-files' meldet 0 auch ohne Treffer; jeder andere Status ist ein Werkzeug-Ausfall (Exit 2).
@@ -920,8 +925,12 @@ index_eintrag() {
     # 'kein Gitlink' und lief in hat_getrackten_inhalt -- eine Datei als Ahne wurde so zum
     # 'vorhandenen Verzeichnis' (fail-open). Jetzt traegt jede exakte Zeile ihren Typ; stimmen
     # alle vorhandenen Stufen im Typ ueberein, gilt dieser Typ (ein Gitlink, der nur auf Stufe
-    # 1-3 steht, ist ein Gitlink -- in JEDEM Merge-Ausgang bleibt der Pfad darunter erreichbar);
-    # weichen die Typen je Stufe ab, ist es ein 'konflikt' (die Antwort haengt vom Ausgang ab).
+    # 1-3 steht, ist ein Gitlink -- in MINDESTENS EINEM Merge-Ausgang bleibt der Pfad darunter
+    # erreichbar, und 'erreichbar' ist hier die Vorsichtsregel: TOT waere die starke Behauptung, die
+    # Zeile koennte im anderen Ausgang erloeschen; Lead-Entscheid O-12 Teil 1, Wortlaut berichtigt mit
+    # Fix-r6, Lens A r6 LA6-05 = Lens B r5 LB5-I3); weichen die Typen je Stufe ab, ist es ein 'konflikt'
+    # (die Antwort haengt vom Ausgang ab) -- ebenso, wenn neben dem exakten Eintrag Eintraege DARUNTER
+    # liegen (D/F, Fix-r6): dann ist der Pfad in einem Ausgang ein Verzeichnis, im anderen nicht.
     # Ein Modus ausserhalb der vier, die git in den Index schreibt, ist kein Datenbefund: Exit 2.
     # SCHREIBWEISE (Fix-r5, Kopf Folge (12); Lens A r5 LA5-03): '-c core.quotePath=false' gibt
     # Nicht-ASCII-Bytes roh aus, damit ein Pfad wie 'ext/ae-sub-<0xC3 0xA4>' seinem Eintrag
@@ -932,23 +941,41 @@ index_eintrag() {
         werkzeug_abbruch "'git ls-files -s' fuer $1" "$?"
     _gt=$(printf '\t')
     INDEX_ART=leer
-    _gtyp=""
+    INDEX_TYPEN=""
+    _gtyp=""; _gtl=""; _ginh=nein; _ginhs=""
     while IFS= read -r _gl || [ -n "$_gl" ]; do
         [ -n "$_gl" ] || continue
         if [ "$INDEX_ART" = leer ]; then INDEX_ART=inhalt; fi
         _gm=${_gl%% *}
+        _gs=${_gl#* }; _gs=${_gs#* }; _gs=${_gs%%"$_gt"*}
         _gp=${_gl#*"$_gt"}
-        if [ "$_gp" != "$1" ]; then continue; fi
+        if [ "$_gp" != "$1" ]; then
+            # Ein Eintrag DARUNTER: der Pfad ist auf dieser Stufe ein Verzeichnis (D/F-Merkung, Fix-r6).
+            _ginh=ja
+            case " $_ginhs " in *" $_gs "*) ;; *) _ginhs="$_ginhs $_gs" ;; esac
+            continue
+        fi
         case "$_gm" in
-            160000)        _g1=gitlink ;;
-            100644|100755) _g1=datei ;;
-            120000)        _g1=symlink ;;
+            160000)        _g1=gitlink; _g1n=Gitlink ;;
+            100644|100755) _g1=datei;   _g1n=Datei ;;
+            120000)        _g1=symlink; _g1n=Symlink ;;
             *)  _gmsg="'git ls-files -s' fuer $1 lieferte den Index-Modus '$_gm'"
                 werkzeug_abbruch "$_gmsg (kein 100644/100755/120000/160000)" 1 ;;
         esac
+        _gtl="$_gtl, Stufe $_gs: $_g1n"
         if [ -z "$_gtyp" ]; then _gtyp=$_g1; elif [ "$_gtyp" != "$_g1" ]; then _gtyp=konflikt; fi
     done < "$TMP/index_eintrag.txt"
-    if [ -n "$_gtyp" ]; then INDEX_ART=$_gtyp; fi
+    if [ -n "$_gtyp" ]; then
+        INDEX_TYPEN=${_gtl#, }
+        if [ "$_ginh" = ja ]; then
+            # D/F (Fix-r6, Lens A r6 LA6-01): der exakte Eintrag UND ein Verzeichnis darunter -- nur im
+            # Konflikt-Index moeglich, git verweigert beides auf Stufe 0 (Probe X17). Der Merge-Ausgang
+            # entscheidet, ob darunter etwas entstehen kann: 'konflikt', wie ungleiche Typen je Stufe.
+            _gtyp=konflikt
+            INDEX_TYPEN="$INDEX_TYPEN; dazu Eintraege DARUNTER auf Stufe$_ginhs = Verzeichnis (D/F)"
+        fi
+        INDEX_ART=$_gtyp
+    fi
     return 0
 }
 
@@ -998,7 +1025,7 @@ erreichbarkeit() {
     # (Lens A r5, Koeder K4): 'ext/queuing/REPOS_OVERVIEW.md/x.hpp' galt bis c62cfc7e
     # als erreichbar, weil die Datei REPOS_OVERVIEW.md 'getrackten Inhalt' hatte.
     # ---------------------------------------------------------------------
-    _ga="$_p"
+    _ga="$_p"; _ggl=nein
     while :; do
         case "$_ga" in
             */*) _ga=${_ga%/*} ;;
@@ -1007,7 +1034,12 @@ erreichbarkeit() {
         index_eintrag "$_ga"
         case "$INDEX_ART" in
             gitlink)
-                ERR_ANTWORT=nein; return 0 ;;
+                # Nicht sofort 'erreichbar' (Fix-r6, Lens A r6 LA6-01, Kopf Folge (13a)): im KONFLIKT-
+                # Index kann UEBER einem Gitlink eine Datei oder ein Konflikt stehen (Probe X03: Datei
+                # auf Stufe 2, Gitlink darunter auf Stufe 3). Der Gitlink traegt erst, wenn kein hoeherer
+                # Ahne dagegen spricht; ausserhalb eines Konflikt-Index steht ueber einem Gitlink nie ein
+                # exakter Eintrag, das Urteil bleibt dort dasselbe (Koeder K2 am echten Baum).
+                _ggl=ja ;;
             datei)
                 ERR_GRUND="sein Vorfahr $_ga ist eine getrackte DATEI (Index-Modus 100644/100755) --"
                 ERR_GRUND="$ERR_GRUND unter einer Datei kann nie ein Kind entstehen, weder im Index noch im"
@@ -1019,12 +1051,28 @@ erreichbarkeit() {
                 ERR_GRUND="$ERR_GRUND des Links"
                 ERR_ANTWORT=unpruefbar; return 0 ;;
             konflikt)
+                # Die Typen je Stufe kommen aus index_eintrag (INDEX_TYPEN, Lens C r4 LC3W-16, Fix-r6);
+                # bis 9223cbd5 stand hier fest '(Datei gegen Gitlink)', auch fuer Symlink gegen Gitlink.
                 ERR_GRUND="sein Vorfahr $_ga steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe"
-                ERR_GRUND="$ERR_GRUND (Datei gegen Gitlink) -- ohne aufgeloeste Fassung ist nicht entscheidbar,"
+                ERR_GRUND="$ERR_GRUND ($INDEX_TYPEN) -- ohne aufgeloeste Fassung ist nicht entscheidbar,"
                 ERR_GRUND="$ERR_GRUND ob darunter etwas entstehen kann; erst den Konflikt aufloesen"
                 ERR_ANTWORT=unpruefbar; return 0 ;;
+            *)
+                # Kein exakter Eintrag -- ist der Ahne im ARBEITSBAUM ein Symlink? (Fix-r6, Lens A r6
+                # LA6-03, Kopf Folge (13b)): 'git check-ignore' stirbt unter einem Symlink mit 128
+                # ("beyond a symbolic link"), schon fuer den Gegenstand selbst (Probe X04: Exit 2 mit der
+                # falschen Diagnose). Hier, VOR jedem check-ignore, gilt fuer ihn dasselbe wie fuer den
+                # Index-Symlink: die Wache loest keinen Link auf -- UNPRUEFBAR mit Grund.
+                if [ -L "$_ga" ]; then
+                    ERR_GRUND="sein Vorfahr $_ga ist im Arbeitsbaum ein SYMLINK (nicht im Index) -- die"
+                    ERR_GRUND="$ERR_GRUND Wache loest keinen Link auf und beurteilt den Zweig dahinter nicht;"
+                    ERR_GRUND="$ERR_GRUND nenne den Zielpfad des Links oder nimm den Link in den Index"
+                    ERR_ANTWORT=unpruefbar; return 0
+                fi ;;
         esac
     done
+    # Ein Gitlink in der Ahnenreihe, und kein hoeherer Ahne war Datei, Symlink oder Konflikt: erreichbar.
+    if [ "$_ggl" = ja ]; then ERR_ANTWORT=nein; return 0; fi
     # Der Gegenstand selbst: getrackt oder als Bauprodukt angemeldet?
     if hat_getrackten_inhalt "$_p"; then ERR_ANTWORT=nein; return 0; fi
     if ist_ignoriert "$_p"; then ERR_ANTWORT=nein; return 0; fi
@@ -1238,9 +1286,18 @@ while IFS= read -r f; do
 
     case "$art" in
     datei)
-        if [ -e "$wert" ]; then
-            printf '%s -- ERLOSCHEN: "%s" existiert wieder, die Ausnahme traegt nicht mehr\n' \
-                "$f" "$wert" >> "$TMP/erloschen.txt"
+        if [ -e "$wert" ] || [ -L "$wert" ]; then
+            # '|| [ -L ]' (Fix-r6, Lens A r6 LA6-06, Kopf Folge (13f)): '[ -e ]' folgt einem Symlink; ein
+            # Link OHNE Ziel am Gegenstand galt so als 'datei abwesend' und die Zeile als begruendet (Probe
+            # X08) -- der Pfad ist aber belegt. Ein Eintrag ist ein Eintrag: ERLOSCHEN, der Link in der
+            # Meldung. (Ein untracked Link ohne Ziel lief bis 9223cbd5 sogar in check-ignore 128, X08b.)
+            if [ -e "$wert" ]; then
+                _ewie="existiert wieder"
+            else
+                _ewie="existiert wieder (als SYMLINK ohne Ziel)"
+            fi
+            printf '%s -- ERLOSCHEN: "%s" %s, die Ausnahme traegt nicht mehr\n' \
+                "$f" "$wert" "$_ewie" >> "$TMP/erloschen.txt"
         else
             # ZWEITE RICHTUNG (PA-1): abwesend genuegt nicht. Ein Gegenstand, den keine
             # Quelle dieses Repos kennt, kann nicht wiederkommen -- die Ausnahme koennte
