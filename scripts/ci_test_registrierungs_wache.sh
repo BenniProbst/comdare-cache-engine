@@ -253,6 +253,15 @@
 #       'avx2+', 'a++b') ist ein Formfehler und wird nicht uebersprungen; _COMPILED und _EXITCODE
 #       muessen wie die Wertzeile GENAU EINMAL im Cache stehen, und ein leerer _EXITCODE ist bei
 #       leerem Wert kein Beleg (try_run schreibt beide Zeilen gemeinsam) -- je Exit 2.
+#   (10) EIN VERZEICHNIS IST KEIN GITLINK (Fund N-1 der Fix-r3-Berichtsfassung, Lead-Objektprobe
+#       K205; Fix-r4): 'git ls-files -s <pfad>' liefert fuer ein VERZEICHNIS alle Eintraege
+#       darunter, und ist_gitlink() prueft bis 63f8abd4 nur, ob die Ausgabe mit '160000 ' BEGINNT.
+#       Beginnt der Index unter dem Verzeichnis mit einem Gitlink (am Objekt: ext/queuing mit
+#       ext/queuing/Q01-concurrentqueue), galt das Verzeichnis selbst als Gitlink und jeder
+#       Gegenstand in Tiefe >= 2 darunter als erreichbar statt TOT -- fail-open in der PA-1-
+#       Richtung, die Wache blieb gruen. Vorbestand seit 806629ca; seit Fix-r3 die ERSTE Frage
+#       der Erreichbarkeits-Probe. Seit Fix-r4 zaehlt eine ls-files-Zeile nur mit Modus 160000
+#       UND Pfadfeld == Pfad (zeilenweise ueber eine Zwischendatei, Folge (6)). Fall (27).
 #
 # DER GEMESSENE BAUM MUSS DERSELBE SEIN WIE DER DER CI (J-0b, am Objekt 2026-09-17): der CI-Baum
 # build-covguard wird MIT -DCOMDARE_CE_PRUEFLINGE=<repo>/tests/pruefling_fixture konfiguriert, und
@@ -839,8 +848,25 @@ ist_gitlink() {
     # Modus 160000 = 'commit', also ein Submodul-Eintrag. Der Inhalt eines nicht
     # ausgecheckten Submoduls steht NICHT im Index -- der Gitlink schon. 'git ls-files'
     # meldet 0 auch ohne Treffer; jeder andere Status ist ein Werkzeug-Ausfall (Exit 2).
-    _s=$(git ls-files -s -- ":(literal)$1" 2>/dev/null) || werkzeug_abbruch "'git ls-files -s' fuer $1" "$?"
-    case "$_s" in 160000\ *) return 0 ;; esac
+    # DIE VERZEICHNIS-FALLE (Fix-r4, Fund N-1 der Fix-r3-Berichtsfassung, Lead-Objektprobe
+    # K205): fuer ein VERZEICHNIS liefert 'git ls-files -s' ALLE Eintraege darunter, und die
+    # Fassungen 806629ca..63f8abd4 prueften nur, ob die Ausgabe mit '160000 ' BEGINNT. Am
+    # Objekt: ':(literal)ext/queuing' liefert 9 Zeilen, die erste ist der Gitlink
+    # ext/queuing/Q01-concurrentqueue -- das Verzeichnis ext/queuing galt damit selbst als
+    # Gitlink, und 'ext/queuing/nicht_da/x.hpp' war erreichbar statt TOT (fail-open in der
+    # PA-1-Richtung). Deshalb zeilenweise: ein Gitlink ist es NUR, wenn eine Zeile den
+    # Modus 160000 traegt UND ihr Pfadfeld (nach dem TAB) genau "$1" ist. Die Index-Stufe
+    # bleibt wie bisher ungeprueft (ein Gitlink im Merge-Konflikt ist ein Gitlink).
+    # Zwischendatei statt Pipe (Folge (6)); Zerlegung per Parametererweiterung wie am Anker.
+    git ls-files -s -- ":(literal)$1" > "$TMP/gitlink.txt" 2>/dev/null ||
+        werkzeug_abbruch "'git ls-files -s' fuer $1" "$?"
+    _gt=$(printf '\t')
+    while IFS= read -r _gl || [ -n "$_gl" ]; do
+        [ -n "$_gl" ] || continue
+        _gm=${_gl%% *}
+        _gp=${_gl#*"$_gt"}
+        if [ "$_gm" = 160000 ] && [ "$_gp" = "$1" ]; then return 0; fi
+    done < "$TMP/gitlink.txt"
     return 1
 }
 
