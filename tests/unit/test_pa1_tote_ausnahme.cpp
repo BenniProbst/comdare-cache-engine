@@ -187,6 +187,12 @@
 // rc 2 ohne ABBRUCH-Zeile, 1, 1, 1 bzw. 141). Rot zuerst je Stufe gegen 89cf7103 bzw. den jeweiligen Mutanten
 // (COMDARE_PA1_WACHE_PFAD) -- FIX-r8.md. Etikett 'Prueflig' in berichten() berichtigt.
 //
+// NACHTRAG 9a (2026-09-19, Fixer r8b): NEUER Fall (34) AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSind...
+// pinnt die fuenf Fix-r8-Klassen (15e) Anker im D/F-Konflikt, (15g) Byte-Abgleich, (15h) grep-Ziel vorher
+// leeren, (15i) modify/delete und (15j) Gitlink als Arbeitsbaum-Symlink google-seitig -- ihre Mutanten M-R8-05,
+// M-R8-07, M-R8-08, M-R8-09 und M-R8-12b ueberlebten den Google-Test 35/35 und waren nur shell-seitig
+// getoetet (LB7-06-Klasse). Rot zuerst je Stufe am Mutanten, gruen gegen HEAD in 4 Zellen -- FIX-r8.md Abschn. 5b.
+//
 // ASCII-only, Zeilen <= 120 Byte.
 // =============================================================================
 
@@ -3613,6 +3619,187 @@ TEST(Pa1ToteAusnahme, BerichtsUndEingabekanalFehlerSindExit2) {
     berichten("BerichtsUndEingabekanalFehlerSindExit2/Rechte-zurueck", wieder, marke);
     EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
     EXPECT_TRUE(zeile_exakt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
+}
+
+// =============================================================================
+// (34) FUENF FIX-R8-KLASSEN DER WACHE GOOGLE-SEITIG GEPINNT (Fixer r8b, 2026-09-19). Die Fix-r8-Mutanten M-R8-05,
+//      M-R8-07, M-R8-08, M-R8-09 und M-R8-12b (messungen/fix-r8/mutanten/) ueberlebten den Google-Test 35/35 und
+//      waren nur shell-seitig getoetet -- ein Rueckbau bliebe in der CI unbemerkt (Klasse LB7-06). Je Stufe der
+//      Fix-r8-Fund, das Arrangement und der Pin: (a) ARCHIV-Anker auf Stufe 0 gegen einen Eintrag DARUNTER auf
+//      Stufe 2 = UNPRUEFBARER ANKER, ankert nichts (LC6W-01, Wache Folge (15e); M-R8-05: ankert, OK = fail-open);
+//      (b) 'wc -c' der Allowlist um 1 Byte zu hoch = Byte-Abgleich Exit 2 (LC6W-03, Folge (15g); M-R8-07: OK);
+//      (c) grep-Ziel soll_1.txt liegt schon als 444-Datei mit stale Inhalt = datei_leeren meldet die Zwischendatei
+//      (LC6W-05, Folge (15h); M-R8-08: ebenfalls Exit 2, aber als grep-Ausfall gemeldet -- in bash/busybox ein
+//      Status-1-Nichttreffer mit stale SOLL, Probe R8-08); (d) Datei NUR auf Stufe 1 und 2, Stufe 3 fehlt
+//      (modify/delete) = UNPRUEFBAR (LC6W-06, Folge (15i); M-R8-09: TOT); (e) Gitlink im Index, im Arbeitsbaum ein
+//      Symlink = UNPRUEFBAR (LC6W-09, Folge (15j); M-R8-12b: erreichbar, OK). Rot zuerst je Stufe am jeweiligen
+//      Mutanten (COMDARE_PA1_WACHE_PFAD), gruen gegen HEAD in 4 Zellen -- FIX-r8.md Abschn. 5b.
+// =============================================================================
+TEST(Pa1ToteAusnahme, AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSindUnpruefbarOderExit2) {
+    std::error_code ec;
+
+    // (a) ARCHIV-Anker im D/F-Konflikt: eigener Fall, Waise im Archiv-Ordner (wie Fall (12d)).
+    {
+        std::string const marke  = koeder();
+        std::string const ordner = "tests/deprecated/df_" + marke;
+        std::string const anker  = ordner + "/VERMERK.md";
+        Fall              fall{marke, ordner + "/test_waise_" + marke + ".cpp"};
+        ASSERT_TRUE(fall.init());
+        ASSERT_TRUE(fall.repo().schreibe_und_verfolge(anker, "# Anker " + marke + "\n"));
+        Lauf const vorher = fall.fahren();
+        berichten("AnkerDFTeilrest.../Anker-auf-Stufe-0-traegt", vorher, marke);
+        ASSERT_EQ(vorher.code, 0) << "Arrangement: der Anker traegt vor dem Konflikt nicht.\n" << vorher.ausgabe;
+        ASSERT_TRUE(zeile_exakt(vorher.ausgabe, endzeile_ok(1, 1))) << vorher.ausgabe;
+        Lauf const asha = im_repo(fall.repo(), "git hash-object -- " + zitiert(anker));
+        ASSERT_EQ(asha.ausgabe.size(), 40U) << "kein SHA-1: '" << asha.ausgabe << "'";
+        Lauf const usha = im_repo(fall.repo(), "printf 'unter %s' " + zitiert(marke) + " | git hash-object -w --stdin");
+        ASSERT_EQ(usha.code, 0) << usha.ausgabe;
+        ASSERT_EQ(usha.ausgabe.size(), 40U) << "kein SHA-1: '" << usha.ausgabe << "'";
+        ASSERT_TRUE(fall.repo().schreibe("df_" + marke + ".txt", "100644 " + usha.ausgabe + " 2\t" + anker + "/x\n"));
+        Lauf const idx = im_repo(fall.repo(), "git update-index --index-info < " +
+                                                  zitiert(fall.repo().pfad() / ("df_" + marke + ".txt")));
+        ASSERT_EQ(idx.code, 0) << "git nimmt den Eintrag unter dem Stufe-0-Anker nicht an:\n" << idx.ausgabe;
+        Lauf const stufen = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + anker) + " " +
+                                                     zitiert(":(literal)" + anker + "/x"));
+        ASSERT_TRUE(zeile_exakt(stufen.ausgabe, "100644 " + asha.ausgabe + " 0\t" + anker))
+            << "Arrangement: der Anker steht nicht auf Stufe 0:\n"
+            << stufen.ausgabe;
+        ASSERT_TRUE(zeile_exakt(stufen.ausgabe, "100644 " + usha.ausgabe + " 2\t" + anker + "/x"))
+            << "Arrangement: kein Eintrag DARUNTER auf Stufe 2:\n"
+            << stufen.ausgabe;
+        Lauf const df = fall.fahren();
+        berichten("AnkerDFTeilrest.../Anker-Stufe-0-gegen-Eintrag-darunter-Stufe-2", df, marke);
+        EXPECT_EQ(df.code, 1) << "Ein Anker im D/F-Konflikt ankert nicht -- ROT (bis 89cf7103 fail-open OK).\n"
+                              << df.ausgabe;
+        EXPECT_TRUE(zeile_beginnt(df.ausgabe, anker + " -- UNPRUEFBARER ANKER: Stufe-0-Eintrag gegen Index-Eintraege" +
+                                                  " DARUNTER (" + anker + "/... auf einer Konfliktstufe, D/F)"))
+            << df.ausgabe;
+        EXPECT_TRUE(zeile_beginnt(df.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << df.ausgabe;
+        EXPECT_TRUE(zeile_exakt(df.ausgabe, fall.waise())) << "Die Waise zaehlt ohne Anker im SOLL.\n" << df.ausgabe;
+        EXPECT_TRUE(zeile_exakt(df.ausgabe, nenner_archiv(0, 0, 2))) << df.ausgabe;
+        EXPECT_TRUE(zeile_exakt(df.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0))) << df.ausgabe;
+        EXPECT_TRUE(zeile_exakt(df.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << df.ausgabe;
+    }
+
+    // (b)-(e) in EINEM Fall mit Waise unter tests/unit/; Koeder ueber PATH, TMPDIR fall-eigen (Reste 0).
+    std::string const marke = koeder();
+    Fall              fall{marke};
+    ASSERT_TRUE(fall.init());
+    fs::path const tmp = fall.baum() / "tmp";
+    fs::create_directory(tmp, ec);
+    ASSERT_FALSE(ec) << ec.message();
+    std::string const tmpdir = "TMPDIR=" + zitiert(tmp);
+    fs::path const    bin    = fall.repo().pfad() / "koeder_bin";
+    std::string const pfad   = "PATH=\"" + bin.string() + ":$PATH\" " + tmpdir;
+    Lauf const        wo_wc  = im_repo(fall.repo(), "command -v wc");
+    ASSERT_EQ(wo_wc.code, 0) << wo_wc.ausgabe;
+    Lauf const wo_mktemp = im_repo(fall.repo(), "command -v mktemp");
+    ASSERT_EQ(wo_mktemp.code, 0) << wo_mktemp.ausgabe;
+    ASSERT_TRUE(fall.allowlist_setzen("datei:tests/unit/kommt_vielleicht_" + marke + ".hpp"));
+    Lauf const gesund = fall.fahren("", tmpdir);
+    berichten("AnkerDFTeilrest.../ohne-Koeder", gesund, marke);
+    ASSERT_EQ(gesund.code, 0) << "Das Arrangement ist falsch: der gesunde Baum ist nicht gruen.\n" << gesund.ausgabe;
+
+    // (b) wc -c der Allowlist um 1 Byte zu hoch (Rezept wie (32f), Muster '-c' + Allowlist-Pfad).
+    ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "wc",
+                                   "#!/bin/sh\ncase \"$*\" in\n    -c*ci_test_registrierungs_allowlist.txt*) out=$(" +
+                                       wo_wc.ausgabe +
+                                       " \"$@\") || exit $?; n=${out%% *}; rest=${out#* }; "
+                                       "printf '%s %s\\n' \"$((n+1))\" \"$rest\"; exit 0 ;;\nesac\nexec " +
+                                       wo_wc.ausgabe + " \"$@\"\n"));
+    Lauf const plus1 = fall.fahren("", pfad);
+    berichten("AnkerDFTeilrest.../wc-c-plus-1-an-der-Allowlist", plus1, marke);
+    EXPECT_EQ(plus1.code, 2) << "Ein Byte-Teilrest ist ein Werkzeug-Ausfall -- Exit 2, nie OK.\n" << plus1.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(plus1.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'read' ueber "
+                                             "scripts/ci_test_registrierungs_allowlist.txt lieferte "))
+        << plus1.ausgabe;
+    EXPECT_TRUE(enthaelt(plus1.ausgabe, " Byte(s) -- Lesefehler, Teilrest oder NUL-Byte (Exit 1).")) << plus1.ausgabe;
+    EXPECT_FALSE(enthaelt(plus1.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << plus1.ausgabe;
+    EXPECT_EQ(tmp_reste(tmp), 0U);
+    fs::remove(bin / "wc", ec);
+    ASSERT_FALSE(fs::exists(bin / "wc"));
+
+    // (c) grep-Ziel soll_1.txt liegt schon (444, stale Inhalt): der mktemp-Koeder legt es im frischen TMP an.
+    ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "mktemp",
+                                   "#!/bin/sh\nd=$(" + wo_mktemp.ausgabe +
+                                       " \"$@\") || exit 1\nprintf 'stale\\n' > \"$d/soll_1.txt\"\n"
+                                       "chmod 444 \"$d/soll_1.txt\"\nprintf '%s\\n' \"$d\"\n"));
+    Lauf const stale = fall.fahren("", pfad);
+    berichten("AnkerDFTeilrest.../grep-Ziel-stale-und-444", stale, marke);
+    EXPECT_EQ(stale.code, 2) << stale.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(stale.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- Zwischendatei ")) << stale.ausgabe;
+    EXPECT_TRUE(enthaelt(stale.ausgabe, "/soll_1.txt nicht anlegbar (Exit ")) << stale.ausgabe;
+    EXPECT_FALSE(enthaelt(stale.ausgabe, "'grep' -v"))
+        << "Das unbeschreibbare Ziel muss VOR dem grep gemeldet werden, nicht als grep-Ausfall.\n"
+        << stale.ausgabe;
+    EXPECT_FALSE(enthaelt(stale.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << stale.ausgabe;
+    EXPECT_EQ(tmp_reste(tmp), 0U) << "Der EXIT-trap muss das Zwischenverzeichnis samt 444-Datei raeumen.";
+    tmp_raeumen(tmp);
+    fs::remove(bin / "mktemp", ec);
+    ASSERT_FALSE(fs::exists(bin / "mktemp"));
+
+    // (d) modify/delete: ext/dm_<marke>/d als Datei NUR auf Stufe 1 und 2 (zwei Blobs), Stufe 3 fehlt.
+    std::string const dm = "ext/dm_" + marke + "/d";
+    Lauf const        b1 = im_repo(fall.repo(), "printf 'v1 %s' " + zitiert(marke) + " | git hash-object -w --stdin");
+    Lauf const        b2 = im_repo(fall.repo(), "printf 'v2 %s' " + zitiert(marke) + " | git hash-object -w --stdin");
+    ASSERT_EQ(b1.ausgabe.size(), 40U) << "kein SHA-1: '" << b1.ausgabe << "'";
+    ASSERT_EQ(b2.ausgabe.size(), 40U) << "kein SHA-1: '" << b2.ausgabe << "'";
+    ASSERT_NE(b1.ausgabe, b2.ausgabe);
+    ASSERT_TRUE(fall.repo().schreibe("dm_" + marke + ".txt", "100644 " + b1.ausgabe + " 1\t" + dm + "\n100644 " +
+                                                                 b2.ausgabe + " 2\t" + dm + "\n"));
+    Lauf const didx = im_repo(fall.repo(), "git update-index --index-info < " +
+                                               zitiert(fall.repo().pfad() / ("dm_" + marke + ".txt")));
+    ASSERT_EQ(didx.code, 0) << didx.ausgabe;
+    Lauf const dst = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + dm));
+    ASSERT_TRUE(zeile_exakt(dst.ausgabe, "100644 " + b1.ausgabe + " 1\t" + dm)) << dst.ausgabe;
+    ASSERT_TRUE(zeile_exakt(dst.ausgabe, "100644 " + b2.ausgabe + " 2\t" + dm)) << dst.ausgabe;
+    ASSERT_FALSE(enthaelt(dst.ausgabe, " 3\t" + dm)) << "Arrangement: Stufe 3 steht:\n" << dst.ausgabe;
+    ASSERT_FALSE(enthaelt(dst.ausgabe, " 0\t" + dm)) << "Arrangement: Stufe 0 steht:\n" << dst.ausgabe;
+    std::string const unter_d = dm + "/x_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_d));
+    Lauf const md = fall.fahren("", tmpdir);
+    berichten("AnkerDFTeilrest.../modify-delete-Stufe-3-fehlt", md, marke);
+    EXPECT_EQ(md.code, 1) << md.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(
+        md.ausgabe,
+        fall.waise() + " -- UNPRUEFBAR: \"" + unter_d + "\" existiert nicht, und sein Vorfahr " + dm +
+            " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe" +
+            " (Stufe 1: Datei, Stufe 2: Datei; Stufe 3 fehlt (modify/delete:" + " ein Ausgang loescht die Datei))"))
+        << md.ausgabe;
+    EXPECT_FALSE(enthaelt(md.ausgabe, "ist eine getrackte DATEI"))
+        << "Eine Datei nur auf zwei Konfliktstufen ist kein Datei-Ahne (TOT): der Ausgang, der sie loescht, kennt"
+           " keinen.\n"
+        << md.ausgabe;
+    EXPECT_TRUE(zeile_exakt(md.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << md.ausgabe;
+    EXPECT_TRUE(zeile_exakt(md.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << md.ausgabe;
+    EXPECT_EQ(tmp_reste(tmp), 0U);
+
+    // (e) Gitlink im Index, im Arbeitsbaum ein Symlink auf ein echtes Verzeichnis.
+    std::string const gl   = "ext/gl_" + marke;
+    std::string const gsha = "0000000000000000000000000000000000000002";
+    Lauf const        gidx = fahre("cd " + zitiert(fall.repo().pfad()) + " && " + WegwerfRepo::umgebung() +
+                                   " git update-index --add --cacheinfo 160000," + gsha + "," + gl);
+    ASSERT_EQ(gidx.code, 0) << "Gitlink konnte nicht in den Index gelegt werden:\n" << gidx.ausgabe;
+    fs::create_directories(fall.repo().pfad() / "ext" / ("glreal_" + marke), ec);
+    ASSERT_FALSE(ec) << ec.message();
+    fs::create_symlink("glreal_" + marke, fall.repo().pfad() / gl, ec);
+    ASSERT_FALSE(ec) << "Symlink nicht anlegbar: " << ec.message();
+    ASSERT_TRUE(fs::is_symlink(fall.repo().pfad() / gl)) << "Arrangement: der Gitlink-Pfad ist kein Link.";
+    Lauf const gst = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + gl));
+    ASSERT_TRUE(zeile_exakt(gst.ausgabe, "160000 " + gsha + " 0\t" + gl)) << gst.ausgabe;
+    std::string const unter_g = gl + "/y_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_g));
+    Lauf const gs = fall.fahren("", tmpdir);
+    berichten("AnkerDFTeilrest.../Gitlink-im-Arbeitsbaum-Symlink", gs, marke);
+    EXPECT_EQ(gs.code, 1) << "Index und Arbeitsbaum widersprechen sich -- UNPRUEFBAR, nicht 'erreichbar'.\n"
+                          << gs.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(gs.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_g +
+                                              "\" existiert nicht, und sein Vorfahr " + gl +
+                                              " ist im Index ein GITLINK, im Arbeitsbaum aber ein SYMLINK"))
+        << gs.ausgabe;
+    EXPECT_TRUE(zeile_exakt(gs.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << gs.ausgabe;
+    EXPECT_TRUE(zeile_exakt(gs.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << gs.ausgabe;
+    EXPECT_EQ(tmp_reste(tmp), 0U);
 }
 
 #endif // _WIN32
