@@ -136,10 +136,11 @@
 # anlegen wird -- 'tests/unit/erfunden.hpp' faellt nicht auf. Die Regel faengt den Fall, dass
 # ein ganzer ZWEIG fehlt, nicht den, dass ein einzelner Name erfunden ist. 'Vorhanden' heisst:
 # ein VERZEICHNIS mit getracktem Inhalt -- eine getrackte Datei gleichen Namens ist keines
-# (Folge (11), Fix-r5); (d) ein 'datei:'-Pfad mit einem Zeichen, das git in seiner Ausgabe
-# quotiert (Tabulator, Steuerzeichen, Anfuehrungszeichen, Backslash), oder ohne kanonische Form
-# (Segment '.', leeres Segment: './', '//', '/' am Ende) ist UNPRUEFBAR, nie erreichbar oder tot
-# (Folge (12), Fix-r5).
+# (Folge (11), Fix-r5); (d) ein 'datei:'-Pfad INNERHALB des Repos (weder absolut noch mit einem
+# '..'-Segment -- solche bleiben Grenze (a)) mit einem Zeichen, das git in seiner Ausgabe quotiert
+# (Tabulator, Steuerzeichen, Anfuehrungszeichen, Backslash), oder ohne kanonische Form (Segment '.',
+# leeres Segment: './', '//', '/' am Ende) ist UNPRUEFBAR, nie erreichbar oder tot (Folge (12),
+# Fix-r5; auf repo-interne Pfade eingeschraenkt mit Fix-r6, Lens C r4 LC3W-18, Folge (13e)).
 #
 # WARUM DIE VERZEICHNISSE UND NICHT NUR DER PFAD: ein nicht existierender Pfad ist per
 # Definition weder getrackt noch (meist) ignoriert -- die Frage waere fuer JEDEN abwesenden
@@ -299,9 +300,39 @@
 #       63f8abd4 zufaellig gruen. Seit Fix-r5 liest die Probe den Index mit '-c core.quotePath=false'
 #       (Nicht-ASCII-Bytes roh und damit vergleichbar), und feld_form weist einen 'datei:'-Pfad mit
 #       quotierbarem Zeichen oder ohne kanonische Form als UNPRUEFBAR ab -- fail-closed mit der richtigen
-#       Diagnose, auch fuer die stumme Zeile einer Datei im Bauweg (Folge (8)). Fall (29). Die SOLL-
-#       und die Anker-Lesung (git ls-files ohne '-c') bleiben der LA-07-Posten: ein Nicht-ASCII-Pfad
-#       dort ist weiterhin laut rot (OHNE BEGRUENDUNG bzw. kein Anker), nie still gruen.
+#       Diagnose, auch fuer die stumme Zeile einer Datei im Bauweg (Folge (8)). Fall (29). [Berichtigt
+#       2026-09-19, Fix-r6, Lens A r6 LA6-02 / Lens C r4 LC3W-15: die SOLL- und die Anker-Lesung lasen
+#       bis 9223cbd5 'git ls-files' OHNE '-c core.quotePath=false'; ein Nicht-ASCII-Pfad fiel dort STILL
+#       aus SOLL und Anker (die quotierte Zeile endet auf '"', kein Muster traf: Probe X05 "2 getrackte"
+#       statt 3, Exit 0) -- nicht 'laut rot', wie dieser Absatz bis dahin behauptete. Seit Fix-r6 lesen
+#       beide roh, Folge (13c).]
+#   (13) FIX-R6 (2026-09-19; Lens A r6 LA6-01..06, Lens B r5 LB5-I3, Lens C r4 LC3W-15..18): (a) EIN
+#       EINTRAG GEGEN EIN VERZEICHNIS DARUNTER (D/F-Konflikt; nur auf den Index-Stufen 1-3 moeglich, auf
+#       Stufe 0 verweigert git ihn) ist ein Typ-Konflikt: der Ausgang 'Eintrag' machte den Gegenstand tot,
+#       der Ausgang 'Verzeichnis' erreichbar -- UNPRUEFBAR (bis 9223cbd5 gruen, Probe X01: Gitlink auf
+#       Stufe 2, Datei darunter auf Stufe 3, Gegenstand in Tiefe 2). index_eintrag() merkt sich dafuer, ob
+#       unter dem Pfad Eintraege liegen, und die Ahnenschleife laeuft ueber einen Gitlink WEITER hinauf:
+#       er traegt erst, wenn kein hoeherer Ahne Datei, Symlink oder Konflikt ist (Probe X03: Datei auf
+#       Stufe 2 UEBER dem Gitlink); ausserhalb eines Konflikt-Index aendert das nichts. Die Meldung nennt
+#       die TATSAECHLICHEN Stufen und Typen (LC3W-16), nicht mehr fest 'Datei gegen Gitlink' (Probe X22:
+#       Symlink gegen Gitlink hiess so). Faelle (27g)-(27g3). (b) EIN SYMLINK NUR IM ARBEITSBAUM als Ahne
+#       (nicht im Index) lief in 'git check-ignore' ("beyond a symbolic link", 128 = Exit 2 mit falscher
+#       Diagnose, Probe X04): jetzt UNPRUEFBAR mit Grund, geprueft in der Ahnenschleife der Index-Lesung,
+#       vor jedem check-ignore (LA6-03). Fall (27h). (c) SOLL- UND ANKER-LESUNG mit '-c core.quotePath=
+#       false' (LA6-02 / LC3W-15): ein Nicht-ASCII-Pfad zaehlt im SOLL und ankert (Proben X05-X07b); grep
+#       vergleicht byteweise. Fall (31). (d) LC_ALL=C GILT GLOBAL (LA6-04): die case-Klassen [[:cntrl:]]
+#       und [[:space:]] hingen an Shell und Locale des Aufrufers -- bash unter C.UTF-8 stufte das Byte-
+#       Paar C2 85 (U+0085) als Steuerzeichen ein (Probe X10 rc=1), dash und busybox nicht (rc=0).
+#       (e) DIE FORMREGEL (12) GILT NUR REPO-INTERN (LC3W-18): absolute Pfade und Pfade mit '..'-Segment
+#       bleiben Grenze (a), NICHT BEURTEILT -- bis 9223cbd5 war '../x/./y' UNPRUEFBAR (Probe X20), obwohl
+#       der Kommentar von pfad_form '..' schon ausnahm. (f) EIN SYMLINK OHNE ZIEL am Gegenstand ist
+#       ERLOSCHEN (LA6-06): '[ -e ]' folgte dem Link und meldete 'datei abwesend' fuer einen belegten Pfad
+#       (Probe X08); jetzt '[ -e ] || [ -L ]' mit praeziser Meldung. Fall (6b). (g) rm LAEUFT NUR IM
+#       EXIT-TRAP (LC3W-17): INT und TERM beenden mit Exit 2 und loesen den EXIT-trap aus; bis 9223cbd5
+#       raeumte der INT/TERM-trap, und das Skript LIEF WEITER (TMP weg, die naechste Umleitung scheitert,
+#       Exit 1 in bash und busybox = ein Befund, der keiner ist; Probe messungen/fix-r6/trap). (h) Der
+#       Wortlaut 'in JEDEM Merge-Ausgang' zum Gitlink auf Stufe 1-3 ist zu 'in mindestens einem'
+#       berichtigt (LA6-05 = LB5-I3): 'erreichbar' ist dort die Vorsichtsregel, TOT die starke Behauptung.
 #
 # DER GEMESSENE BAUM MUSS DERSELBE SEIN WIE DER DER CI (J-0b, am Objekt 2026-09-17): der CI-Baum
 # build-covguard wird MIT -DCOMDARE_CE_PRUEFLINGE=<repo>/tests/pruefling_fixture konfiguriert, und
@@ -321,14 +352,17 @@
 #              eine Allowlist-Zeile fuer eine ARCHIV-Datei oder einen Pfad unter tests/deprecated/,
 #              eine Zeile ohne Gegenstand im SOLL-Bestand, ein doppelt genannter Pfad, ein leeres
 #              Feld 3 und ein Formfehler in der stummen Zeile einer Datei im Bauweg, s. oben; seit
-#              Fix-r5 auch ein 'datei:'-Gegenstand, dessen Ahnenreihe durch einen Symlink oder einen
-#              Typ-Konflikt im Index laeuft, und ein 'datei:'-Pfad mit quotierbarem Zeichen oder ohne
-#              kanonische Form, Folgen (11) und (12))
+#              Fix-r5 auch ein 'datei:'-Gegenstand, dessen Ahnenreihe durch einen Symlink (Index oder
+#              nur Arbeitsbaum) oder einen Typ-Konflikt im Index laeuft (auch Eintrag gegen Verzeichnis,
+#              D/F), und ein repo-interner 'datei:'-Pfad mit quotierbarem Zeichen oder ohne kanonische
+#              Form, Folgen (11), (12) und (13))
 #          2 = die Wache konnte nicht pruefen (fail-closed, ausdruecklich KEIN Gruen) -- auch bei
 #              jedem Ausfall eines Werkzeugs (git, grep, sort, uniq, wc, date, mktemp; cut, sed und
 #              tr kommen seit Fix-r3 nicht mehr vor; rm laeuft NUR im EXIT-trap zum Aufraeumen der
 #              Zwischendateien, also nach dem 'exit' -- sein Ausfall aendert keinen Exit-Status, Lens A
-#              r5 LA5-08) und bei jedem ISA-Beleg, der nicht eindeutig ist
+#              r5 LA5-08; INT und TERM sind seit Fix-r6 'exit 2' und loesen genau diesen EXIT-trap aus,
+#              Lens C r4 LC3W-17, Folge (13g)), bei jedem ISA-Beleg, der nicht eindeutig ist, und bei
+#              einem Signal INT oder TERM
 #
 # GRENZE, EHRLICH BENANNT -- was diese Wache NICHT deckt:
 # Sie prueft, ob die Quelldatei UEBERSETZT wird. Sie prueft NICHT, ob das entstehende
@@ -341,6 +375,15 @@
 # =============================================================================
 
 set -eu
+
+# LOCALE (Fix-r6, Lens A r6 LA6-04, Kopf Folge (13d)): jede Zeichenklasse dieser Wache ([[:cntrl:]] in
+# pfad_form, [[:space:]] in trim/felder/Nachscan) und jedes 'sort' meinen BYTES, nicht Zeichen einer
+# Locale. bash stufte unter C.UTF-8 das Byte-Paar C2 85 (U+0085) als Steuerzeichen ein, dash und busybox
+# nicht -- dieselbe Allowlist war so in der einen Shell UNPRUEFBAR und in der anderen gruen. LC_ALL=C
+# einmal exportiert macht alle Vergleiche byteweise und shell-invariant; grep_in_datei setzte es bisher
+# nur fuer sich.
+LC_ALL=C
+export LC_ALL
 
 BUILD="${1:-}"
 if [ -z "$BUILD" ]; then
@@ -411,9 +454,11 @@ zeilen_zaehlen() {
 grep_in_datei() {
     # $1 = Zieldatei (/dev/null, wenn nur der Status zaehlt), $2 = Etikett, danach die grep-Argumente.
     # grep: 0 = Treffer, 1 = keine Treffer (kein Fehler), ab 2 = Werkzeug-Ausfall -> Exit 2. Der
-    # Status 0/1 steht danach in GREP_RC. LC_ALL=C: jedes Muster dieser Wache ist ASCII, jeder Pfad
-    # aus 'git ls-files' auch (core.quotePath), und die Leerraum-Klasse des Ankers (Folge (1)) meint
-    # ASCII-Leerraum -- so haengt kein Vergleich an der Locale des Aufrufers.
+    # Status 0/1 steht danach in GREP_RC. LC_ALL=C (seit Fix-r6 global exportiert, hier zusaetzlich
+    # ausdruecklich): jedes Muster dieser Wache ist ASCII, ein Pfad aus 'git ls-files' darf seit Fix-r6
+    # Nicht-ASCII-Bytes tragen (core.quotePath=false, Folge (13c)) -- grep vergleicht ihn byteweise --,
+    # und die Leerraum-Klasse des Ankers (Folge (1)) meint ASCII-Leerraum: kein Vergleich haengt an der
+    # Locale des Aufrufers.
     _gz="$1"; _ge="$2"; shift 2
     GREP_RC=0
     LC_ALL=C "$GREP" "$@" > "$_gz" || GREP_RC=$?
@@ -525,11 +570,22 @@ ALLOWLIST="scripts/ci_test_registrierungs_allowlist.txt"
 # Basename-Filter 459.
 # ---------------------------------------------------------------------------
 TMP=$(mktemp -d) || exit 2
-trap 'rm -rf "$TMP"' EXIT INT TERM
+# rm NUR im EXIT-trap (Lens C r4 LC3W-17, Fix-r6, Kopf Folge (13g)). Bis 9223cbd5 stand 'rm' auch im INT-
+# und TERM-trap: nach dem Signal raeumte er -- und das Skript LIEF WEITER (ein trap-Rumpf ohne 'exit'
+# beendet nichts), die naechste Umleitung nach "$TMP" scheiterte, und unter 'set -e' endete das in bash
+# und busybox mit Exit 1 = einem Befund, der keiner ist (Probe messungen/fix-r6/trap/). Jetzt beenden INT
+# und TERM mit Exit 2 (konnte nicht pruefen); 'exit' loest den EXIT-trap aus, der genau einmal raeumt.
+trap 'rm -rf "$TMP"' EXIT
+trap 'exit 2' INT TERM
 
 # Glied fuer Glied mit Status (Kopf, Folge (6)); 'sort -u', weil 'git ls-files' im
 # MERGE-KONFLIKT eine Datei je Index-Stufe listet (Lens A LA3-06: "4 getrackte" fuer drei).
-git ls-files > "$TMP/index.txt" 2>/dev/null || werkzeug_abbruch "'git ls-files' (SOLL)" "$?"
+# '-c core.quotePath=false' (Fix-r6, Lens A r6 LA6-02 / Lens C r4 LC3W-15, Kopf Folge (13c)): git quotiert
+# Pfade mit Nicht-ASCII-Bytes ("tests/unit/test_\303\244.cpp"), die Zeile endet auf '"', das Muster
+# '\.cpp$' unten trifft nicht -- die Datei fiel STILL aus dem SOLL (Probe X05: "2 getrackte" statt 3,
+# Exit 0). Roh gelesen ist der Pfad ein Byte-String wie jeder andere; grep vergleicht byteweise.
+git -c core.quotePath=false ls-files > "$TMP/index.txt" 2>/dev/null ||
+    werkzeug_abbruch "'git ls-files' (SOLL)" "$?"
 grep_in_datei "$TMP/soll_1.txt" "-v '^ext/' (SOLL)" -v '^ext/' "$TMP/index.txt"
 grep_in_datei "$TMP/soll_2.txt" "-v '/ext/' (SOLL)" -v '/ext/' "$TMP/soll_1.txt"
 grep_in_datei "$TMP/soll_3.txt" "-E 'test_*.cpp' (SOLL)" -E '(^|/)test_[^/]*\.cpp$' "$TMP/soll_2.txt"
@@ -565,7 +621,9 @@ fi
 # 'git ls-files -s | grep' saehe die Wache nur den Status von grep.
 # ---------------------------------------------------------------------------
 _TAB=$(printf '\t')
-git ls-files -s > "$TMP/index_s.txt" 2>/dev/null ||
+# Roh wie der SOLL (Fix-r6, Kopf Folge (13c)): ein Anker-Ordner oder eine Archiv-Datei mit Nicht-ASCII-
+# Namen ankerte bzw. zaehlte sonst still nicht (Proben X07/X07b: "0 archiviert" bei vorhandenem Anker).
+git -c core.quotePath=false ls-files -s > "$TMP/index_s.txt" 2>/dev/null ||
     werkzeug_abbruch "'git ls-files -s' (Index fuer die ARCHIV-Anker)" "$?"
 grep_in_datei "$TMP/archiv_anker_roh.txt" "-E ueber den Index (ARCHIV-Anker)" \
     -E "^[0-9]+ [0-9a-f]+ [0-9]+${_TAB}tests/deprecated/[^/]+/VERMERK\.md$" "$TMP/index_s.txt"
@@ -1161,27 +1219,34 @@ pfad_form() {
     # '//', '/' am Ende) steht so in keinem Index. Ein absoluter Pfad bleibt Sache der Erreichbarkeits-
     # Probe (NICHT beurteilt, Kopf-Grenze (a)), ebenso '..'; Leerzeichen und Nicht-ASCII-Bytes sind
     # erlaubt (roh vergleichbar, Folge (12)). Segmentweise per Parametererweiterung, kein Werkzeug.
+    # '..' GILT SEIT FIX-R6 AUCH IM CODE (Lens C r4 LC3W-18, Kopf Folge (13e)): bis 9223cbd5 sagte dieser
+    # Kommentar 'ebenso '..'', geprueft wurde der Pfad trotzdem -- '../x/./y' war UNPRUEFBAR (rot) statt
+    # NICHT BEURTEILT (Probe X20). Erst die Segmente lesen, dann entscheiden.
     PFAD_FEHLER=""
     case "$1" in /*) return 0 ;; esac
+    _pfr="$1"; _pfdd=nein; _pfleer=nein
+    while :; do
+        case "$_pfr" in
+            */*) _pfs=${_pfr%%/*}; _pfr=${_pfr#*/}; _pfl=nein ;;
+            *)   _pfs="$_pfr";     _pfr="";         _pfl=ja ;;
+        esac
+        if [ "$_pfs" = .. ]; then _pfdd=ja; fi
+        if [ -z "$_pfs" ] || [ "$_pfs" = . ]; then _pfleer=ja; fi
+        if [ "$_pfl" = ja ]; then break; fi
+    done
+    # Ein '..'-Segment: der Pfad liegt ausserhalb des Repos (Grenze (a)) -- keine Formregel; die
+    # Erreichbarkeits-Probe meldet ihn als NICHT BEURTEILT, und der Nenner weist ihn aus.
+    if [ "$_pfdd" = ja ]; then return 0; fi
     case "$1" in
         *[[:cntrl:]]*|*'"'*|*'\'*)
             PFAD_FEHLER="enthaelt ein Zeichen, das git in seiner Ausgabe quotiert (Tabulator, Steuerzeichen,"
             PFAD_FEHLER="$PFAD_FEHLER Anfuehrungszeichen oder Backslash) -- die Wache vergleicht Pfade nur unquotiert"
             return 0 ;;
     esac
-    _pfr="$1"
-    while :; do
-        case "$_pfr" in
-            */*) _pfs=${_pfr%%/*}; _pfr=${_pfr#*/}; _pfl=nein ;;
-            *)   _pfs="$_pfr";     _pfr="";         _pfl=ja ;;
-        esac
-        if [ -z "$_pfs" ] || [ "$_pfs" = . ]; then
-            PFAD_FEHLER="ist kein kanonischer repo-relativer Pfad (Segment '.' oder leeres Segment: './', '//',"
-            PFAD_FEHLER="$PFAD_FEHLER '/' am Ende) -- so steht kein Pfad im Index"
-            return 0
-        fi
-        if [ "$_pfl" = ja ]; then break; fi
-    done
+    if [ "$_pfleer" = ja ]; then
+        PFAD_FEHLER="ist kein kanonischer repo-relativer Pfad (Segment '.' oder leeres Segment: './', '//',"
+        PFAD_FEHLER="$PFAD_FEHLER '/' am Ende) -- so steht kein Pfad im Index"
+    fi
     return 0
 }
 
