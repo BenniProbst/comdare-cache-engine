@@ -132,6 +132,26 @@
 // LB4-02: der Pin war vakuoes). Rot zuerst je Stufe gegen die Wache c62cfc7e bzw. die Mutanten M1/M7 und einen
 // Mutanten ohne Feld-3-Ausgabe (fuer die Marke-Pins) -- FIX-r5.md.
 //
+// NACHTRAG 7 (2026-09-19, Fix-r6 des OV-2-Zuges: Lens A r6 LA6-01..06, Lens B r5 LB5-I3, Lens C r4 LC3T-01..09
+// und LC3W-15..18): PINS ALS GANZE ZEILEN (LC3T-04) -- zeile_exakt() und zeile_beginnt() zerlegen die Ausgabe an
+// '\n'; enthaelt() bleibt fuer Fragmente mitten in einer Zeile und fuer EXPECT_FALSE. Die Zaehler-Fragmente
+// "0 TOTE AUSNAHME" / "1 TOTE AUSNAHME" der Faelle (1)-(6) und (8) sind durch nenner_davon() ersetzt (LC3T-03:
+// "1 TOTE AUSNAHME" ist Teilzeichenkette von "11 TOTE AUSNAHME"); Fall (5) pinnt die AUSSERHALB-Zeile des
+// Nenners mit Zahl und die begruendete Zeile selbst (LC3T-01: das Wort stand bei jedem Lauf im Nenner), Fall (6)
+// die ERLOSCHEN-Zeile (LC3T-02: das Wort traf immer "0 mit ERLOSCHENER"); die Archiv-Stufen (10) und (11) pinnen
+// Nenner und Endzeile ganz (LC3T-05); Arrangement-ASSERTs sind exakte Index-Zeilen, (12b)/(28e) assertieren
+// Stufe 2, (27f) schliesst Stufe 0 aus (LC3T-08); Fall (8) sichert seinen Wegwerf-Baum per RAII-Waechter und
+// prueft die Loeschung (LC3T-09). NEUE STUFEN: (6b) Symlink ohne Ziel am Gegenstand = ERLOSCHEN (LA6-06);
+// (27e2)/(27e3) Gitlink auf den Stufen 1/2/3 bzw. 1+3 (LC3T-08); (27f2) Typ-Konflikt in der anderen Reihenfolge,
+// Gitlink Stufe 2 gegen Datei Stufe 3, und die Meldung nennt die Typen je Stufe (LC3T-07, LC3W-16); (27g)-(27g3)
+// D/F-Konflikt, Eintrag gegen Verzeichnis darunter (LA6-01; gegen 9223cbd5 Exit 0 = fail-open); (27h) Symlink
+// NUR im Arbeitsbaum als Ahne (LA6-03; gegen 9223cbd5 Exit 2); (28f) Datei-Ahne mit Modus 100755 (LC3T-06);
+// Fall (31) Nicht-ASCII-Pfade im SOLL und am Anker (LA6-02 = LC3W-15; gegen 9223cbd5 still gruen bzw. "0
+// archiviert"). Fall (8) liest den SOLL wie die Wache mit core.quotePath=false; der git-Koeder in Fall (18)
+// trifft die Anker-Lesung am Argument-Ende 'ls-files -s' (vor ihr steht jetzt '-c core.quotePath=false'). Der
+// Wortlaut 'in jedem Ausgang des Merges' in (27e) ist zu 'in mindestens einem' berichtigt (LA6-05). Rot zuerst
+// je Stufe gegen die Wache 9223cbd5 bzw. Mutanten -- FIX-r6.md. LC3T-10 ENTLASTET (Lead-Probe K77: 240 Zeilen).
+//
 // ASCII-only, Zeilen <= 120 Byte.
 // =============================================================================
 
@@ -153,6 +173,7 @@ TEST(Pa1ToteAusnahme, NurPosix) {
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -255,6 +276,51 @@ void berichten(char const* fall, Lauf const& lauf, std::string const& marke) {
 [[nodiscard]] std::string endzeile_ok(std::size_t soll, std::size_t archiviert) {
     return "TEST-REGISTRIERUNGS-WACHE: OK (" + z(soll) + " Quelldateien, 0 ohne Begruendung ausserhalb, " +
            z(archiviert) + " archiviert).";
+}
+
+// Die beiden Bestands-Zeilen des Nenners und die AUSSERHALB-Zeile, ebenfalls als ganze Zeilen (Fix-r6).
+[[nodiscard]] std::string nenner_getrackt(std::size_t n) {
+    return z(n) + " getrackte Test-Quelldatei(en) im Baum (ohne ext/).";
+}
+
+[[nodiscard]] std::string nenner_archiv(std::size_t archiv, std::size_t ordner, std::size_t soll) {
+    return "davon " + z(archiv) + " ARCHIV-Datei(en) in " + z(ordner) +
+           " Ordner(n) unter tests/deprecated/ mit VERMERK.md-Anker abgezogen -- SOLL: " + z(soll) + ".";
+}
+
+[[nodiscard]] std::string nenner_ausserhalb(std::size_t n, std::size_t begruendet) {
+    return "Erreichbarkeit: " + z(n) + " der " + z(begruendet) + " begruendeten nennen einen Gegenstand AUSSERHALB";
+}
+
+// ---------------------------------------------------------------------------
+// ZEILEN-PINS (Lens C r4 LC3T-04, Fix-r6). enthaelt() findet den Text auch mitten in einer laengeren oder
+// praefigierten Zeile -- ein Mutant, der an eine Nenner-Zeile etwas anhaengt (Probe: " (Vorbehalt)") oder eine
+// Endzeile mit fremden Zahlen zusaetzlich druckt, faellt so nicht auf. zeile_exakt() zerlegt die Ausgabe an
+// '\n' und verlangt eine Zeile, die dem Text GENAU gleicht -- wahlweise mit der zweistelligen Einrueckung der
+// Listen und des Nenners (eingerueckt() der Wache); zeile_beginnt() verlangt eine Zeile, die so BEGINNT (fuer
+// Meldungen, deren Rest Pfad oder Diagnose ist). enthaelt() bleibt fuer Fragmente mitten in einer Zeile und
+// fuer EXPECT_FALSE (dort ist die Teilzeichenkette die staerkere Forderung).
+// ---------------------------------------------------------------------------
+[[nodiscard]] bool zeile_passt(std::string const& ausgabe, std::string const& text, bool exakt) {
+    for (std::size_t start = 0; start <= ausgabe.size();) {
+        std::size_t const ende = ausgabe.find('\n', start);
+        std::string const zl   = ausgabe.substr(start, ende == std::string::npos ? std::string::npos : ende - start);
+        std::string const ohne = (zl.size() >= 2 && zl[0] == ' ' && zl[1] == ' ') ? zl.substr(2) : zl;
+        bool const trifft = exakt ? (zl == text || ohne == text)
+                                  : (zl.compare(0, text.size(), text) == 0 || ohne.compare(0, text.size(), text) == 0);
+        if (trifft) { return true; }
+        if (ende == std::string::npos) { break; }
+        start = ende + 1;
+    }
+    return false;
+}
+
+[[nodiscard]] bool zeile_exakt(std::string const& ausgabe, std::string const& text) {
+    return zeile_passt(ausgabe, text, true);
+}
+
+[[nodiscard]] bool zeile_beginnt(std::string const& ausgabe, std::string const& text) {
+    return zeile_passt(ausgabe, text, false);
 }
 
 // Ein Wegwerf-Repo-Kommando in der Umgebung der Werkbank (git im Repo, Ausgabe getrimmt).
@@ -400,14 +466,20 @@ TEST(Pa1ToteAusnahme, UnmoeglicherGegenstandWirdTOT) {
 
     EXPECT_EQ(lauf.code, 1) << "Eine Ausnahme, die per Konstruktion nie erloeschen kann, muss ROT sein.\n"
                             << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "TOTE AUSNAHME"))
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, "TOTE AUSNAHME -- der Gegenstand kann in KEINEM erklaerten Baum entstehen:"))
         << "Der Befund muss seinen Namen tragen -- sonst ist er von jedem anderen Rot nicht zu trennen.\n"
         << lauf.ausgabe;
-    // Der Koeder muss WOERTLICH zurueckkommen: nur dann stammt die Meldung aus dem
-    // Gegenstand, den dieser Fall angelegt hat, und nicht aus einer anderen Quelle.
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, tot)) << "Der gewuerfelte Pfad fehlt in der Ausgabe.\n" << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "1 TOTE AUSNAHME")) << "Der Nenner muss die Klasse zaehlen (V-1).\n"
-                                                           << lauf.ausgabe;
+    // Der Koeder muss WOERTLICH zurueckkommen: nur dann stammt die Meldung aus dem Gegenstand, den dieser Fall
+    // angelegt hat, und nicht aus einer anderen Quelle -- als ganze Meldungszeile mit der allgemeinen Diagnose
+    // (kein Vorfahr ist Datei, Symlink oder Konflikt: 'keine Quelle dieses Repos kennt den Zweig').
+    EXPECT_TRUE(zeile_beginnt(lauf.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + tot +
+                                                "\" existiert nicht, und keine Quelle dieses Repos kennt den Zweig"))
+        << "Der gewuerfelte Pfad fehlt in der Ausgabe.\n"
+        << lauf.ausgabe;
+    // GANZE NENNER-ZEILE statt "1 TOTE AUSNAHME" (Lens C r4 LC3T-03, Fix-r6): das Fragment traf auch "11 TOTE".
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << "Der Nenner muss die Klasse zaehlen (V-1).\n"
+                                                                        << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << lauf.ausgabe;
 }
 
 // =============================================================================
@@ -431,11 +503,15 @@ TEST(Pa1ToteAusnahme, MoeglicherGegenstandBleibtGRUEN) {
 
     EXPECT_EQ(lauf.code, 0) << "Ein Pfad unter einem bekannten Verzeichnis kann entstehen -- kein Befund.\n"
                             << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "0 TOTE AUSNAHME")) << "Fehlalarm: der Gegenstand hat einen Erzeuger.\n"
-                                                           << lauf.ausgabe;
+    // GANZE NENNER-ZEILEN statt "0 TOTE AUSNAHME" (Lens C r4 LC3T-03, Fix-r6): das Fragment traf auch "10 TOTE".
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_davon(1, 0, 0, 0, 0)))
+        << "Fehlalarm: der Gegenstand hat einen Erzeuger.\n"
+        << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, endzeile_ok(2, 0))) << lauf.ausgabe;
     // 'Koeder <marke>' ist Feld 3 der Zeile und steht NUR in der Ausgabe, wenn die Wache die Zeile gelesen hat;
     // die blosse Marke stuende auch als Pfadname (Bau-Baum, Waise) in jeder Ausgabe (Lens B r4 LB4-I1, Fix-r5).
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Koeder " + marke))
+    // Seit Fix-r6 als Zeilenanfang der begruendeten Zeile: '<waise> -- Koeder <marke>' (LC3T-04).
+    EXPECT_TRUE(zeile_beginnt(lauf.ausgabe, fall.waise() + " -- Koeder " + marke))
         << "Die Wache muss GENAU diese Allowlist-Zeile gelesen haben -- sonst belegt das Gruen nichts.\n"
         << lauf.ausgabe;
 }
@@ -459,7 +535,9 @@ TEST(Pa1ToteAusnahme, BauproduktUnterGitignoreIstErreichbar) {
 
     EXPECT_EQ(lauf.code, 0) << "Ein ignoriertes Verzeichnis ist ein angemeldeter Ablageort -- kein Befund.\n"
                             << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "0 TOTE AUSNAHME")) << "Fehlalarm auf einem Bauprodukt.\n" << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << "Fehlalarm auf einem Bauprodukt.\n"
+                                                                        << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, endzeile_ok(2, 0))) << lauf.ausgabe;
 }
 
 // =============================================================================
@@ -491,9 +569,10 @@ TEST(Pa1ToteAusnahme, SubmodulGitlinkIstErreichbar) {
 
     EXPECT_EQ(lauf.code, 0) << "Ein Pfad unter einem Gitlink kann jederzeit ausgecheckt werden -- kein Befund.\n"
                             << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "0 TOTE AUSNAHME"))
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_davon(1, 0, 0, 0, 0)))
         << "Fehlalarm: ein nicht initialisiertes Submodul ist kein toter Gegenstand.\n"
         << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, endzeile_ok(2, 0))) << lauf.ausgabe;
 }
 
 // =============================================================================
@@ -505,18 +584,27 @@ TEST(Pa1ToteAusnahme, AusserhalbDesRepoWirdNichtBeurteilt) {
     std::string const marke = koeder();
     Fall              fall{marke};
     ASSERT_TRUE(fall.init());
-    ASSERT_TRUE(fall.allowlist_setzen("datei:/opt/gibtsnicht_" + marke + "/kopf.hpp"));
+    std::string const draussen = "/opt/gibtsnicht_" + marke + "/kopf.hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + draussen));
 
     Lauf const lauf = fall.fahren();
     berichten("AusserhalbDesRepoWirdNichtBeurteilt", lauf, marke);
 
     EXPECT_EQ(lauf.code, 0) << "Ein nicht beurteilbarer Pfad ist kein Befund.\n" << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "0 TOTE AUSNAHME"))
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_davon(1, 0, 0, 0, 0)))
         << "Die Wache hat ueber etwas geurteilt, das sie nicht messen kann.\n"
         << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "AUSSERHALB"))
+    // NICHT das blosse Wort 'AUSSERHALB' (Lens C r4 LC3T-01, Fix-r6): es steht bei JEDEM Lauf im Nenner ("0 der 0
+    // begruendeten nennen einen Gegenstand AUSSERHALB"), der alte Pin war vakuoes. Gepinnt wird die Zahl in der
+    // ganzen Zeile UND die begruendete Zeile selbst mit dem Vermerk, dass die Erreichbarkeit NICHT beurteilt ist.
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_ausserhalb(1, 1)))
         << "Der Nenner muss die nicht beurteilte Menge ausweisen -- sonst sieht sie wie geprueft aus.\n"
         << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, fall.waise() + " -- Koeder " + marke + " (datei abwesend: " + draussen +
+                                              " -- ausserhalb des Repos, Erreichbarkeit NICHT beurteilt)"))
+        << "Die begruendete Zeile muss den Vorbehalt tragen.\n"
+        << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, endzeile_ok(2, 0))) << lauf.ausgabe;
 }
 
 // =============================================================================
@@ -536,10 +624,39 @@ TEST(Pa1ToteAusnahme, RichtungEinsBleibtErhalten) {
     berichten("RichtungEinsBleibtErhalten", lauf, marke);
 
     EXPECT_EQ(lauf.code, 1) << "Ein wieder vorhandener Gegenstand muss ROT sein.\n" << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "ERLOSCHEN")) << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "0 TOTE AUSNAHME"))
+    // GANZE ERLOSCHEN-ZEILE (Lens C r4 LC3T-02, Fix-r6): das Wort 'ERLOSCHEN' traf bei jedem Lauf "0 mit
+    // ERLOSCHENER" im Nenner -- der alte Pin war vakuoes; Exit 1 allein kaeme auch aus einer anderen Rot-Klasse.
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, fall.waise() + " -- ERLOSCHEN: \"" + wieder_da +
+                                              "\" existiert wieder, die Ausnahme traegt nicht mehr"))
+        << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_davon(0, 1, 0, 0, 0)))
         << "Ein vorhandener Gegenstand ist erloschen, nicht tot -- die Abhilfe waere sonst falsch.\n"
         << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, endzeile_rot(0, 2, 1, 0, 0, 0))) << lauf.ausgabe;
+
+    // (6b) EIN SYMLINK OHNE ZIEL am Gegenstand (Lens A r6 LA6-06, Fix-r6): '[ -e ]' folgt dem Link und sah
+    //      'abwesend' -- die Wache 9223cbd5 meldete die Zeile als begruendet "(datei abwesend: ...)", Exit 0,
+    //      obwohl der Pfad belegt ist (Probe X08). Jetzt ERLOSCHEN, der Link steht in der Meldung. Der Link ist
+    //      per 'git add' auch im Index (Modus 120000); ein untracked Link ohne Ziel lief bis 9223cbd5 sogar in
+    //      check-ignore 128 (Probe X08b) und ist jetzt ebenso ERLOSCHEN.
+    std::string const link = "tests/unit/link_" + marke;
+    std::error_code   ec;
+    fs::create_symlink("nirgends_" + marke, fall.repo().pfad() / link, ec);
+    ASSERT_FALSE(ec) << "Symlink nicht anlegbar: " << ec.message();
+    Lauf const add = im_repo(fall.repo(), "git add -- " + zitiert(link));
+    ASSERT_EQ(add.code, 0) << "git add des Symlinks fehlgeschlagen:\n" << add.ausgabe;
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + link));
+    Lauf const dangling = fall.fahren();
+    berichten("RichtungEinsBleibtErhalten/Symlink-ohne-Ziel", dangling, marke);
+    EXPECT_EQ(dangling.code, 1) << "Ein Symlink ohne Ziel belegt den Pfad -- ERLOSCHEN, ROT.\n" << dangling.ausgabe;
+    EXPECT_TRUE(zeile_exakt(dangling.ausgabe, fall.waise() + " -- ERLOSCHEN: \"" + link +
+                                                  "\" existiert wieder (als SYMLINK ohne Ziel), die Ausnahme" +
+                                                  " traegt nicht mehr"))
+        << dangling.ausgabe;
+    EXPECT_FALSE(enthaelt(dangling.ausgabe, "datei abwesend")) << "Ein belegter Pfad darf nicht 'abwesend' heissen.\n"
+                                                               << dangling.ausgabe;
+    EXPECT_TRUE(zeile_exakt(dangling.ausgabe, nenner_davon(0, 1, 0, 0, 0))) << dangling.ausgabe;
+    EXPECT_TRUE(zeile_exakt(dangling.ausgabe, endzeile_rot(0, 2, 1, 0, 0, 0))) << dangling.ausgabe;
 }
 
 // =============================================================================
@@ -557,17 +674,27 @@ TEST(Pa1ToteAusnahme, FristTraegtBisZumTagUndDannNichtMehr) {
     Lauf const vorher = fall.fahren("2026-09-15");
     berichten("FristTraegtBisZumTagUndDannNichtMehr/am-Tag", vorher, marke);
     EXPECT_EQ(vorher.code, 0) << "Am Tag der Frist traegt die Ausnahme noch.\n" << vorher.ausgabe;
-    EXPECT_TRUE(enthaelt(vorher.ausgabe, "2026-09-15")) << "Das Datum gehoert in die Ausgabe (V-1).\n"
-                                                        << vorher.ausgabe;
+    // GANZE ZEILEN (Lens C r4 LC3T-04, Fix-r6): die begruendete Zeile mit Frist und Heute, Nenner und Endzeile.
+    EXPECT_TRUE(zeile_exakt(vorher.ausgabe,
+                            fall.waise() + " -- Koeder " + marke + " (Frist laeuft bis 2026-09-15, heute 2026-09-15)"))
+        << "Das Datum gehoert in die Ausgabe (V-1).\n"
+        << vorher.ausgabe;
+    EXPECT_TRUE(zeile_exakt(vorher.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << vorher.ausgabe;
+    EXPECT_TRUE(zeile_exakt(vorher.ausgabe, endzeile_ok(2, 0))) << vorher.ausgabe;
 
     Lauf const nachher = fall.fahren("2026-09-16");
     berichten("FristTraegtBisZumTagUndDannNichtMehr/danach", nachher, marke);
     EXPECT_EQ(nachher.code, 1) << "Einen Tag nach der Frist muss die Ausnahme ROT sein.\n" << nachher.ausgabe;
-    EXPECT_TRUE(enthaelt(nachher.ausgabe, "ABGELAUFEN")) << nachher.ausgabe;
+    EXPECT_TRUE(zeile_exakt(nachher.ausgabe, fall.waise() + " -- ABGELAUFEN: die Frist 2026-09-15 ist am 2026-09-16" +
+                                                 " verstrichen -- Koeder " + marke))
+        << nachher.ausgabe;
+    EXPECT_TRUE(zeile_exakt(nachher.ausgabe, nenner_davon(0, 1, 0, 0, 0))) << nachher.ausgabe;
+    EXPECT_TRUE(zeile_exakt(nachher.ausgabe, endzeile_rot(0, 2, 1, 0, 0, 0))) << nachher.ausgabe;
 
     // Die Herkunft des Heute muss im Nenner stehen: ein verschiebbarer Zeitbegriff, den
     // niemand sieht, waere selbst wieder ein Freibrief.
-    EXPECT_TRUE(enthaelt(nachher.ausgabe, "ueberschrieben"))
+    EXPECT_TRUE(zeile_exakt(nachher.ausgabe, "Heute (fuer 'frist:'): 2026-09-16 -- Herkunft: COMDARE_WACHE_HEUTE"
+                                             " (ueberschrieben)."))
         << "Die Wache verschweigt, dass ihr Heute vorgegeben wurde.\n"
         << nachher.ausgabe;
 }
@@ -592,17 +719,44 @@ TEST(Pa1ToteAusnahme, FristTraegtBisZumTagUndDannNichtMehr) {
 //     Die 'isa:'-Zeile bleibt aus demselben Grund wie oben ungeprueft; sie ist nach dem Entscheid
 //     die einzige verbliebene wirksame Zeile der committeten Allowlist.
 // =============================================================================
+// RAII fuer den Wegwerf-Baum des Falls (8) (Lens C r4 LC3T-09, Fix-r6): bis 9223cbd5 stand remove_all erst am
+// Ende des Falls -- jedes fatale ASSERT davor (etwa ein scheiterndes 'git ls-files', Probe im Beweisort FIX-r6.md
+// mit git-Koeder im PATH) liess den Baum unter user_tmp_dir() stehen, und die Loeschung selbst blieb ungeprueft.
+// Der Waechter raeumt beim Verlassen des Blocks, auch nach einem fatalen ASSERT, und meldet ein Scheitern laut.
+class WegwerfBaum {
+public:
+    explicit WegwerfBaum(fs::path pfad) : pfad_{std::move(pfad)} {
+        std::error_code ec;
+        fs::create_directories(pfad_, ec);
+    }
+    WegwerfBaum(WegwerfBaum const&)            = delete;
+    WegwerfBaum& operator=(WegwerfBaum const&) = delete;
+    ~WegwerfBaum() {
+        std::error_code ec;
+        fs::remove_all(pfad_, ec);
+        if (ec || fs::exists(pfad_)) {
+            ADD_FAILURE() << "Wegwerf-Baum '" << pfad_.string() << "' nicht geraeumt: " << ec.message();
+        }
+    }
+    [[nodiscard]] fs::path const& pfad() const { return pfad_; }
+
+private:
+    fs::path pfad_;
+};
+
 TEST(Pa1ToteAusnahme, EchteAllowlistTraegtKeineToteZeile) {
     std::string const marke = koeder();
-    fs::path const    baum  = comdare::test::user_tmp_dir() / ("pa1_echt_" + marke);
-    std::error_code   ec;
-    fs::create_directories(baum, ec);
+    WegwerfBaum const waechter{comdare::test::user_tmp_dir() / ("pa1_echt_" + marke)};
+    fs::path const&   baum = waechter.pfad();
+    ASSERT_TRUE(fs::is_directory(baum)) << "Wegwerf-Baum nicht anlegbar: " << baum.string();
 
     // Der SOLL der Wache, aus derselben Quelle wie bei ihr: git ls-files, ohne ext/,
-    // am DATEINAMEN verankert.
-    Lauf const soll = fahre("cd " + zitiert(fs::path{repo_wurzel()}) + " && " + WegwerfRepo::umgebung() +
-                            " git ls-files | /usr/bin/grep -v '^ext/' | /usr/bin/grep -v '/ext/'"
-                            " | /usr/bin/grep -E '(^|/)test_[^/]*[.]cpp$' | sort -u");
+    // am DATEINAMEN verankert -- und wie sie mit core.quotePath=false (Fix-r6, Lens A r6 LA6-02): ein
+    // Nicht-ASCII-Pfad zaehlt bei beiden gleich, sonst liefe dieser Fall bei der ersten solchen Datei laut auf.
+    Lauf const soll =
+        fahre("cd " + zitiert(fs::path{repo_wurzel()}) + " && " + WegwerfRepo::umgebung() +
+              " git -c core.quotePath=false ls-files | /usr/bin/grep -v '^ext/' | /usr/bin/grep -v '/ext/'"
+              " | /usr/bin/grep -E '(^|/)test_[^/]*[.]cpp$' | sort -u");
     ASSERT_EQ(soll.code, 0) << "git ls-files im echten Repo fehlgeschlagen:\n" << soll.ausgabe;
 
     std::vector<std::string> alle;
@@ -654,8 +808,10 @@ TEST(Pa1ToteAusnahme, EchteAllowlistTraegtKeineToteZeile) {
               << " | Exit " << lauf.code << "\n";
 
     EXPECT_EQ(lauf.code, 0) << "Die committete Allowlist traegt eine Zeile, die nie erloeschen kann.\n" << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "0 TOTE AUSNAHME")) << "Der Nenner muss die Null ausweisen (V-1).\n"
-                                                           << lauf.ausgabe;
+    // GANZE davon-ZEILE statt "0 TOTE AUSNAHME" (Lens C r4 LC3T-03, Fix-r6): keine dem Bauweg fehlende Datei des
+    // SOLL wird bewertet (die vier fehlen, sind aber ARCHIV und nicht im SOLL).
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_davon(0, 0, 0, 0, 0))) << "Der Nenner muss die Null ausweisen (V-1).\n"
+                                                                        << lauf.ausgabe;
     // Die vier fehlen dem Baum und sind trotzdem gruen -- das traegt NUR die ARCHIV-Klasse.
     // Ohne diese Erwartungen waere der Fall auch von einer Wache erfuellt, die sie stillschweigend
     // uebersieht: gemessen wird deshalb die AUSGEWIESENE Menge, nicht nur der Exit.
@@ -666,30 +822,27 @@ TEST(Pa1ToteAusnahme, EchteAllowlistTraegtKeineToteZeile) {
     // (== kGeparktN), SOLL = Differenz -- alle drei Nenner-Zeilen der Wache und ihre Endzeile WOERTLICH.
     // Ein Mutant, der den SOLL falsch zaehlt oder eine Endzeile mit fremden Zahlen druckt, fiele sonst
     // durch die blossen Fragmente "0 TOTE AUSNAHME" und ", 4 archiviert)" hindurch.
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "ARCHIV (tests/deprecated/, VERMERK.md-Anker): " + z(weggelassen) +
-                                           " Datei(en) in " + z(kGeparktOrdnerN) + " Ordner(n),"))
+    EXPECT_TRUE(zeile_beginnt(lauf.ausgabe, "ARCHIV (tests/deprecated/, VERMERK.md-Anker): " + z(weggelassen) +
+                                                " Datei(en) in " + z(kGeparktOrdnerN) + " Ordner(n),"))
         << "Die vier archivierten Dateien muessen als Menge ausgewiesen sein (4 Dateien, 1 Ordner).\n"
         << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, z(alle.size()) + " getrackte Test-Quelldatei(en) im Baum (ohne ext/)."))
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_getrackt(alle.size())))
         << "Der Nenner der Wache muss den getrackten Bestand nennen, den dieser Fall selbst gezaehlt hat.\n"
         << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "davon " + z(weggelassen) + " ARCHIV-Datei(en) in " + z(kGeparktOrdnerN) +
-                                           " Ordner(n) unter tests/deprecated/ mit VERMERK.md-Anker abgezogen"
-                                           " -- SOLL: " +
-                                           z(soll_n) + "."))
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_archiv(weggelassen, kGeparktOrdnerN, soll_n)))
         << "Der Archiv-Abzug muss mit Datei-Zahl, Ordner-Zahl und dem SOLL nach dem Abzug ausgewiesen sein.\n"
         << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0)))
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0)))
         << "Am echten Objekt muss die Zeile der Klassen ohne Bezug zum Bauweg leer sein (0/0/0/0/0).\n"
         << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, endzeile_ok(soll_n, weggelassen)))
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, endzeile_ok(soll_n, weggelassen)))
         << "Die Endzeile muss den SOLL und den Archiv-Nenner mit den gemessenen Zahlen tragen.\n"
         << lauf.ausgabe;
     for (char const* const g : kGeparkt) {
-        EXPECT_TRUE(enthaelt(lauf.ausgabe, std::string{g})) << "'" << g << "' fehlt in der ARCHIV-Liste der Wache.\n"
-                                                            << lauf.ausgabe;
+        EXPECT_TRUE(zeile_exakt(lauf.ausgabe, std::string{g})) << "'" << g << "' fehlt in der ARCHIV-Liste der Wache.\n"
+                                                               << lauf.ausgabe;
     }
-    fs::remove_all(baum, ec);
+    // Der Wegwerf-Baum faellt mit dem Waechter (RAII, LC3T-09) -- kein remove_all mehr am Ende des Falls.
 }
 
 // =============================================================================
@@ -786,24 +939,30 @@ TEST(Pa1ToteAusnahme, ArchivOrdnerZaehltNurMitVermerkAnker) {
     Lauf const ohne = fall.fahren();
     berichten("ArchivOrdnerZaehltNurMitVermerkAnker/ohne-Anker", ohne, marke);
     EXPECT_EQ(ohne.code, 1) << "Ohne VERMERK.md bleibt die Datei im SOLL -- und fehlt im Bauweg.\n" << ohne.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << ohne.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne.ausgabe, fall.waise()))
+    EXPECT_TRUE(zeile_beginnt(ohne.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << ohne.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ohne.ausgabe, fall.waise()))
         << "Der gewuerfelte Pfad fehlt in der Ausgabe -- der Befund stammt dann nicht aus diesem Fall.\n"
         << ohne.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne.ausgabe, ", 0 archiviert)"))
+    // GANZE ZEILEN statt ", 0 archiviert)" (Lens C r4 LC3T-05, Fix-r6): Endzeile, davon-Zeile und Archiv-Nenner --
+    // ein Mutant mit falschem SOLL oder Nachbarfeld ueberlebte das blosse Feld-Fragment.
+    EXPECT_TRUE(zeile_exakt(ohne.ausgabe, endzeile_rot(1, 2, 0, 0, 0, 0)))
         << "Die Archiv-Klasse gehoert auch dann in den Nenner, wenn sie leer ist (V-1).\n"
         << ohne.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ohne.ausgabe, nenner_davon(0, 0, 0, 0, 1))) << ohne.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ohne.ausgabe, nenner_archiv(0, 0, 2))) << ohne.ausgabe;
 
     ASSERT_TRUE(fall.repo().schreibe_und_verfolge("tests/deprecated/anderer_" + marke + "/VERMERK.md",
                                                   "# Nachbar-Anker " + marke + "\n"));
     Lauf const nachbar = fall.fahren();
     berichten("ArchivOrdnerZaehltNurMitVermerkAnker/Nachbar-Anker", nachbar, marke);
     EXPECT_EQ(nachbar.code, 1) << "Ein Anker im NACHBARordner darf nicht tragen.\n" << nachbar.ausgabe;
-    EXPECT_TRUE(enthaelt(nachbar.ausgabe, ", 0 archiviert)")) << "Der fremde Anker hat etwas archiviert.\n"
-                                                              << nachbar.ausgabe;
+    EXPECT_TRUE(zeile_exakt(nachbar.ausgabe, endzeile_rot(1, 2, 0, 0, 0, 0)))
+        << "Der fremde Anker hat etwas archiviert.\n"
+        << nachbar.ausgabe;
+    EXPECT_TRUE(zeile_exakt(nachbar.ausgabe, nenner_archiv(0, 0, 2))) << nachbar.ausgabe;
     // ROT AM GEGENSTAND (Lens C LCT-08, 2026-09-18): nicht irgendein Rot, sondern die Waise OHNE BEGRUENDUNG.
-    EXPECT_TRUE(enthaelt(nachbar.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << nachbar.ausgabe;
-    EXPECT_TRUE(enthaelt(nachbar.ausgabe, fall.waise()))
+    EXPECT_TRUE(zeile_beginnt(nachbar.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << nachbar.ausgabe;
+    EXPECT_TRUE(zeile_exakt(nachbar.ausgabe, fall.waise()))
         << "Der Waisen-Pfad fehlt -- das Rot stammt dann nicht aus diesem Fall.\n"
         << nachbar.ausgabe;
 
@@ -811,14 +970,16 @@ TEST(Pa1ToteAusnahme, ArchivOrdnerZaehltNurMitVermerkAnker) {
     Lauf const mit = fall.fahren();
     berichten("ArchivOrdnerZaehltNurMitVermerkAnker/mit-Anker", mit, marke);
     EXPECT_EQ(mit.code, 0) << "Mit eigenem VERMERK.md ist die Datei ARCHIV und nicht mehr im SOLL.\n" << mit.ausgabe;
-    EXPECT_TRUE(enthaelt(mit.ausgabe, "ARCHIV (tests/deprecated/, VERMERK.md-Anker): 1 Datei(en) in 1 Ordner(n),"))
+    EXPECT_TRUE(zeile_beginnt(mit.ausgabe, "ARCHIV (tests/deprecated/, VERMERK.md-Anker): 1 Datei(en) in 1 Ordner(n),"))
         << "Die Archiv-Menge muss mit Datei- und Ordner-Zahl ausgewiesen sein, sonst schrumpft der Nenner lautlos.\n"
         << mit.ausgabe;
-    EXPECT_TRUE(enthaelt(mit.ausgabe, fall.waise())) << "Die archivierte Datei muss namentlich erscheinen.\n"
-                                                     << mit.ausgabe;
-    EXPECT_TRUE(enthaelt(mit.ausgabe, ", 1 archiviert)")) << "Die Endzeile muss den Archiv-Nenner tragen.\n"
-                                                          << mit.ausgabe;
-    EXPECT_TRUE(enthaelt(mit.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << mit.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit.ausgabe, fall.waise())) << "Die archivierte Datei muss namentlich erscheinen.\n"
+                                                        << mit.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit.ausgabe, endzeile_ok(1, 1))) << "Die Endzeile muss den Archiv-Nenner tragen.\n"
+                                                             << mit.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit.ausgabe, nenner_getrackt(2))) << mit.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit.ausgabe, nenner_archiv(1, 1, 1))) << mit.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit.ausgabe, nenner_davon(0, 0, 0, 0, 0))) << mit.ausgabe;
 
     // (d) EINE ALLOWLIST-ZEILE FUER DIE ARCHIVIERTE DATEI (Lens B LB-01, 2026-09-18). Die Allowlist-
     //     Schleife der Wache laeuft nur ueber die Dateien, die dem SOLL fehlen; eine archivierte Datei
@@ -833,20 +994,20 @@ TEST(Pa1ToteAusnahme, ArchivOrdnerZaehltNurMitVermerkAnker) {
     berichten("ArchivOrdnerZaehltNurMitVermerkAnker/Anker-plus-Allowlist-Zeile", zeile, marke);
     EXPECT_EQ(zeile.code, 1) << "Eine Allowlist-Zeile fuer eine ARCHIV-Datei ist eine Ausnahme ohne Anlass -- ROT.\n"
                              << zeile.ausgabe;
-    EXPECT_TRUE(enthaelt(zeile.ausgabe, fall.waise() + " -- UNPRUEFBAR: ARCHIV-Datei mit Allowlist-Zeile"))
+    EXPECT_TRUE(zeile_beginnt(zeile.ausgabe, fall.waise() + " -- UNPRUEFBAR: ARCHIV-Datei mit Allowlist-Zeile"))
         << "Die Zeile muss namentlich und mit ihrer Klasse gemeldet werden.\n"
         << zeile.ausgabe;
     EXPECT_TRUE(enthaelt(zeile.ausgabe, "Ausnahme ohne Anlass")) << zeile.ausgabe;
     // GANZE ZEILEN statt Fragmente (Lens C LCT-10/LCT-11): Endzeile mit "1 unpruefbar" und ", 1 archiviert)",
     // die Klassen-Zeile mit "1 Allowlist-Zeile(n) fuer ARCHIV-Dateien", und "0 erloschen" in der Endzeile --
     // die Frist darf nicht bewertet worden sein, die Zeile hat keinen Gegenstand im SOLL.
-    EXPECT_TRUE(enthaelt(zeile.ausgabe, endzeile_rot(0, 1, 0, 0, 1, 1)))
+    EXPECT_TRUE(zeile_exakt(zeile.ausgabe, endzeile_rot(0, 1, 0, 0, 1, 1)))
         << "Die Endzeile muss die Zeile als UNPRUEFBAR zaehlen, die Datei bleibt ARCHIV, 0 erloschen.\n"
         << zeile.ausgabe;
-    EXPECT_TRUE(enthaelt(zeile.ausgabe, nenner_ohne_bauweg(0, 1, 0, 0, 0)))
+    EXPECT_TRUE(zeile_exakt(zeile.ausgabe, nenner_ohne_bauweg(0, 1, 0, 0, 0)))
         << "Der Nenner muss die Klasse getrennt zaehlen (V-1), in der ganzen Zeile.\n"
         << zeile.ausgabe;
-    EXPECT_TRUE(enthaelt(zeile.ausgabe, nenner_davon(0, 0, 0, 0, 0)))
+    EXPECT_TRUE(zeile_exakt(zeile.ausgabe, nenner_davon(0, 0, 0, 0, 0)))
         << "Keine dem Bauweg fehlende Datei ist bewertet worden -- der Ort traegt.\n"
         << zeile.ausgabe;
 
@@ -856,8 +1017,8 @@ TEST(Pa1ToteAusnahme, ArchivOrdnerZaehltNurMitVermerkAnker) {
     Lauf const ohne_zeile = fall.fahren();
     berichten("ArchivOrdnerZaehltNurMitVermerkAnker/Anker-ohne-Allowlist-Zeile", ohne_zeile, marke);
     EXPECT_EQ(ohne_zeile.code, 0) << "Ohne die Zeile muss der Anker allein wieder tragen.\n" << ohne_zeile.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne_zeile.ausgabe, endzeile_ok(1, 1))) << ohne_zeile.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne_zeile.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << ohne_zeile.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ohne_zeile.ausgabe, endzeile_ok(1, 1))) << ohne_zeile.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ohne_zeile.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << ohne_zeile.ausgabe;
 }
 
 // =============================================================================
@@ -888,10 +1049,14 @@ TEST(Pa1ToteAusnahme, ArchivGrenzeDateiDirektUnterDeprecatedBleibtImSoll) {
     berichten("ArchivGrenzeDateiDirektUnterDeprecatedBleibtImSoll", lauf, marke);
     EXPECT_EQ(lauf.code, 1) << "Eine Datei direkt unter tests/deprecated/ hat keinen Anker und bleibt im SOLL.\n"
                             << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, fall.waise())) << "Der gewuerfelte Pfad fehlt in der Ausgabe.\n" << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, ", 0 archiviert)")) << "tests/deprecated/VERMERK.md hat etwas archiviert.\n"
-                                                           << lauf.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(lauf.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, fall.waise())) << "Der gewuerfelte Pfad fehlt in der Ausgabe.\n"
+                                                         << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, endzeile_rot(1, 2, 0, 0, 0, 0)))
+        << "tests/deprecated/VERMERK.md hat etwas archiviert.\n"
+        << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_davon(0, 0, 0, 0, 1))) << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_archiv(0, 0, 2))) << lauf.ausgabe;
 
     // (b) GEGENRICHTUNG (Lens C LCT-07, 2026-09-18): DERSELBE Baum, dieselbe Regel. Eine zweite Waise unter
     //     einem <ordner> mit eigenem VERMERK.md wird archiviert; die Datei direkt unter tests/deprecated/
@@ -905,9 +1070,11 @@ TEST(Pa1ToteAusnahme, ArchivGrenzeDateiDirektUnterDeprecatedBleibtImSoll) {
     berichten("ArchivGrenzeDateiDirektUnterDeprecatedBleibtImSoll/Gegenrichtung-Ordner-Anker", mit_ordner, marke);
     EXPECT_EQ(mit_ordner.code, 0) << "Unter einem <ordner> mit Anker muss dieselbe Regel gruen tragen.\n"
                                   << mit_ordner.ausgabe;
-    EXPECT_TRUE(enthaelt(mit_ordner.ausgabe, zweite)) << "Die archivierte Datei muss namentlich erscheinen.\n"
-                                                      << mit_ordner.ausgabe;
-    EXPECT_TRUE(enthaelt(mit_ordner.ausgabe, endzeile_ok(2, 1))) << mit_ordner.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit_ordner.ausgabe, zweite)) << "Die archivierte Datei muss namentlich erscheinen.\n"
+                                                         << mit_ordner.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit_ordner.ausgabe, endzeile_ok(2, 1))) << mit_ordner.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit_ordner.ausgabe, nenner_archiv(1, 1, 2))) << mit_ordner.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit_ordner.ausgabe, nenner_davon(0, 0, 0, 0, 0))) << mit_ordner.ausgabe;
 }
 
 TEST(Pa1ToteAusnahme, ArchivGrenzeAnkerTieferAlsDrittesSegmentAnkertNicht) {
@@ -921,18 +1088,21 @@ TEST(Pa1ToteAusnahme, ArchivGrenzeAnkerTieferAlsDrittesSegmentAnkertNicht) {
     Lauf const tief = fall.fahren();
     berichten("ArchivGrenzeAnkerTieferAlsDrittesSegmentAnkertNicht/Anker-im-vierten-Segment", tief, marke);
     EXPECT_EQ(tief.code, 1) << "Ein VERMERK.md tiefer als das dritte Pfadsegment darf nicht ankern.\n" << tief.ausgabe;
-    EXPECT_TRUE(enthaelt(tief.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << tief.ausgabe;
-    EXPECT_TRUE(enthaelt(tief.ausgabe, fall.waise())) << tief.ausgabe;
-    EXPECT_TRUE(enthaelt(tief.ausgabe, ", 0 archiviert)")) << "Der zu tiefe Anker hat etwas archiviert.\n"
-                                                           << tief.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(tief.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << tief.ausgabe;
+    EXPECT_TRUE(zeile_exakt(tief.ausgabe, fall.waise())) << tief.ausgabe;
+    EXPECT_TRUE(zeile_exakt(tief.ausgabe, endzeile_rot(1, 2, 0, 0, 0, 0)))
+        << "Der zu tiefe Anker hat etwas archiviert.\n"
+        << tief.ausgabe;
+    EXPECT_TRUE(zeile_exakt(tief.ausgabe, nenner_archiv(0, 0, 2))) << tief.ausgabe;
 
     // GEGENRICHTUNG: der Anker im dritten Segment traegt auch die tiefer liegende Datei.
     ASSERT_TRUE(fall.repo().schreibe_und_verfolge(ordner + "/VERMERK.md", "# Ordner-Anker " + marke + "\n"));
     Lauf const drittes = fall.fahren();
     berichten("ArchivGrenzeAnkerTieferAlsDrittesSegmentAnkertNicht/Anker-im-dritten-Segment", drittes, marke);
     EXPECT_EQ(drittes.code, 0) << "Der Anker im dritten Segment muss den ganzen Ordner tragen.\n" << drittes.ausgabe;
-    EXPECT_TRUE(enthaelt(drittes.ausgabe, fall.waise())) << drittes.ausgabe;
-    EXPECT_TRUE(enthaelt(drittes.ausgabe, ", 1 archiviert)")) << drittes.ausgabe;
+    EXPECT_TRUE(zeile_exakt(drittes.ausgabe, fall.waise())) << drittes.ausgabe;
+    EXPECT_TRUE(zeile_exakt(drittes.ausgabe, endzeile_ok(1, 1))) << drittes.ausgabe;
+    EXPECT_TRUE(zeile_exakt(drittes.ausgabe, nenner_archiv(1, 1, 1))) << drittes.ausgabe;
 }
 
 TEST(Pa1ToteAusnahme, ArchivGrenzeAnkerNurImArbeitsbaumAnkertNicht) {
@@ -948,17 +1118,20 @@ TEST(Pa1ToteAusnahme, ArchivGrenzeAnkerNurImArbeitsbaumAnkertNicht) {
     Lauf const ungetrackt = fall.fahren();
     berichten("ArchivGrenzeAnkerNurImArbeitsbaumAnkertNicht/nur-Arbeitsbaum", ungetrackt, marke);
     EXPECT_EQ(ungetrackt.code, 1) << "Ein VERMERK.md nur im Arbeitsbaum darf nicht ankern.\n" << ungetrackt.ausgabe;
-    EXPECT_TRUE(enthaelt(ungetrackt.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << ungetrackt.ausgabe;
-    EXPECT_TRUE(enthaelt(ungetrackt.ausgabe, fall.waise())) << ungetrackt.ausgabe;
-    EXPECT_TRUE(enthaelt(ungetrackt.ausgabe, ", 0 archiviert)")) << "Der ungetrackte Anker hat etwas archiviert.\n"
-                                                                 << ungetrackt.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(ungetrackt.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << ungetrackt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ungetrackt.ausgabe, fall.waise())) << ungetrackt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ungetrackt.ausgabe, endzeile_rot(1, 2, 0, 0, 0, 0)))
+        << "Der ungetrackte Anker hat etwas archiviert.\n"
+        << ungetrackt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ungetrackt.ausgabe, nenner_archiv(0, 0, 2))) << ungetrackt.ausgabe;
 
     // GEGENRICHTUNG: dieselbe Datei im Index traegt.
     ASSERT_TRUE(fall.repo().schreibe_und_verfolge(ordner + "/VERMERK.md", "# jetzt getrackter Anker " + marke + "\n"));
     Lauf const getrackt = fall.fahren();
     berichten("ArchivGrenzeAnkerNurImArbeitsbaumAnkertNicht/im-Index", getrackt, marke);
     EXPECT_EQ(getrackt.code, 0) << "Derselbe Anker im Index muss tragen.\n" << getrackt.ausgabe;
-    EXPECT_TRUE(enthaelt(getrackt.ausgabe, ", 1 archiviert)")) << getrackt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(getrackt.ausgabe, endzeile_ok(1, 1))) << getrackt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(getrackt.ausgabe, nenner_archiv(1, 1, 1))) << getrackt.ausgabe;
 }
 
 // =============================================================================
@@ -990,18 +1163,18 @@ TEST(Pa1ToteAusnahme, ArchivAnkerOhneInhaltOderFormAnkertNicht) {
     Lauf const leer = fall.fahren();
     berichten("ArchivAnkerOhneInhaltOderFormAnkertNicht/0-Byte", leer, marke);
     EXPECT_EQ(leer.code, 1) << "Ein Anker mit 0 Byte traegt keine Begruendung und darf nicht ankern.\n" << leer.ausgabe;
-    EXPECT_TRUE(enthaelt(leer.ausgabe, anker + " -- UNPRUEFBARER ANKER"))
+    EXPECT_TRUE(zeile_beginnt(leer.ausgabe, anker + " -- UNPRUEFBARER ANKER"))
         << "Der Anker muss namentlich und mit seiner Klasse gemeldet werden.\n"
         << leer.ausgabe;
-    EXPECT_TRUE(enthaelt(leer.ausgabe, "UNPRUEFBARER ANKER: Blob mit 0 Byte --")) << leer.ausgabe;
-    EXPECT_TRUE(enthaelt(leer.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << leer.ausgabe;
-    EXPECT_TRUE(enthaelt(leer.ausgabe, fall.waise())) << leer.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(leer.ausgabe, anker + " -- UNPRUEFBARER ANKER: Blob mit 0 Byte --")) << leer.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(leer.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << leer.ausgabe;
+    EXPECT_TRUE(zeile_exakt(leer.ausgabe, fall.waise())) << leer.ausgabe;
     // GANZE ZEILEN (Lens C LCT-10/LCT-11): Endzeile "1 von 2 ohne Begruendung ... 1 unpruefbar, 0 archiviert",
     // Klassen-Zeile "1 ARCHIV-Anker ohne Inhalt/Form" mit allen Nachbarfeldern.
-    EXPECT_TRUE(enthaelt(leer.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0)))
+    EXPECT_TRUE(zeile_exakt(leer.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0)))
         << "Die Endzeile muss den Anker als UNPRUEFBAR zaehlen und 0 archiviert melden.\n"
         << leer.ausgabe;
-    EXPECT_TRUE(enthaelt(leer.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0)))
+    EXPECT_TRUE(zeile_exakt(leer.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0)))
         << "Der Nenner muss die Klasse getrennt zaehlen (V-1).\n"
         << leer.ausgabe;
 
@@ -1013,13 +1186,13 @@ TEST(Pa1ToteAusnahme, ArchivAnkerOhneInhaltOderFormAnkertNicht) {
     berichten("ArchivAnkerOhneInhaltOderFormAnkertNicht/nur-Leerraum", leerraum, marke);
     EXPECT_EQ(leerraum.code, 1) << "Ein Anker aus Leerraum traegt keine Begruendung und darf nicht ankern.\n"
                                 << leerraum.ausgabe;
-    EXPECT_TRUE(
-        enthaelt(leerraum.ausgabe, anker + " -- UNPRUEFBARER ANKER: Blob mit 5 Byte, aber ohne Nicht-Leerraum-Zeichen"))
+    EXPECT_TRUE(zeile_beginnt(leerraum.ausgabe,
+                              anker + " -- UNPRUEFBARER ANKER: Blob mit 5 Byte, aber ohne Nicht-Leerraum-Zeichen"))
         << "Der Anker muss namentlich, mit Byte-Zahl und Klasse gemeldet werden.\n"
         << leerraum.ausgabe;
-    EXPECT_TRUE(enthaelt(leerraum.ausgabe, fall.waise())) << leerraum.ausgabe;
-    EXPECT_TRUE(enthaelt(leerraum.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0))) << leerraum.ausgabe;
-    EXPECT_TRUE(enthaelt(leerraum.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << leerraum.ausgabe;
+    EXPECT_TRUE(zeile_exakt(leerraum.ausgabe, fall.waise())) << leerraum.ausgabe;
+    EXPECT_TRUE(zeile_exakt(leerraum.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0))) << leerraum.ausgabe;
+    EXPECT_TRUE(zeile_exakt(leerraum.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << leerraum.ausgabe;
 
     // (b) derselbe Pfad als Symlink auf ein Ziel, das es nicht gibt. 'git add' legt ihn mit Modus
     //     120000 in den Index; das Blob traegt nur den Link-Text.
@@ -1032,22 +1205,26 @@ TEST(Pa1ToteAusnahme, ArchivAnkerOhneInhaltOderFormAnkertNicht) {
     Lauf const add =
         fahre("cd " + zitiert(fall.repo().pfad()) + " && " + WegwerfRepo::umgebung() + " git add -- " + zitiert(anker));
     ASSERT_EQ(add.code, 0) << "git add des Symlinks fehlgeschlagen:\n" << add.ausgabe;
-    Lauf const modus = fahre("cd " + zitiert(fall.repo().pfad()) + " && " + WegwerfRepo::umgebung() +
-                             " git ls-files -s -- " + zitiert(anker));
-    ASSERT_TRUE(enthaelt(modus.ausgabe, "120000 ")) << "Das Arrangement ist falsch: kein Symlink im Index:\n"
-                                                    << modus.ausgabe;
+    // EXAKTE INDEX-ZEILE (Lens C r4 LC3T-08, Fix-r6): Modus, Blob des Link-Texts, Stufe 0 und Pfad in EINER Zeile.
+    Lauf const lsha = im_repo(fall.repo(), "printf '%s' 'nirgends_" + marke + "' | git hash-object --stdin");
+    ASSERT_EQ(lsha.ausgabe.size(), 40U) << "kein SHA-1: '" << lsha.ausgabe << "'";
+    Lauf const modus = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(anker));
+    ASSERT_TRUE(zeile_exakt(modus.ausgabe, "120000 " + lsha.ausgabe + " 0\t" + anker))
+        << "Das Arrangement ist falsch: kein Symlink-Eintrag als exakte Index-Zeile:\n"
+        << modus.ausgabe;
     Lauf const symlink = fall.fahren();
     berichten("ArchivAnkerOhneInhaltOderFormAnkertNicht/Symlink", symlink, marke);
     EXPECT_EQ(symlink.code, 1) << "Ein Symlink namens VERMERK.md ist kein Anker.\n" << symlink.ausgabe;
-    EXPECT_TRUE(enthaelt(symlink.ausgabe, anker + " -- UNPRUEFBARER ANKER")) << symlink.ausgabe;
-    EXPECT_TRUE(enthaelt(symlink.ausgabe, "Index-Modus 120000 ist kein regulaeres Blob"))
+    EXPECT_TRUE(zeile_beginnt(symlink.ausgabe, anker + " -- UNPRUEFBARER ANKER")) << symlink.ausgabe;
+    EXPECT_TRUE(
+        zeile_beginnt(symlink.ausgabe, anker + " -- UNPRUEFBARER ANKER: Index-Modus 120000 ist kein regulaeres Blob"))
         << "Der Modus gehoert in die Meldung (V-1).\n"
         << symlink.ausgabe;
     // ROT AM GEGENSTAND (Lens C LCT-08): die Waise steht OHNE BEGRUENDUNG, die Klassen-Zeile zaehlt den Anker.
-    EXPECT_TRUE(enthaelt(symlink.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << symlink.ausgabe;
-    EXPECT_TRUE(enthaelt(symlink.ausgabe, fall.waise())) << symlink.ausgabe;
-    EXPECT_TRUE(enthaelt(symlink.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << symlink.ausgabe;
-    EXPECT_TRUE(enthaelt(symlink.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0))) << symlink.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(symlink.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << symlink.ausgabe;
+    EXPECT_TRUE(zeile_exakt(symlink.ausgabe, fall.waise())) << symlink.ausgabe;
+    EXPECT_TRUE(zeile_exakt(symlink.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << symlink.ausgabe;
+    EXPECT_TRUE(zeile_exakt(symlink.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0))) << symlink.ausgabe;
 
     // (c) GEGENRICHTUNG: derselbe Pfad mit Inhalt traegt.
     fs::remove(anker_abs, ec);
@@ -1055,22 +1232,25 @@ TEST(Pa1ToteAusnahme, ArchivAnkerOhneInhaltOderFormAnkertNicht) {
     Lauf const voll = fall.fahren();
     berichten("ArchivAnkerOhneInhaltOderFormAnkertNicht/mit-Inhalt", voll, marke);
     EXPECT_EQ(voll.code, 0) << "Derselbe Pfad mit Inhalt muss tragen.\n" << voll.ausgabe;
-    EXPECT_TRUE(enthaelt(voll.ausgabe, endzeile_ok(1, 1))) << voll.ausgabe;
-    EXPECT_TRUE(enthaelt(voll.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << voll.ausgabe;
+    EXPECT_TRUE(zeile_exakt(voll.ausgabe, endzeile_ok(1, 1))) << voll.ausgabe;
+    EXPECT_TRUE(zeile_exakt(voll.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << voll.ausgabe;
 
     // (d) MODUS 100755 (Lens C LCT-12, 2026-09-18): ein ausfuehrbares Blob ist ein regulaeres Blob und ankert.
     //     ROT ZUERST am Mutanten M4 (nur 100644 zugelassen): dort ist diese Stufe Exit 1 -- Beweisort FIX-r2.md.
     Lauf const chmod = im_repo(fall.repo(), "git update-index --chmod=+x -- " + zitiert(anker));
     ASSERT_EQ(chmod.code, 0) << "git update-index --chmod=+x fehlgeschlagen:\n" << chmod.ausgabe;
+    Lauf const asha = im_repo(fall.repo(), "git hash-object -- " + zitiert(anker));
+    ASSERT_EQ(asha.ausgabe.size(), 40U) << "kein SHA-1: '" << asha.ausgabe << "'";
     Lauf const modus_x = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(anker));
-    ASSERT_TRUE(enthaelt(modus_x.ausgabe, "100755 ")) << "Das Arrangement ist falsch: kein 100755 im Index:\n"
-                                                      << modus_x.ausgabe;
+    ASSERT_TRUE(zeile_exakt(modus_x.ausgabe, "100755 " + asha.ausgabe + " 0\t" + anker))
+        << "Das Arrangement ist falsch: kein 100755 als exakte Index-Zeile:\n"
+        << modus_x.ausgabe;
     Lauf const ausfuehrbar = fall.fahren();
     berichten("ArchivAnkerOhneInhaltOderFormAnkertNicht/Modus-100755", ausfuehrbar, marke);
     EXPECT_EQ(ausfuehrbar.code, 0) << "Ein Blob mit Modus 100755 ist regulaer und muss ankern.\n"
                                    << ausfuehrbar.ausgabe;
-    EXPECT_TRUE(enthaelt(ausfuehrbar.ausgabe, endzeile_ok(1, 1))) << ausfuehrbar.ausgabe;
-    EXPECT_TRUE(enthaelt(ausfuehrbar.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << ausfuehrbar.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ausfuehrbar.ausgabe, endzeile_ok(1, 1))) << ausfuehrbar.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ausfuehrbar.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << ausfuehrbar.ausgabe;
 }
 
 // =============================================================================
@@ -1093,7 +1273,7 @@ TEST(Pa1ToteAusnahme, ArchivAnkerImMergeKonfliktAnkertNicht) {
     Lauf const vorher = fall.fahren();
     berichten("ArchivAnkerImMergeKonfliktAnkertNicht/Stufe-0", vorher, marke);
     EXPECT_EQ(vorher.code, 0) << vorher.ausgabe;
-    EXPECT_TRUE(enthaelt(vorher.ausgabe, endzeile_ok(1, 1))) << vorher.ausgabe;
+    EXPECT_TRUE(zeile_exakt(vorher.ausgabe, endzeile_ok(1, 1))) << vorher.ausgabe;
 
     // (b) der Konflikt: das Blob bleibt in der Objektdatenbank, Stufe 0 wird entfernt, Stufen 1-3 gesetzt
     //     (git update-index --index-info, das Rezept der git-Dokumentation).
@@ -1107,36 +1287,48 @@ TEST(Pa1ToteAusnahme, ArchivAnkerImMergeKonfliktAnkertNicht) {
     Lauf const konflikt = im_repo(fall.repo(), "git update-index --index-info < " +
                                                    zitiert(fall.repo().pfad() / ("konflikt_" + marke + ".txt")));
     ASSERT_EQ(konflikt.code, 0) << "git update-index --index-info fehlgeschlagen:\n" << konflikt.ausgabe;
+    // EXAKTE INDEX-ZEILEN je Stufe, auch Stufe 2 (Lens C r4 LC3T-08, Fix-r6): das Rezept legt drei Zeilen an.
     Lauf const stufen = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(anker));
-    ASSERT_TRUE(enthaelt(stufen.ausgabe, " 1\t" + anker)) << "Arrangement: keine Stufe 1:\n" << stufen.ausgabe;
-    ASSERT_TRUE(enthaelt(stufen.ausgabe, " 3\t" + anker)) << "Arrangement: keine Stufe 3:\n" << stufen.ausgabe;
+    ASSERT_TRUE(zeile_exakt(stufen.ausgabe, "100644 " + sha.ausgabe + " 1\t" + anker))
+        << "Arrangement: keine Stufe 1:\n"
+        << stufen.ausgabe;
+    ASSERT_TRUE(zeile_exakt(stufen.ausgabe, "100644 " + sha.ausgabe + " 2\t" + anker))
+        << "Arrangement: keine Stufe 2:\n"
+        << stufen.ausgabe;
+    ASSERT_TRUE(zeile_exakt(stufen.ausgabe, "100644 " + sha.ausgabe + " 3\t" + anker))
+        << "Arrangement: keine Stufe 3:\n"
+        << stufen.ausgabe;
     ASSERT_FALSE(enthaelt(stufen.ausgabe, " 0\t" + anker)) << "Arrangement: Stufe 0 steht noch:\n" << stufen.ausgabe;
 
     Lauf const im_konflikt = fall.fahren();
     berichten("ArchivAnkerImMergeKonfliktAnkertNicht/Stufen-1-2-3", im_konflikt, marke);
     EXPECT_EQ(im_konflikt.code, 1) << "Ein Anker im Merge-Konflikt hat keine aufgeloeste Fassung -- ROT.\n"
                                    << im_konflikt.ausgabe;
-    EXPECT_TRUE(enthaelt(im_konflikt.ausgabe,
-                         anker + " -- UNPRUEFBARER ANKER: Index-Stufe 1 statt 0 (Merge-Konflikt, keine aufgeloeste"))
+    EXPECT_TRUE(
+        zeile_beginnt(im_konflikt.ausgabe,
+                      anker + " -- UNPRUEFBARER ANKER: Index-Stufe 1 statt 0 (Merge-Konflikt, keine aufgeloeste"))
         << "Der Anker muss namentlich, mit Stufe und Klasse gemeldet werden.\n"
         << im_konflikt.ausgabe;
-    EXPECT_TRUE(enthaelt(im_konflikt.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << im_konflikt.ausgabe;
-    EXPECT_TRUE(enthaelt(im_konflikt.ausgabe, fall.waise())) << im_konflikt.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(im_konflikt.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << im_konflikt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(im_konflikt.ausgabe, fall.waise())) << im_konflikt.ausgabe;
     // EINMAL gezaehlt, obwohl der Index den Pfad dreimal fuehrt.
-    EXPECT_TRUE(enthaelt(im_konflikt.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0)))
+    EXPECT_TRUE(zeile_exakt(im_konflikt.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0)))
         << "Drei Stufen sind EIN unpruefbarer Anker, nicht drei.\n"
         << im_konflikt.ausgabe;
-    EXPECT_TRUE(enthaelt(im_konflikt.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << im_konflikt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(im_konflikt.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << im_konflikt.ausgabe;
 
     // (c) GEGENRICHTUNG: 'git add' loest den Konflikt (Stufe 0, Stufen 1-3 weg) -- derselbe Pfad traegt.
     ASSERT_TRUE(fall.repo().schreibe_und_verfolge(anker, "# Anker nach dem Konflikt " + marke + "\n"));
+    Lauf const sha_neu = im_repo(fall.repo(), "git hash-object -- " + zitiert(anker));
+    ASSERT_EQ(sha_neu.ausgabe.size(), 40U) << "kein SHA-1: '" << sha_neu.ausgabe << "'";
     Lauf const geloest_probe = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(anker));
-    ASSERT_TRUE(enthaelt(geloest_probe.ausgabe, " 0\t" + anker)) << geloest_probe.ausgabe;
+    ASSERT_TRUE(zeile_exakt(geloest_probe.ausgabe, "100644 " + sha_neu.ausgabe + " 0\t" + anker))
+        << geloest_probe.ausgabe;
     ASSERT_FALSE(enthaelt(geloest_probe.ausgabe, " 1\t" + anker)) << geloest_probe.ausgabe;
     Lauf const geloest = fall.fahren();
     berichten("ArchivAnkerImMergeKonfliktAnkertNicht/aufgeloest", geloest, marke);
     EXPECT_EQ(geloest.code, 0) << "Der aufgeloeste Anker muss wieder tragen.\n" << geloest.ausgabe;
-    EXPECT_TRUE(enthaelt(geloest.ausgabe, endzeile_ok(1, 1))) << geloest.ausgabe;
+    EXPECT_TRUE(zeile_exakt(geloest.ausgabe, endzeile_ok(1, 1))) << geloest.ausgabe;
 }
 
 // =============================================================================
@@ -1169,24 +1361,24 @@ TEST(Pa1ToteAusnahme, AllowlistZeileOhneGegenstandImSollBestandIstUnpruefbar) {
     berichten("AllowlistZeileOhneGegenstandImSollBestandIstUnpruefbar/mit-Geist-Zeile", mit, marke);
     EXPECT_EQ(mit.code, 1) << "Eine Zeile ohne Gegenstand im SOLL-Bestand ist ein schlafender Freibrief -- ROT.\n"
                            << mit.ausgabe;
-    EXPECT_TRUE(enthaelt(mit.ausgabe, geist + " -- UNPRUEFBAR: Allowlist-Zeile ohne Gegenstand -- Feld 1 steht"
-                                              " nicht im SOLL-Bestand"))
+    EXPECT_TRUE(zeile_beginnt(mit.ausgabe, geist + " -- UNPRUEFBAR: Allowlist-Zeile ohne Gegenstand -- Feld 1 steht"
+                                                   " nicht im SOLL-Bestand"))
         << mit.ausgabe;
     // GANZE ZEILEN (Lens C LCT-10/LCT-11): "davon 1 begruendet" mit allen Feldern (die tragende Zeile darf
     // nicht mit rot werden), die Klassen-Zeile mit "1 ohne Gegenstand im SOLL-Bestand", die Endzeile mit
     // "0 erloschen" (die Frist der Geist-Zeile darf nicht bewertet worden sein) und "1 unpruefbar".
-    EXPECT_TRUE(enthaelt(mit.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << mit.ausgabe;
-    EXPECT_TRUE(enthaelt(mit.ausgabe, nenner_ohne_bauweg(0, 0, 0, 1, 0))) << mit.ausgabe;
-    EXPECT_TRUE(enthaelt(mit.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << mit.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << mit.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit.ausgabe, nenner_ohne_bauweg(0, 0, 0, 1, 0))) << mit.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << mit.ausgabe;
 
     ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
                                      "# Allowlist des Falls " + marke + "\n" + tragend));
     Lauf const ohne = fall.fahren();
     berichten("AllowlistZeileOhneGegenstandImSollBestandIstUnpruefbar/ohne-Geist-Zeile", ohne, marke);
     EXPECT_EQ(ohne.code, 0) << "Ohne die Geist-Zeile muss die tragende Zeile allein gruen sein.\n" << ohne.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << ohne.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << ohne.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne.ausgabe, endzeile_ok(2, 0))) << ohne.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ohne.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << ohne.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ohne.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << ohne.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ohne.ausgabe, endzeile_ok(2, 0))) << ohne.ausgabe;
 
     // (c) Zeilen nur aus Leerraum (drei Leerzeichen; ein Tab) zwischen Kopf und tragender Zeile: Leerzeilen.
     ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
@@ -1194,8 +1386,8 @@ TEST(Pa1ToteAusnahme, AllowlistZeileOhneGegenstandImSollBestandIstUnpruefbar) {
     Lauf const leerraum = fall.fahren();
     berichten("AllowlistZeileOhneGegenstandImSollBestandIstUnpruefbar/Leerraum-Zeilen", leerraum, marke);
     EXPECT_EQ(leerraum.code, 0) << "Eine Zeile nur aus Leerraum ist eine Leerzeile, kein Befund.\n" << leerraum.ausgabe;
-    EXPECT_TRUE(enthaelt(leerraum.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << leerraum.ausgabe;
-    EXPECT_TRUE(enthaelt(leerraum.ausgabe, endzeile_ok(2, 0))) << leerraum.ausgabe;
+    EXPECT_TRUE(zeile_exakt(leerraum.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << leerraum.ausgabe;
+    EXPECT_TRUE(zeile_exakt(leerraum.ausgabe, endzeile_ok(2, 0))) << leerraum.ausgabe;
 
     // (d) ein eingerueckter Kommentar ist eine Datenzeile ohne Gegenstand -- rot, mit der Ursache im Text.
     ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
@@ -1204,13 +1396,14 @@ TEST(Pa1ToteAusnahme, AllowlistZeileOhneGegenstandImSollBestandIstUnpruefbar) {
     berichten("AllowlistZeileOhneGegenstandImSollBestandIstUnpruefbar/eingerueckter-Kommentar", eingerueckt, marke);
     EXPECT_EQ(eingerueckt.code, 1) << "Ein eingerueckter Kommentar ist fuer die Wache eine Datenzeile -- ROT.\n"
                                    << eingerueckt.ausgabe;
-    EXPECT_TRUE(enthaelt(eingerueckt.ausgabe, "# eingerueckt " + marke +
-                                                  " -- UNPRUEFBAR: Allowlist-Zeile ohne Gegenstand -- Feld 1 beginnt"
-                                                  " mit '#': ein EINGERUECKTER Kommentar?"))
+    EXPECT_TRUE(
+        zeile_beginnt(eingerueckt.ausgabe, "# eingerueckt " + marke +
+                                               " -- UNPRUEFBAR: Allowlist-Zeile ohne Gegenstand -- Feld 1 beginnt"
+                                               " mit '#': ein EINGERUECKTER Kommentar?"))
         << "Die Meldung muss die naheliegende Ursache nennen.\n"
         << eingerueckt.ausgabe;
-    EXPECT_TRUE(enthaelt(eingerueckt.ausgabe, nenner_ohne_bauweg(0, 0, 0, 1, 0))) << eingerueckt.ausgabe;
-    EXPECT_TRUE(enthaelt(eingerueckt.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << eingerueckt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(eingerueckt.ausgabe, nenner_ohne_bauweg(0, 0, 0, 1, 0))) << eingerueckt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(eingerueckt.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << eingerueckt.ausgabe;
 }
 
 // =============================================================================
@@ -1237,10 +1430,10 @@ TEST(Pa1ToteAusnahme, AllowlistLetzteZeileOhneZeilenumbruchWirdGelesen) {
     EXPECT_EQ(geist_ohne_lf.code, 1) << "Die letzte Zeile ohne Zeilenumbruch ist eine Zeile -- der Nachscan muss"
                                         " sie sehen.\n"
                                      << geist_ohne_lf.ausgabe;
-    EXPECT_TRUE(enthaelt(geist_ohne_lf.ausgabe, geist + " -- UNPRUEFBAR: Allowlist-Zeile ohne Gegenstand"))
+    EXPECT_TRUE(zeile_beginnt(geist_ohne_lf.ausgabe, geist + " -- UNPRUEFBAR: Allowlist-Zeile ohne Gegenstand"))
         << geist_ohne_lf.ausgabe;
-    EXPECT_TRUE(enthaelt(geist_ohne_lf.ausgabe, nenner_ohne_bauweg(0, 0, 0, 1, 0))) << geist_ohne_lf.ausgabe;
-    EXPECT_TRUE(enthaelt(geist_ohne_lf.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << geist_ohne_lf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(geist_ohne_lf.ausgabe, nenner_ohne_bauweg(0, 0, 0, 1, 0))) << geist_ohne_lf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(geist_ohne_lf.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << geist_ohne_lf.ausgabe;
 
     // (b) die TRAGENDE Zeile als letzte Zeile ohne Zeilenumbruch: muss gelesen werden -> GRUEN.
     ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
@@ -1249,11 +1442,11 @@ TEST(Pa1ToteAusnahme, AllowlistLetzteZeileOhneZeilenumbruchWirdGelesen) {
     berichten("AllowlistLetzteZeileOhneZeilenumbruchWirdGelesen/tragende-Zeile-ohne-LF", tragend_ohne_lf, marke);
     EXPECT_EQ(tragend_ohne_lf.code, 0) << "Die tragende Zeile ohne Zeilenumbruch muss tragen.\n"
                                        << tragend_ohne_lf.ausgabe;
-    EXPECT_TRUE(enthaelt(tragend_ohne_lf.ausgabe, "Koeder " + marke))
+    EXPECT_TRUE(zeile_beginnt(tragend_ohne_lf.ausgabe, fall.waise() + " -- Koeder " + marke))
         << "Die Wache muss GENAU diese Zeile gelesen haben.\n"
         << tragend_ohne_lf.ausgabe;
-    EXPECT_TRUE(enthaelt(tragend_ohne_lf.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << tragend_ohne_lf.ausgabe;
-    EXPECT_TRUE(enthaelt(tragend_ohne_lf.ausgabe, endzeile_ok(2, 0))) << tragend_ohne_lf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(tragend_ohne_lf.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << tragend_ohne_lf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(tragend_ohne_lf.ausgabe, endzeile_ok(2, 0))) << tragend_ohne_lf.ausgabe;
 }
 
 // =============================================================================
@@ -1276,32 +1469,32 @@ TEST(Pa1ToteAusnahme, AllowlistZeileFuerPfadUnterDeprecatedIstUnpruefbar) {
     berichten("AllowlistZeileFuerPfadUnterDeprecatedIstUnpruefbar/ohne-Anker-mit-Zeile", ohne_anker, marke);
     EXPECT_EQ(ohne_anker.code, 1) << "Eine Allowlist-Zeile darf einen Archiv-Pfad nie tragen -- ROT.\n"
                                   << ohne_anker.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne_anker.ausgabe,
-                         fall.waise() + " -- UNPRUEFBAR: Allowlist-Zeile fuer einen Pfad unter tests/deprecated/"))
+    EXPECT_TRUE(zeile_beginnt(ohne_anker.ausgabe,
+                              fall.waise() + " -- UNPRUEFBAR: Allowlist-Zeile fuer einen Pfad unter tests/deprecated/"))
         << "Die Zeile muss namentlich und mit ihrer Klasse gemeldet werden.\n"
         << ohne_anker.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne_anker.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << ohne_anker.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne_anker.ausgabe, nenner_davon(0, 0, 0, 0, 1)))
+    EXPECT_TRUE(zeile_beginnt(ohne_anker.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << ohne_anker.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ohne_anker.ausgabe, nenner_davon(0, 0, 0, 0, 1)))
         << "Die Frist darf die Datei NICHT begruendet haben.\n"
         << ohne_anker.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne_anker.ausgabe, nenner_ohne_bauweg(0, 0, 1, 0, 0))) << ohne_anker.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne_anker.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << ohne_anker.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ohne_anker.ausgabe, nenner_ohne_bauweg(0, 0, 1, 0, 0))) << ohne_anker.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ohne_anker.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << ohne_anker.ausgabe;
 
     // (b) mit Anker, mit Zeile: die Zeile bleibt rot -- jetzt als ARCHIV-Zeile (Fall 10d), der Ort traegt.
     ASSERT_TRUE(fall.repo().schreibe_und_verfolge(ordner + "/VERMERK.md", "# Anker " + marke + "\n"));
     Lauf const mit_anker = fall.fahren();
     berichten("AllowlistZeileFuerPfadUnterDeprecatedIstUnpruefbar/mit-Anker-mit-Zeile", mit_anker, marke);
     EXPECT_EQ(mit_anker.code, 1) << mit_anker.ausgabe;
-    EXPECT_TRUE(enthaelt(mit_anker.ausgabe, nenner_ohne_bauweg(0, 1, 0, 0, 0))) << mit_anker.ausgabe;
-    EXPECT_TRUE(enthaelt(mit_anker.ausgabe, endzeile_rot(0, 1, 0, 0, 1, 1))) << mit_anker.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit_anker.ausgabe, nenner_ohne_bauweg(0, 1, 0, 0, 0))) << mit_anker.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit_anker.ausgabe, endzeile_rot(0, 1, 0, 0, 1, 1))) << mit_anker.ausgabe;
 
     // (c) mit Anker, ohne Zeile: der einzige gruene Weg fuer einen Archiv-Pfad.
     ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt", "# ohne Zeile " + marke + "\n"));
     Lauf const nur_anker = fall.fahren();
     berichten("AllowlistZeileFuerPfadUnterDeprecatedIstUnpruefbar/mit-Anker-ohne-Zeile", nur_anker, marke);
     EXPECT_EQ(nur_anker.code, 0) << "Der Anker allein muss tragen.\n" << nur_anker.ausgabe;
-    EXPECT_TRUE(enthaelt(nur_anker.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << nur_anker.ausgabe;
-    EXPECT_TRUE(enthaelt(nur_anker.ausgabe, endzeile_ok(1, 1))) << nur_anker.ausgabe;
+    EXPECT_TRUE(zeile_exakt(nur_anker.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << nur_anker.ausgabe;
+    EXPECT_TRUE(zeile_exakt(nur_anker.ausgabe, endzeile_ok(1, 1))) << nur_anker.ausgabe;
 }
 
 // =============================================================================
@@ -1323,17 +1516,18 @@ TEST(Pa1ToteAusnahme, AllowlistDoppelteZeileJePfadIstUnpruefbar) {
     Lauf const doppelt = fall.fahren();
     berichten("AllowlistDoppelteZeileJePfadIstUnpruefbar/zwei-Zeilen", doppelt, marke);
     EXPECT_EQ(doppelt.code, 1) << "Zwei Zeilen fuer einen Pfad: die zweite schlaeft -- ROT.\n" << doppelt.ausgabe;
-    EXPECT_TRUE(enthaelt(doppelt.ausgabe, fall.waise() + " -- UNPRUEFBAR: DOPPELTE ALLOWLIST-ZEILE -- Feld 1 steht"
-                                                         " 2-mal in der Allowlist"))
+    EXPECT_TRUE(zeile_beginnt(doppelt.ausgabe, fall.waise() + " -- UNPRUEFBAR: DOPPELTE ALLOWLIST-ZEILE -- Feld 1 steht"
+                                                              " 2-mal in der Allowlist"))
         << "Der Pfad muss namentlich, mit Klasse und Haeufigkeit gemeldet werden.\n"
         << doppelt.ausgabe;
-    EXPECT_TRUE(enthaelt(doppelt.ausgabe, "erste " + marke)) << "Die erste Zeile muss weiter sichtbar tragen.\n"
-                                                             << doppelt.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(doppelt.ausgabe, fall.waise() + " -- erste " + marke))
+        << "Die erste Zeile muss weiter sichtbar tragen.\n"
+        << doppelt.ausgabe;
     EXPECT_FALSE(enthaelt(doppelt.ausgabe, "zweite " + marke)) << "Die zweite Zeile darf nie gelesen worden sein.\n"
                                                                << doppelt.ausgabe;
-    EXPECT_TRUE(enthaelt(doppelt.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << doppelt.ausgabe;
-    EXPECT_TRUE(enthaelt(doppelt.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 1))) << doppelt.ausgabe;
-    EXPECT_TRUE(enthaelt(doppelt.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << doppelt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(doppelt.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << doppelt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(doppelt.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 1))) << doppelt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(doppelt.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << doppelt.ausgabe;
 
     // GEGENRICHTUNG: dieselbe Allowlist mit genau EINER Zeile fuer den Pfad -> GRUEN.
     ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
@@ -1341,8 +1535,8 @@ TEST(Pa1ToteAusnahme, AllowlistDoppelteZeileJePfadIstUnpruefbar) {
     Lauf const einfach = fall.fahren();
     berichten("AllowlistDoppelteZeileJePfadIstUnpruefbar/eine-Zeile", einfach, marke);
     EXPECT_EQ(einfach.code, 0) << "Eine Zeile je Pfad muss tragen.\n" << einfach.ausgabe;
-    EXPECT_TRUE(enthaelt(einfach.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << einfach.ausgabe;
-    EXPECT_TRUE(enthaelt(einfach.ausgabe, endzeile_ok(2, 0))) << einfach.ausgabe;
+    EXPECT_TRUE(zeile_exakt(einfach.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << einfach.ausgabe;
+    EXPECT_TRUE(zeile_exakt(einfach.ausgabe, endzeile_ok(2, 0))) << einfach.ausgabe;
 }
 
 // =============================================================================
@@ -1365,9 +1559,9 @@ TEST(Pa1ToteAusnahme, AllowlistLeeresFeld3IstUnpruefbar) {
     Lauf const leer = fall.fahren();
     berichten("AllowlistLeeresFeld3IstUnpruefbar/Feld-3-leer", leer, marke);
     EXPECT_EQ(leer.code, 1) << "Eine Ausnahme ohne Begruendungstext ist keine -- ROT.\n" << leer.ausgabe;
-    EXPECT_TRUE(enthaelt(leer.ausgabe, klasse)) << leer.ausgabe;
-    EXPECT_TRUE(enthaelt(leer.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << leer.ausgabe;
-    EXPECT_TRUE(enthaelt(leer.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << leer.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(leer.ausgabe, klasse)) << leer.ausgabe;
+    EXPECT_TRUE(zeile_exakt(leer.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << leer.ausgabe;
+    EXPECT_TRUE(zeile_exakt(leer.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << leer.ausgabe;
 
     // (b) nur zwei Felder, kein dritter Trenner.
     ASSERT_TRUE(
@@ -1376,16 +1570,16 @@ TEST(Pa1ToteAusnahme, AllowlistLeeresFeld3IstUnpruefbar) {
     Lauf const zwei = fall.fahren();
     berichten("AllowlistLeeresFeld3IstUnpruefbar/nur-zwei-Felder", zwei, marke);
     EXPECT_EQ(zwei.code, 1) << "Zwei Felder sind kein Drei-Feld-Vertrag -- ROT.\n" << zwei.ausgabe;
-    EXPECT_TRUE(enthaelt(zwei.ausgabe, klasse)) << zwei.ausgabe;
-    EXPECT_TRUE(enthaelt(zwei.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << zwei.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(zwei.ausgabe, klasse)) << zwei.ausgabe;
+    EXPECT_TRUE(zeile_exakt(zwei.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << zwei.ausgabe;
 
     // (c) GEGENRICHTUNG: dieselbe Zeile mit Begruendungstext traegt.
     ASSERT_TRUE(fall.allowlist_setzen("datei:" + lebendig));
     Lauf const mit_text = fall.fahren();
     berichten("AllowlistLeeresFeld3IstUnpruefbar/mit-Text", mit_text, marke);
     EXPECT_EQ(mit_text.code, 0) << "Mit Begruendungstext muss dieselbe Zeile tragen.\n" << mit_text.ausgabe;
-    EXPECT_TRUE(enthaelt(mit_text.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << mit_text.ausgabe;
-    EXPECT_TRUE(enthaelt(mit_text.ausgabe, endzeile_ok(2, 0))) << mit_text.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit_text.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << mit_text.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit_text.ausgabe, endzeile_ok(2, 0))) << mit_text.ausgabe;
 }
 
 // =============================================================================
@@ -1406,7 +1600,7 @@ TEST(Pa1ToteAusnahme, WerkzeugAusfallInDerNennerPipelineIstExit2) {
     Lauf const gesund = fall.fahren();
     berichten("WerkzeugAusfallInDerNennerPipelineIstExit2/ohne-Koeder", gesund, marke);
     ASSERT_EQ(gesund.code, 0) << "Das Arrangement ist falsch: der gesunde Baum ist nicht gruen.\n" << gesund.ausgabe;
-    ASSERT_TRUE(enthaelt(gesund.ausgabe, endzeile_ok(1, 1))) << gesund.ausgabe;
+    ASSERT_TRUE(zeile_exakt(gesund.ausgabe, endzeile_ok(1, 1))) << gesund.ausgabe;
 
     Lauf const wo = im_repo(fall.repo(), "command -v git");
     ASSERT_EQ(wo.code, 0) << wo.ausgabe;
@@ -1415,13 +1609,15 @@ TEST(Pa1ToteAusnahme, WerkzeugAusfallInDerNennerPipelineIstExit2) {
     fs::path const    bin  = fall.repo().pfad() / "koeder_bin";
     std::string const pfad = "PATH=\"" + bin.string() + ":$PATH\"";
 
-    // (a) 'git ls-files -s' mit Teilausgabe und Exit 1.
+    // (a) 'git ls-files -s' mit Teilausgabe und Exit 1. Der Koeder trifft die ANKER-Lesung an ihrem Argument-Ende
+    //     'ls-files -s' (ohne Pathspec): seit Fix-r6 steht '-c core.quotePath=false' davor (Lens A r6 LA6-02), und
+    //     die Index-Frage der Erreichbarkeits-Probe ('ls-files -s -- :(literal)...') laeuft weiter echt.
     ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "git",
                                    "#!/bin/sh\n# PATH-Koeder des Falls " + marke +
-                                       ": 'git ls-files -s' liefert die erste Zeile und scheitert dann.\n"
-                                       "if [ \"$1\" = \"ls-files\" ] && [ \"$2\" = \"-s\" ]; then\n"
-                                       "    " +
-                                       echtes_git + " \"$@\" | head -n 1\n    exit 1\nfi\nexec " + echtes_git +
+                                       ": 'git ... ls-files -s' (Anker-Lesung) liefert die erste Zeile und"
+                                       " scheitert dann.\n"
+                                       "case \"$*\" in *\"ls-files -s\") " +
+                                       echtes_git + " \"$@\" | head -n 1; exit 1 ;; esac\nexec " + echtes_git +
                                        " \"$@\"\n"));
     Lauf const probe_git = im_repo(fall.repo(), pfad + " git ls-files -s");
     ASSERT_EQ(probe_git.code, 1) << "Arrangement: der git-Koeder scheitert nicht:\n" << probe_git.ausgabe;
@@ -1431,7 +1627,7 @@ TEST(Pa1ToteAusnahme, WerkzeugAusfallInDerNennerPipelineIstExit2) {
     berichten("WerkzeugAusfallInDerNennerPipelineIstExit2/git-ls-files-s-Teilausgabe", teilausgabe, marke);
     EXPECT_EQ(teilausgabe.code, 2) << "Ein Werkzeug-Ausfall ist 'konnte nicht pruefen' -- Exit 2, nie gruen.\n"
                                    << teilausgabe.ausgabe;
-    EXPECT_TRUE(enthaelt(teilausgabe.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'git ls-files -s'"))
+    EXPECT_TRUE(zeile_beginnt(teilausgabe.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'git ls-files -s'"))
         << "Der Abbruch muss das Werkzeug nennen.\n"
         << teilausgabe.ausgabe;
     EXPECT_FALSE(enthaelt(teilausgabe.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << teilausgabe.ausgabe;
@@ -1449,7 +1645,7 @@ TEST(Pa1ToteAusnahme, WerkzeugAusfallInDerNennerPipelineIstExit2) {
     Lauf const zaehler = fall.fahren("", pfad);
     berichten("WerkzeugAusfallInDerNennerPipelineIstExit2/wc-Ausfall", zaehler, marke);
     EXPECT_EQ(zaehler.code, 2) << "Ein Zaehler ohne Zahl ist kein Nenner -- Exit 2, nie gruen.\n" << zaehler.ausgabe;
-    EXPECT_TRUE(enthaelt(zaehler.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'wc -l'"))
+    EXPECT_TRUE(zeile_beginnt(zaehler.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'wc -l'"))
         << "Der Abbruch muss das Werkzeug nennen.\n"
         << zaehler.ausgabe;
     EXPECT_FALSE(enthaelt(zaehler.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << zaehler.ausgabe;
@@ -1460,7 +1656,7 @@ TEST(Pa1ToteAusnahme, WerkzeugAusfallInDerNennerPipelineIstExit2) {
     Lauf const wieder = fall.fahren("", pfad);
     berichten("WerkzeugAusfallInDerNennerPipelineIstExit2/Koeder-entfernt", wieder, marke);
     EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
-    EXPECT_TRUE(enthaelt(wieder.ausgabe, endzeile_ok(1, 1))) << wieder.ausgabe;
+    EXPECT_TRUE(zeile_exakt(wieder.ausgabe, endzeile_ok(1, 1))) << wieder.ausgabe;
 }
 
 // =============================================================================
@@ -1481,9 +1677,10 @@ TEST(Pa1ToteAusnahme, IsaLeeresTeilmerkmalIstUnpruefbar) {
     Lauf const gesund = fall.fahren();
     berichten("IsaLeeresTeilmerkmalIstUnpruefbar/wohlgeformt", gesund, marke);
     ASSERT_EQ(gesund.code, 0) << "Das Arrangement ist falsch: 'isa:avx512f' traegt nicht.\n" << gesund.ausgabe;
-    EXPECT_TRUE(enthaelt(gesund.ausgabe, "avx512f=nein")) << gesund.ausgabe;
-    EXPECT_TRUE(enthaelt(gesund.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << gesund.ausgabe;
-    EXPECT_TRUE(enthaelt(gesund.ausgabe, endzeile_ok(2, 0))) << gesund.ausgabe;
+    EXPECT_TRUE(zeile_exakt(gesund.ausgabe, fall.waise() + " -- Koeder " + marke + " (ISA am Bau-Host: avx512f=nein )"))
+        << gesund.ausgabe;
+    EXPECT_TRUE(zeile_exakt(gesund.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << gesund.ausgabe;
+    EXPECT_TRUE(zeile_exakt(gesund.ausgabe, endzeile_ok(2, 0))) << gesund.ausgabe;
 
     // (b)-(d) ein leeres Teilmerkmal am Anfang, am Ende, in der Mitte.
     for (char const* const merkmal : {"+avx512f", "avx512f+", "avx2++avx512f"}) {
@@ -1491,14 +1688,14 @@ TEST(Pa1ToteAusnahme, IsaLeeresTeilmerkmalIstUnpruefbar) {
         Lauf const leer = fall.fahren();
         berichten((std::string{"IsaLeeresTeilmerkmalIstUnpruefbar/isa:"} + merkmal).c_str(), leer, marke);
         EXPECT_EQ(leer.code, 1) << "'isa:" << merkmal << "' hat ein leeres Teilmerkmal -- ROT.\n" << leer.ausgabe;
-        EXPECT_TRUE(
-            enthaelt(leer.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"isa:" + merkmal + "\" hat ein leeres Teilmerkmal"))
+        EXPECT_TRUE(zeile_beginnt(leer.ausgabe,
+                                  fall.waise() + " -- UNPRUEFBAR: \"isa:" + merkmal + "\" hat ein leeres Teilmerkmal"))
             << leer.ausgabe;
-        EXPECT_TRUE(enthaelt(leer.ausgabe, "ISA-Gegenprobe: nicht gefragt"))
+        EXPECT_TRUE(zeile_beginnt(leer.ausgabe, "ISA-Gegenprobe: nicht gefragt"))
             << "Die Form wird VOR dem Cache geprueft -- der Cache darf nicht gelesen worden sein.\n"
             << leer.ausgabe;
-        EXPECT_TRUE(enthaelt(leer.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << leer.ausgabe;
-        EXPECT_TRUE(enthaelt(leer.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << leer.ausgabe;
+        EXPECT_TRUE(zeile_exakt(leer.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << leer.ausgabe;
+        EXPECT_TRUE(zeile_exakt(leer.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << leer.ausgabe;
     }
 }
 
@@ -1543,9 +1740,9 @@ TEST(Pa1ToteAusnahme, IsaBelegeMuessenEindeutigSein) {
         berichten((std::string{"IsaBelegeMuessenEindeutigSein/"} + s.name).c_str(), lauf, marke);
         EXPECT_EQ(lauf.code, 2) << s.name << ": ein nicht eindeutiger Beleg ist UNBEANTWORTBAR -- Exit 2.\n"
                                 << lauf.ausgabe;
-        EXPECT_TRUE(enthaelt(lauf.ausgabe, "ABBRUCH: ")) << lauf.ausgabe;
-        EXPECT_TRUE(enthaelt(lauf.ausgabe, s.meldung)) << s.name << ": die Meldung muss den Beleg nennen.\n"
-                                                       << lauf.ausgabe;
+        EXPECT_TRUE(zeile_beginnt(lauf.ausgabe, std::string{"ABBRUCH: "} + s.meldung))
+            << s.name << ": die Meldung muss den Beleg nennen (ganze Zeile, LC3T-04).\n"
+            << lauf.ausgabe;
         EXPECT_FALSE(enthaelt(lauf.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << lauf.ausgabe;
     }
 
@@ -1554,7 +1751,7 @@ TEST(Pa1ToteAusnahme, IsaBelegeMuessenEindeutigSein) {
     Lauf const wieder = fall.fahren();
     berichten("IsaBelegeMuessenEindeutigSein/ehrlicher-Cache-wieder", wieder, marke);
     EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
-    EXPECT_TRUE(enthaelt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
+    EXPECT_TRUE(zeile_exakt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
 }
 
 // =============================================================================
@@ -1601,7 +1798,7 @@ TEST(Pa1ToteAusnahme, WerkzeugAusfallImIsaPfadIstExit2) {
     berichten("WerkzeugAusfallImIsaPfadIstExit2/wc-Koeder-an-isa_wert", ausfall, marke);
     EXPECT_EQ(ausfall.code, 2) << "Ein Werkzeug-Ausfall im ISA-Pfad ist 'konnte nicht pruefen' -- Exit 2.\n"
                                << ausfall.ausgabe;
-    EXPECT_TRUE(enthaelt(ausfall.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'wc -l' ueber")) << ausfall.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(ausfall.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'wc -l' ueber")) << ausfall.ausgabe;
     EXPECT_TRUE(enthaelt(ausfall.ausgabe, "isa_wert.txt")) << "Der Abbruch muss die ISA-Zwischendatei nennen.\n"
                                                            << ausfall.ausgabe;
     EXPECT_FALSE(enthaelt(ausfall.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << ausfall.ausgabe;
@@ -1612,7 +1809,7 @@ TEST(Pa1ToteAusnahme, WerkzeugAusfallImIsaPfadIstExit2) {
     Lauf const wieder = fall.fahren("", pfad);
     berichten("WerkzeugAusfallImIsaPfadIstExit2/Koeder-entfernt", wieder, marke);
     EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
-    EXPECT_TRUE(enthaelt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
+    EXPECT_TRUE(zeile_exakt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
 }
 
 // =============================================================================
@@ -1657,7 +1854,7 @@ TEST(Pa1ToteAusnahme, GrepStatusZweiIstExit2) {
     berichten(procfs ? "GrepStatusZweiIstExit2/IST-Datei-EIO" : "GrepStatusZweiIstExit2/IST-Datei-chmod-000", ausfall,
               marke);
     EXPECT_EQ(ausfall.code, 2) << "Eine unlesbare IST-Datei ist ein Werkzeug-Ausfall -- Exit 2.\n" << ausfall.ausgabe;
-    EXPECT_TRUE(enthaelt(ausfall.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'grep' Gegenprobe")) << ausfall.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(ausfall.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'grep' Gegenprobe")) << ausfall.ausgabe;
     EXPECT_FALSE(enthaelt(ausfall.ausgabe, "steht NICHT in"))
         << "Die alte Fehldiagnose (Nichttreffer statt Werkzeug-Ausfall) darf nicht mehr erscheinen.\n"
         << ausfall.ausgabe;
@@ -1676,7 +1873,7 @@ TEST(Pa1ToteAusnahme, GrepStatusZweiIstExit2) {
     Lauf const wieder = fall.fahren();
     berichten("GrepStatusZweiIstExit2/wieder-lesbar", wieder, marke);
     EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
-    EXPECT_TRUE(enthaelt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
+    EXPECT_TRUE(zeile_exakt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
 }
 
 // =============================================================================
@@ -1718,7 +1915,7 @@ TEST(Pa1ToteAusnahme, GitFehlerInDerErreichbarkeitsProbeIstExit2) {
     Lauf const ci = fall.fahren("", pfad);
     berichten("GitFehlerInDerErreichbarkeitsProbeIstExit2/check-ignore-128", ci, marke);
     EXPECT_EQ(ci.code, 2) << "Ein git-Fehler ist keine Antwort auf 'ignoriert?' -- Exit 2.\n" << ci.ausgabe;
-    EXPECT_TRUE(enthaelt(ci.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'git check-ignore' fuer " + bauprodukt))
+    EXPECT_TRUE(zeile_beginnt(ci.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'git check-ignore' fuer " + bauprodukt))
         << ci.ausgabe;
     EXPECT_FALSE(enthaelt(ci.ausgabe, "TOTE AUSNAHME -- der Gegenstand"))
         << "Aus einem Werkzeugfehler darf kein Datenurteil werden.\n"
@@ -1742,7 +1939,8 @@ TEST(Pa1ToteAusnahme, GitFehlerInDerErreichbarkeitsProbeIstExit2) {
     Lauf const lf = fall.fahren("", pfad);
     berichten("GitFehlerInDerErreichbarkeitsProbeIstExit2/ls-files-128", lf, marke);
     EXPECT_EQ(lf.code, 2) << lf.ausgabe;
-    EXPECT_TRUE(enthaelt(lf.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'git ls-files' fuer " + bauprodukt)) << lf.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(lf.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'git ls-files' fuer " + bauprodukt))
+        << lf.ausgabe;
     EXPECT_FALSE(enthaelt(lf.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << lf.ausgabe;
     fs::remove(bin / "git", ec);
     ASSERT_FALSE(fs::exists(bin / "git"));
@@ -1751,7 +1949,7 @@ TEST(Pa1ToteAusnahme, GitFehlerInDerErreichbarkeitsProbeIstExit2) {
     Lauf const wieder = fall.fahren("", pfad);
     berichten("GitFehlerInDerErreichbarkeitsProbeIstExit2/Koeder-entfernt", wieder, marke);
     EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
-    EXPECT_TRUE(enthaelt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
+    EXPECT_TRUE(zeile_exakt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
 }
 
 // =============================================================================
@@ -1779,18 +1977,19 @@ TEST(Pa1ToteAusnahme, ArchivAnkerMussBlobInDerObjektdatenbankSein) {
         im_repo(fall.repo(), "git update-index --add --cacheinfo 100644," + tree.ausgabe + "," + anker);
     ASSERT_EQ(cacheinfo.code, 0) << cacheinfo.ausgabe;
     Lauf const eintrag = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(anker));
-    ASSERT_TRUE(enthaelt(eintrag.ausgabe, "100644 " + tree.ausgabe + " 0\t" + anker)) << "Arrangement:\n"
-                                                                                      << eintrag.ausgabe;
+    ASSERT_TRUE(zeile_exakt(eintrag.ausgabe, "100644 " + tree.ausgabe + " 0\t" + anker)) << "Arrangement:\n"
+                                                                                         << eintrag.ausgabe;
     Lauf const als_tree = fall.fahren();
     berichten("ArchivAnkerMussBlobInDerObjektdatenbankSein/Tree-unter-100644", als_tree, marke);
     EXPECT_EQ(als_tree.code, 1) << "Ein Tree ist kein Anker -- die Datei bleibt im SOLL, ROT.\n" << als_tree.ausgabe;
-    EXPECT_TRUE(enthaelt(als_tree.ausgabe, anker + " -- UNPRUEFBARER ANKER: Objekttyp tree ist kein Blob (Index-Modus"
-                                                   " 100644 verspricht eines)"))
+    EXPECT_TRUE(zeile_beginnt(als_tree.ausgabe, anker +
+                                                    " -- UNPRUEFBARER ANKER: Objekttyp tree ist kein Blob (Index-Modus"
+                                                    " 100644 verspricht eines)"))
         << als_tree.ausgabe;
-    EXPECT_TRUE(enthaelt(als_tree.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << als_tree.ausgabe;
-    EXPECT_TRUE(enthaelt(als_tree.ausgabe, fall.waise())) << als_tree.ausgabe;
-    EXPECT_TRUE(enthaelt(als_tree.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0))) << als_tree.ausgabe;
-    EXPECT_TRUE(enthaelt(als_tree.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << als_tree.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(als_tree.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << als_tree.ausgabe;
+    EXPECT_TRUE(zeile_exakt(als_tree.ausgabe, fall.waise())) << als_tree.ausgabe;
+    EXPECT_TRUE(zeile_exakt(als_tree.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0))) << als_tree.ausgabe;
+    EXPECT_TRUE(zeile_exakt(als_tree.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << als_tree.ausgabe;
 
     // (b) ein SHA ohne Objekt.
     std::string const fantasie = "0123456789012345678901234567890123456789";
@@ -1801,18 +2000,18 @@ TEST(Pa1ToteAusnahme, ArchivAnkerMussBlobInDerObjektdatenbankSein) {
     Lauf const ohne_objekt = fall.fahren();
     berichten("ArchivAnkerMussBlobInDerObjektdatenbankSein/Objekt-fehlt", ohne_objekt, marke);
     EXPECT_EQ(ohne_objekt.code, 1) << ohne_objekt.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne_objekt.ausgabe,
-                         anker + " -- UNPRUEFBARER ANKER: Blob " + fantasie + " fehlt in der Objektdatenbank"))
+    EXPECT_TRUE(zeile_beginnt(ohne_objekt.ausgabe,
+                              anker + " -- UNPRUEFBARER ANKER: Blob " + fantasie + " fehlt in der Objektdatenbank"))
         << ohne_objekt.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne_objekt.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0))) << ohne_objekt.ausgabe;
-    EXPECT_TRUE(enthaelt(ohne_objekt.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << ohne_objekt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ohne_objekt.ausgabe, nenner_ohne_bauweg(1, 0, 0, 0, 0))) << ohne_objekt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ohne_objekt.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << ohne_objekt.ausgabe;
 
     // (c) Gegenrichtung: ein echtes Blob traegt.
     ASSERT_TRUE(fall.repo().schreibe_und_verfolge(anker, "# Anker mit Inhalt " + marke + "\n"));
     Lauf const blob = fall.fahren();
     berichten("ArchivAnkerMussBlobInDerObjektdatenbankSein/echtes-Blob", blob, marke);
     EXPECT_EQ(blob.code, 0) << blob.ausgabe;
-    EXPECT_TRUE(enthaelt(blob.ausgabe, endzeile_ok(1, 1))) << blob.ausgabe;
+    EXPECT_TRUE(zeile_exakt(blob.ausgabe, endzeile_ok(1, 1))) << blob.ausgabe;
 
     // (d) git selbst scheitert an 'cat-file -t': Exit 2, kein Befund.
     Lauf const wo = im_repo(fall.repo(), "command -v git");
@@ -1834,7 +2033,8 @@ TEST(Pa1ToteAusnahme, ArchivAnkerMussBlobInDerObjektdatenbankSein) {
     Lauf const ausfall = fall.fahren("", pfad);
     berichten("ArchivAnkerMussBlobInDerObjektdatenbankSein/cat-file-t-128", ausfall, marke);
     EXPECT_EQ(ausfall.code, 2) << ausfall.ausgabe;
-    EXPECT_TRUE(enthaelt(ausfall.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'git cat-file -t' fuer den Anker " + anker))
+    EXPECT_TRUE(
+        zeile_beginnt(ausfall.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'git cat-file -t' fuer den Anker " + anker))
         << ausfall.ausgabe;
     EXPECT_FALSE(enthaelt(ausfall.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << ausfall.ausgabe;
     std::error_code ec;
@@ -1843,7 +2043,7 @@ TEST(Pa1ToteAusnahme, ArchivAnkerMussBlobInDerObjektdatenbankSein) {
     Lauf const wieder = fall.fahren("", pfad);
     berichten("ArchivAnkerMussBlobInDerObjektdatenbankSein/Koeder-entfernt", wieder, marke);
     EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
-    EXPECT_TRUE(enthaelt(wieder.ausgabe, endzeile_ok(1, 1))) << wieder.ausgabe;
+    EXPECT_TRUE(zeile_exakt(wieder.ausgabe, endzeile_ok(1, 1))) << wieder.ausgabe;
 }
 
 // =============================================================================
@@ -1871,14 +2071,15 @@ TEST(Pa1ToteAusnahme, DateAusfallIstExit2) {
     berichten("DateAusfallIstExit2/date-Koeder", ausfall, marke);
     EXPECT_EQ(ausfall.code, 2) << "Ohne belastbares Heute kann die Wache nicht pruefen -- Exit 2, nie Rohstatus.\n"
                                << ausfall.ausgabe;
-    EXPECT_TRUE(enthaelt(ausfall.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'date +%Y-%m-%d'")) << ausfall.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(ausfall.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'date +%Y-%m-%d'")) << ausfall.ausgabe;
     EXPECT_FALSE(enthaelt(ausfall.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << ausfall.ausgabe;
 
     // Gegenrichtung 1: das Heute vorgegeben -> date wird nicht gefragt, der Koeder bleibt wirkungslos.
     Lauf const vorgegeben = fall.fahren("2026-09-18", pfad);
     berichten("DateAusfallIstExit2/Heute-vorgegeben", vorgegeben, marke);
     EXPECT_EQ(vorgegeben.code, 0) << vorgegeben.ausgabe;
-    EXPECT_TRUE(enthaelt(vorgegeben.ausgabe, "2026-09-18 -- Herkunft: COMDARE_WACHE_HEUTE (ueberschrieben)"))
+    EXPECT_TRUE(zeile_exakt(vorgegeben.ausgabe, "Heute (fuer 'frist:'): 2026-09-18 -- Herkunft: COMDARE_WACHE_HEUTE"
+                                                " (ueberschrieben)."))
         << vorgegeben.ausgabe;
 
     // Gegenrichtung 2: ohne Koeder.
@@ -1888,7 +2089,8 @@ TEST(Pa1ToteAusnahme, DateAusfallIstExit2) {
     Lauf const wieder = fall.fahren("", pfad);
     berichten("DateAusfallIstExit2/Koeder-entfernt", wieder, marke);
     EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
-    EXPECT_TRUE(enthaelt(wieder.ausgabe, "Herkunft: Systemuhr")) << wieder.ausgabe;
+    // Fragment, bewusst: das Datum der Systemuhr ist nicht pinnbar; der Zeilenrest ' -- Herkunft: Systemuhr.' schon.
+    EXPECT_TRUE(enthaelt(wieder.ausgabe, " -- Herkunft: Systemuhr.")) << wieder.ausgabe;
 }
 
 // =============================================================================
@@ -1936,13 +2138,13 @@ TEST(Pa1ToteAusnahme, AllowlistFormfehlerFuerDateiImBauwegIstUnpruefbar) {
         EXPECT_EQ(lauf.code, 1) << s.name << ": ein Formfehler in einer stummen Zeile ist ein Freibrief in Reserve"
                                 << " -- ROT.\n"
                                 << lauf.ausgabe;
-        EXPECT_TRUE(enthaelt(lauf.ausgabe, s.meldung)) << s.name << "\n" << lauf.ausgabe;
+        EXPECT_TRUE(zeile_beginnt(lauf.ausgabe, s.meldung)) << s.name << "\n" << lauf.ausgabe;
         EXPECT_TRUE(enthaelt(lauf.ausgabe, "die Zeile gilt einer Datei IM Bauweg und ist stumm")) << lauf.ausgabe;
-        EXPECT_TRUE(enthaelt(lauf.ausgabe, nenner_davon(1, 0, 0, 0, 0)))
+        EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_davon(1, 0, 0, 0, 0)))
             << "Die tragende Zeile der Waise darf nicht mit rot werden.\n"
             << lauf.ausgabe;
-        EXPECT_TRUE(enthaelt(lauf.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0, 1))) << lauf.ausgabe;
-        EXPECT_TRUE(enthaelt(lauf.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << lauf.ausgabe;
+        EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0, 1))) << lauf.ausgabe;
+        EXPECT_TRUE(zeile_exakt(lauf.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << lauf.ausgabe;
     }
 
     // (e) Gegenrichtung: wohlgeformt und stumm.
@@ -1956,9 +2158,9 @@ TEST(Pa1ToteAusnahme, AllowlistFormfehlerFuerDateiImBauwegIstUnpruefbar) {
     EXPECT_FALSE(enthaelt(gruen.ausgabe, "stumm " + marke))
         << "Die stumme Zeile darf nie ausgewertet worden sein -- ihr Feld 3 gehoert nicht in die Ausgabe.\n"
         << gruen.ausgabe;
-    EXPECT_TRUE(enthaelt(gruen.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << gruen.ausgabe;
-    EXPECT_TRUE(enthaelt(gruen.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0, 0))) << gruen.ausgabe;
-    EXPECT_TRUE(enthaelt(gruen.ausgabe, endzeile_ok(2, 0))) << gruen.ausgabe;
+    EXPECT_TRUE(zeile_exakt(gruen.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << gruen.ausgabe;
+    EXPECT_TRUE(zeile_exakt(gruen.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0, 0))) << gruen.ausgabe;
+    EXPECT_TRUE(zeile_exakt(gruen.ausgabe, endzeile_ok(2, 0))) << gruen.ausgabe;
 }
 
 // =============================================================================
@@ -1999,9 +2201,12 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     ASSERT_NE(umbruch, std::string::npos) << "Arrangement: nur eine Zeile unter dem Verzeichnis:\n"
                                           << eintraege.ausgabe;
     ASSERT_EQ(eintraege.ausgabe.substr(0, umbruch), "160000 " + sha + " 0\t" + gitlink) << eintraege.ausgabe;
-    ASSERT_TRUE(enthaelt(eintraege.ausgabe, "100644 ")) << "Arrangement: die Datei fehlt unter dem Verzeichnis:\n"
-                                                        << eintraege.ausgabe;
-    ASSERT_TRUE(enthaelt(eintraege.ausgabe, "\t" + datei)) << eintraege.ausgabe;
+    // EXAKTE INDEX-ZEILE der Datei statt zweier Teilstring-ASSERTs (Lens C r4 LC3T-08, Fix-r6).
+    Lauf const bsha = im_repo(fall.repo(), "git hash-object -- " + zitiert(datei));
+    ASSERT_EQ(bsha.ausgabe.size(), 40U) << "kein SHA-1: '" << bsha.ausgabe << "'";
+    ASSERT_TRUE(zeile_exakt(eintraege.ausgabe, "100644 " + bsha.ausgabe + " 0\t" + datei))
+        << "Arrangement: die Datei fehlt unter dem Verzeichnis:\n"
+        << eintraege.ausgabe;
 
     // (a) Gegenstand in Tiefe 2 unter dem Verzeichnis: keine Quelle dieses Repos kennt 'nicht/'.
     std::string const tot = dir + "/nicht/da_" + marke + ".hpp";
@@ -2010,12 +2215,12 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/Tiefe-2", lauf, marke);
     EXPECT_EQ(lauf.code, 1) << "Das Verzeichnis ist kein Gitlink -- der Zweig 'nicht/' hat keinen Erzeuger, ROT.\n"
                             << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, "TOTE AUSNAHME -- der Gegenstand kann in KEINEM erklaerten Baum entstehen:"))
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, "TOTE AUSNAHME -- der Gegenstand kann in KEINEM erklaerten Baum entstehen:"))
         << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + tot + "\" existiert nicht"))
+    EXPECT_TRUE(zeile_beginnt(lauf.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + tot + "\" existiert nicht"))
         << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << lauf.ausgabe;
-    EXPECT_TRUE(enthaelt(lauf.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << lauf.ausgabe;
 
     // (b) Gegenrichtung: unter dem ECHTEN Gitlink bleibt jeder Pfad erreichbar (Fall (4)).
     std::string const drin = gitlink + "/include/kopf_" + marke + ".hpp";
@@ -2025,9 +2230,9 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     EXPECT_EQ(gruen.code, 0) << "Ein Pfad unter einem Gitlink kann jederzeit ausgecheckt werden -- kein Befund.\n"
                              << gruen.ausgabe;
     // Feld 3 der gelesenen Zeile, nicht die blosse Marke (die steht als Pfadname in jeder Ausgabe; LB4-02).
-    EXPECT_TRUE(enthaelt(gruen.ausgabe, "Koeder " + marke)) << gruen.ausgabe;
-    EXPECT_TRUE(enthaelt(gruen.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << gruen.ausgabe;
-    EXPECT_TRUE(enthaelt(gruen.ausgabe, endzeile_ok(2, 0))) << gruen.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(gruen.ausgabe, fall.waise() + " -- Koeder " + marke)) << gruen.ausgabe;
+    EXPECT_TRUE(zeile_exakt(gruen.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << gruen.ausgabe;
+    EXPECT_TRUE(zeile_exakt(gruen.ausgabe, endzeile_ok(2, 0))) << gruen.ausgabe;
 
     // (c) Das direkte Kind des Verzeichnisses: erreichbar, weil der Elternteil getrackten Inhalt hat.
     std::string const kind = dir + "/nicht_da_" + marke + ".hpp";
@@ -2036,8 +2241,8 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/direktes-Kind", direkt, marke);
     EXPECT_EQ(direkt.code, 0) << "Eine neue Datei in einem vorhandenen Verzeichnis ist der Normalfall.\n"
                               << direkt.ausgabe;
-    EXPECT_TRUE(enthaelt(direkt.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << direkt.ausgabe;
-    EXPECT_TRUE(enthaelt(direkt.ausgabe, endzeile_ok(2, 0))) << direkt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(direkt.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << direkt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(direkt.ausgabe, endzeile_ok(2, 0))) << direkt.ausgabe;
 
     // (d) DER MODUS (Lens B r4 LB4-01, Lens A r5 LA5-06; Fix-r5): ein SYMLINK (Index-Modus 120000, nur im
     //     Index -- kein Link im Arbeitsbaum) an Stelle eines Gitlinks, Gegenstand direkt darunter. Die Wache
@@ -2051,27 +2256,31 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     Lauf const lidx = im_repo(fall.repo(), "git update-index --add --cacheinfo 120000," + blob.ausgabe + "," + link);
     ASSERT_EQ(lidx.code, 0) << "Symlink-Eintrag konnte nicht in den Index gelegt werden:\n" << lidx.ausgabe;
     Lauf const lmodus = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + link));
-    ASSERT_TRUE(enthaelt(lmodus.ausgabe, "120000 ")) << "Arrangement: kein Symlink-Eintrag:\n" << lmodus.ausgabe;
-    ASSERT_TRUE(enthaelt(lmodus.ausgabe, " 0\t" + link)) << lmodus.ausgabe;
+    // EXAKTE INDEX-ZEILE statt zweier Teilstring-ASSERTs (Lens C r4 LC3T-08, Fix-r6).
+    ASSERT_TRUE(zeile_exakt(lmodus.ausgabe, "120000 " + blob.ausgabe + " 0\t" + link))
+        << "Arrangement: kein Symlink-Eintrag als exakte Index-Zeile:\n"
+        << lmodus.ausgabe;
     std::string const unter_link = link + "/x_" + marke + ".hpp";
     ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_link));
     Lauf const symlink = fall.fahren();
     berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/Symlink-statt-Gitlink", symlink, marke);
     EXPECT_EQ(symlink.code, 1) << "Ein Symlink ist kein Gitlink und kein Verzeichnis -- UNPRUEFBAR, ROT.\n"
                                << symlink.ausgabe;
-    EXPECT_TRUE(enthaelt(symlink.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_link +
-                                              "\" existiert nicht, und sein Vorfahr " + link +
-                                              " ist im Index ein SYMLINK (Modus 120000)"))
+    EXPECT_TRUE(zeile_beginnt(symlink.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_link +
+                                                   "\" existiert nicht, und sein Vorfahr " + link +
+                                                   " ist im Index ein SYMLINK (Modus 120000)"))
         << symlink.ausgabe;
     EXPECT_FALSE(enthaelt(symlink.ausgabe, "TOTE AUSNAHME -- der Gegenstand"))
         << "Ein Symlink-Ahne ist unpruefbar, nicht tot: die Wache weiss nicht, was hinter dem Link liegt.\n"
         << symlink.ausgabe;
-    EXPECT_TRUE(enthaelt(symlink.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << symlink.ausgabe;
-    EXPECT_TRUE(enthaelt(symlink.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << symlink.ausgabe;
+    EXPECT_TRUE(zeile_exakt(symlink.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << symlink.ausgabe;
+    EXPECT_TRUE(zeile_exakt(symlink.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << symlink.ausgabe;
 
     // (e) DIE INDEX-STUFE (Lens B r4 LB4-03, Lead-Entscheid O-12 Teil 1; Fix-r5): ein Gitlink, der NUR auf
-    //     Stufe 1 steht (Merge-Konflikt, keine Stufe 0; 'update-index --index-info'), ist ein Gitlink -- in jedem
-    //     Ausgang des Merges bleibt der Pfad darunter erreichbar. Ein Mutant, der nur Stufe 0 zaehlt (M7),
+    //     Stufe 1 steht (Merge-Konflikt, keine Stufe 0; 'update-index --index-info'), ist ein Gitlink -- in
+    //     MINDESTENS EINEM Ausgang des Merges bleibt der Pfad darunter erreichbar, und 'erreichbar' ist hier die
+    //     Vorsichtsregel (TOT waere die starke Behauptung; Wortlaut berichtigt mit Fix-r6, Lens A r6 LA6-05 = Lens
+    //     B r5 LB5-I3: 'in jedem Ausgang' war zu viel). Ein Mutant, der nur Stufe 0 zaehlt (M7),
     //     liesse den Pfad in check-ignore laufen (Exit 2). Jetzt wie bisher: erreichbar, Exit 0 -- gepinnt.
     std::string const stufig = dir + "/S-sub";
     std::string const sha1   = "0000000000000000000000000000000000000003";
@@ -2080,8 +2289,8 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
                                                zitiert(fall.repo().pfad() / ("stufe1_" + marke + ".txt")));
     ASSERT_EQ(sidx.code, 0) << "git update-index --index-info fehlgeschlagen:\n" << sidx.ausgabe;
     Lauf const sstufen = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + stufig));
-    ASSERT_TRUE(enthaelt(sstufen.ausgabe, "160000 " + sha1 + " 1\t" + stufig)) << "Arrangement: keine Stufe 1:\n"
-                                                                               << sstufen.ausgabe;
+    ASSERT_TRUE(zeile_exakt(sstufen.ausgabe, "160000 " + sha1 + " 1\t" + stufig)) << "Arrangement: keine Stufe 1:\n"
+                                                                                  << sstufen.ausgabe;
     ASSERT_FALSE(enthaelt(sstufen.ausgabe, " 0\t" + stufig)) << "Arrangement: Stufe 0 steht:\n" << sstufen.ausgabe;
     std::string const unter_stufig = stufig + "/x_" + marke + ".hpp";
     ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_stufig));
@@ -2089,9 +2298,9 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/Gitlink-nur-Stufe-1", stufe, marke);
     EXPECT_EQ(stufe.code, 0) << "Ein Gitlink im Merge-Konflikt ist ein Gitlink -- der Pfad darunter ist erreichbar.\n"
                              << stufe.ausgabe;
-    EXPECT_TRUE(enthaelt(stufe.ausgabe, "Koeder " + marke)) << stufe.ausgabe;
-    EXPECT_TRUE(enthaelt(stufe.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << stufe.ausgabe;
-    EXPECT_TRUE(enthaelt(stufe.ausgabe, endzeile_ok(2, 0))) << stufe.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(stufe.ausgabe, fall.waise() + " -- Koeder " + marke)) << stufe.ausgabe;
+    EXPECT_TRUE(zeile_exakt(stufe.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << stufe.ausgabe;
+    EXPECT_TRUE(zeile_exakt(stufe.ausgabe, endzeile_ok(2, 0))) << stufe.ausgabe;
 
     // (f) DER TYP-KONFLIKT (Lens A r5 LA5-02, Lead-Entscheid O-12 Teil 2; Fix-r5): derselbe Pfad ist auf Stufe 2
     //     eine DATEI (100644) und auf Stufe 3 ein GITLINK (160000). Loest der Merge zur Datei auf, ist der
@@ -2106,8 +2315,10 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
                                                zitiert(fall.repo().pfad() / ("konflikt_" + marke + ".txt")));
     ASSERT_EQ(kidx.code, 0) << "git update-index --index-info fehlgeschlagen:\n" << kidx.ausgabe;
     Lauf const kstufen = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + zwiesp));
-    ASSERT_TRUE(enthaelt(kstufen.ausgabe, "100644 " + blob.ausgabe + " 2\t" + zwiesp)) << kstufen.ausgabe;
-    ASSERT_TRUE(enthaelt(kstufen.ausgabe, "160000 " + sha3 + " 3\t" + zwiesp)) << kstufen.ausgabe;
+    ASSERT_TRUE(zeile_exakt(kstufen.ausgabe, "100644 " + blob.ausgabe + " 2\t" + zwiesp)) << kstufen.ausgabe;
+    ASSERT_TRUE(zeile_exakt(kstufen.ausgabe, "160000 " + sha3 + " 3\t" + zwiesp)) << kstufen.ausgabe;
+    // AUSSCHLUSS DER STUFE 0 (Lens C r4 LC3T-08, Fix-r6): ohne ihn bewiese das Arrangement keinen Konflikt.
+    ASSERT_FALSE(enthaelt(kstufen.ausgabe, " 0\t" + zwiesp)) << "Arrangement: Stufe 0 steht:\n" << kstufen.ausgabe;
     std::string const unter_zwiesp = zwiesp + "/x_" + marke + ".hpp";
     ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_zwiesp));
     Lauf const konflikt = fall.fahren();
@@ -2115,12 +2326,188 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     EXPECT_EQ(konflikt.code, 1) << "Datei gegen Gitlink im Konflikt: die Antwort haengt vom Merge-Ausgang ab -- "
                                    "UNPRUEFBAR, ROT.\n"
                                 << konflikt.ausgabe;
-    EXPECT_TRUE(enthaelt(konflikt.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_zwiesp +
-                                               "\" existiert nicht, und sein Vorfahr " + zwiesp +
-                                               " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe"))
+    EXPECT_TRUE(zeile_beginnt(konflikt.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_zwiesp +
+                                                    "\" existiert nicht, und sein Vorfahr " + zwiesp +
+                                                    " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe" +
+                                                    " (Stufe 2: Datei, Stufe 3: Gitlink) -- ohne aufgeloeste Fassung"))
+        << "Die Meldung muss die TATSAECHLICHEN Typen je Stufe nennen (Lens C r4 LC3W-16, Fix-r6).\n"
         << konflikt.ausgabe;
-    EXPECT_TRUE(enthaelt(konflikt.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << konflikt.ausgabe;
-    EXPECT_TRUE(enthaelt(konflikt.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << konflikt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(konflikt.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << konflikt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(konflikt.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << konflikt.ausgabe;
+
+    // (f2) DIE ANDERE REIHENFOLGE (Lens C r4 LC3T-07, Fix-r6): Gitlink auf Stufe 2, Datei auf Stufe 3. Ein Mutant,
+    //      der den ersten Typ gewinnen laesst, sobald er ein Gitlink ist, ueberlebt (f) und stirbt hier (Beweisort
+    //      FIX-r6.md, M-gitlink-zuerst). Die Meldung nennt die Typen je Stufe in dieser Reihenfolge (LC3W-16);
+    //      bis 9223cbd5 stand fest '(Datei gegen Gitlink)' -- auch fuer Symlink gegen Gitlink (Probe X22).
+    std::string const zwiesp2 = dir + "/K2-sub";
+    ASSERT_TRUE(fall.repo().schreibe("konflikt2_" + marke + ".txt", "160000 " + sha3 + " 2\t" + zwiesp2 + "\n100644 " +
+                                                                        blob.ausgabe + " 3\t" + zwiesp2 + "\n"));
+    Lauf const kidx2 = im_repo(fall.repo(), "git update-index --index-info < " +
+                                                zitiert(fall.repo().pfad() / ("konflikt2_" + marke + ".txt")));
+    ASSERT_EQ(kidx2.code, 0) << "git update-index --index-info fehlgeschlagen:\n" << kidx2.ausgabe;
+    Lauf const kstufen2 = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + zwiesp2));
+    ASSERT_TRUE(zeile_exakt(kstufen2.ausgabe, "160000 " + sha3 + " 2\t" + zwiesp2)) << kstufen2.ausgabe;
+    ASSERT_TRUE(zeile_exakt(kstufen2.ausgabe, "100644 " + blob.ausgabe + " 3\t" + zwiesp2)) << kstufen2.ausgabe;
+    ASSERT_FALSE(enthaelt(kstufen2.ausgabe, " 0\t" + zwiesp2)) << kstufen2.ausgabe;
+    std::string const unter_zwiesp2 = zwiesp2 + "/x_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_zwiesp2));
+    Lauf const konflikt2 = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/Typ-Konflikt-Gitlink-Datei", konflikt2, marke);
+    EXPECT_EQ(konflikt2.code, 1) << "Gitlink gegen Datei im Konflikt, andere Reihenfolge -- UNPRUEFBAR, ROT.\n"
+                                 << konflikt2.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(konflikt2.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_zwiesp2 +
+                                                     "\" existiert nicht, und sein Vorfahr " + zwiesp2 +
+                                                     " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe" +
+                                                     " (Stufe 2: Gitlink, Stufe 3: Datei) -- ohne aufgeloeste Fassung"))
+        << konflikt2.ausgabe;
+    EXPECT_TRUE(zeile_exakt(konflikt2.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << konflikt2.ausgabe;
+    EXPECT_TRUE(zeile_exakt(konflikt2.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << konflikt2.ausgabe;
+
+    // (e2) GITLINK AUF DEN STUFEN 1, 2 UND 3 und (e3) auf den Stufen 1 und 3 (Lens C r4 LC3T-08, Fix-r6): alle
+    //      Zeilen vom selben Typ, kein Stufe-0-Eintrag -- ein Gitlink, erreichbar (O-12 Teil 1). Rot zuerst am
+    //      Mutanten, der zwei Gitlink-Stufen als Konflikt liest (M-gl-mehrstufig ueberlebt (e), (f) und (28e)).
+    std::string const drei  = dir + "/T-sub";
+    std::string const sha_b = "0000000000000000000000000000000000000008";
+    std::string const sha_c = "0000000000000000000000000000000000000009";
+    ASSERT_TRUE(fall.repo().schreibe("stufen123_" + marke + ".txt", "160000 " + sha1 + " 1\t" + drei + "\n160000 " +
+                                                                        sha_b + " 2\t" + drei + "\n160000 " + sha_c +
+                                                                        " 3\t" + drei + "\n"));
+    Lauf const didx = im_repo(fall.repo(), "git update-index --index-info < " +
+                                               zitiert(fall.repo().pfad() / ("stufen123_" + marke + ".txt")));
+    ASSERT_EQ(didx.code, 0) << didx.ausgabe;
+    Lauf const dstufen = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + drei));
+    ASSERT_TRUE(zeile_exakt(dstufen.ausgabe, "160000 " + sha1 + " 1\t" + drei)) << dstufen.ausgabe;
+    ASSERT_TRUE(zeile_exakt(dstufen.ausgabe, "160000 " + sha_b + " 2\t" + drei)) << dstufen.ausgabe;
+    ASSERT_TRUE(zeile_exakt(dstufen.ausgabe, "160000 " + sha_c + " 3\t" + drei)) << dstufen.ausgabe;
+    ASSERT_FALSE(enthaelt(dstufen.ausgabe, " 0\t" + drei)) << dstufen.ausgabe;
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + drei + "/x_" + marke + ".hpp"));
+    Lauf const stufen3 = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/Gitlink-Stufen-1-2-3", stufen3, marke);
+    EXPECT_EQ(stufen3.code, 0) << "Drei Gitlink-Stufen sind ein Gitlink -- erreichbar.\n" << stufen3.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(stufen3.ausgabe, fall.waise() + " -- Koeder " + marke)) << stufen3.ausgabe;
+    EXPECT_TRUE(zeile_exakt(stufen3.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << stufen3.ausgabe;
+    EXPECT_TRUE(zeile_exakt(stufen3.ausgabe, endzeile_ok(2, 0))) << stufen3.ausgabe;
+    std::string const eins_drei = dir + "/U-sub";
+    ASSERT_TRUE(fall.repo().schreibe("stufen13_" + marke + ".txt", "160000 " + sha1 + " 1\t" + eins_drei + "\n160000 " +
+                                                                       sha_c + " 3\t" + eins_drei + "\n"));
+    Lauf const uidx = im_repo(fall.repo(), "git update-index --index-info < " +
+                                               zitiert(fall.repo().pfad() / ("stufen13_" + marke + ".txt")));
+    ASSERT_EQ(uidx.code, 0) << uidx.ausgabe;
+    Lauf const ustufen = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + eins_drei));
+    ASSERT_TRUE(zeile_exakt(ustufen.ausgabe, "160000 " + sha1 + " 1\t" + eins_drei)) << ustufen.ausgabe;
+    ASSERT_TRUE(zeile_exakt(ustufen.ausgabe, "160000 " + sha_c + " 3\t" + eins_drei)) << ustufen.ausgabe;
+    ASSERT_FALSE(enthaelt(ustufen.ausgabe, " 0\t" + eins_drei)) << ustufen.ausgabe;
+    ASSERT_FALSE(enthaelt(ustufen.ausgabe, " 2\t" + eins_drei)) << ustufen.ausgabe;
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + eins_drei + "/x_" + marke + ".hpp"));
+    Lauf const stufen13 = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/Gitlink-Stufen-1-3", stufen13, marke);
+    EXPECT_EQ(stufen13.code, 0) << "Gitlink auf den Stufen 1 und 3 ist ein Gitlink -- erreichbar.\n"
+                                << stufen13.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(stufen13.ausgabe, fall.waise() + " -- Koeder " + marke)) << stufen13.ausgabe;
+    EXPECT_TRUE(zeile_exakt(stufen13.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << stufen13.ausgabe;
+    EXPECT_TRUE(zeile_exakt(stufen13.ausgabe, endzeile_ok(2, 0))) << stufen13.ausgabe;
+
+    // (g) EIN EINTRAG GEGEN EIN VERZEICHNIS DARUNTER (D/F-Konflikt; Lens A r6 LA6-01, Fix-r6): Gitlink D-sub auf
+    //     Stufe 2, Datei D-sub/x.txt auf Stufe 3 -- git verweigert das nur auf Stufe 0. Loest der Merge zum Gitlink
+    //     auf, ist Tiefe 2 darunter erreichbar; zum Verzeichnis, TOT. Die Wache 9223cbd5 sah nur den exakten
+    //     Gitlink und meldete erreichbar (Exit 0, fail-open: Probe X01). Jetzt UNPRUEFBAR; die Meldung nennt den
+    //     Eintrag UND das Verzeichnis darunter mit ihren Stufen.
+    std::string const dfsub = dir + "/D-sub";
+    std::string const sha_d = "000000000000000000000000000000000000000a";
+    ASSERT_TRUE(fall.repo().schreibe("df_" + marke + ".txt", "160000 " + sha_d + " 2\t" + dfsub + "\n100644 " +
+                                                                 blob.ausgabe + " 3\t" + dfsub + "/x.txt\n"));
+    Lauf const fidx = im_repo(fall.repo(), "git update-index --index-info < " +
+                                               zitiert(fall.repo().pfad() / ("df_" + marke + ".txt")));
+    ASSERT_EQ(fidx.code, 0) << "git update-index --index-info (D/F) fehlgeschlagen:\n" << fidx.ausgabe;
+    Lauf const fstufen = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + dfsub));
+    ASSERT_TRUE(zeile_exakt(fstufen.ausgabe, "160000 " + sha_d + " 2\t" + dfsub)) << fstufen.ausgabe;
+    ASSERT_TRUE(zeile_exakt(fstufen.ausgabe, "100644 " + blob.ausgabe + " 3\t" + dfsub + "/x.txt")) << fstufen.ausgabe;
+    ASSERT_FALSE(enthaelt(fstufen.ausgabe, " 0\t" + dfsub)) << fstufen.ausgabe;
+    std::string const unter_df = dfsub + "/tief/y_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_df));
+    Lauf const df = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/DF-Gitlink-2-gegen-Verzeichnis-3", df, marke);
+    EXPECT_EQ(df.code, 1) << "Eintrag gegen Verzeichnis im Konflikt: der Ausgang entscheidet -- UNPRUEFBAR, ROT.\n"
+                          << df.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(df.ausgabe,
+                              fall.waise() + " -- UNPRUEFBAR: \"" + unter_df + "\" existiert nicht, und sein Vorfahr " +
+                                  dfsub + " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe" +
+                                  " (Stufe 2: Gitlink; dazu Eintraege DARUNTER auf Stufe 3 = Verzeichnis" + " (D/F))"))
+        << df.ausgabe;
+    EXPECT_FALSE(enthaelt(df.ausgabe, "TOTE AUSNAHME -- der Gegenstand")) << df.ausgabe;
+    EXPECT_TRUE(zeile_exakt(df.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << df.ausgabe;
+    EXPECT_TRUE(zeile_exakt(df.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << df.ausgabe;
+
+    // (g2) DIE ANDERE SEITE: Datei E-sub auf Stufe 2, Gitlink E-sub/c darunter auf Stufe 3, Gegenstand UNTER dem
+    //      Gitlink. Die Wache 9223cbd5 kehrte am Gitlink um, bevor sie die Datei darueber sah (Exit 0, Probe X03);
+    //      jetzt laeuft die Ahnenschleife ueber den Gitlink weiter hinauf und findet den Konflikt. (g3) derselbe
+    //      Index, Gegenstand DIREKT unter der Datei: 9223cbd5 sagte TOT ('ist eine getrackte DATEI', Probe X03b),
+    //      der Ausgang 'Verzeichnis' machte ihn aber erreichbar -- UNPRUEFBAR, nicht TOT.
+    std::string const esub  = dir + "/E-sub";
+    std::string const sha_e = "000000000000000000000000000000000000000b";
+    ASSERT_TRUE(fall.repo().schreibe("df2_" + marke + ".txt", "100644 " + blob.ausgabe + " 2\t" + esub + "\n160000 " +
+                                                                  sha_e + " 3\t" + esub + "/c\n"));
+    Lauf const eidx = im_repo(fall.repo(), "git update-index --index-info < " +
+                                               zitiert(fall.repo().pfad() / ("df2_" + marke + ".txt")));
+    ASSERT_EQ(eidx.code, 0) << eidx.ausgabe;
+    Lauf const estufen = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + esub));
+    ASSERT_TRUE(zeile_exakt(estufen.ausgabe, "100644 " + blob.ausgabe + " 2\t" + esub)) << estufen.ausgabe;
+    ASSERT_TRUE(zeile_exakt(estufen.ausgabe, "160000 " + sha_e + " 3\t" + esub + "/c")) << estufen.ausgabe;
+    std::string const unter_e = esub + "/c/x_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_e));
+    Lauf const df2 = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/DF-Datei-2-gegen-Gitlink-darunter-3", df2, marke);
+    EXPECT_EQ(df2.code, 1) << "Datei ueber einem Gitlink im Konflikt -- UNPRUEFBAR, ROT (nicht erreichbar).\n"
+                           << df2.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(df2.ausgabe,
+                              fall.waise() + " -- UNPRUEFBAR: \"" + unter_e + "\" existiert nicht, und sein Vorfahr " +
+                                  esub + " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe" +
+                                  " (Stufe 2: Datei; dazu Eintraege DARUNTER auf Stufe 3 = Verzeichnis" + " (D/F))"))
+        << df2.ausgabe;
+    EXPECT_TRUE(zeile_exakt(df2.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << df2.ausgabe;
+    EXPECT_TRUE(zeile_exakt(df2.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << df2.ausgabe;
+    std::string const kind_e = esub + "/y_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + kind_e));
+    Lauf const df3 = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/DF-Datei-2-Kind-direkt-darunter", df3, marke);
+    EXPECT_EQ(df3.code, 1) << df3.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(df3.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + kind_e +
+                                               "\" existiert nicht, und sein Vorfahr " + esub +
+                                               " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe"))
+        << df3.ausgabe;
+    EXPECT_FALSE(enthaelt(df3.ausgabe, "ist eine getrackte DATEI"))
+        << "Im D/F-Konflikt ist die Datei-Diagnose die falsche Gewissheit -- UNPRUEFBAR, nicht TOT.\n"
+        << df3.ausgabe;
+    EXPECT_TRUE(zeile_exakt(df3.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << df3.ausgabe;
+    EXPECT_TRUE(zeile_exakt(df3.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << df3.ausgabe;
+
+    // (h) EIN SYMLINK NUR IM ARBEITSBAUM als Ahne (Lens A r6 LA6-03, Fix-r6): 'ln -s' ohne 'git add'. Die Index-
+    //     Lesung sah ihn nicht, 'git check-ignore' starb darunter mit 128 ("beyond a symbolic link") -- die Wache
+    //     9223cbd5 brach mit Exit 2 und der falschen Diagnose 'Werkzeug-Ausfall' ab (Probe X04). Jetzt UNPRUEFBAR
+    //     mit Grund, wie beim Index-Symlink (d), und kein check-ignore wird gefragt.
+    std::string const wlink = dir + "/wlink";
+    std::error_code   ec;
+    fs::create_directories(fall.repo().pfad() / dir / "real", ec);
+    ASSERT_FALSE(ec) << ec.message();
+    fs::create_symlink("real", fall.repo().pfad() / wlink, ec);
+    ASSERT_FALSE(ec) << "Symlink nicht anlegbar: " << ec.message();
+    ASSERT_FALSE(fall.repo().ist_verfolgt(wlink)) << "Arrangement: der Link steht im Index, die Stufe maesse (d).";
+    std::string const unter_wlink = wlink + "/x_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_wlink));
+    Lauf const arbeitsbaum = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/Symlink-nur-im-Arbeitsbaum", arbeitsbaum, marke);
+    EXPECT_EQ(arbeitsbaum.code, 1) << "Ein Symlink im Arbeitsbaum ist kein Verzeichnis -- UNPRUEFBAR, ROT, kein"
+                                      " Exit 2.\n"
+                                   << arbeitsbaum.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(arbeitsbaum.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_wlink +
+                                                       "\" existiert nicht, und sein Vorfahr " + wlink +
+                                                       " ist im Arbeitsbaum ein SYMLINK (nicht im Index)"))
+        << arbeitsbaum.ausgabe;
+    EXPECT_FALSE(enthaelt(arbeitsbaum.ausgabe, "ABBRUCH: Werkzeug-Ausfall"))
+        << "Die falsche Diagnose (check-ignore 128) darf nicht mehr erscheinen.\n"
+        << arbeitsbaum.ausgabe;
+    EXPECT_TRUE(zeile_exakt(arbeitsbaum.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << arbeitsbaum.ausgabe;
+    EXPECT_TRUE(zeile_exakt(arbeitsbaum.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << arbeitsbaum.ausgabe;
 }
 
 // =============================================================================
@@ -2146,11 +2533,14 @@ TEST(Pa1ToteAusnahme, DateiAlsVorfahrIstKeinVerzeichnis) {
     std::string const dir   = "ext/dir_" + marke;
     std::string const datei = dir + "/README.md";
     ASSERT_TRUE(fall.repo().schreibe_und_verfolge(datei, "# README " + marke + "\n"));
+    Lauf const rsha = im_repo(fall.repo(), "git hash-object -- " + zitiert(datei));
+    ASSERT_EQ(rsha.ausgabe.size(), 40U) << "kein SHA-1: '" << rsha.ausgabe << "'";
     Lauf const eintrag = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + datei));
     ASSERT_EQ(eintrag.code, 0) << eintrag.ausgabe;
-    ASSERT_TRUE(enthaelt(eintrag.ausgabe, "100644 ")) << "Arrangement: die Datei ist kein Blob 100644:\n"
-                                                      << eintrag.ausgabe;
-    ASSERT_TRUE(enthaelt(eintrag.ausgabe, " 0\t" + datei)) << eintrag.ausgabe;
+    // EXAKTE INDEX-ZEILE statt zweier Teilstring-ASSERTs (Lens C r4 LC3T-08, Fix-r6).
+    ASSERT_TRUE(zeile_exakt(eintrag.ausgabe, "100644 " + rsha.ausgabe + " 0\t" + datei))
+        << "Arrangement: die Datei ist kein Blob 100644 auf Stufe 0:\n"
+        << eintrag.ausgabe;
 
     // (a) direkt unter der Datei.
     std::string const unter = datei + "/x_" + marke + ".hpp";
@@ -2159,15 +2549,16 @@ TEST(Pa1ToteAusnahme, DateiAlsVorfahrIstKeinVerzeichnis) {
     berichten("DateiAlsVorfahrIstKeinVerzeichnis/direkt-unter-Datei", direkt, marke);
     EXPECT_EQ(direkt.code, 1) << "Unter einer Datei kann nie ein Kind entstehen -- TOTE AUSNAHME, ROT.\n"
                               << direkt.ausgabe;
-    EXPECT_TRUE(enthaelt(direkt.ausgabe, "TOTE AUSNAHME -- der Gegenstand kann in KEINEM erklaerten Baum entstehen:"))
+    EXPECT_TRUE(
+        zeile_exakt(direkt.ausgabe, "TOTE AUSNAHME -- der Gegenstand kann in KEINEM erklaerten Baum entstehen:"))
         << direkt.ausgabe;
-    EXPECT_TRUE(enthaelt(direkt.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + unter +
-                                             "\" existiert nicht, und sein Vorfahr " + datei +
-                                             " ist eine getrackte DATEI (Index-Modus 100644/100755)"))
+    EXPECT_TRUE(zeile_beginnt(direkt.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + unter +
+                                                  "\" existiert nicht, und sein Vorfahr " + datei +
+                                                  " ist eine getrackte DATEI (Index-Modus 100644/100755)"))
         << "Die Meldung muss den Vorfahren und seine Klasse nennen.\n"
         << direkt.ausgabe;
-    EXPECT_TRUE(enthaelt(direkt.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << direkt.ausgabe;
-    EXPECT_TRUE(enthaelt(direkt.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << direkt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(direkt.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << direkt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(direkt.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << direkt.ausgabe;
 
     // (b) Tiefe 2 unter der Datei: dieselbe Diagnose (nicht die allgemeine 'keine Quelle kennt den Zweig').
     std::string const tief = datei + "/tief/x_" + marke + ".hpp";
@@ -2175,12 +2566,12 @@ TEST(Pa1ToteAusnahme, DateiAlsVorfahrIstKeinVerzeichnis) {
     Lauf const tiefer = fall.fahren();
     berichten("DateiAlsVorfahrIstKeinVerzeichnis/Tiefe-2-unter-Datei", tiefer, marke);
     EXPECT_EQ(tiefer.code, 1) << tiefer.ausgabe;
-    EXPECT_TRUE(enthaelt(tiefer.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + tief +
-                                             "\" existiert nicht, und sein Vorfahr " + datei +
-                                             " ist eine getrackte DATEI (Index-Modus 100644/100755)"))
+    EXPECT_TRUE(zeile_beginnt(tiefer.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + tief +
+                                                  "\" existiert nicht, und sein Vorfahr " + datei +
+                                                  " ist eine getrackte DATEI (Index-Modus 100644/100755)"))
         << tiefer.ausgabe;
-    EXPECT_TRUE(enthaelt(tiefer.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << tiefer.ausgabe;
-    EXPECT_TRUE(enthaelt(tiefer.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << tiefer.ausgabe;
+    EXPECT_TRUE(zeile_exakt(tiefer.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << tiefer.ausgabe;
+    EXPECT_TRUE(zeile_exakt(tiefer.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << tiefer.ausgabe;
 
     // (c) Gegenrichtung: die getrackte Datei selbst, im Arbeitsbaum entfernt -- sie kann wiederkommen.
     std::error_code ec;
@@ -2192,9 +2583,9 @@ TEST(Pa1ToteAusnahme, DateiAlsVorfahrIstKeinVerzeichnis) {
     berichten("DateiAlsVorfahrIstKeinVerzeichnis/Datei-selbst-als-Gegenstand", selbst, marke);
     EXPECT_EQ(selbst.code, 0) << "Eine getrackte, im Arbeitsbaum fehlende Datei ist erreichbar (Checkout).\n"
                               << selbst.ausgabe;
-    EXPECT_TRUE(enthaelt(selbst.ausgabe, "Koeder " + marke)) << selbst.ausgabe;
-    EXPECT_TRUE(enthaelt(selbst.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << selbst.ausgabe;
-    EXPECT_TRUE(enthaelt(selbst.ausgabe, endzeile_ok(2, 0))) << selbst.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(selbst.ausgabe, fall.waise() + " -- Koeder " + marke)) << selbst.ausgabe;
+    EXPECT_TRUE(zeile_exakt(selbst.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << selbst.ausgabe;
+    EXPECT_TRUE(zeile_exakt(selbst.ausgabe, endzeile_ok(2, 0))) << selbst.ausgabe;
 
     // (d) Gegenrichtung: das direkte Kind des VERZEICHNISSES (es hat getrackten Inhalt: die Datei).
     std::string const kind = dir + "/neu_" + marke + ".hpp";
@@ -2203,9 +2594,9 @@ TEST(Pa1ToteAusnahme, DateiAlsVorfahrIstKeinVerzeichnis) {
     berichten("DateiAlsVorfahrIstKeinVerzeichnis/direktes-Kind-des-Verzeichnisses", verzeichnis, marke);
     EXPECT_EQ(verzeichnis.code, 0) << "Eine neue Datei in einem vorhandenen Verzeichnis ist der Normalfall.\n"
                                    << verzeichnis.ausgabe;
-    EXPECT_TRUE(enthaelt(verzeichnis.ausgabe, "Koeder " + marke)) << verzeichnis.ausgabe;
-    EXPECT_TRUE(enthaelt(verzeichnis.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << verzeichnis.ausgabe;
-    EXPECT_TRUE(enthaelt(verzeichnis.ausgabe, endzeile_ok(2, 0))) << verzeichnis.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(verzeichnis.ausgabe, fall.waise() + " -- Koeder " + marke)) << verzeichnis.ausgabe;
+    EXPECT_TRUE(zeile_exakt(verzeichnis.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << verzeichnis.ausgabe;
+    EXPECT_TRUE(zeile_exakt(verzeichnis.ausgabe, endzeile_ok(2, 0))) << verzeichnis.ausgabe;
 
     // (e) die Datei im Merge-Konflikt: Stufen 1-3, alle 100644, keine Stufe 0 -- in jedem Ausgang eine Datei.
     Lauf const sha = im_repo(fall.repo(), "git hash-object -w --stdin < /dev/null");
@@ -2218,21 +2609,53 @@ TEST(Pa1ToteAusnahme, DateiAlsVorfahrIstKeinVerzeichnis) {
     Lauf const konflikt = im_repo(fall.repo(), "git update-index --index-info < " +
                                                    zitiert(fall.repo().pfad() / ("konflikt_" + marke + ".txt")));
     ASSERT_EQ(konflikt.code, 0) << "git update-index --index-info fehlgeschlagen:\n" << konflikt.ausgabe;
+    // EXAKTE INDEX-ZEILEN je Stufe, auch Stufe 2 (Lens C r4 LC3T-08, Fix-r6).
     Lauf const stufen = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + datei));
-    ASSERT_TRUE(enthaelt(stufen.ausgabe, " 1\t" + datei)) << "Arrangement: keine Stufe 1:\n" << stufen.ausgabe;
-    ASSERT_TRUE(enthaelt(stufen.ausgabe, " 3\t" + datei)) << "Arrangement: keine Stufe 3:\n" << stufen.ausgabe;
+    ASSERT_TRUE(zeile_exakt(stufen.ausgabe, "100644 " + sha.ausgabe + " 1\t" + datei))
+        << "Arrangement: keine Stufe 1:\n"
+        << stufen.ausgabe;
+    ASSERT_TRUE(zeile_exakt(stufen.ausgabe, "100644 " + sha.ausgabe + " 2\t" + datei))
+        << "Arrangement: keine Stufe 2:\n"
+        << stufen.ausgabe;
+    ASSERT_TRUE(zeile_exakt(stufen.ausgabe, "100644 " + sha.ausgabe + " 3\t" + datei))
+        << "Arrangement: keine Stufe 3:\n"
+        << stufen.ausgabe;
     ASSERT_FALSE(enthaelt(stufen.ausgabe, " 0\t" + datei)) << "Arrangement: Stufe 0 steht noch:\n" << stufen.ausgabe;
     ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter));
     Lauf const im_konflikt = fall.fahren();
     berichten("DateiAlsVorfahrIstKeinVerzeichnis/Datei-im-Konflikt-Stufen-1-2-3", im_konflikt, marke);
     EXPECT_EQ(im_konflikt.code, 1) << "Drei Datei-Stufen sind eine Datei -- unter ihr entsteht nichts, TOT.\n"
                                    << im_konflikt.ausgabe;
-    EXPECT_TRUE(enthaelt(im_konflikt.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + unter +
-                                                  "\" existiert nicht, und sein Vorfahr " + datei +
-                                                  " ist eine getrackte DATEI (Index-Modus 100644/100755)"))
+    EXPECT_TRUE(zeile_beginnt(im_konflikt.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + unter +
+                                                       "\" existiert nicht, und sein Vorfahr " + datei +
+                                                       " ist eine getrackte DATEI (Index-Modus 100644/100755)"))
         << im_konflikt.ausgabe;
-    EXPECT_TRUE(enthaelt(im_konflikt.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << im_konflikt.ausgabe;
-    EXPECT_TRUE(enthaelt(im_konflikt.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << im_konflikt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(im_konflikt.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << im_konflikt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(im_konflikt.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << im_konflikt.ausgabe;
+
+    // (f) MODUS 100755 (Lens C r4 LC3T-06, Fix-r6): dieselbe Datei ausfuehrbar -- ein regulaeres Blob wie 100644,
+    //     unter dem nie ein Kind entsteht: TOT mit derselben Diagnose. Rot zuerst am Mutanten, der nur 100644 als
+    //     Datei liest (M-nur644 ueberlebte (a)-(e), die alle 100644 fahren; Beweisort FIX-r6.md). Der Konflikt aus
+    //     (e) wird dafuer per 'git add' aufgeloest (Stufe 0, derselbe Inhalt), dann '--chmod=+x'.
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(datei, "# README " + marke + "\n"));
+    Lauf const chmodx = im_repo(fall.repo(), "git update-index --chmod=+x -- " + zitiert(datei));
+    ASSERT_EQ(chmodx.code, 0) << "git update-index --chmod=+x fehlgeschlagen:\n" << chmodx.ausgabe;
+    Lauf const eintrag_x = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + datei));
+    ASSERT_TRUE(zeile_exakt(eintrag_x.ausgabe, "100755 " + rsha.ausgabe + " 0\t" + datei)) << "Arrangement:\n"
+                                                                                           << eintrag_x.ausgabe;
+    ASSERT_FALSE(enthaelt(eintrag_x.ausgabe, " 1\t" + datei)) << "Arrangement: Stufe 1 steht noch:\n"
+                                                              << eintrag_x.ausgabe;
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter));
+    Lauf const ausfuehrbar = fall.fahren();
+    berichten("DateiAlsVorfahrIstKeinVerzeichnis/Datei-Modus-100755", ausfuehrbar, marke);
+    EXPECT_EQ(ausfuehrbar.code, 1) << "Eine ausfuehrbare Datei ist eine Datei -- unter ihr entsteht nichts, TOT.\n"
+                                   << ausfuehrbar.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(ausfuehrbar.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + unter +
+                                                       "\" existiert nicht, und sein Vorfahr " + datei +
+                                                       " ist eine getrackte DATEI (Index-Modus 100644/100755)"))
+        << ausfuehrbar.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ausfuehrbar.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << ausfuehrbar.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ausfuehrbar.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << ausfuehrbar.ausgabe;
 }
 
 // =============================================================================
@@ -2273,13 +2696,14 @@ TEST(Pa1ToteAusnahme, DateiPfadMussKanonischUndVergleichbarSein) {
         berichten(("DateiPfadMussKanonischUndVergleichbarSein/nicht-kanonisch '" + pfad + "'").c_str(), lauf, marke);
         EXPECT_EQ(lauf.code, 1) << "Ein Pfad, der so in keinem Index steht, ist UNPRUEFBAR -- ROT, nicht Exit 2.\n"
                                 << lauf.ausgabe;
-        EXPECT_TRUE(enthaelt(lauf.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"datei:" + pfad + "\" " + form_diagnose))
+        EXPECT_TRUE(
+            zeile_beginnt(lauf.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"datei:" + pfad + "\" " + form_diagnose))
             << lauf.ausgabe;
         EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABBRUCH: Werkzeug-Ausfall"))
             << "Die falsche Diagnose (check-ignore 128) darf nicht mehr erscheinen.\n"
             << lauf.ausgabe;
-        EXPECT_TRUE(enthaelt(lauf.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << lauf.ausgabe;
-        EXPECT_TRUE(enthaelt(lauf.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << lauf.ausgabe;
+        EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << lauf.ausgabe;
+        EXPECT_TRUE(zeile_exakt(lauf.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << lauf.ausgabe;
     }
 
     // (b) quotierbare Zeichen: Tabulator, Backslash, Anfuehrungszeichen.
@@ -2293,10 +2717,11 @@ TEST(Pa1ToteAusnahme, DateiPfadMussKanonischUndVergleichbarSein) {
         berichten("DateiPfadMussKanonischUndVergleichbarSein/quotierbares-Zeichen", lauf, marke);
         EXPECT_EQ(lauf.code, 1) << "Ein Pfad, den git quotiert, ist nicht vergleichbar -- UNPRUEFBAR, ROT.\n"
                                 << lauf.ausgabe;
-        EXPECT_TRUE(enthaelt(lauf.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"datei:" + pfad + "\" " + quot_diagnose))
+        EXPECT_TRUE(
+            zeile_beginnt(lauf.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"datei:" + pfad + "\" " + quot_diagnose))
             << lauf.ausgabe;
-        EXPECT_TRUE(enthaelt(lauf.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << lauf.ausgabe;
-        EXPECT_TRUE(enthaelt(lauf.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << lauf.ausgabe;
+        EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << lauf.ausgabe;
+        EXPECT_TRUE(zeile_exakt(lauf.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << lauf.ausgabe;
     }
 
     // (c) Gegenrichtung: ein Gitlink mit Nicht-ASCII-Pfad. 'git ls-files -s' quotiert ihn (Arrangement-ASSERT),
@@ -2308,7 +2733,7 @@ TEST(Pa1ToteAusnahme, DateiPfadMussKanonischUndVergleichbarSein) {
                             << uidx.ausgabe;
     Lauf const quotiert = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + umlaut));
     ASSERT_EQ(quotiert.code, 0) << quotiert.ausgabe;
-    ASSERT_TRUE(enthaelt(quotiert.ausgabe, "\t\"" + dir + "/ae-\\303\\244\""))
+    ASSERT_TRUE(zeile_exakt(quotiert.ausgabe, "160000 " + sha_u + " 0\t\"" + dir + "/ae-\\303\\244\""))
         << "Arrangement: git quotiert den Pfad nicht (core.quotePath?):\n"
         << quotiert.ausgabe;
     std::string const unter_umlaut = umlaut + "/x_" + marke + ".hpp";
@@ -2317,9 +2742,9 @@ TEST(Pa1ToteAusnahme, DateiPfadMussKanonischUndVergleichbarSein) {
     berichten("DateiPfadMussKanonischUndVergleichbarSein/Nicht-ASCII-Gitlink", roh, marke);
     EXPECT_EQ(roh.code, 0) << "Ein Gitlink mit Nicht-ASCII-Pfad ist ein Gitlink -- der Pfad darunter ist erreichbar.\n"
                            << roh.ausgabe;
-    EXPECT_TRUE(enthaelt(roh.ausgabe, "Koeder " + marke)) << roh.ausgabe;
-    EXPECT_TRUE(enthaelt(roh.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << roh.ausgabe;
-    EXPECT_TRUE(enthaelt(roh.ausgabe, endzeile_ok(2, 0))) << roh.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(roh.ausgabe, fall.waise() + " -- Koeder " + marke)) << roh.ausgabe;
+    EXPECT_TRUE(zeile_exakt(roh.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << roh.ausgabe;
+    EXPECT_TRUE(zeile_exakt(roh.ausgabe, endzeile_ok(2, 0))) << roh.ausgabe;
 
     // (d) Gegenrichtung: ein Leerzeichen im Pfad quotiert git nicht -- erlaubt, erreichbar.
     std::string const leer  = dir + "/my sub";
@@ -2330,8 +2755,8 @@ TEST(Pa1ToteAusnahme, DateiPfadMussKanonischUndVergleichbarSein) {
     Lauf const mit_leer = fall.fahren();
     berichten("DateiPfadMussKanonischUndVergleichbarSein/Leerzeichen-im-Pfad", mit_leer, marke);
     EXPECT_EQ(mit_leer.code, 0) << mit_leer.ausgabe;
-    EXPECT_TRUE(enthaelt(mit_leer.ausgabe, "Koeder " + marke)) << mit_leer.ausgabe;
-    EXPECT_TRUE(enthaelt(mit_leer.ausgabe, endzeile_ok(2, 0))) << mit_leer.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(mit_leer.ausgabe, fall.waise() + " -- Koeder " + marke)) << mit_leer.ausgabe;
+    EXPECT_TRUE(zeile_exakt(mit_leer.ausgabe, endzeile_ok(2, 0))) << mit_leer.ausgabe;
 
     // (e) die stumme Zeile einer Datei im Bauweg mit nicht kanonischem Pfad: Formfehler, sechstes Nenner-Feld.
     std::string const tragend = fall.waise() + " | datei:" + gitlink + "/x_" + marke + ".hpp | Koeder " + marke + "\n";
@@ -2342,14 +2767,80 @@ TEST(Pa1ToteAusnahme, DateiPfadMussKanonischUndVergleichbarSein) {
     Lauf const nachscan = fall.fahren();
     berichten("DateiPfadMussKanonischUndVergleichbarSein/stumme-Zeile-nicht-kanonisch", nachscan, marke);
     EXPECT_EQ(nachscan.code, 1) << "Die Form gilt auch fuer die stumme Zeile (Folge (8)).\n" << nachscan.ausgabe;
-    EXPECT_TRUE(enthaelt(nachscan.ausgabe, std::string{kGegenprobe} + " -- UNPRUEFBAR: \"datei:./tests/unit/neu_" +
-                                               marke + ".hpp\" " + form_diagnose))
+    EXPECT_TRUE(zeile_beginnt(nachscan.ausgabe, std::string{kGegenprobe} + " -- UNPRUEFBAR: \"datei:./tests/unit/neu_" +
+                                                    marke + ".hpp\" " + form_diagnose))
         << nachscan.ausgabe;
-    EXPECT_TRUE(enthaelt(nachscan.ausgabe, "Koeder " + marke)) << "Die tragende Zeile muss weiter tragen.\n"
-                                                               << nachscan.ausgabe;
-    EXPECT_TRUE(enthaelt(nachscan.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << nachscan.ausgabe;
-    EXPECT_TRUE(enthaelt(nachscan.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0, 1))) << nachscan.ausgabe;
-    EXPECT_TRUE(enthaelt(nachscan.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << nachscan.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(nachscan.ausgabe, fall.waise() + " -- Koeder " + marke))
+        << "Die tragende Zeile muss weiter tragen.\n"
+        << nachscan.ausgabe;
+    EXPECT_TRUE(zeile_exakt(nachscan.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << nachscan.ausgabe;
+    EXPECT_TRUE(zeile_exakt(nachscan.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0, 1))) << nachscan.ausgabe;
+    EXPECT_TRUE(zeile_exakt(nachscan.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << nachscan.ausgabe;
+}
+
+// =============================================================================
+// (31) NICHT-ASCII-PFADE IM SOLL UND AM ANKER (Lens A r6 LA6-02 = Lens C r4 LC3W-15; Fix-r6). 'git ls-files'
+//      quotiert einen Pfad mit Nicht-ASCII-Bytes ("tests/unit/test_\303\244.cpp"): die Zeile endet auf '"', das
+//      Muster '\.cpp$' der SOLL-Lesung traf nicht, und die Datei fiel STILL aus dem SOLL -- die Wache 9223cbd5
+//      meldete "2 getrackte" statt 3 und OK (Exit 0), obwohl die Datei dem Bauweg fehlte (Probe X05); ein Anker-
+//      Ordner mit Nicht-ASCII-Namen ankerte nicht ("0 archiviert", Probe X07). Seit Fix-r6 lesen SOLL und Anker
+//      den Index mit core.quotePath=false. Die Quelle bleibt ASCII: die UTF-8-Bytes stehen als \x-Folgen.
+//        (a) test_<marke>_<U+00E4>.cpp getrackt, nicht im Bauweg -> OHNE BEGRUENDUNG, Exit 1, "3 getrackte"
+//        (b) dieselbe Datei im Bauweg -> Exit 0, "3 getrackte" (Gegenrichtung: gezaehlt, nichts ist still)
+//        (c) Anker-Ordner tests/deprecated/archiv_<U+00E4>_<marke>/ mit VERMERK.md und Test-Datei -> archiviert
+// =============================================================================
+TEST(Pa1ToteAusnahme, NichtAsciiPfadZaehltImSollUndAnkert) {
+    std::string const marke = koeder();
+    Fall              fall{marke};
+    ASSERT_TRUE(fall.init());
+    // Die Waise des Falls traegt eine gueltige Zeile; allein die Umlaut-Datei entscheidet den Befund.
+    std::string const lebendig = "tests/unit/kommt_vielleicht_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + lebendig));
+
+    std::string const umlaut = "tests/unit/test_" + marke + "_" + std::string{"\xc3\xa4"} + ".cpp";
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(umlaut, "// Umlaut-Datei " + marke + "\n"));
+    Lauf const quotiert = im_repo(fall.repo(), "git ls-files -- " + zitiert(":(literal)" + umlaut));
+    ASSERT_EQ(quotiert.code, 0) << quotiert.ausgabe;
+    ASSERT_TRUE(zeile_exakt(quotiert.ausgabe, "\"tests/unit/test_" + marke + "_\\303\\244.cpp\""))
+        << "Arrangement: git quotiert den Pfad nicht (core.quotePath?):\n"
+        << quotiert.ausgabe;
+
+    // (a) getrackt, nicht im Bauweg: OHNE BEGRUENDUNG -- sichtbar, mit dem rohen Pfad in der Liste.
+    Lauf const fehlt = fall.fahren();
+    berichten("NichtAsciiPfadZaehltImSollUndAnkert/nicht-im-Bauweg", fehlt, marke);
+    EXPECT_EQ(fehlt.code, 1) << "Eine Nicht-ASCII-Testdatei ausserhalb des Bauwegs ist OHNE BEGRUENDUNG -- ROT.\n"
+                             << fehlt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(fehlt.ausgabe, umlaut)) << "Die Datei muss namentlich (roh) in der Liste stehen.\n"
+                                                    << fehlt.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(fehlt.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << fehlt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(fehlt.ausgabe, nenner_getrackt(3))) << "Der SOLL muss die Datei zaehlen.\n"
+                                                                << fehlt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(fehlt.ausgabe, nenner_davon(1, 0, 0, 0, 1))) << fehlt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(fehlt.ausgabe, endzeile_rot(1, 3, 0, 0, 0, 0))) << fehlt.ausgabe;
+
+    // (b) Gegenrichtung: im Bauweg -> gruen, und der Nenner zaehlt sie weiterhin.
+    ASSERT_TRUE(fall.bauweg_schreiben({kGegenprobe, umlaut}));
+    Lauf const gebaut = fall.fahren();
+    berichten("NichtAsciiPfadZaehltImSollUndAnkert/im-Bauweg", gebaut, marke);
+    EXPECT_EQ(gebaut.code, 0) << gebaut.ausgabe;
+    EXPECT_TRUE(zeile_exakt(gebaut.ausgabe, nenner_getrackt(3))) << gebaut.ausgabe;
+    EXPECT_TRUE(zeile_exakt(gebaut.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << gebaut.ausgabe;
+    EXPECT_TRUE(zeile_exakt(gebaut.ausgabe, endzeile_ok(3, 0))) << gebaut.ausgabe;
+
+    // (c) ein Anker-Ordner mit Nicht-ASCII-Namen ankert, die Datei darin ist ARCHIV und steht roh in der Liste.
+    std::string const ordner     = "tests/deprecated/archiv_" + std::string{"\xc3\xa4"} + "_" + marke;
+    std::string const archiviert = ordner + "/test_x_" + marke + ".cpp";
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(ordner + "/VERMERK.md", "# Anker " + marke + "\n"));
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(archiviert, "// archivierte Datei " + marke + "\n"));
+    Lauf const anker = fall.fahren();
+    berichten("NichtAsciiPfadZaehltImSollUndAnkert/Nicht-ASCII-Anker-Ordner", anker, marke);
+    EXPECT_EQ(anker.code, 0) << "Der Anker mit Nicht-ASCII-Ordnernamen muss tragen.\n" << anker.ausgabe;
+    EXPECT_TRUE(zeile_exakt(anker.ausgabe, archiviert))
+        << "Die archivierte Datei muss (roh) in der ARCHIV-Liste stehen.\n"
+        << anker.ausgabe;
+    EXPECT_TRUE(zeile_exakt(anker.ausgabe, nenner_getrackt(4))) << anker.ausgabe;
+    EXPECT_TRUE(zeile_exakt(anker.ausgabe, nenner_archiv(1, 1, 3))) << anker.ausgabe;
+    EXPECT_TRUE(zeile_exakt(anker.ausgabe, endzeile_ok(3, 1))) << anker.ausgabe;
 }
 
 #endif // _WIN32
