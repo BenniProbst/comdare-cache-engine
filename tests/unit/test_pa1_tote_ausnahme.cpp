@@ -112,6 +112,12 @@
 // sechsten Parameter mit Vorgabe 0, alle aelteren Pins bleiben ganze Zeilen. Rot zuerst je Stufe gegen
 // die Wache 806629ca (das neue Binary gegen die alte Wache per COMDARE_PA1_WACHE_PFAD) -- FIX-r3.md.
 //
+// NACHTRAG 5 (2026-09-19, Fix-r4 des OV-2-Zuges: Fund N-1 der Fix-r3-Berichtsfassung, Lead-Objektprobe K205):
+// Fall (27) -- ein VERZEICHNIS ist kein Gitlink, auch wenn 'git ls-files -s' ueber das Verzeichnis mit einem
+// Gitlink-Eintrag beginnt (ist_gitlink prueft jetzt Modus 160000 UND das exakte Pfadfeld je Zeile). Beidseitig:
+// Tiefe 2 unter dem Verzeichnis ist TOT, unter dem echten Gitlink bleibt es erreichbar. Rot zuerst gegen die
+// Wache 63f8abd4 (per COMDARE_PA1_WACHE_PFAD) -- FIX-r4.md.
+//
 // ASCII-only, Zeilen <= 120 Byte.
 // =============================================================================
 
@@ -1937,6 +1943,84 @@ TEST(Pa1ToteAusnahme, AllowlistFormfehlerFuerDateiImBauwegIstUnpruefbar) {
     EXPECT_TRUE(enthaelt(gruen.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << gruen.ausgabe;
     EXPECT_TRUE(enthaelt(gruen.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0, 0))) << gruen.ausgabe;
     EXPECT_TRUE(enthaelt(gruen.ausgabe, endzeile_ok(2, 0))) << gruen.ausgabe;
+}
+
+// =============================================================================
+// (27) EIN VERZEICHNIS IST KEIN GITLINK, AUCH WENN SEIN ERSTER INDEX-EINTRAG EINER IST (Fund N-1 der
+//      Fix-r3-Berichtsfassung, Lead-Objektprobe K205; Fix-r4). ist_gitlink() fragte 'git ls-files -s' mit
+//      dem Pfad als Pathspec -- fuer ein VERZEICHNIS liefert das ALLE Eintraege darunter -- und prueft nur,
+//      ob die Ausgabe mit '160000 ' BEGINNT. Steht als erster Eintrag unter dem Verzeichnis ein Gitlink,
+//      galt das Verzeichnis selbst als Gitlink, und jeder Gegenstand in Tiefe >= 2 darunter war 'erreichbar'
+//      statt TOT: fail-open in der PA-1-Richtung, die Wache blieb gruen. Am echten Repo: ext/queuing (erster
+//      Eintrag ext/queuing/Q01-concurrentqueue, Modus 160000), Gegenstand ext/queuing/nicht_da/x.hpp.
+//      Vorbestand seit 806629ca (:686-687); seit Fix-r3 die ERSTE Frage der Erreichbarkeits-Probe.
+//      Arrangement wie Fall (4): Gitlink ext/dir/A-sub per 'update-index --cacheinfo 160000' (der SHA muss
+//      kein Objekt sein) und getrackte Datei ext/dir/B.txt; 'ls-files -s' ueber das Verzeichnis beginnt mit
+//      dem Gitlink (ASSERT). (a) ext/dir/nicht/da.hpp -> TOTE AUSNAHME, Exit 1 (gegen 63f8abd4: Exit 0).
+//      (b) Gegenrichtung: ext/dir/A-sub/x.hpp liegt unter dem ECHTEN Gitlink und bleibt erreichbar, Exit 0,
+//      wie Fall (4). (c) Das direkte Kind ext/dir/nicht_da.hpp bleibt erreichbar (Fall (2): neue Datei in
+//      einem vorhandenen Verzeichnis) -- es war auch vorher unbetroffen, der Pin haelt die Grenze fest.
+// =============================================================================
+TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
+    std::string const marke = koeder();
+    Fall              fall{marke};
+    ASSERT_TRUE(fall.init());
+
+    std::string const dir     = "ext/dir_" + marke;
+    std::string const gitlink = dir + "/A-sub";
+    std::string const datei   = dir + "/B.txt";
+    std::string const sha     = "0000000000000000000000000000000000000002";
+    // Erst die Datei, dann der Gitlink: die Reihenfolge im Index haengt am Pfad ('A-sub' < 'B.txt'),
+    // nicht an der Reihenfolge des Einfuegens -- genau wie ext/queuing/Q01-... vor ext/queuing/REPOS_....
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(datei, "B " + marke + "\n"));
+    Lauf const idx = im_repo(fall.repo(), "git update-index --add --cacheinfo 160000," + sha + "," + gitlink);
+    ASSERT_EQ(idx.code, 0) << "Gitlink konnte nicht in den Index gelegt werden:\n" << idx.ausgabe;
+    // Arrangement: 'ls-files -s' ueber das VERZEICHNIS liefert zwei Zeilen, die erste ist der Gitlink --
+    // das Muster, das die Fassung 63f8abd4 als "Verzeichnis ist Gitlink" las.
+    Lauf const eintraege = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + dir));
+    ASSERT_EQ(eintraege.code, 0) << eintraege.ausgabe;
+    std::size_t const umbruch = eintraege.ausgabe.find('\n');
+    ASSERT_NE(umbruch, std::string::npos) << "Arrangement: nur eine Zeile unter dem Verzeichnis:\n"
+                                          << eintraege.ausgabe;
+    ASSERT_EQ(eintraege.ausgabe.substr(0, umbruch), "160000 " + sha + " 0\t" + gitlink) << eintraege.ausgabe;
+    ASSERT_TRUE(enthaelt(eintraege.ausgabe, "100644 ")) << "Arrangement: die Datei fehlt unter dem Verzeichnis:\n"
+                                                        << eintraege.ausgabe;
+    ASSERT_TRUE(enthaelt(eintraege.ausgabe, "\t" + datei)) << eintraege.ausgabe;
+
+    // (a) Gegenstand in Tiefe 2 unter dem Verzeichnis: keine Quelle dieses Repos kennt 'nicht/'.
+    std::string const tot = dir + "/nicht/da_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + tot));
+    Lauf const lauf = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/Tiefe-2", lauf, marke);
+    EXPECT_EQ(lauf.code, 1) << "Das Verzeichnis ist kein Gitlink -- der Zweig 'nicht/' hat keinen Erzeuger, ROT.\n"
+                            << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "TOTE AUSNAHME -- der Gegenstand kann in KEINEM erklaerten Baum entstehen:"))
+        << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + tot + "\" existiert nicht"))
+        << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << lauf.ausgabe;
+
+    // (b) Gegenrichtung: unter dem ECHTEN Gitlink bleibt jeder Pfad erreichbar (Fall (4)).
+    std::string const drin = gitlink + "/include/kopf_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + drin));
+    Lauf const gruen = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/unter-Gitlink", gruen, marke);
+    EXPECT_EQ(gruen.code, 0) << "Ein Pfad unter einem Gitlink kann jederzeit ausgecheckt werden -- kein Befund.\n"
+                             << gruen.ausgabe;
+    EXPECT_TRUE(enthaelt(gruen.ausgabe, marke)) << gruen.ausgabe;
+    EXPECT_TRUE(enthaelt(gruen.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << gruen.ausgabe;
+    EXPECT_TRUE(enthaelt(gruen.ausgabe, endzeile_ok(2, 0))) << gruen.ausgabe;
+
+    // (c) Das direkte Kind des Verzeichnisses: erreichbar, weil der Elternteil getrackten Inhalt hat.
+    std::string const kind = dir + "/nicht_da_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + kind));
+    Lauf const direkt = fall.fahren();
+    berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/direktes-Kind", direkt, marke);
+    EXPECT_EQ(direkt.code, 0) << "Eine neue Datei in einem vorhandenen Verzeichnis ist der Normalfall.\n"
+                              << direkt.ausgabe;
+    EXPECT_TRUE(enthaelt(direkt.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << direkt.ausgabe;
+    EXPECT_TRUE(enthaelt(direkt.ausgabe, endzeile_ok(2, 0))) << direkt.ausgabe;
 }
 
 #endif // _WIN32
