@@ -502,6 +502,13 @@
 #       (h) DOKU: 'mkdir' steht in der Werkzeugliste des Exit-2-Vertrags (LA10-04); der Allowlist-Kopf zitiert die
 #       realen Google-Faelle und traegt die add/add-Vorbehalte (LA10-05, LC8W-09). Google-Stufen (32g), (34f), (35b)-
 #       (35e) -- tests/unit/test_pa1_tote_ausnahme.cpp; VERMERK.md NACHTRAG 6b.
+#       (i) EIN ENDE OHNE URTEIL IST EXIT 2 (eigener Fund Fix-r10, Probe W09u): unter 'ulimit -n 6' endete bash --posix
+#       mit 'cannot allocate new file descriptor for bash input' -- Status 0, weder OK-Zeile noch ABBRUCH (gemessen am
+#       Zwischenstand 0e601128 mit (17f); bei 0f0d0fb6 lag der Ausfall an anderer Stelle und war Exit 2). Status 0 ohne
+#       Endzeile ist fail-open. Jetzt setzt der Gruenpfad WACHE_FERTIG=1 erst nach der OK-Zeile; endet die Shell mit
+#       Status 0 ohne dieses Zeichen, macht der EXIT-trap daraus ABBRUCH + Exit 2. dash und busybox verweigern unter
+#       demselben Deckel schon den Start mit eigenem Status 2 ('Invalid argument' am Deskriptor 3) -- kein Urteil, kein
+#       Gruen; W09u misst VOR/NEU in allen drei Shells (FIX-r10.md Abschn. 3).
 #
 # DER GEMESSENE BAUM MUSS DERSELBE SEIN WIE DER DER CI (J-0b, am Objekt 2026-09-17): der CI-Baum
 # build-covguard wird MIT -DCOMDARE_CE_PRUEFLINGE=<repo>/tests/pruefling_fixture konfiguriert, und
@@ -593,6 +600,7 @@ export LC_ALL
 # beim Start ignoriert (SIG_IGN), scheitert die Schreiboperation mit EPIPE und aus() bricht mit Exit 2 ab.
 TMP=""
 TMP_ANGELEGT=0
+WACHE_FERTIG=0
 aufraeumen() {
     # EXIT-trap. Der Exit-Status ist der Status VOR dem trap ($? beim Eintritt): unter 'set -e' beendet ein
     # scheiterndes 'rm' im trap-Rumpf die Shell sonst mit DESSEN Status -- aus 'exit 2' wurde 1 (dash, bash,
@@ -606,6 +614,13 @@ aufraeumen() {
     # nach dem mkdir-Kommando und VOR jeder Marker-Zuweisung (gemessen, Probe TRAP-TIMING, FIX-r10.md), und ein
     # Signal waehrend mkdir soll keinen Rest lassen (Folge (16d), Fall (32a/b)). Fremder Inhalt und Symlinks bleiben.
     _rc=$?
+    if [ "$_rc" -eq 0 ] && [ "$WACHE_FERTIG" != 1 ]; then
+        # ENDE OHNE URTEIL (Fix-r10 W-09, Kopf Folge (17i)): Status 0, aber die OK-Zeile stand nie -- die Shell hat
+        # die Wache selbst beendet (gemessen: bash --posix unter 'ulimit -n 6' bricht mit 'cannot allocate new file
+        # descriptor for bash input' ab, Status 0, Probe W09u). Ein Gruen ohne Urteil ist fail-open: hier Exit 2.
+        printf '%s\n' "ABBRUCH: Werkzeug-Ausfall -- Ende ohne Urteil (Status 0 ohne Endzeile)." >&2 || :
+        _rc=2
+    fi
     if [ -n "$TMP" ]; then
         if [ "$TMP_ANGELEGT" = 1 ]; then
             if ! rm -rf "$TMP" 2>/dev/null; then
@@ -2390,4 +2405,5 @@ TMP=""
 TMP_ANGELEGT=0
 aus "TEST-REGISTRIERUNGS-WACHE: OK ($SOLL_N Quelldateien, $UNBEGR_N ohne Begruendung ausserhalb," \
      "$ARCHIV_N archiviert)."
+WACHE_FERTIG=1
 exit 0
