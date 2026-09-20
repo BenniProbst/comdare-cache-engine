@@ -196,6 +196,29 @@
 // -s KILL 60' -- unter dem Mutanten M-W4c las 'wc -l' den /dev/full-Link von (32d) endlos (945 s), weil der
 // Rueckbau nie hineinschrieb; ein Rueckbau muss FAILED ergeben, nie haengen (FIX-r8.md Abschn. 5c).
 //
+// NACHTRAG 10 (2026-09-20, Fix-r9 des OV-2-Zuges: Lens A r9 LA9-01..04, Lens B r8 LB8-01..05, Lens C r7 LC7T-01..14 und
+// LC7W-02..10). VORAUSSETZUNGEN DER POSIX-FAELLE, ausdruecklich (LC7T-14 = LB8-I4): die Koeder-Stufen setzen
+// PATH-Koeder (mkdir, wc, git, mktemp als EXTERNE Programme), GNU coreutils 'timeout' (--preserve-status) und
+// /dev/full voraus; ein busybox-Standalone fuehrt mkdir/wc/mktemp als Applets aus, dort greifen die Koeder nicht (die
+// betroffenen Faelle sind dort rot = Messgrenze, kein Objektbefund); die CI (test:unit) faehrt sh = dash mit coreutils,
+// der Test gilt fuer dash und bash --posix. FALL-EIGENE RESTPRUEFUNG (LC7T-13): jede Koeder-Stufe der Faelle (32), (33)
+// und (34) pinnt die Reste unter ihrem fall-eigenen TMPDIR selbst (tmp_reste == 0); ein globaler Nenner eines Lauf-
+// skripts ist nur Zusatz. (32a/b): der Erzeugungs-Koeder ist seit Fix-r9 'mkdir' (die Wache legt TMP per 'mkdir -m 700'
+// an, 'mktemp -u -d' liefert nur den Namen, Wache Folge (16d)); er sendet TERM/HUP SELBST an seinen Elternprozess (die
+// Wachen-Shell) und legt das Verzeichnis erst danach an -- HANDSHAKE statt festem 0,5-s-Fenster (LC7T-01/02), unter dem
+// KILL-Deckel. (32c) steht ZULETZT und pinnt den Rest VOR dem Raeumen (rm -rf scheiterte wirklich), GTEST_SKIP unter
+// root (LC7T-03/04); tmp_raeumen folgt keinem Symlink mehr (nofollow) und meldet seinen Erfolg (LC7T-05 = LB8-03).
+// (34b2): zaehlender wc-Koeder (der ZWEITE 'wc -c' an der Allowlist meldet +1) toetet M-R8-07b (LB8-02 = LA9-02);
+// (34b3): echtes NUL-Byte in der Allowlist (LC7T-07); (34c): soll_1.txt als VERZEICHNIS statt 444 -- EISDIR fuer jede
+// uid (LB8-01 = LC7T-06); (34d2): add/add (Datei auf Stufe 2 UND 3) ist TOT, nicht modify/delete (LA9-01); (33f): Bau-
+// Verzeichnis chmod 000 = Exit 2 MIT ABBRUCH-Zeile (LA9-03); NEUER Fall (35) RechtePfadgrenzeImIstAbgleich: eine
+// gebaute test_x.cpp.extra.cpp deckt die unuebersetzte test_x.cpp nicht (LC7W-10; gegen a5d14a25 OK = fail-open).
+// Pins auf Meldungszeilen mit Pfadanteil per zeile_mit() als EINE Zeile (Anfang + Mitte + Ende, LC7T-08); die
+// Gruenseite von (34b-e) pinnt die exakte OK-Endzeile und Rest 0 (LC7T-09). Der Meldungs-Praefix der Konflikt-Klassen
+// nennt seit Fix-r9 die ART des Konflikts (D/F, modify/delete, ungleiche Typen, Basis, eine Seite; LC7W-06) -- die
+// Pins der Faelle (27g)-(27g5), (27i) und (34d) sind nachgezogen. Rot zuerst je Stufe gegen a5d14a25 bzw. den
+// jeweiligen Mutanten (COMDARE_PA1_WACHE_PFAD) -- FIX-r9.md (Abschnitt FIX-r9c).
+//
 // ASCII-only, Zeilen <= 120 Byte.
 // =============================================================================
 
@@ -222,6 +245,8 @@ TEST(Pa1ToteAusnahme, NurPosix) {
 #include <thread>
 #include <utility>
 #include <vector>
+
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 using comdare::test::wachen::enthaelt;
@@ -377,6 +402,28 @@ void berichten(char const* fall, Lauf const& lauf, std::string const& marke) {
 
 [[nodiscard]] bool zeile_beginnt(std::string const& ausgabe, std::string const& text) {
     return zeile_passt(ausgabe, text, false);
+}
+
+// EINE Zeile, die mit 'anfang' beginnt, danach 'mitte' enthaelt und mit 'ende' endet (Fix-r9, Lens C r7 LC7T-08): ein
+// Pin aus zeile_beginnt(Praefix) + enthaelt(Suffix) konnte zwei VERSCHIEDENE Zeilen treffen; der Pfadanteil dazwischen
+// (Wegwerf-TMP mit zufaelligem Namen) bleibt frei. Wie zeile_passt() auch fuer die zweistellig eingerueckte Form.
+[[nodiscard]] bool zeile_mit(std::string const& ausgabe, std::string const& anfang, std::string const& mitte,
+                             std::string const& ende) {
+    for (std::size_t start = 0; start <= ausgabe.size();) {
+        std::size_t const e    = ausgabe.find('\n', start);
+        std::string const zl   = ausgabe.substr(start, e == std::string::npos ? std::string::npos : e - start);
+        std::string const ohne = (zl.size() >= 2 && zl[0] == ' ' && zl[1] == ' ') ? zl.substr(2) : zl;
+        for (std::string const* z : {&zl, &ohne}) {
+            if (z->compare(0, anfang.size(), anfang) != 0 || z->size() < ende.size()) { continue; }
+            std::size_t const m = z->find(mitte, anfang.size());
+            if (m == std::string::npos) { continue; }
+            bool const ende_passt = z->compare(z->size() - ende.size(), ende.size(), ende) == 0;
+            if (ende_passt && m + mitte.size() <= z->size() - ende.size()) { return true; }
+        }
+        if (e == std::string::npos) { break; }
+        start = e + 1;
+    }
+    return false;
 }
 
 // Ein Wegwerf-Repo-Kommando in der Umgebung der Werkbank (git im Repo, Ausgabe getrimmt).
@@ -2703,10 +2750,10 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/DF-Gitlink-2-gegen-Verzeichnis-3", df, marke);
     EXPECT_EQ(df.code, 1) << "Eintrag gegen Verzeichnis im Konflikt: der Ausgang entscheidet -- UNPRUEFBAR, ROT.\n"
                           << df.ausgabe;
-    EXPECT_TRUE(zeile_beginnt(df.ausgabe,
-                              fall.waise() + " -- UNPRUEFBAR: \"" + unter_df + "\" existiert nicht, und sein Vorfahr " +
-                                  dfsub + " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe" +
-                                  " (Stufe 2: Gitlink; dazu Eintraege DARUNTER auf Stufe 3 = Verzeichnis" + " (D/F))"))
+    EXPECT_TRUE(zeile_beginnt(
+        df.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_df + "\" existiert nicht, und sein Vorfahr " + dfsub +
+                        " steht im Index im MERGE-KONFLIKT mit einem Eintrag gegen Eintraege DARUNTER (D/F)" +
+                        " (Stufe 2: Gitlink; dazu Eintraege DARUNTER auf Stufe 3 = Verzeichnis" + " (D/F))"))
         << df.ausgabe;
     EXPECT_FALSE(enthaelt(df.ausgabe, "TOTE AUSNAHME -- der Gegenstand")) << df.ausgabe;
     EXPECT_TRUE(zeile_exakt(df.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << df.ausgabe;
@@ -2734,10 +2781,10 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/DF-Datei-2-gegen-Gitlink-darunter-3", df2, marke);
     EXPECT_EQ(df2.code, 1) << "Datei ueber einem Gitlink im Konflikt -- UNPRUEFBAR, ROT (nicht erreichbar).\n"
                            << df2.ausgabe;
-    EXPECT_TRUE(zeile_beginnt(df2.ausgabe,
-                              fall.waise() + " -- UNPRUEFBAR: \"" + unter_e + "\" existiert nicht, und sein Vorfahr " +
-                                  esub + " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe" +
-                                  " (Stufe 2: Datei; dazu Eintraege DARUNTER auf Stufe 3 = Verzeichnis" + " (D/F))"))
+    EXPECT_TRUE(zeile_beginnt(
+        df2.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_e + "\" existiert nicht, und sein Vorfahr " + esub +
+                         " steht im Index im MERGE-KONFLIKT mit einem Eintrag gegen Eintraege DARUNTER (D/F)" +
+                         " (Stufe 2: Datei; dazu Eintraege DARUNTER auf Stufe 3 = Verzeichnis" + " (D/F))"))
         << df2.ausgabe;
     EXPECT_TRUE(zeile_exakt(df2.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << df2.ausgabe;
     EXPECT_TRUE(zeile_exakt(df2.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << df2.ausgabe;
@@ -2746,9 +2793,9 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     Lauf const df3 = fall.fahren();
     berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/DF-Datei-2-Kind-direkt-darunter", df3, marke);
     EXPECT_EQ(df3.code, 1) << df3.ausgabe;
-    EXPECT_TRUE(zeile_beginnt(df3.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + kind_e +
-                                               "\" existiert nicht, und sein Vorfahr " + esub +
-                                               " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe"))
+    EXPECT_TRUE(zeile_beginnt(
+        df3.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + kind_e + "\" existiert nicht, und sein Vorfahr " + esub +
+                         " steht im Index im MERGE-KONFLIKT mit einem Eintrag gegen Eintraege DARUNTER (D/F)"))
         << df3.ausgabe;
     EXPECT_FALSE(enthaelt(df3.ausgabe, "ist eine getrackte DATEI"))
         << "Im D/F-Konflikt ist die Datei-Diagnose die falsche Gewissheit -- UNPRUEFBAR, nicht TOT.\n"
@@ -2809,10 +2856,10 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/DF-Datei-0-gegen-Verzeichnis-2", df4, marke);
     EXPECT_EQ(df4.code, 1) << "Datei auf Stufe 0 gegen Eintraege darunter auf Stufe 2 -- UNPRUEFBAR, ROT.\n"
                            << df4.ausgabe;
-    EXPECT_TRUE(zeile_beginnt(df4.ausgabe,
-                              fall.waise() + " -- UNPRUEFBAR: \"" + unter_f4 + "\" existiert nicht, und sein Vorfahr " +
-                                  fsub + " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe" +
-                                  " (Stufe 0: Datei; dazu Eintraege DARUNTER auf Stufe 2 = Verzeichnis (D/F))"))
+    EXPECT_TRUE(zeile_beginnt(
+        df4.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_f4 + "\" existiert nicht, und sein Vorfahr " + fsub +
+                         " steht im Index im MERGE-KONFLIKT mit einem Eintrag gegen Eintraege DARUNTER (D/F)" +
+                         " (Stufe 0: Datei; dazu Eintraege DARUNTER auf Stufe 2 = Verzeichnis (D/F))"))
         << df4.ausgabe;
     EXPECT_FALSE(enthaelt(df4.ausgabe, "ist eine getrackte DATEI")) << df4.ausgabe;
     EXPECT_TRUE(zeile_exakt(df4.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << df4.ausgabe;
@@ -2841,7 +2888,7 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     EXPECT_EQ(df5.code, 1) << df5.ausgabe;
     EXPECT_TRUE(zeile_beginnt(
         df5.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_g5 + "\" existiert nicht, und sein Vorfahr " + gsub +
-                         " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe" +
+                         " steht im Index im MERGE-KONFLIKT mit einem Eintrag gegen Eintraege DARUNTER (D/F)" +
                          " (Stufe 2: Gitlink; dazu Eintraege DARUNTER auf Stufe 1, Stufe 3 = Verzeichnis" + " (D/F))"))
         << df5.ausgabe;
     EXPECT_FALSE(enthaelt(df5.ausgabe, "Stufe 1 3")) << "Die alte, mehrdeutige Form darf nicht mehr erscheinen.\n"
@@ -2874,10 +2921,10 @@ TEST(Pa1ToteAusnahme, VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink) {
     Lauf const tief_i = fall.fahren();
     berichten("VerzeichnisMitGitlinkAlsErstemEintragIstKeinGitlink/Datei-Ahne-unter-DF-Konflikt", tief_i, marke);
     EXPECT_EQ(tief_i.code, 1) << tief_i.ausgabe;
-    EXPECT_TRUE(zeile_beginnt(tief_i.ausgabe,
-                              fall.waise() + " -- UNPRUEFBAR: \"" + unter_i + "\" existiert nicht, und sein Vorfahr " +
-                                  isub + " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe" +
-                                  " (Stufe 2: Gitlink; dazu Eintraege DARUNTER auf Stufe 0 = Verzeichnis (D/F))"))
+    EXPECT_TRUE(zeile_beginnt(
+        tief_i.ausgabe, fall.waise() + " -- UNPRUEFBAR: \"" + unter_i + "\" existiert nicht, und sein Vorfahr " + isub +
+                            " steht im Index im MERGE-KONFLIKT mit einem Eintrag gegen Eintraege DARUNTER (D/F)" +
+                            " (Stufe 2: Gitlink; dazu Eintraege DARUNTER auf Stufe 0 = Verzeichnis (D/F))"))
         << tief_i.ausgabe;
     EXPECT_FALSE(enthaelt(tief_i.ausgabe, "ist eine getrackte DATEI"))
         << "Der Scan darf nicht an der naechsten Datei enden -- der Konflikt darueber gewinnt.\n"
@@ -3360,8 +3407,7 @@ TEST(Pa1ToteAusnahme, NichtAsciiPfadZaehltImSollUndAnkert) {
 
 namespace {
 
-// Reste unter einem fall-eigenen TMPDIR (Faelle (32) und (33)): Eintraege direkt darunter; raeumen() setzt vorher
-// Schreibrechte (Stufe (32c) hinterlaesst absichtlich ein 555-Verzeichnis), damit der WegwerfBaum sauber faellt.
+// Reste unter einem fall-eigenen TMPDIR (Faelle (32), (33) und (34); Lens C r7 LC7T-11): Eintraege direkt darunter.
 [[nodiscard]] std::size_t tmp_reste(fs::path const& tmp) {
     std::size_t     n = 0;
     std::error_code ec;
@@ -3372,27 +3418,58 @@ namespace {
     return n;
 }
 
-void tmp_raeumen(fs::path const& tmp) {
+// tmp_raeumen setzt vorher Schreibrechte (Stufe (32c) hinterlaesst absichtlich ein 555-Verzeichnis), damit der
+// WegwerfBaum sauber faellt -- OHNE einem Symlink zu folgen (Fix-r9, Lens B r8 LB8-03 = Lens C r7 LC7T-05: nach einem
+// KILL-Deckel liegt begruendet.txt der Stufe (32d) als Link auf /dev/full unter tmp; ein chmod auf das Ziel waere ein
+// Eingriff ausserhalb des Wegwerf-Baums) und meldet, ob danach alles weg ist (LC7T-04: der error_code wurde bis
+// a5d14a25 verworfen). Die Faelle pinnen den Rueckgabewert.
+[[nodiscard]] bool tmp_raeumen(fs::path const& tmp) {
     std::error_code ec;
     for (auto const& eintrag : fs::recursive_directory_iterator(tmp, ec)) {
-        fs::permissions(eintrag.path(), fs::perms::owner_all, fs::perm_options::add, ec);
+        std::error_code ec_eintrag;
+        if (fs::is_symlink(eintrag.symlink_status(ec_eintrag))) { continue; }
+        fs::permissions(eintrag.path(), fs::perms::owner_all, fs::perm_options::add | fs::perm_options::nofollow,
+                        ec_eintrag);
     }
-    for (auto const& eintrag : fs::directory_iterator(tmp, ec)) { fs::remove_all(eintrag.path(), ec); }
+    for (auto const& eintrag : fs::directory_iterator(tmp, ec)) {
+        std::error_code ec_weg;
+        fs::remove_all(eintrag.path(), ec_weg);
+    }
+    return tmp_reste(tmp) == 0;
+}
+
+// mkdir-KOEDER (Fix-r9, Wache Folge (16d)): die Wache legt ihr Zwischenverzeichnis per 'mkdir -m 700 TMP' an,
+// nachdem 'mktemp -u -d' nur den Namen geliefert hat -- ein mktemp-Koeder, der Inhalt in das Verzeichnis legte,
+// griffe nicht mehr. Der Koeder fuehrt 'vorher' aus (z. B. ein Signal an $PPID = die Wachen-Shell), legt das
+// Verzeichnis mit dem ECHTEN mkdir an und fuehrt 'nachher' darin aus ("$d" = letztes Argument = TMP). Alle anderen
+// mkdir-Aufrufe reicht er durch; 'nachher' muss fuer Unterverzeichnisse den absoluten echten mkdir nennen, sonst
+// riefe es diesen Koeder rekursiv.
+[[nodiscard]] std::string mkdir_koeder(std::string const& echt_mkdir, std::string const& marke,
+                                       std::string const& vorher, std::string const& nachher) {
+    return "#!/bin/sh\n# PATH-Koeder des Falls " + marke + ": das Zwischenverzeichnis der Wache ('mkdir -m 700').\n" +
+           "case \"$1\" in -m) ;; *) exec " + echt_mkdir + " \"$@\" ;; esac\n" + vorher + echt_mkdir +
+           " \"$@\" || exit $?\nfor d; do :; done\n" + nachher + "exit 0\n";
 }
 
 } // namespace
 
 // =============================================================================
-// (32) SIGNALE UND ZWISCHENDATEI-FEHLER SIND EXIT 2 (Lens B r7 LB7-06; Fix-r8). Die sechs Fix-r7-Mutanten
-//      M-W2a/b/c (traps nach mktemp, HUP ungefangen, Status im EXIT-trap verloren), M-W3a/b (anhaengen bzw.
-//      datei_leeren roh) und M-W4a (lese_abgleich aus) ueberlebten den Google-Test 33/33 -- 'Signale und
-//      Schreibfehler sind im Test nicht herstellbar' hiess es. Widerlegt (LENS-B-r7.md Abschn. 6): mktemp-, wc-
-//      und Signal-Koeder brauchen nur koeder_bin_anlegen() und den Vorspann 'zusatz' von fahren(). Je Stufe:
-//      Exit 2, ABBRUCH-Zeile bzw. keine OK-Zeile, Reste unter einem fall-eigenen TMPDIR. Rot zuerst je Stufe am
-//      jeweiligen Beweisort-Mutanten (COMDARE_PA1_WACHE_PFAD) -- FIX-r8.md.
-//      Stufen: (a) TERM waehrend mktemp (M-W2a), (b) HUP waehrend mktemp (M-W2b), (c) rm-Ausfall im EXIT-trap
-//      nach einem Abbruch -- der Status 2 bleibt (M-W2c), (d) anhaengen auf /dev/full (M-W3a), (e) datei_leeren
-//      auf ein Verzeichnis (M-W3b), (f) wc zaehlt soll.txt um 1 zu hoch = Teilbestand (M-W4a).
+// (32) SIGNALE UND ZWISCHENDATEI-FEHLER SIND EXIT 2 (Lens B r7 LB7-06; Fix-r8; Fix-r9 T-04/T-05/T-07/T-12). Die
+//      sechs Fix-r7-Mutanten M-W2a/b/c (traps nach der TMP-Erzeugung, HUP ungefangen, Status im EXIT-trap verloren),
+//      M-W3a/b (anhaengen bzw. datei_leeren roh) und M-W4a (lese_abgleich aus) ueberlebten den Google-Test 33/33 --
+//      'Signale und Schreibfehler sind im Test nicht herstellbar' hiess es. Widerlegt (LENS-B-r7.md Abschn. 6):
+//      mkdir-, wc- und Signal-Koeder brauchen nur koeder_bin_anlegen() und den Vorspann 'zusatz' von fahren().
+//      Seit Fix-r9 (Wache Folge (16d)) legt die Wache TMP per 'mkdir -m 700' an ('mktemp -u -d' liefert nur den
+//      Namen): der Erzeugungs-Koeder ist 'mkdir' (mkdir_koeder()); ein mktemp-Koeder griffe nicht mehr. Je Stufe:
+//      Exit 2, ABBRUCH-Zeile bzw. keine OK-Zeile, Reste unter einem fall-eigenen TMPDIR (der Rest wird VOR dem
+//      Raeumen gepinnt, tmp_raeumen() meldet den Erfolg). Rot zuerst je Stufe am jeweiligen Beweisort-Mutanten
+//      (COMDARE_PA1_WACHE_PFAD) bzw. gegen a5d14a25 -- FIX-r8.md, FIX-r9.md (Abschnitt FIX-r9c).
+//      Stufen: (a) TERM waehrend mkdir, (b) HUP waehrend mkdir -- der Koeder sendet das Signal SELBST an seinen
+//      Elternprozess (die Wachen-Shell) und legt das Verzeichnis erst danach an: HANDSHAKE statt Zeitfenster
+//      (LC7T-01/02); (d) anhaengen auf /dev/full (M-W3a), (e) datei_leeren auf ein Verzeichnis (M-W3b), (f) wc
+//      zaehlt soll.txt um 1 zu hoch = Teilbestand (M-W4a); ZULETZT (c) rm-Ausfall im EXIT-trap nach einem Abbruch --
+//      der Status 2 bleibt, der Rest (TMP mit halt/x) wird VOR dem Raeumen gepinnt; unter root GTEST_SKIP, weil
+//      0555 root nicht aufhaelt (LC7T-03/04).
 // =============================================================================
 TEST(Pa1ToteAusnahme, SignaleUndZwischendateiFehlerSindExit2) {
     std::string const marke = koeder();
@@ -3402,15 +3479,19 @@ TEST(Pa1ToteAusnahme, SignaleUndZwischendateiFehlerSindExit2) {
     Lauf const gesund = fall.fahren();
     berichten("SignaleUndZwischendateiFehlerSindExit2/ohne-Koeder", gesund, marke);
     ASSERT_EQ(gesund.code, 0) << "Das Arrangement ist falsch: der gesunde Baum ist nicht gruen.\n" << gesund.ausgabe;
+    ASSERT_TRUE(zeile_exakt(gesund.ausgabe, endzeile_ok(2, 0))) << gesund.ausgabe;
 
     fs::path const  tmp = fall.baum() / "tmp";
     std::error_code ec;
     fs::create_directory(tmp, ec);
     ASSERT_FALSE(ec) << ec.message();
-    Lauf const wo_mktemp = im_repo(fall.repo(), "command -v mktemp");
-    ASSERT_EQ(wo_mktemp.code, 0) << wo_mktemp.ausgabe;
+    Lauf const wo_mkdir = im_repo(fall.repo(), "command -v mkdir");
+    ASSERT_EQ(wo_mkdir.code, 0) << wo_mkdir.ausgabe;
+    ASSERT_EQ(wo_mkdir.ausgabe.compare(0, 1, "/"), 0)
+        << "Arrangement: 'mkdir' ist kein externes Programm (busybox-Applet? NACHTRAG 10): '" << wo_mkdir.ausgabe
+        << "'";
     Lauf const wo_timeout = im_repo(fall.repo(), "command -v timeout");
-    ASSERT_EQ(wo_timeout.code, 0) << "coreutils 'timeout' fehlt (Arrangement der Signal-Stufen):\n"
+    ASSERT_EQ(wo_timeout.code, 0) << "coreutils 'timeout' fehlt (KILL-Deckel der Koeder-Stufen):\n"
                                   << wo_timeout.ausgabe;
     Lauf const wo_wc = im_repo(fall.repo(), "command -v wc");
     ASSERT_EQ(wo_wc.code, 0) << wo_wc.ausgabe;
@@ -3424,73 +3505,64 @@ TEST(Pa1ToteAusnahme, SignaleUndZwischendateiFehlerSindExit2) {
         fs::remove(bin / name, ec);
         return !fs::exists(bin / name);
     };
+    std::string const echt_mkdir = wo_mkdir.ausgabe;
 
-    // (a)/(b) SIGNAL WAEHREND MKTEMP: der mktemp-Koeder schlaeft 1 s; 'timeout --foreground' sendet das Signal
-    //     NUR an die Wachen-Shell (das Koeder-Kind laeuft weiter und legt sein Verzeichnis bei t = 1 s an). Mit den
-    //     traps VOR mktemp wartet die Shell den Aufruf ab, laeuft den trap 'exit 2' und raeumt (Reste 0); der Mutant
-    //     stirbt mit 143/129 und laesst das Verzeichnis liegen -- deshalb die Zaehlung erst nach 1.6 s.
-    ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "mktemp",
-                                   "#!/bin/sh\n# PATH-Koeder des Falls " + marke +
-                                       ": mktemp schlaeft 1 s.\n"
-                                       "sleep 1\nexec " +
-                                       wo_mktemp.ausgabe + " \"$@\"\n"));
+    // (a)/(b) SIGNAL WAEHREND MKDIR (Handshake, LC7T-01/02): der mkdir-Koeder setzt eine Marke, sendet TERM bzw. HUP
+    //     an seinen Elternprozess -- die Wachen-Shell, die im Vordergrund auf ihn wartet -- und legt das Verzeichnis
+    //     ERST DANACH an. POSIX schiebt den trap bis zum Ende des Vordergrundkommandos auf: mit den traps VOR der
+    //     Erzeugung und TMP VOR dem mkdir gesetzt (Folge (16d)) laeuft 'exit 2', der EXIT-trap raeumt (Reste 0);
+    //     ein Mutant mit traps NACH der Erzeugung stirbt roh mit 143/129 und laesst TMP liegen. Ein gescheiterter
+    //     kill endet mit 97 = mkdir-Ausfall der Wache, deshalb der Gegen-Pin auf DIESE Abbruchzeile.
     for (char const* const sig : {"TERM", "HUP"}) {
-        Lauf const signal = fall.fahren("", pfad + " timeout --foreground --preserve-status -s " + sig + " 0.5");
-        berichten((std::string{"SignaleUndZwischendateiFehlerSindExit2/"} + sig + "-waehrend-mktemp").c_str(), signal,
+        fs::path const marker = bin / (std::string{"signal_"} + sig + "_" + marke + ".marke");
+        ASSERT_TRUE(koeder_bin_anlegen(
+            fall.repo(), "mkdir",
+            mkdir_koeder(echt_mkdir, marke, ": > " + zitiert(marker) + "\nkill -" + sig + " $PPID || exit 97\n", "")));
+        Lauf const signal = fall.fahren("", deckel);
+        berichten((std::string{"SignaleUndZwischendateiFehlerSindExit2/"} + sig + "-waehrend-mkdir").c_str(), signal,
                   marke);
-        EXPECT_EQ(signal.code, 2) << sig << " waehrend mktemp muss Exit 2 sein (trap vor mktemp).\n" << signal.ausgabe;
+        EXPECT_TRUE(fs::exists(marker)) << "Arrangement: der mkdir-Koeder lief nicht, kein Signal gesendet.";
+        EXPECT_EQ(signal.code, 2) << sig << " waehrend mkdir muss Exit 2 sein (traps vor der TMP-Erzeugung).\n"
+                                  << signal.ausgabe;
+        EXPECT_FALSE(enthaelt(signal.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'mkdir -m 700'"))
+            << "Der kill des Koeders scheiterte (Exit 97 als mkdir-Ausfall) -- kein Signal-Beweis.\n"
+            << signal.ausgabe;
         EXPECT_FALSE(enthaelt(signal.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << signal.ausgabe;
-        std::this_thread::sleep_for(std::chrono::milliseconds(1600));
-        EXPECT_EQ(tmp_reste(tmp), 0U) << "Das Zwischenverzeichnis blieb nach " << sig << " liegen.";
-        tmp_raeumen(tmp);
+        EXPECT_EQ(tmp_reste(tmp), 0U) << "Das Zwischenverzeichnis blieb nach " << sig
+                                      << " liegen (der EXIT-trap kannte TMP nicht oder lief nicht).";
+        EXPECT_TRUE(tmp_raeumen(tmp));
+        ASSERT_TRUE(koeder_weg("mkdir"));
     }
-    ASSERT_TRUE(koeder_weg("mktemp"));
-
-    // (c) rm SCHEITERT IM EXIT-TRAP NACH EINEM ABBRUCH: der Koeder legt archiv_anker.txt als Verzeichnis an (das
-    //     erste datei_leeren-Ziel -> werkzeug_abbruch, Exit 2) UND halt/ 555 mit Datei (rm -rf scheitert). Der
-    //     Status 2 muss bleiben; der Mutant ohne geretteten Status endet mit 1. Reste 3 sind hier gewollt.
-    ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "mktemp",
-                                   "#!/bin/sh\nd=$(" + wo_mktemp.ausgabe +
-                                       " \"$@\") || exit 1\nmkdir \"$d/archiv_anker.txt\" \"$d/halt\"\n"
-                                       ": > \"$d/halt/x\"\nchmod 555 \"$d/halt\"\nprintf '%s\\n' \"$d\"\n"));
-    Lauf const halt = fall.fahren("", deckel);
-    berichten("SignaleUndZwischendateiFehlerSindExit2/rm-scheitert-nach-Abbruch", halt, marke);
-    EXPECT_EQ(halt.code, 2) << "Der Status des Abbruchs muss den rm-Ausfall im EXIT-trap ueberleben.\n" << halt.ausgabe;
-    EXPECT_TRUE(zeile_beginnt(halt.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- Zwischendatei ")) << halt.ausgabe;
-    EXPECT_TRUE(enthaelt(halt.ausgabe, "/archiv_anker.txt nicht anlegbar")) << halt.ausgabe;
-    EXPECT_FALSE(enthaelt(halt.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << halt.ausgabe;
-    tmp_raeumen(tmp);
-    ASSERT_TRUE(koeder_weg("mktemp"));
 
     // (d) anhaengen AUF /dev/full: begruendet.txt ist ein Symlink auf /dev/full -- datei_leeren (Truncate ohne
     //     Schreiben) gelingt, das erste anhaengen scheitert mit ENOSPC. Der Mutant endet mit dem Rohstatus 1 ohne
-    //     ABBRUCH-Zeile.
-    ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "mktemp",
-                                   "#!/bin/sh\nd=$(" + wo_mktemp.ausgabe +
-                                       " \"$@\") || exit 1\nln -s /dev/full \"$d/begruendet.txt\"\n"
-                                       "printf '%s\\n' \"$d\"\n"));
+    //     ABBRUCH-Zeile. Nach einem KILL-Deckel laege der Link noch unter tmp: tmp_raeumen() folgt ihm nicht.
+    ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "mkdir",
+                                   mkdir_koeder(echt_mkdir, marke, "", "ln -s /dev/full \"$d/begruendet.txt\"\n")));
     Lauf const voll = fall.fahren("", deckel);
     berichten("SignaleUndZwischendateiFehlerSindExit2/anhaengen-auf-dev-full", voll, marke);
     EXPECT_EQ(voll.code, 2) << voll.ausgabe;
-    EXPECT_TRUE(zeile_beginnt(voll.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- Schreiben nach ")) << voll.ausgabe;
-    EXPECT_TRUE(enthaelt(voll.ausgabe, "/begruendet.txt (Exit ")) << voll.ausgabe;
+    EXPECT_TRUE(zeile_mit(voll.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- Schreiben nach ", "/begruendet.txt (Exit ", ")."))
+        << voll.ausgabe;
     EXPECT_FALSE(enthaelt(voll.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << voll.ausgabe;
-    tmp_raeumen(tmp);
-    ASSERT_TRUE(koeder_weg("mktemp"));
+    EXPECT_EQ(tmp_reste(tmp), 0U) << "Der EXIT-trap muss das Zwischenverzeichnis samt Link raeumen.";
+    EXPECT_TRUE(tmp_raeumen(tmp));
+    ASSERT_TRUE(koeder_weg("mkdir"));
 
     // (e) datei_leeren AUF EIN VERZEICHNIS: archiv_anker.txt liegt als Verzeichnis vor. In dash beendet ein
     //     rohes ': >' die Shell mit 2 OHNE Zeile -- rc allein unterscheidet dort nicht, die ABBRUCH-Zeile immer.
-    ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "mktemp",
-                                   "#!/bin/sh\nd=$(" + wo_mktemp.ausgabe +
-                                       " \"$@\") || exit 1\nmkdir \"$d/archiv_anker.txt\"\nprintf '%s\\n' \"$d\"\n"));
+    ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "mkdir",
+                                   mkdir_koeder(echt_mkdir, marke, "", echt_mkdir + " \"$d/archiv_anker.txt\"\n")));
     Lauf const verz = fall.fahren("", deckel);
     berichten("SignaleUndZwischendateiFehlerSindExit2/datei-leeren-auf-Verzeichnis", verz, marke);
     EXPECT_EQ(verz.code, 2) << verz.ausgabe;
-    EXPECT_TRUE(zeile_beginnt(verz.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- Zwischendatei ")) << verz.ausgabe;
-    EXPECT_TRUE(enthaelt(verz.ausgabe, "/archiv_anker.txt nicht anlegbar")) << verz.ausgabe;
+    EXPECT_TRUE(zeile_mit(verz.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- Zwischendatei ",
+                          "/archiv_anker.txt nicht anlegbar (Exit ", ")."))
+        << verz.ausgabe;
     EXPECT_FALSE(enthaelt(verz.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << verz.ausgabe;
-    tmp_raeumen(tmp);
-    ASSERT_TRUE(koeder_weg("mktemp"));
+    EXPECT_EQ(tmp_reste(tmp), 0U);
+    EXPECT_TRUE(tmp_raeumen(tmp));
+    ASSERT_TRUE(koeder_weg("mkdir"));
 
     // (f) wc ZAEHLT soll.txt UM 1 ZU HOCH (wc erfolgreich, die read-Schleife liest weniger = Teilbestand-Klasse,
     //     Lens A r8 Kuerzungs-Probe): der Abgleich meldet '2 von 3 Zeile(n)'; der Mutant ohne Abgleich rechnet mit
@@ -3503,10 +3575,12 @@ TEST(Pa1ToteAusnahme, SignaleUndZwischendateiFehlerSindExit2) {
     Lauf const plus1 = fall.fahren("", deckel);
     berichten("SignaleUndZwischendateiFehlerSindExit2/wc-plus-1-an-soll", plus1, marke);
     EXPECT_EQ(plus1.code, 2) << "Ein Teilbestand ist ein Werkzeug-Ausfall -- Exit 2, nie OK.\n" << plus1.ausgabe;
-    EXPECT_TRUE(zeile_beginnt(plus1.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'read' ueber ")) << plus1.ausgabe;
-    EXPECT_TRUE(enthaelt(plus1.ausgabe, "/soll.txt endete nach 2 von 3 Zeile(n)")) << plus1.ausgabe;
+    EXPECT_TRUE(zeile_mit(plus1.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'read' ueber ",
+                          "/soll.txt endete nach 2 von 3 Zeile(n)", " -- Lesefehler statt Dateiende (Exit 1)."))
+        << plus1.ausgabe;
     EXPECT_FALSE(enthaelt(plus1.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << plus1.ausgabe;
-    tmp_raeumen(tmp);
+    EXPECT_EQ(tmp_reste(tmp), 0U);
+    EXPECT_TRUE(tmp_raeumen(tmp));
     ASSERT_TRUE(koeder_weg("wc"));
 
     Lauf const wieder = fall.fahren("", pfad);
@@ -3514,18 +3588,54 @@ TEST(Pa1ToteAusnahme, SignaleUndZwischendateiFehlerSindExit2) {
     EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
     EXPECT_TRUE(zeile_exakt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
     EXPECT_EQ(tmp_reste(tmp), 0U);
+
+    // (c) rm SCHEITERT IM EXIT-TRAP NACH EINEM ABBRUCH (zuletzt; LC7T-03/04): der Koeder legt archiv_anker.txt als
+    //     Verzeichnis an (das erste datei_leeren-Ziel -> werkzeug_abbruch, Exit 2) UND halt/ 555 mit Datei (rm -rf
+    //     scheitert). Der Status 2 muss bleiben, die Wache meldet den rm-Ausfall; der Mutant ohne geretteten Status
+    //     endet mit 1. Der Rest (genau TMP mit halt/x) wird VOR dem Raeumen gepinnt -- sonst waere der rm-Ausfall
+    //     nur behauptet. root loescht 555 trotzdem: dann ist die Stufe kein Beweis -> GTEST_SKIP.
+    if (::geteuid() == 0) {
+        GTEST_SKIP() << "root loescht ein 555-Verzeichnis -- Stufe (c) waere kein Beweis; (a), (b), (d)-(f) sind "
+                        "gefahren.";
+    }
+    ASSERT_TRUE(koeder_bin_anlegen(
+        fall.repo(), "mkdir",
+        mkdir_koeder(echt_mkdir, marke, "",
+                     echt_mkdir + " \"$d/archiv_anker.txt\" \"$d/halt\"\n: > \"$d/halt/x\"\nchmod 555 \"$d/halt\"\n")));
+    Lauf const halt = fall.fahren("", deckel);
+    berichten("SignaleUndZwischendateiFehlerSindExit2/rm-scheitert-nach-Abbruch", halt, marke);
+    EXPECT_EQ(halt.code, 2) << "Der Status des Abbruchs muss den rm-Ausfall im EXIT-trap ueberleben.\n" << halt.ausgabe;
+    EXPECT_TRUE(zeile_mit(halt.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- Zwischendatei ",
+                          "/archiv_anker.txt nicht anlegbar (Exit ", ")."))
+        << halt.ausgabe;
+    EXPECT_TRUE(
+        zeile_mit(halt.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- Zwischenverzeichnis ", " nicht entfernt (rm -rf)", "."))
+        << "Der rm-Ausfall im EXIT-trap muss gemeldet werden.\n"
+        << halt.ausgabe;
+    EXPECT_FALSE(enthaelt(halt.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << halt.ausgabe;
+    EXPECT_EQ(tmp_reste(tmp), 1U) << "Genau das Zwischenverzeichnis muss liegen bleiben (rm -rf scheiterte).";
+    for (auto const& rest : fs::directory_iterator(tmp, ec)) {
+        EXPECT_TRUE(fs::exists(rest.path() / "halt" / "x"))
+            << "Der Rest ist nicht das praeparierte TMP (halt/x fehlt): " << rest.path().string();
+    }
+    EXPECT_TRUE(tmp_raeumen(tmp)) << "tmp_raeumen() muss den 555-Rest selbst wegraeumen koennen.";
+    EXPECT_EQ(tmp_reste(tmp), 0U);
+    ASSERT_TRUE(koeder_weg("mkdir"));
 }
 
 // =============================================================================
-// (33) BERICHTS- UND EINGABEKANAL-FEHLER SIND EXIT 2 (Lens A r8 LA8-01..04; Fix-r8). Vier Vertragsklassen, alle
-//      Vorbestand seit 806629ca, durch die Fix-r7-Kopfsaetze 'Andere Exit-Werte gibt es nicht' erstmals als
-//      Anspruch formuliert: (a) die Eingabe-Umleitung 'done < Allowlist' scheitert (0200) -- dash 2 OHNE Zeile,
-//      bash 1, busybox leere Schleife (LA8-01); (b) stdout auf /dev/full -- rc 1 = 'ohne Begruendung' fuer einen
-//      gruenen Baum (LA8-03); (c) stdout geschlossen -- dieselbe Klasse (EBADF); (d) stderr auf /dev/full am
-//      werkzeug_abbruch (git-Koeder Exit 3 an 'ls-files -s') -- rc 1 statt 2 (LA8-04); (e) SIGPIPE: der Bericht
-//      geht in eine FIFO, deren Leser sofort schliesst -- rc 141 und TMP-Rest in dash (LA8-02). Der Vorspann
-//      'zusatz' von fahren() traegt 'sh -c ... pa1', die Wache laeuft darin per exec; ihr stderr faengt fahre().
-//      Rot zuerst gegen 89cf7103 (rc 2 ohne ABBRUCH, 1, 1, 1, 141) -- FIX-r8.md.
+// (33) BERICHTS- UND EINGABEKANAL-FEHLER SIND EXIT 2 (Lens A r8 LA8-01..04; Fix-r8; Fix-r9 T-10/T-12). Vier
+//      Vertragsklassen, alle Vorbestand seit 806629ca, durch die Fix-r7-Kopfsaetze 'Andere Exit-Werte gibt es nicht'
+//      erstmals als Anspruch formuliert: (a) die Eingabe-Umleitung 'done < Allowlist' scheitert (0200) -- dash 2
+//      OHNE Zeile, bash 1, busybox leere Schleife (LA8-01); (b) stdout auf /dev/full -- rc 1 = 'ohne Begruendung'
+//      fuer einen gruenen Baum (LA8-03); (c) stdout geschlossen -- dieselbe Klasse (EBADF); (d) stderr auf /dev/full
+//      am werkzeug_abbruch (git-Koeder Exit 3 an 'ls-files -s') -- rc 1 statt 2 (LA8-04); (e) SIGPIPE: der Bericht
+//      geht in eine FIFO, deren Leser sofort schliesst -- rc 141 und TMP-Rest in dash (LA8-02); (f) NEU Fix-r9
+//      (LA9-03): das Bau-Verzeichnis ist da, aber nicht betretbar (chmod 000) -- bis a5d14a25 nackter Exit 2 OHNE
+//      ABBRUCH-Zeile (Probe W10). Der Vorspann 'zusatz' von fahren() traegt 'sh -c ... pa1', die Wache laeuft
+//      darin per exec; ihr stderr faengt fahre(). (f) und (a) stehen zuletzt (root: GTEST_SKIP).
+//      Rot zuerst gegen 89cf7103 (rc 2 ohne ABBRUCH, 1, 1, 1, 141) bzw. a5d14a25 ((f): rc 2 ohne Zeile) --
+//      FIX-r8.md, FIX-r9.md.
 // =============================================================================
 TEST(Pa1ToteAusnahme, BerichtsUndEingabekanalFehlerSindExit2) {
     std::string const marke = koeder();
@@ -3598,6 +3708,34 @@ TEST(Pa1ToteAusnahme, BerichtsUndEingabekanalFehlerSindExit2) {
     fs::remove(bin / "git", ec);
     ASSERT_FALSE(fs::exists(bin / "git"));
 
+    // (f) BAU-VERZEICHNIS NICHT BETRETBAR (chmod 000; Fix-r9 W-10 = Lens A r9 LA9-03): '[ -d ]' gelingt, das cd der
+    //     Kommandosubstitution BUILD_ABS=$(cd "$BUILD" && pwd) scheiterte bis a5d14a25 mit nacktem Exit 2 OHNE
+    //     ABBRUCH-Zeile. root betritt jedes Verzeichnis -> GTEST_SKIP wie (a); danach die Rechte zurueck.
+    auto const baum_rechte_zurueck = [&fall, &ec]() {
+        fs::permissions(fall.baum(),
+                        fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec | fs::perms::others_read |
+                            fs::perms::others_exec,
+                        fs::perm_options::replace, ec);
+    };
+    fs::permissions(fall.baum(), fs::perms::none, fs::perm_options::replace, ec);
+    ASSERT_FALSE(ec) << "chmod 000 am Bau-Verzeichnis fehlgeschlagen: " << ec.message();
+    Lauf const betretbar = fahre("cd " + zitiert(fall.baum()));
+    if (betretbar.code == 0) {
+        baum_rechte_zurueck();
+        GTEST_SKIP() << "Das Bau-Verzeichnis laesst sich auf diesem Host nicht unbetretbar machen (root?) -- (f) und "
+                        "(a) waeren kein Beweis; (b)-(e) sind gefahren.";
+    }
+    Lauf const unbetretbar = fall.fahren("", tmpdir);
+    baum_rechte_zurueck();
+    berichten("BerichtsUndEingabekanalFehlerSindExit2/Bau-Verzeichnis-000", unbetretbar, marke);
+    EXPECT_EQ(unbetretbar.code, 2) << unbetretbar.ausgabe;
+    EXPECT_TRUE(zeile_mit(unbetretbar.ausgabe, "ABBRUCH: Bau-Verzeichnis '", "' nicht betretbar (cd)",
+                          " -- die Wache konnte nicht pruefen."))
+        << "Ein nicht betretbares Bau-Verzeichnis braucht die ABBRUCH-Zeile (bis a5d14a25: nackter Exit 2).\n"
+        << unbetretbar.ausgabe;
+    EXPECT_FALSE(enthaelt(unbetretbar.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << unbetretbar.ausgabe;
+    EXPECT_EQ(tmp_reste(tmp), 0U);
+
     // (a) ALLOWLIST NUR SCHREIBBAR (0200): 'done < Allowlist' scheitert am Oeffnen -- ohne lesbar() beendet dash
     //     die Shell mit 2 OHNE ABBRUCH-Zeile, bash mit 1. Zuletzt, weil root die Datei trotzdem liest (dann
     //     GTEST_SKIP wie in Fall (22)); danach werden die Rechte zurueckgesetzt.
@@ -3610,7 +3748,7 @@ TEST(Pa1ToteAusnahme, BerichtsUndEingabekanalFehlerSindExit2) {
                         fs::perms::owner_read | fs::perms::owner_write | fs::perms::group_read | fs::perms::others_read,
                         fs::perm_options::replace, ec);
         GTEST_SKIP() << "Die Allowlist laesst sich auf diesem Host nicht unlesbar machen (root?) -- ohne dieses "
-                        "Arrangement waere Stufe (a) kein Beweis; (b)-(e) sind gefahren.";
+                        "Arrangement waere Stufe (a) kein Beweis; (b)-(f) sind gefahren.";
     }
     Lauf const unlesbar = fall.fahren("", tmpdir);
     fs::permissions(allow,
@@ -3629,21 +3767,28 @@ TEST(Pa1ToteAusnahme, BerichtsUndEingabekanalFehlerSindExit2) {
     berichten("BerichtsUndEingabekanalFehlerSindExit2/Rechte-zurueck", wieder, marke);
     EXPECT_EQ(wieder.code, 0) << wieder.ausgabe;
     EXPECT_TRUE(zeile_exakt(wieder.ausgabe, endzeile_ok(2, 0))) << wieder.ausgabe;
+    EXPECT_EQ(tmp_reste(tmp), 0U);
 }
 
 // =============================================================================
-// (34) FUENF FIX-R8-KLASSEN DER WACHE GOOGLE-SEITIG GEPINNT (Fixer r8b, 2026-09-19). Die Fix-r8-Mutanten M-R8-05,
-//      M-R8-07, M-R8-08, M-R8-09 und M-R8-12b (messungen/fix-r8/mutanten/) ueberlebten den Google-Test 35/35 und
-//      waren nur shell-seitig getoetet -- ein Rueckbau bliebe in der CI unbemerkt (Klasse LB7-06). Je Stufe der
-//      Fix-r8-Fund, das Arrangement und der Pin: (a) ARCHIV-Anker auf Stufe 0 gegen einen Eintrag DARUNTER auf
-//      Stufe 2 = UNPRUEFBARER ANKER, ankert nichts (LC6W-01, Wache Folge (15e); M-R8-05: ankert, OK = fail-open);
-//      (b) 'wc -c' der Allowlist um 1 Byte zu hoch = Byte-Abgleich Exit 2 (LC6W-03, Folge (15g); M-R8-07: OK);
-//      (c) grep-Ziel soll_1.txt liegt schon als 444-Datei mit stale Inhalt = datei_leeren meldet die Zwischendatei
-//      (LC6W-05, Folge (15h); M-R8-08: ebenfalls Exit 2, aber als grep-Ausfall gemeldet -- in bash/busybox ein
-//      Status-1-Nichttreffer mit stale SOLL, Probe R8-08); (d) Datei NUR auf Stufe 1 und 2, Stufe 3 fehlt
-//      (modify/delete) = UNPRUEFBAR (LC6W-06, Folge (15i); M-R8-09: TOT); (e) Gitlink im Index, im Arbeitsbaum ein
-//      Symlink = UNPRUEFBAR (LC6W-09, Folge (15j); M-R8-12b: erreichbar, OK). Rot zuerst je Stufe am jeweiligen
-//      Mutanten (COMDARE_PA1_WACHE_PFAD), gruen gegen HEAD in 4 Zellen -- FIX-r8.md Abschn. 5b.
+// (34) FIX-R8-KLASSEN DER WACHE GOOGLE-SEITIG GEPINNT (Fixer r8b, 2026-09-19; Fix-r9 T-01/T-02/T-06/T-07/T-08/
+//      T-10). Die Fix-r8-Mutanten M-R8-05, M-R8-07, M-R8-08, M-R8-09 und M-R8-12b (messungen/fix-r8/mutanten/)
+//      ueberlebten den Google-Test 35/35 und waren nur shell-seitig getoetet -- ein Rueckbau bliebe in der CI
+//      unbemerkt (Klasse LB7-06). Je Stufe der Fund, das Arrangement und der Pin: (a) ARCHIV-Anker auf Stufe 0
+//      gegen einen Eintrag DARUNTER auf Stufe 2 = UNPRUEFBARER ANKER, ankert nichts (LC6W-01, Wache Folge (15e);
+//      M-R8-05: ankert, OK = fail-open); (b) 'wc -c' der Allowlist um 1 Byte zu hoch = Byte-Abgleich Exit 2
+//      (LC6W-03, Folge (15g); M-R8-07: OK); (b2) NUR der ZWEITE 'wc -c' an der Allowlist meldet +1 (zaehlender
+//      Koeder): HEAD Exit 2 'lieferte N von N+1 Byte(s)', der Mutant M-R8-07b (allow_zeile kehrt VOR dem Abgleich
+//      zurueck, ruft wc nur einmal) meldet OK -- Lens A r9 LA9-02 / Lens B r8 LB8-02: nicht aequivalent; (b3) ein
+//      echtes NUL-Byte in der Allowlist-Datenzeile (LC7T-07): die Shell traegt es nicht, der Byte-Abgleich meldet
+//      Exit 2 (M-R8-07: OK); (c) grep-Ziel soll_1.txt liegt schon als VERZEICHNIS = datei_leeren meldet die
+//      Zwischendatei (LC6W-05, Folge (15h); LB8-01: 444 war fuer root wirkungslos, EISDIR gilt fuer jede uid;
+//      M-R8-08: als grep-Ausfall gemeldet); (d) Datei NUR auf Stufe 1 und 2, Stufe 3 fehlt (modify/delete) =
+//      UNPRUEFBAR mit Konfliktart 'fehlender Ausgangsstufe' (LC6W-06, Folge (15i); M-R8-09: TOT); (d2) Datei auf
+//      Stufe 2 UND 3 (add/add) = TOT, keine modify/delete-Diagnose (Fix-r9 W-01 = LA9-01; gegen a5d14a25
+//      UNPRUEFBAR mit falscher Diagnose); (e) Gitlink im Index, im Arbeitsbaum ein Symlink = UNPRUEFBAR (LC6W-09,
+//      Folge (15j); M-R8-12b: erreichbar, OK). Rot zuerst je Stufe am jeweiligen Mutanten (COMDARE_PA1_WACHE_PFAD)
+//      bzw. gegen a5d14a25, gruen gegen HEAD in 4 Zellen -- FIX-r8.md Abschn. 5b, FIX-r9.md.
 // =============================================================================
 TEST(Pa1ToteAusnahme, AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSindUnpruefbarOderExit2) {
     std::error_code ec;
@@ -3691,7 +3836,7 @@ TEST(Pa1ToteAusnahme, AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSindUnpruefb
         EXPECT_TRUE(zeile_exakt(df.ausgabe, endzeile_rot(1, 2, 0, 0, 1, 0))) << df.ausgabe;
     }
 
-    // (b)-(e) in EINEM Fall mit Waise unter tests/unit/; Koeder ueber PATH, TMPDIR fall-eigen (Reste 0).
+    // (b)-(e) in EINEM Fall mit Waise unter tests/unit/; Koeder ueber PATH, TMPDIR fall-eigen (Reste 0 je Stufe).
     std::string const marke = koeder();
     Fall              fall{marke};
     ASSERT_TRUE(fall.init());
@@ -3703,20 +3848,32 @@ TEST(Pa1ToteAusnahme, AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSindUnpruefb
     std::string const pfad   = "PATH=\"" + bin.string() + ":$PATH\" " + tmpdir;
     Lauf const        wo_wc  = im_repo(fall.repo(), "command -v wc");
     ASSERT_EQ(wo_wc.code, 0) << wo_wc.ausgabe;
-    Lauf const wo_mktemp = im_repo(fall.repo(), "command -v mktemp");
-    ASSERT_EQ(wo_mktemp.code, 0) << wo_mktemp.ausgabe;
+    Lauf const wo_mkdir = im_repo(fall.repo(), "command -v mkdir");
+    ASSERT_EQ(wo_mkdir.code, 0) << wo_mkdir.ausgabe;
+    ASSERT_EQ(wo_mkdir.ausgabe.compare(0, 1, "/"), 0)
+        << "Arrangement: 'mkdir' ist kein externes Programm (busybox-Applet? NACHTRAG 10): '" << wo_mkdir.ausgabe
+        << "'";
     Lauf const wo_timeout = im_repo(fall.repo(), "command -v timeout");
     ASSERT_EQ(wo_timeout.code, 0) << "coreutils 'timeout' fehlt (KILL-Deckel der Koeder-Stufen):\n"
                                   << wo_timeout.ausgabe;
-    // KILL-Deckel wie in Fall (32): ein Rueckbau darf den Test nicht haengen lassen (Stufe (c) legt eine Datei,
-    // die die Wache liest).
+    // KILL-Deckel wie in Fall (32): ein Rueckbau darf den Test nicht haengen lassen (Stufe (c) legt einen Pfad an,
+    // den die Wache liest).
     std::string const deckel = pfad + " timeout --preserve-status -s KILL 60";
     ASSERT_TRUE(fall.allowlist_setzen("datei:tests/unit/kommt_vielleicht_" + marke + ".hpp"));
     Lauf const gesund = fall.fahren("", tmpdir);
     berichten("AnkerDFTeilrest.../ohne-Koeder", gesund, marke);
     ASSERT_EQ(gesund.code, 0) << "Das Arrangement ist falsch: der gesunde Baum ist nicht gruen.\n" << gesund.ausgabe;
+    // Nullseite exakt (LC7T-09): die OK-Endzeile und Rest 0, nicht nur der Exit.
+    ASSERT_TRUE(zeile_exakt(gesund.ausgabe, endzeile_ok(2, 0))) << gesund.ausgabe;
+    ASSERT_EQ(tmp_reste(tmp), 0U);
+    fs::path const       allow       = fall.repo().pfad() / "scripts" / "ci_test_registrierungs_allowlist.txt";
+    std::uintmax_t const allow_bytes = fs::file_size(allow, ec);
+    ASSERT_FALSE(ec) << ec.message();
+    std::string const byte_zeile_anfang =
+        "ABBRUCH: Werkzeug-Ausfall -- 'read' ueber scripts/ci_test_registrierungs_allowlist.txt lieferte ";
+    std::string const byte_zeile_ende = " Byte(s) -- Lesefehler, Teilrest oder NUL-Byte (Exit 1).";
 
-    // (b) wc -c der Allowlist um 1 Byte zu hoch (Rezept wie (32f), Muster '-c' + Allowlist-Pfad).
+    // (b) wc -c der Allowlist um 1 Byte zu hoch (Rezept wie (32f), Muster '-c' + Allowlist-Pfad), ganze Zeile.
     ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "wc",
                                    "#!/bin/sh\ncase \"$*\" in\n    -c*ci_test_registrierungs_allowlist.txt*) out=$(" +
                                        wo_wc.ausgabe +
@@ -3726,33 +3883,83 @@ TEST(Pa1ToteAusnahme, AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSindUnpruefb
     Lauf const plus1 = fall.fahren("", deckel);
     berichten("AnkerDFTeilrest.../wc-c-plus-1-an-der-Allowlist", plus1, marke);
     EXPECT_EQ(plus1.code, 2) << "Ein Byte-Teilrest ist ein Werkzeug-Ausfall -- Exit 2, nie OK.\n" << plus1.ausgabe;
-    EXPECT_TRUE(zeile_beginnt(plus1.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- 'read' ueber "
-                                             "scripts/ci_test_registrierungs_allowlist.txt lieferte "))
+    EXPECT_TRUE(zeile_exakt(plus1.ausgabe, byte_zeile_anfang + std::to_string(allow_bytes) + " von " +
+                                               std::to_string(allow_bytes + 1) + byte_zeile_ende))
         << plus1.ausgabe;
-    EXPECT_TRUE(enthaelt(plus1.ausgabe, " Byte(s) -- Lesefehler, Teilrest oder NUL-Byte (Exit 1).")) << plus1.ausgabe;
     EXPECT_FALSE(enthaelt(plus1.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << plus1.ausgabe;
     EXPECT_EQ(tmp_reste(tmp), 0U);
     fs::remove(bin / "wc", ec);
     ASSERT_FALSE(fs::exists(bin / "wc"));
 
-    // (c) grep-Ziel soll_1.txt liegt schon (444, stale Inhalt): der mktemp-Koeder legt es im frischen TMP an.
-    ASSERT_TRUE(koeder_bin_anlegen(fall.repo(), "mktemp",
-                                   "#!/bin/sh\nd=$(" + wo_mktemp.ausgabe +
-                                       " \"$@\") || exit 1\nprintf 'stale\\n' > \"$d/soll_1.txt\"\n"
-                                       "chmod 444 \"$d/soll_1.txt\"\nprintf '%s\\n' \"$d\"\n"));
+    // (b2) ZAEHLENDER wc-Koeder: nur der ZWEITE 'wc -c' an der Allowlist meldet +1. Die Wache liest die Allowlist
+    //     zweimal (allow_zeile je Waise, danach der Nenner-Durchlauf) und gleicht jede Schleife ab: HEAD meldet den
+    //     zweiten Abgleich als Exit 2. M-R8-07b kehrt in allow_zeile VOR dem Abgleich zurueck -- dort faellt der
+    //     erste wc-Aufruf weg, der Koeder zaehlt nur einen, +1 trifft nie: OK = der Mutant ist NICHT aequivalent.
+    fs::path const zaehler = bin / ("wc_zaehler_" + marke);
+    ASSERT_TRUE(koeder_bin_anlegen(
+        fall.repo(), "wc",
+        "#!/bin/sh\nz=" + zitiert(zaehler) + "\ncase \"$*\" in\n    -c*ci_test_registrierungs_allowlist.txt*)\n" +
+            "        printf x >> \"$z\" || exit 98; n=$(( $(" + wo_wc.ausgabe + " -c < \"$z\") ))\n        out=$(" +
+            wo_wc.ausgabe +
+            " \"$@\") || exit $?\n        if [ \"$n\" -eq 2 ]; then k=${out%% *}; rest=${out#* }; "
+            "printf '%s %s\\n' \"$((k+1))\" \"$rest\"; exit 0; fi\n        printf '%s\\n' \"$out\"; exit 0 ;;\n"
+            "esac\nexec " +
+            wo_wc.ausgabe + " \"$@\"\n"));
+    Lauf const zweiter = fall.fahren("", deckel);
+    berichten("AnkerDFTeilrest.../wc-c-plus-1-nur-am-zweiten-Aufruf", zweiter, marke);
+    EXPECT_EQ(fs::file_size(zaehler, ec), 2U)
+        << "Arrangement: die Wache rief 'wc -c' an der Allowlist nicht genau zweimal (M-R8-07b: einmal).";
+    EXPECT_EQ(zweiter.code, 2) << "Der zweite Byte-Abgleich muss beissen -- M-R8-07b meldet hier OK.\n"
+                               << zweiter.ausgabe;
+    EXPECT_TRUE(zeile_exakt(zweiter.ausgabe, byte_zeile_anfang + std::to_string(allow_bytes) + " von " +
+                                                 std::to_string(allow_bytes + 1) + byte_zeile_ende))
+        << zweiter.ausgabe;
+    EXPECT_FALSE(enthaelt(zweiter.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << zweiter.ausgabe;
+    EXPECT_EQ(tmp_reste(tmp), 0U);
+    fs::remove(bin / "wc", ec);
+    ASSERT_FALSE(fs::exists(bin / "wc"));
+    fs::remove(zaehler, ec);
+
+    // (b3) ECHTES NUL-BYTE in der Datenzeile der Allowlist (LC7T-07): keine POSIX-Shell traegt ein NUL in einer
+    //     Variablen (dash schneidet die Zeile dort ab, bash laesst das Byte fallen) -- der Byte-Abgleich sieht
+    //     weniger Bytes als 'wc -c' und meldet Exit 2. M-R8-07 (Abgleich aus) meldet OK mit gekuerzter Zeile.
+    ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
+                                     "# Allowlist des Falls " + marke + "\n" + fall.waise() +
+                                         " | datei:tests/unit/kommt_vielleicht_" + marke + ".hpp | Koeder " + marke +
+                                         std::string{"\0", 1} + "x\n"));
+    ASSERT_EQ(fs::file_size(allow, ec), allow_bytes + 2) << "Arrangement: die NUL-Allowlist hat nicht +2 Byte.";
+    Lauf const nul = fall.fahren("", tmpdir);
+    ASSERT_TRUE(fall.allowlist_setzen("datei:tests/unit/kommt_vielleicht_" + marke + ".hpp"));
+    berichten("AnkerDFTeilrest.../NUL-Byte-in-der-Allowlist", nul, marke);
+    EXPECT_EQ(nul.code, 2) << "Ein NUL-Byte ist ein Lesefehler der Shell -- Exit 2, nie OK.\n" << nul.ausgabe;
+    EXPECT_TRUE(zeile_mit(nul.ausgabe, byte_zeile_anfang, " von " + std::to_string(allow_bytes + 2), byte_zeile_ende))
+        << nul.ausgabe;
+    EXPECT_FALSE(enthaelt(nul.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << nul.ausgabe;
+    EXPECT_EQ(tmp_reste(tmp), 0U);
+    Lauf const wieder_b = fall.fahren("", tmpdir);
+    berichten("AnkerDFTeilrest.../Allowlist-zurueck", wieder_b, marke);
+    EXPECT_EQ(wieder_b.code, 0) << wieder_b.ausgabe;
+    EXPECT_TRUE(zeile_exakt(wieder_b.ausgabe, endzeile_ok(2, 0))) << wieder_b.ausgabe;
+    EXPECT_EQ(tmp_reste(tmp), 0U);
+
+    // (c) grep-Ziel soll_1.txt liegt schon als VERZEICHNIS im frischen TMP (mkdir-Koeder; LB8-01: chmod 444 war fuer
+    //     root wirkungslos, EISDIR gilt fuer jede uid): datei_leeren meldet die Zwischendatei, nie 'grep -v (SOLL)'.
+    ASSERT_TRUE(koeder_bin_anlegen(
+        fall.repo(), "mkdir", mkdir_koeder(wo_mkdir.ausgabe, marke, "", wo_mkdir.ausgabe + " \"$d/soll_1.txt\"\n")));
     Lauf const stale = fall.fahren("", deckel);
-    berichten("AnkerDFTeilrest.../grep-Ziel-stale-und-444", stale, marke);
+    berichten("AnkerDFTeilrest.../grep-Ziel-ist-Verzeichnis", stale, marke);
     EXPECT_EQ(stale.code, 2) << stale.ausgabe;
-    EXPECT_TRUE(zeile_beginnt(stale.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- Zwischendatei ")) << stale.ausgabe;
-    EXPECT_TRUE(enthaelt(stale.ausgabe, "/soll_1.txt nicht anlegbar (Exit ")) << stale.ausgabe;
+    EXPECT_TRUE(zeile_mit(stale.ausgabe, "ABBRUCH: Werkzeug-Ausfall -- Zwischendatei ",
+                          "/soll_1.txt nicht anlegbar (Exit ", ")."))
+        << stale.ausgabe;
     EXPECT_FALSE(enthaelt(stale.ausgabe, "'grep' -v"))
         << "Das unbeschreibbare Ziel muss VOR dem grep gemeldet werden, nicht als grep-Ausfall.\n"
         << stale.ausgabe;
     EXPECT_FALSE(enthaelt(stale.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << stale.ausgabe;
-    EXPECT_EQ(tmp_reste(tmp), 0U) << "Der EXIT-trap muss das Zwischenverzeichnis samt 444-Datei raeumen.";
-    tmp_raeumen(tmp);
-    fs::remove(bin / "mktemp", ec);
-    ASSERT_FALSE(fs::exists(bin / "mktemp"));
+    EXPECT_EQ(tmp_reste(tmp), 0U) << "Der EXIT-trap muss das Zwischenverzeichnis samt Unterverzeichnis raeumen.";
+    EXPECT_TRUE(tmp_raeumen(tmp));
+    fs::remove(bin / "mkdir", ec);
+    ASSERT_FALSE(fs::exists(bin / "mkdir"));
 
     // (d) modify/delete: ext/dm_<marke>/d als Datei NUR auf Stufe 1 und 2 (zwei Blobs), Stufe 3 fehlt.
     std::string const dm = "ext/dm_" + marke + "/d";
@@ -3776,11 +3983,15 @@ TEST(Pa1ToteAusnahme, AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSindUnpruefb
     Lauf const md = fall.fahren("", tmpdir);
     berichten("AnkerDFTeilrest.../modify-delete-Stufe-3-fehlt", md, marke);
     EXPECT_EQ(md.code, 1) << md.ausgabe;
+    // Der Praefix nennt seit Fix-r9 die ART des Konflikts (LC7W-06): modify/delete, nicht 'ungleiche Typen'.
     EXPECT_TRUE(zeile_beginnt(
         md.ausgabe,
         fall.waise() + " -- UNPRUEFBAR: \"" + unter_d + "\" existiert nicht, und sein Vorfahr " + dm +
-            " steht im Index im MERGE-KONFLIKT mit ungleichen Typen je Stufe" +
-            " (Stufe 1: Datei, Stufe 2: Datei; Stufe 3 fehlt (modify/delete:" + " ein Ausgang loescht die Datei))"))
+            " steht im Index im MERGE-KONFLIKT mit fehlender Ausgangsstufe (modify/delete)" +
+            " (Stufe 1: Datei, Stufe 2: Datei; Stufe 3 fehlt (modify/delete: ein Ausgang loescht die Datei))"))
+        << md.ausgabe;
+    EXPECT_FALSE(enthaelt(md.ausgabe, "ungleichen Typen je Stufe"))
+        << "Zwei Datei-Stufen sind keine ungleichen Typen -- der Praefix muss die Konfliktart nennen.\n"
         << md.ausgabe;
     EXPECT_FALSE(enthaelt(md.ausgabe, "ist eine getrackte DATEI"))
         << "Eine Datei nur auf zwei Konfliktstufen ist kein Datei-Ahne (TOT): der Ausgang, der sie loescht, kennt"
@@ -3788,6 +3999,36 @@ TEST(Pa1ToteAusnahme, AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSindUnpruefb
         << md.ausgabe;
     EXPECT_TRUE(zeile_exakt(md.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << md.ausgabe;
     EXPECT_TRUE(zeile_exakt(md.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << md.ausgabe;
+    EXPECT_EQ(tmp_reste(tmp), 0U);
+
+    // (d2) add/add: ext/aa_<marke>/d als Datei auf Stufe 2 UND 3 (zwei Blobs), Stufe 1 fehlt. BEIDE Ausgaenge
+    //      tragen die Datei -> unter ihr kann nie ein Kind entstehen: TOT (Fix-r9 W-01 = Lens A r9 LA9-01; gegen
+    //      a5d14a25 UNPRUEFBAR 'ungleiche Typen ... Stufe 1 fehlt (modify/delete)' = falsche Diagnose).
+    std::string const aa = "ext/aa_" + marke + "/d";
+    ASSERT_TRUE(fall.repo().schreibe("aa_" + marke + ".txt", "100644 " + b1.ausgabe + " 2\t" + aa + "\n100644 " +
+                                                                 b2.ausgabe + " 3\t" + aa + "\n"));
+    Lauf const aidx = im_repo(fall.repo(), "git update-index --index-info < " +
+                                               zitiert(fall.repo().pfad() / ("aa_" + marke + ".txt")));
+    ASSERT_EQ(aidx.code, 0) << aidx.ausgabe;
+    Lauf const ast = im_repo(fall.repo(), "git ls-files -s -- " + zitiert(":(literal)" + aa));
+    ASSERT_TRUE(zeile_exakt(ast.ausgabe, "100644 " + b1.ausgabe + " 2\t" + aa)) << ast.ausgabe;
+    ASSERT_TRUE(zeile_exakt(ast.ausgabe, "100644 " + b2.ausgabe + " 3\t" + aa)) << ast.ausgabe;
+    ASSERT_FALSE(enthaelt(ast.ausgabe, " 1\t" + aa)) << "Arrangement: Stufe 1 steht:\n" << ast.ausgabe;
+    ASSERT_FALSE(enthaelt(ast.ausgabe, " 0\t" + aa)) << "Arrangement: Stufe 0 steht:\n" << ast.ausgabe;
+    std::string const unter_a = aa + "/y_" + marke + ".hpp";
+    ASSERT_TRUE(fall.allowlist_setzen("datei:" + unter_a));
+    Lauf const addadd = fall.fahren("", tmpdir);
+    berichten("AnkerDFTeilrest.../add-add-Stufe-2-und-3-ist-TOT", addadd, marke);
+    EXPECT_EQ(addadd.code, 1) << addadd.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(addadd.ausgabe, fall.waise() + " -- TOTE AUSNAHME: \"" + unter_a +
+                                                  "\" existiert nicht, und sein Vorfahr " + aa +
+                                                  " ist eine getrackte DATEI (Index-Modus 100644/100755)"))
+        << "add/add traegt die Datei auf BEIDEN Seiten: TOT, nicht UNPRUEFBAR (bis a5d14a25 falsche Diagnose).\n"
+        << addadd.ausgabe;
+    EXPECT_FALSE(enthaelt(addadd.ausgabe, "modify/delete")) << addadd.ausgabe;
+    EXPECT_FALSE(enthaelt(addadd.ausgabe, "UNPRUEFBAR:")) << addadd.ausgabe;
+    EXPECT_TRUE(zeile_exakt(addadd.ausgabe, nenner_davon(0, 0, 1, 0, 0))) << addadd.ausgabe;
+    EXPECT_TRUE(zeile_exakt(addadd.ausgabe, endzeile_rot(0, 2, 0, 1, 0, 0))) << addadd.ausgabe;
     EXPECT_EQ(tmp_reste(tmp), 0U);
 
     // (e) Gitlink im Index, im Arbeitsbaum ein Symlink auf ein echtes Verzeichnis.
@@ -3816,6 +4057,38 @@ TEST(Pa1ToteAusnahme, AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSindUnpruefb
     EXPECT_TRUE(zeile_exakt(gs.ausgabe, nenner_davon(0, 0, 0, 1, 0))) << gs.ausgabe;
     EXPECT_TRUE(zeile_exakt(gs.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << gs.ausgabe;
     EXPECT_EQ(tmp_reste(tmp), 0U);
+}
+
+// =============================================================================
+// (35) RECHTE PFADGRENZE IM IST-ABGLEICH (Fix-r9 W-09 = Lens C r7 LC7W-10). Der IST-Abgleich suchte die SOLL-Datei
+//      bis a5d14a25 als Praefix-Treffer im Bauweg: '/tests/unit/test_x.cpp' traf auch '.../test_x.cpp.extra.cpp' --
+//      eine unuebersetzte Datei galt als gebaut (fail-open, Altbestand; Shell-Probe W09 in compile_commands.json
+//      UND build.ninja). Arrangement: die Waise test_waise_<marke>.cpp ist getrackt und NICHT im Bauweg; ihre
+//      Namensverlaengerung test_waise_<marke>.cpp.extra.cpp ist getrackt UND gebaut. Erwartung: die Waise ist ROT
+//      (ohne Begruendung, SOLL 3); gegen a5d14a25 meldete die Wache OK. Kontrolle: beide gebaut = OK mit SOLL 3.
+// =============================================================================
+TEST(Pa1ToteAusnahme, RechtePfadgrenzeImIstAbgleich) {
+    std::string const marke = koeder();
+    Fall              fall{marke};
+    ASSERT_TRUE(fall.init());
+    std::string const extra = fall.waise() + ".extra.cpp";
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(extra, "// Namensverlaengerung der Waise " + marke + "\n"));
+    ASSERT_TRUE(fall.bauweg_schreiben({kGegenprobe, extra}));
+    Lauf const rot = fall.fahren();
+    berichten("RechtePfadgrenzeImIstAbgleich/Verlaengerung-gebaut-Waise-nicht", rot, marke);
+    EXPECT_EQ(rot.code, 1) << "Die gebaute Verlaengerung deckt die unuebersetzte Waise nicht (bis a5d14a25: OK).\n"
+                           << rot.ausgabe;
+    EXPECT_TRUE(zeile_beginnt(rot.ausgabe, "OHNE BEGRUENDUNG AUSSERHALB DES BAUWEGS")) << rot.ausgabe;
+    EXPECT_TRUE(zeile_exakt(rot.ausgabe, fall.waise())) << "Die Waise muss als Waise gemeldet werden.\n" << rot.ausgabe;
+    EXPECT_FALSE(zeile_exakt(rot.ausgabe, extra)) << "Die gebaute Verlaengerung ist keine Waise.\n" << rot.ausgabe;
+    EXPECT_TRUE(zeile_exakt(rot.ausgabe, nenner_getrackt(3))) << rot.ausgabe;
+    EXPECT_TRUE(zeile_exakt(rot.ausgabe, nenner_davon(0, 0, 0, 0, 1))) << rot.ausgabe;
+    EXPECT_TRUE(zeile_exakt(rot.ausgabe, endzeile_rot(1, 3, 0, 0, 0, 0))) << rot.ausgabe;
+    ASSERT_TRUE(fall.bauweg_schreiben({kGegenprobe, extra, fall.waise()}));
+    Lauf const beide = fall.fahren();
+    berichten("RechtePfadgrenzeImIstAbgleich/beide-gebaut", beide, marke);
+    EXPECT_EQ(beide.code, 0) << beide.ausgabe;
+    EXPECT_TRUE(zeile_exakt(beide.ausgabe, endzeile_ok(3, 0))) << beide.ausgabe;
 }
 
 #endif // _WIN32
