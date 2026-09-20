@@ -190,3 +190,36 @@ Bytes; (d) die OK-Zeile steht erst nach dem Aufraeumen des Zwischenverzeichnisse
 Fix-r8-Stand (`sh scripts/ci_test_registrierungs_wache.sh build-gcc-release`, sh = dash, ebenso bash --posix und
 busybox sh): weiterhin 544 getrackt, 4 ARCHIV in 1 Ordner, SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4; die Bilanz
 ohne Heute-Zeile ist byte-gleich zu Fix-r7 (md5 09ddc181 gcc / f644b9fb clang).
+
+## NACHTRAG 6a (Fix-r9: Lens B r8 LB8-05, Lens C r7 LC7T-10; 2026-09-20; additiv, nichts geloescht)
+
+BERICHTIGUNG ZU NACHTRAG 1, ZEILEN 99-100 (Lens C r7 LC7T-10): "Die Archiv-Menge steht bei jedem Wachen-Lauf sichtbar
+in der Ausgabe, im Nenner und in der Endzeile" ist zu weit -- dieselbe Einschraenkung wie in NACHTRAG 6 zur
+Quotiert-Zeile gilt auch hier: die Archiv-Zeile "davon N ARCHIV-Datei(en) in M Ordner(n) unter tests/deprecated/ mit
+VERMERK.md-Anker abgezogen -- SOLL: S." und die Endzeile stehen in jedem VOLLSTAENDIGEN Wachen-Bericht (Exit 0 oder 1);
+Abbrueche mit Exit 2 (AUFRUF ohne Argument, kein oder nicht betretbares Verzeichnis, Werkzeug-Ausfall, Signal) enden
+VOR dem Nenner-Block und tragen weder Archiv-Zeile noch Endzeile. Richtig lautet der Satz: die Archiv-Menge steht in
+jedem vollstaendigen Wachen-Bericht sichtbar in der Ausgabe, im Nenner und in der Endzeile. NACHTRAG 1 bleibt stehen.
+
+BERICHTIGUNG ZU NACHTRAG 6, ERSTER ABSATZ (Lens B r8 LB8-05): das dort wiedergegebene Zitat aus NACHTRAG 5 laesst die
+Innen-Anfuehrungszeichen weg. NACHTRAG 5 lautet woertlich: "Die zwei Anker-Unterfaelle aus NACHTRAG 2 ("Gitlink" =
+Index-Modus 160000, und ein Commit-Objekt unter Modus 100644)". Die Berichtigung von NACHTRAG 6 (Commit-Fall gehoert
+zu NACHTRAG 4, Gitlink-Fall zu NACHTRAG 2) gilt unveraendert; nur das Zitat war ungenau.
+
+ERGAENZUNG ZU NACHTRAG 6, LETZTER ABSATZ (Lens B r8 LB8-05): die Fix-r8-Klassen (a) und (c) sind seit Fixer r8b auch
+als Google-Stufen gepinnt -- (a) ARCHIV-Anker auf Stufe 0 gegen einen Eintrag DARUNTER = UNPRUEFBARER ANKER: Fall (34a)
+`AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSindUnpruefbarOderExit2` (eigener Wegwerf-Fall mit Waise im
+Archiv-Ordner, wie Fall (12d)); (c) Byte-Abgleich der Allowlist: Stufe (34b) derselben Fall-Funktion (wc -c um 1 Byte
+zu hoch = Exit 2), seit Fix-r9 dazu (34b2) (zaehlender wc-Koeder, nur der zweite Aufruf +1) und (34b3) (echtes
+NUL-Byte in der Datenzeile = Exit 2).
+
+Fix-r9 der Wache ohne Wirkung auf diesen Ordner: (a) jeder open-Fehler einer Eingabe-Umleitung und des grep-Ziels ist
+ABBRUCH + Exit 2 (Lens C r7 LC7W-03/04); (b) ein transienter Lesefehler mit Teilrest ist Exit 2, kein Dateiende
+(LC7W-02); (c) der IST-Abgleich hat eine rechte Pfadgrenze -- `test_x.cpp.extra.cpp` deckt `test_x.cpp` nicht mehr
+(LC7W-10); (d) ein nicht betretbares Bau-Verzeichnis traegt eine ABBRUCH-Zeile (Lens A r9 LA9-03); (e) die Index-
+Konfliktarten am Ahnen heissen nach ihrer git-Klasse, add/add (Datei auf Stufe 2 UND 3) ist TOT (LA9-01); (f) das
+Zwischenverzeichnis entsteht per `mktemp -u -d` + `mkdir -m 700`, der Pfad steht vor der Erzeugung fest (LC7W-09).
+Fuer DIESEN Ordner gemessen am Fix-r9-Stand (`sh scripts/ci_test_registrierungs_wache.sh build-gcc-release` und
+build-clang-release, sh = dash, ebenso bash --posix und busybox sh): weiterhin 544 getrackt, 4 ARCHIV in 1 Ordner,
+SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4; die Bilanz ohne Heute-Zeile ist byte-gleich zu Fix-r7 und Fix-r8
+(md5 09ddc181 gcc / f644b9fb clang; messungen/fix-r9c/bilanz/tafel-r9c-v2.out).
