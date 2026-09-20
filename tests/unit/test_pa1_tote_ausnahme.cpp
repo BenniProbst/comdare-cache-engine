@@ -231,7 +231,9 @@
 // + ninja, ere_literal), (35d) rechte Grenze in json ('test_x.cpp extra.cpp', ':extra.cpp', '|extra.cpp' gebaut,
 // test_x.cpp ungebaut = ROT; Wache Folge (17d)), (35e) linke Grenze (Namensgleiche unter ext/sub/ gebaut = ROT in json
 // + ninja; Folge (17c)) -- die drei Lens-B-r9-Mutanten (IST_GRENZE nur '"', ohne Zeilenende, ere_literal aus) fallen
-// hier (LB9-01 = LC8T-04). T-04: KILL-Deckel je Stufe 25 s statt 60 s -- 10 Deckel-Laeufe (die TERM/HUP-Schleife in
+// hier (LB9-01 = LC8T-04); (35f) Spiegel-Praefix VOR der Wurzel (Fix-r10b: '<repo>_spiegel<repo>/<waise>' gebaut =
+// ROT in json + ninja, faellt den IST_LINKS-losen Mutanten M-R10-04, den (35e) google-seitig nicht faellte).
+// T-04: KILL-Deckel je Stufe 25 s statt 60 s -- 10 Deckel-Laeufe (die TERM/HUP-Schleife in
 // (32) zaehlt zweimal) x 25 s = 250 s < ctest TIMEOUT 300 (LC8T-05 = LB9-02; bis 0f0d0fb6 10 x 60 = 600 s); berichten()
 // nennt Status 137 im Klartext (deckel_hinweis, LB8-04). T-05: (32g) mktemp-Koeder liefert einen fremden, schon
 // vorhandenen Pfad (Verzeichnis mit Inhalt; Symlink auf ein Verzeichnis) = Exit 2 mit mkdir-Meldung, der fremde
@@ -606,6 +608,11 @@ public:
     [[nodiscard]] testing::AssertionResult bauweg_schreiben(std::vector<std::string> const& relativ,
                                                             BauwegArt art = BauwegArt::json) const {
         std::error_code ec_weg;
+        // Ein Eintrag mit fuehrendem '/' ist schon absolut und wird roh geschrieben (Fix-r10b, Stufe (35f): ein
+        // Spiegel-Praefix VOR der Repo-Wurzel); alles andere haengt an der Repo-Wurzel.
+        auto const absolut = [this](std::string const& r) {
+            return r.starts_with('/') ? r : (repo_.pfad() / r).string();
+        };
         if (art == BauwegArt::ninja) {
             // Die Wache bevorzugt compile_commands.json: fuer die ninja-Form darf keine json-Datei daneben liegen.
             fs::remove(baum_.pfad() / "compile_commands.json", ec_weg);
@@ -614,8 +621,7 @@ public:
             for (std::size_t i = 0; i < relativ.size(); ++i) {
                 // CI-Form: 'build x.o: CXX <abs> || deps' -- der Pfad steht vor ' ||'; die LETZTE Zeile traegt ihn
                 // am Zeilenende (beide Grenzen der Wache, Folge (17d)).
-                nin << "build CMakeFiles/x.dir/" << relativ[i] << ".o: CXX_COMPILER__x_Release "
-                    << (repo_.pfad() / relativ[i]).string()
+                nin << "build CMakeFiles/x.dir/" << relativ[i] << ".o: CXX_COMPILER__x_Release " << absolut(relativ[i])
                     << (i + 1 == relativ.size() ? "\n" : " || cmake_object_order_depends_target_x\n");
             }
             nin.close();
@@ -630,9 +636,8 @@ public:
         aus << "[\n";
         for (std::size_t i = 0; i < relativ.size(); ++i) {
             aus << "  {\"directory\": \"" << baum_.pfad().string() << "\",\n"
-                << "   \"command\": \"c++ -c " << (repo_.pfad() / relativ[i]).string() << "\",\n"
-                << "   \"file\": \"" << (repo_.pfad() / relativ[i]).string() << "\"}"
-                << (i + 1 == relativ.size() ? "\n" : ",\n");
+                << "   \"command\": \"c++ -c " << absolut(relativ[i]) << "\",\n"
+                << "   \"file\": \"" << absolut(relativ[i]) << "\"}" << (i + 1 == relativ.size() ? "\n" : ",\n");
         }
         aus << "]\n";
         aus.close();
@@ -4440,6 +4445,8 @@ TEST(Pa1ToteAusnahme, AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSindUnpruefb
 //      in json: 'test_x.cpp extra.cpp', 'test_x.cpp:extra.cpp', 'test_x.cpp|extra.cpp' gebaut, test_x.cpp ungebaut =
 //      ROT (bis 0f0d0fb6 OK: Leerraum, ':' und '|' galten als Grenze), (35e) LINKE Grenze: die Namensgleiche unter
 //      ext/sub/ gebaut, die Waise ungebaut = ROT in json und ninja (bis 0f0d0fb6 OK: nur '/' vor dem Pfad).
+//      SEIT FIX-r10b: (35f) LINKE Grenze mit Spiegel-Praefix VOR der Wurzel ('<repo>_spiegel<repo>/<waise>' gebaut,
+//      Waise ungebaut = ROT in json und ninja) -- die Stufe, die IST_LINKS wirklich braucht (Mutant M-R10-04).
 // =============================================================================
 TEST(Pa1ToteAusnahme, RechtePfadgrenzeImIstAbgleich) {
     std::string const marke = koeder();
@@ -4523,6 +4530,28 @@ TEST(Pa1ToteAusnahme, RechtePfadgrenzeImIstAbgleich) {
     EXPECT_EQ(lninja.code, 1) << "'ext/sub/<waise>' gebaut darf die Waise nicht decken (ninja).\n" << lninja.ausgabe;
     EXPECT_TRUE(zeile_exakt(lninja.ausgabe, fall.waise())) << lninja.ausgabe;
     EXPECT_TRUE(zeile_exakt(lninja.ausgabe, endzeile_rot(1, 4, 0, 0, 0, 0))) << lninja.ausgabe;
+
+    // (35f) LINKE Grenze, SPIEGEL-PRAEFIX VOR DER WURZEL (Fix-r10b; Shell-Probe W09Lp): der gebaute Pfad
+    //       '<repo>_spiegel<repo>/<waise>' (Kopie oder Spiegel des Baums) traegt die absolute Repo-Wurzel als
+    //       SUFFIX unter einem fremden Praefix. (35e) prueft nur den Anker an der Wurzel ('ext/sub/' liegt
+    //       DAHINTER); erst diese Stufe braucht IST_LINKS (Wache Folge (17c)) -- ohne IST_LINKS gilt die ungebaute
+    //       Waise als gebaut (Mutant M-R10-04 ueberlebte (35e) google-seitig). json und ninja.
+    std::string const wurzel  = fall.repo().pfad().string();
+    std::string const spiegel = wurzel + "_spiegel" + wurzel + "/" + fall.waise();
+    ASSERT_TRUE(fall.bauweg_schreiben({kGegenprobe, extra, meta, spiegel}));
+    Lauf const sjson = fall.fahren();
+    berichten("RechtePfadgrenzeImIstAbgleich/json-linke-Grenze-Spiegel-Praefix-vor-Wurzel", sjson, marke);
+    EXPECT_EQ(sjson.code, 1) << "'<spiegel><repo>/<waise>' gebaut darf die Waise nicht decken (json).\n"
+                             << sjson.ausgabe;
+    EXPECT_TRUE(zeile_exakt(sjson.ausgabe, fall.waise())) << sjson.ausgabe;
+    EXPECT_TRUE(zeile_exakt(sjson.ausgabe, endzeile_rot(1, 4, 0, 0, 0, 0))) << sjson.ausgabe;
+    ASSERT_TRUE(fall.bauweg_schreiben({kGegenprobe, extra, meta, spiegel}, BauwegArt::ninja));
+    Lauf const sninja = fall.fahren();
+    berichten("RechtePfadgrenzeImIstAbgleich/ninja-linke-Grenze-Spiegel-Praefix-vor-Wurzel", sninja, marke);
+    EXPECT_EQ(sninja.code, 1) << "'<spiegel><repo>/<waise>' gebaut darf die Waise nicht decken (ninja).\n"
+                              << sninja.ausgabe;
+    EXPECT_TRUE(zeile_exakt(sninja.ausgabe, fall.waise())) << sninja.ausgabe;
+    EXPECT_TRUE(zeile_exakt(sninja.ausgabe, endzeile_rot(1, 4, 0, 0, 0, 0))) << sninja.ausgabe;
 }
 
 #endif // _WIN32
