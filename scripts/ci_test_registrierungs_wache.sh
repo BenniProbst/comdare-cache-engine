@@ -158,7 +158,9 @@
 # 'erreichbar' gibt die Antwort:
 #   ignoriert       -> erreichbar. 'build/tools/y' darf bei jedem Bau entstehen.
 #   Gitlink (160000)-> erreichbar. Ein nicht ausgechecktes Submodul kann beliebig tief
-#                      etwas mitbringen; sein Inhalt steht nie im Index des Obenprojekts.
+#                      etwas mitbringen; sein Inhalt steht nie im Index des Obenprojekts. [Seit Fix-r10,
+#                      Folge (17g): nur auf Stufe 0, {2,3} oder {1,2,3}; ein Gitlink nur auf der Basis, nur
+#                      auf einer Seite oder mit fehlender Ausgangsstufe ist UNPRUEFBAR wie die Datei.]
 #   getrackte DATEI (100644/100755) -> tot. Unter einer Datei kann nie ein Kind entstehen,
 #                      weder im Index noch im Arbeitsbaum (Folge (11), Fix-r5).
 #   Symlink (im Index 120000 oder NUR im Arbeitsbaum, Fix-r6) oder Merge-Konflikt -- ungleiche
@@ -431,6 +433,8 @@
 #       und sass er am LF-Byte, lief die Trefferzeile vollstaendig als 'Rest' durch -- der Lauf wurde GRUEN (Probe
 #       W03, strace-Injektion EIO in dash und busybox; bash liest blockweise und fiel schon am Zeilen-Abgleich). Jetzt
 #       fragt jede der zwoelf Schleifen nach einem Teilrest EINMAL nach (lese_rest_ende): kommen noch Zeichen, Exit 2.
+#       [Berichtigt mit Fix-r10, Folge (17a): die Nachfrage war selbst ein read(2) und liess einen ZWEITEN EIO durch;
+#       seit Fix-r10 zaehlt der Byte-Vergleich, und die Schleife endet nach dem Teilrest.]
 #       (b) DAS OPEN DER EINGABE-UMLEITUNG IST GEPRUEFT (LC7W-03): lesbar() war eine Vorprobe; scheiterte erst das
 #       open, endete dash roh mit 2, bash mit 1 (je OHNE ABBRUCH-Zeile), busybox lief leer weiter (Probe W04, EACCES
 #       am open). Jetzt oeffnet lese_oeffnen jede Datei per 'command exec' auf Deskriptor 3 (oberste Ebene) bzw. 4
@@ -440,8 +444,10 @@
 #       geleerte Datei bestand die '-f'-Probe, das leere Ergebnis lief als Datenbefund durch (Probe W05). Jetzt
 #       'command exec 5>' VOR grep (Fehler = Exit 2 mit Meldung), grep schreibt in den Deskriptor. (d) DER TMP-PFAD
 #       STEHT VOR DER ERZEUGUNG FEST (LC7W-09): 'mktemp -u -d' liefert nur den Namen, TMP ist gesetzt, dann 'mkdir
-#       -m 700'; der EXIT-trap kennt TMP, bevor etwas entsteht (am VOR-Stand war in 3 Shells kein Rest messbar,
-#       Probe W08 -- POSIX schiebt den trap hinter das laufende Kommando; Haertung). (e) RECHTE PFADGRENZE IM IST-
+#       -m 700'; der EXIT-trap kennt TMP, bevor etwas entsteht [berichtigt mit Fix-r10, Lens A r10 LA10-02: am
+#       VOR-Stand blieb bei einem Signal an die PROZESSGRUPPE waehrend mktemp ein Rest (Probe W08g, dash + bash);
+#       nur ein Signal an die Shell allein wird hinter das Kommando geschoben (Probe W08 von Fix-r9) -- der Umbau
+#       ist ein echter Fix, keine Haertung; Folge (17b)]. (e) RECHTE PFADGRENZE IM IST-
 #       ABGLEICH (LC7W-10): '-F /pfad' traf auch '/pfad.extra.cpp', die unuebersetzte Datei galt als gebaut (fail-
 #       open, Probe W09, in compile_commands.json UND build.ninja); jetzt '-E' mit literalem Pfad (ere_literal) und der
 #       Grenze '"', Leerraum, ':', '|' oder Zeilenende (IST_GRENZE), auch an der Messgeraet-Gegenprobe. (f) 'cd' MIT
@@ -454,6 +460,48 @@
 #       nennt den Gitlink unter einem Arbeitsbaum-Symlink (LC7W-07), der Satz 'rm laeuft NUR im EXIT-trap' ist an
 #       beiden Stellen berichtigt (LC7W-08), der Allowlist-Kopf nennt (15e)/(15i)/(15j)/(16g) (LA9-04). Google-Stufen
 #       (34b2), (34d2), (33f), Fall (35) -- tests/unit/test_pa1_tote_ausnahme.cpp, NACHTRAG 10.
+#   (17) FIX-R10 (2026-09-20; Lens A r10 LA10-01..05, Lens B r9 LB9-01, Lens C r8 LC8W-01..09): (a) EIN TEILREST WIRD
+#       GEGEN 'wc -c' GEPRUEFT, NICHT NACHGELESEN (LA10-01 = LC8W-05): die Nachfrage von Fix-r9 war selbst ein read(2);
+#       traf ein ZWEITER EIO sie, galt die leere Antwort als Ende, die Schleife lief weiter und las den Rest der Zeile
+#       als neue Zeile -- LF- und Byte-Summe stimmten, der Lauf wurde GRUEN (Probe W03d, dash + busybox; bash bei
+#       einer Zeile ueber 4096 Byte, Probe W03bl); mitten in der Zeile wurde die Trefferzeile gespalten = falsches ROT
+#       mit falscher Diagnose. Jetzt vergleicht lese_rest_ende die bis zum Teilrest gezaehlten Bytes mit 'wc -c'
+#       (Abweichung = Exit 2), und jede der zwoelf Schleifen ENDET nach dem Teilrest (Schleifenbedingung auf dem
+#       read-Status '_lr' bzw. '_lr4' statt 'while :'); eine echte letzte Zeile ohne Zeilenumbruch bleibt legitim.
+#       (b) aufraeumen ENTFERNT NUR, WAS DIE WACHE ANGELEGT HAT (LC8W-01): 'mktemp -u -d' reserviert den Namen nicht;
+#       scheiterte 'mkdir' an einem fremden Eintrag (Verzeichnis oder Symlink am Namen), entfernte der EXIT-trap ihn
+#       per 'rm -rf' (Probe W02a/W02b: fremdes Verzeichnis geloescht). Jetzt setzt TMP_ANGELEGT=1 erst NACH dem
+#       gelungenen mkdir; ohne Marker raeumt aufraeumen hoechstens ein LEERES, nicht verlinktes Verzeichnis per
+#       'rmdir' -- das Produkt eines mkdir, das ein Signal unterbrach (in dash und bash laeuft der Signal-trap direkt
+#       nach dem mkdir-Kommando, VOR jeder Marker-Zuweisung: gemessen, Probe TRAP-TIMING); fremder Inhalt und Symlinks
+#       bleiben stehen. Die Aussage von (16d) 'am VOR-Stand in keiner Shell herstellbar' ist berichtigt (LA10-02):
+#       mit einem Signal an die PROZESSGRUPPE waehrend mktemp blieb bei a5d14a25 ein Rest (Probe W08g, dash + bash).
+#       (c) LINKE PFADGRENZE (LA10-03): der Anker '/' vor dem Pfad trennte nur Namens-Suffixe; jeder gebaute Pfad, der
+#       auf '/<soll-pfad>' endete (ext/-Submodul, Prueflings-Baum, Kopie), liess die unuebersetzte Datei als gebaut
+#       gelten (Probe W09L, json + ninja, 3 Shells). Jetzt ist das Muster an der Repo-Wurzel verankert ("$WURZEL/$f"
+#       literal, davor IST_LINKS: Zeilenanfang oder ein Zeichen, das in keinem Pfad steht) -- auch an der Gegenprobe:
+#       ein unter anderer Wurzel-Schreibweise konfigurierter Baum ist ABBRUCH, fail-closed statt still.
+#       (d) RECHTE PFADGRENZE JE BAUWEG-ART (LC8W-02 = LB9-01): Leerraum, ':' und '|' sind gueltige Dateinamenbytes;
+#       in compile_commands.json deckte 'test_x.cpp extra.cpp' (auch ':extra.cpp' / '|extra.cpp') die ungebaute
+#       test_x.cpp (Probe W09R). Jetzt ist die Grenze in compile_commands.json NUR das schliessende '"' (JSON-String;
+#       ein '"' im Pfad ist von git quotiert und UNPRUEFBAR), in build.ninja Leerraum, '|', ':' oder das Zeilenende.
+#       GRENZE: ninja maskiert Leerraum und ':' im Pfad als '$ ' und '$:' -- ein solcher SOLL-Pfad trifft im Fallback
+#       build.ninja nicht (falsches ROT, fail-closed; compile_commands.json wird bevorzugt und traegt den Pfad roh).
+#       (e) DER CLOSE-STATUS ZAEHLT (LC8W-03): 'command exec 5>&- || :' verwarf den Status des letzten close(2); bei
+#       NFS, Quota oder EIO meldet erst der Close einen verlorenen Schreibvorgang, und ein unvollstaendiges grep-Ziel
+#       liefe mit GREP_RC 0 als Datenbefund weiter. Jetzt ist ein gemeldeter Close-Fehler an FD 5 und an FD 3/4 Exit 2.
+#       GRENZE, GEMESSEN (Probe W04c): dash, bash und busybox melden fuer 'exec N>&-' Status 0 auch bei injiziertem
+#       close(2)-EIO -- die Klasse ist an diesen Shells nicht beobachtbar, der Vertrag steht (FIX-r10.md Abschn. 3).
+#       (f) /dev/null NIMMT DENSELBEN WEG (LC8W-04): fuer das Ziel /dev/null blieb die Umleitung am grep-Kommando; ein
+#       Open-Fehler dort war in bash und busybox Status 1 = 'Nichttreffer' -- im IST-Abgleich zaehlte die Datei als
+#       fehlend (falsches ROT, Probe W05n). Jetzt oeffnet 'command exec 5>' auch /dev/null vor grep (Fehler = Exit 2).
+#       (g) GITLINK-STUFENLOGIK (LC8W-06): ein Gitlink NUR auf Stufe 1 (beide Seiten loeschen ihn), nur auf Stufe 2
+#       oder 3 oder mit fehlender Ausgangsstufe ({1,2}/{1,3}) galt als 'gitlink' = erreichbar (fail-open, Probe W06);
+#       jetzt gilt fuer ihn dieselbe Stufenlogik wie fuer die Datei: UNPRUEFBAR mit dem Etikett der git-Klasse; {2,3}
+#       und {1,2,3} bleiben Gitlink. Rangfolge im Ahnenscan unveraendert: UNPRUEFBAR vor TOT vor Gitlink (Folge (14a)).
+#       (h) DOKU: 'mkdir' steht in der Werkzeugliste des Exit-2-Vertrags (LA10-04); der Allowlist-Kopf zitiert die
+#       realen Google-Faelle und traegt die add/add-Vorbehalte (LA10-05, LC8W-09). Google-Stufen (32g), (34f), (35b)-
+#       (35e) -- tests/unit/test_pa1_tote_ausnahme.cpp; VERMERK.md NACHTRAG 6b.
 #
 # DER GEMESSENE BAUM MUSS DERSELBE SEIN WIE DER DER CI (J-0b, am Objekt 2026-09-17): der CI-Baum
 # build-covguard wird MIT -DCOMDARE_CE_PRUEFLINGE=<repo>/tests/pruefling_fixture konfiguriert, und
@@ -483,7 +531,8 @@
 #              add/add ist TOT, Folge (16g)) und eine Index-DATEI oder ein GITLINK, die im Arbeitsbaum ein Symlink
 #              sind, Folgen (15e), (15i), (15j) -- der Gitlink nachgetragen mit Fix-r9, Lens C r7 LC7W-07)
 #          2 = die Wache konnte nicht pruefen (fail-closed, ausdruecklich KEIN Gruen) -- auch bei
-#              jedem Ausfall eines Werkzeugs (git, grep, sort, uniq, wc, date, mktemp; cut, sed und
+#              jedem Ausfall eines Werkzeugs (git, grep, sort, uniq, wc, date, mktemp, mkdir -- mkdir seit
+#              Fix-r9, in dieser Liste nachgetragen mit Fix-r10, Lens A r10 LA10-04; cut, sed und
 #              tr kommen seit Fix-r3 nicht mehr vor; rm laeuft im EXIT-trap (aufraeumen) zum
 #              Aufraeumen der Zwischendateien, also nach dem 'exit' -- sein Ausfall aendert keinen Befund:
 #              aufraeumen gibt den Status vor dem trap zurueck, nur ein Gruen wird bei liegengebliebenem
@@ -543,16 +592,28 @@ export LC_ALL
 # EXIT-trap, das Zwischenverzeichnis blieb liegen (Probe P1a). Jetzt ist PIPE 'exit 2' wie INT/TERM/HUP; ist PIPE
 # beim Start ignoriert (SIG_IGN), scheitert die Schreiboperation mit EPIPE und aus() bricht mit Exit 2 ab.
 TMP=""
+TMP_ANGELEGT=0
 aufraeumen() {
     # EXIT-trap. Der Exit-Status ist der Status VOR dem trap ($? beim Eintritt): unter 'set -e' beendet ein
     # scheiterndes 'rm' im trap-Rumpf die Shell sonst mit DESSEN Status -- aus 'exit 2' wurde 1 (dash, bash,
     # busybox; Probe messungen/fix-r7/proben/schreib-NEU der ersten Fix-r7-Fassung, read-only TMP). Bleibt TMP
     # liegen, ist das ein Werkzeug-Ausfall: ein Gruen wird zu Exit 2, ein Befund (1) oder Abbruch (2) bleibt.
+    # NUR EIGENES WIRD ENTFERNT (Fix-r10, Lens C r8 LC8W-01 = Lens A r10 LA10-02, Kopf Folge (17b)): 'mktemp -u -d'
+    # reserviert den Namen nicht; lag am Namen ein fremder Eintrag (Verzeichnis, Symlink), scheiterte 'mkdir' und
+    # 'rm -rf' hier entfernte den FREMDEN Eintrag (Probe W02a/W02b). Jetzt raeumt 'rm -rf' nur mit TMP_ANGELEGT=1
+    # (gesetzt NACH dem gelungenen mkdir). Ohne Marker faellt hoechstens ein LEERES, nicht verlinktes Verzeichnis per
+    # 'rmdir' -- das Produkt eines mkdir, das ein Signal unterbrach: in dash und bash laeuft der Signal-trap direkt
+    # nach dem mkdir-Kommando und VOR jeder Marker-Zuweisung (gemessen, Probe TRAP-TIMING, FIX-r10.md), und ein
+    # Signal waehrend mkdir soll keinen Rest lassen (Folge (16d), Fall (32a/b)). Fremder Inhalt und Symlinks bleiben.
     _rc=$?
     if [ -n "$TMP" ]; then
-        if ! rm -rf "$TMP" 2>/dev/null; then
-            printf '%s\n' "ABBRUCH: Werkzeug-Ausfall -- Zwischenverzeichnis $TMP nicht entfernt (rm -rf)." >&2 || :
-            if [ "$_rc" -eq 0 ]; then _rc=2; fi
+        if [ "$TMP_ANGELEGT" = 1 ]; then
+            if ! rm -rf "$TMP" 2>/dev/null; then
+                printf '%s\n' "ABBRUCH: Werkzeug-Ausfall -- Zwischenverzeichnis $TMP nicht entfernt (rm -rf)." >&2 || :
+                if [ "$_rc" -eq 0 ]; then _rc=2; fi
+            fi
+        elif [ -d "$TMP" ] && [ ! -L "$TMP" ]; then
+            rmdir "$TMP" 2>/dev/null || :
         fi
     fi
     exit "$_rc"
@@ -659,16 +720,24 @@ grep_in_datei() {
     # und ein LEERES Ergebnis lief als Datenbefund durch (Probe W05, strace-Injektion EACCES am zweiten open: 'N
     # getrackte' mit N-1). Jetzt oeffnet 'command exec 5>' das Ziel VOR grep (Fehler = Exit 2 mit Meldung, die Shell
     # ueberlebt das regulaere Builtin), grep schreibt in den offenen Deskriptor, danach ist Status 1 eindeutig.
+    # AUCH /dev/null NIMMT DIESEN WEG (Fix-r10, Lens C r8 LC8W-04, Kopf Folge (17f)): bis 0f0d0fb6 blieb die Umleitung
+    # '> /dev/null' am grep-Kommando; scheiterte ihr open (EACCES, EMFILE, fehlender Geraeteknoten), war das in bash
+    # und busybox Status 1 = 'Nichttreffer' und im IST-Abgleich zaehlte die Datei als fehlend (falsches ROT, Probe
+    # W05n). DER CLOSE-STATUS ZAEHLT (LC8W-03, Folge (17e)): 'command exec 5>&- || :' verwarf den Status des letzten
+    # close(2); bei NFS, Quota oder EIO meldet erst der Close einen verlorenen Schreibvorgang -- ein unvollstaendiges
+    # grep-Ziel liefe mit GREP_RC 0 als Datenbefund weiter. Jetzt ist ein gemeldeter Close-Fehler Exit 2. GRENZE,
+    # GEMESSEN (Probe W04c, strace-Injektion EIO am close(5) des grep-Ziels): dash 0.5.12, bash 5.2 und busybox 1.36
+    # melden fuer 'exec 5>&-' Status 0, auch wenn close(2) EIO liefert -- die Shell verwirft den Status selbst; der
+    # Vertrag steht, die Klasse ist an diesen Shells nicht beobachtbar (die Pruefung faengt, was die Shell meldet, etwa
+    # den Ausfall der Deskriptor-Sicherung unter einem RLIMIT_NOFILE-Deckel, Probe rlimit-33i).
     GREP_RC=0
-    if [ "$_gz" = /dev/null ]; then
-        LC_ALL=C "$GREP" "$@" > /dev/null || GREP_RC=$?
-    else
-        _go=0
-        command exec 5> "$_gz" || _go=$?
-        [ "$_go" -eq 0 ] || werkzeug_abbruch "Zwischendatei $_gz nicht anlegbar (open des grep-Ziels)" "$_go"
-        LC_ALL=C "$GREP" "$@" >&5 || GREP_RC=$?
-        command exec 5>&- || :
-    fi
+    _go=0
+    command exec 5> "$_gz" || _go=$?
+    [ "$_go" -eq 0 ] || werkzeug_abbruch "Zwischendatei $_gz nicht anlegbar (open des grep-Ziels)" "$_go"
+    LC_ALL=C "$GREP" "$@" >&5 || GREP_RC=$?
+    _gc=0
+    command exec 5>&- || _gc=$?
+    [ "$_gc" -eq 0 ] || werkzeug_abbruch "Zwischendatei $_gz nicht abschliessbar (close des grep-Ziels)" "$_gc"
     [ "$GREP_RC" -le 1 ] || werkzeug_abbruch "'grep' $_ge" "$GREP_RC"
     # Eine gescheiterte Umleitung saehe wie Status 1 aus, ohne dass grep lief: die Zieldatei muss da sein.
     if [ "$_gz" != /dev/null ] && [ ! -f "$_gz" ]; then
@@ -734,24 +803,34 @@ lese_oeffnen() {
 }
 
 lese_schliessen() {
-    # $1 = Deskriptor 3 oder 4 (s. lese_oeffnen). Schliessen kann nicht scheitern, '|| :' haelt 'set -e' fern.
+    # $1 = Deskriptor 3 oder 4 (s. lese_oeffnen). Der Status des close(2) wird geprueft (Fix-r10, Lens C r8 LC8W-03,
+    # Kopf Folge (17e)): bis 0f0d0fb6 hiess es 'Schliessen kann nicht scheitern' -- der Vertrag 'jeder Werkzeug-
+    # Ausfall = Exit 2' gilt auch hier, auch wenn der Lesefall harmlos ist.
+    _lsc=0
     case "$1" in
-        3) command exec 3<&- || : ;;
-        4) command exec 4<&- || : ;;
+        3) command exec 3<&- || _lsc=$? ;;
+        4) command exec 4<&- || _lsc=$? ;;
     esac
+    [ "$_lsc" -eq 0 ] || werkzeug_abbruch "Eingabe-Deskriptor $1 nicht geschlossen (close der Eingabe)" "$_lsc"
 }
 
 lese_rest_ende() {
-    # $1 = Datei. Nach einem TEILREST (read Status != 0, Variable NICHT leer) muss die Datei zu Ende sein (Fix-r9,
-    # Lens C r7 LC7W-02, Kopf Folge (16a)): 'read' meldet EIO und Dateiende gleich (Status 1), und bis a5d14a25 lief
-    # jede Schleife nach einem Teilrest WEITER -- ein transienter Lesefehler mitten in einer Zeile lieferte zwei
-    # Bruchstuecke mit derselben LF- und Byte-Summe wie die ganze Zeile, der Abgleich blieb blind, und der Fehler
-    # sass am LF-Byte, dann lief die Trefferzeile vollstaendig als 'Rest' durch (Probe W03: rc=0 OK). Jetzt fragt
-    # die Schleife nach einem Teilrest EINMAL nach: liefert 'read' noch Zeichen oder Status 0, war der Teilrest ein
-    # Lesefehler und nicht die letzte Zeile ohne Zeilenumbruch -- Exit 2. Liest vom stdin der Schleife (= Deskriptor).
-    _lre=""; _lrr=0; IFS= read -r _lre || _lrr=$?
-    if [ "$_lrr" -eq 0 ] || [ -n "$_lre" ]; then
-        werkzeug_abbruch "'read' ueber $1 lieferte nach einem Teilrest weitere Zeichen -- Lesefehler (EIO), kein Ende" 1
+    # $1 = Datei, $2 = die bis hierher gelesenen Bytes EINSCHLIESSLICH des Teilrests. Nach einem TEILREST (read Status
+    # != 0, Variable NICHT leer) muss die Datei zu Ende sein (Fix-r9, Lens C r7 LC7W-02, Kopf Folge (16a)): 'read'
+    # meldet EIO und Dateiende gleich (Status 1), und bis a5d14a25 lief jede Schleife nach einem Teilrest WEITER -- ein
+    # transienter Lesefehler mitten in einer Zeile lieferte zwei Bruchstuecke mit derselben LF- und Byte-Summe wie die
+    # ganze Zeile, der Abgleich blieb blind, und sass der Fehler am LF-Byte, lief die Trefferzeile vollstaendig als
+    # 'Rest' durch (Probe W03: rc=0 OK). Fix-r9 fragte per zweitem 'read' nach -- das war selbst ein read(2): traf ein
+    # ZWEITER EIO diese Nachfrage, galt die leere Antwort als Ende, die Schleife lief weiter und las den Rest der Zeile
+    # als neue Zeile, LF- und Byte-Summe stimmten wieder, der Lauf wurde GRUEN (Fix-r10, Lens A r10 LA10-01 = Lens C r8
+    # LC8W-05, Kopf Folge (17a); Probe W03d in dash und busybox, bash bei einer Zeile ueber 4096 Byte, Probe W03bl).
+    # Jetzt wird NICHT nachgelesen: die bis zum Teilrest gezaehlten Bytes muessen 'wc -c' der Datei sein -- nur dann ist
+    # der Teilrest die letzte Zeile ohne Zeilenumbruch; jede Abweichung ist ein Lesefehler, Exit 2. Die aufrufende
+    # Schleife ENDET nach dem Teilrest (Schleifenbedingung auf ihrem read-Status), sie liest nie wieder.
+    bytes_zaehlen "$1"
+    if [ "$2" -ne "$BYTES" ]; then
+        _lrm="'read' ueber $1 lieferte einen Teilrest nach $2 von $BYTES Byte(s) -- Lesefehler (EIO), kein Ende"
+        werkzeug_abbruch "$_lrm" 1
     fi
 }
 
@@ -815,13 +894,13 @@ eingerueckt() {
     # Jede Zeile der genannten Dateien um zwei Leerzeichen eingerueckt ausgeben -- ohne sed, dessen
     # Ausfall die Ausgabe still kuerzte (Lens C LC3W-04).
     for _ed in "$@"; do
-        _nE=0; _bE=0
+        _nE=0; _bE=0; _lr=0
         lese_oeffnen "$_ed" 3
-        while :; do
+        while [ "$_lr" -eq 0 ]; do
             _el=""; _lr=0; IFS= read -r _el || _lr=$?
             if [ "$_lr" -ne 0 ] && [ -z "$_el" ]; then break; fi
             if [ "$_lr" -eq 0 ]; then _nE=$((_nE + 1)); _bE=$((_bE + ${#_el} + 1)); else _bE=$((_bE + ${#_el})); fi
-            if [ "$_lr" -ne 0 ]; then lese_rest_ende "$_ed"; fi
+            if [ "$_lr" -ne 0 ]; then lese_rest_ende "$_ed" "$_bE"; fi
             aus "  $_el"
         done <&3
         lese_schliessen 3
@@ -845,9 +924,22 @@ ere_literal() {
         esac
     done
 }
-# Was im IST einem Pfad FOLGEN darf (Folge (16e)): das schliessende '"' von compile_commands.json, Leerraum, ':' oder
-# '|' von build.ninja ('build x.o: CXX ... /pfad || deps') oder das Zeilenende -- nie ein weiteres Pfadzeichen.
-IST_GRENZE='("|[[:space:]]|:|\||$)'
+# Was im IST einem Pfad VORAUSGEHEN darf (Fix-r10, Lens A r10 LA10-03, Kopf Folge (17c)): der Zeilenanfang oder ein
+# Zeichen, das in keinem Pfad steht -- das oeffnende '"' von compile_commands.json, Leerraum von build.ninja. Der Pfad
+# selbst ist die Repo-Wurzel plus SOLL-Pfad ("$WURZEL/$f"): bis 0f0d0fb6 stand nur '/' davor, und jeder gebaute Pfad,
+# der auf '/<soll-pfad>' ENDETE (ext/sub/tests/unit/test_x.cpp, Prueflings-Baum, Kopie), liess die unuebersetzte
+# Datei als gebaut gelten (Probe W09L, json + ninja, 3 Shells). '/' und die Pfadzeichen '.', '_', '-' und
+# alphanumerische Bytes sind ausgeschlossen, damit weder '/x/home/...' noch 'abc/home/...' vor der Wurzel trifft.
+IST_LINKS='(^|[^/[:alnum:]._-])'
+# Was im IST einem Pfad FOLGEN darf (Folge (16e); JE BAUWEG-ART seit Fix-r10, Lens C r8 LC8W-02 = Lens B r9 LB9-01,
+# Kopf Folge (17d)): Leerraum, ':' und '|' sind gueltige Dateinamenbytes -- eine gemeinsame Grenze fuer beide Arten
+# liess in compile_commands.json 'test_x.cpp extra.cpp' (ebenso ':extra.cpp', '|extra.cpp') die ungebaute
+# test_x.cpp decken (Probe W09R). Jetzt: in compile_commands.json NUR das schliessende '"' des JSON-Strings (ein '"'
+# im Pfad ist dort '\"', und einen solchen Index-Pfad quotiert git -- er ist UNPRUEFBAR, Folge (14d)); in build.ninja
+# Leerraum, '|', ':' oder das Zeilenende ('build x.o: CXX ... /pfad || deps'). GRENZE: ninja maskiert Leerraum und ':'
+# im Pfad als '$ ' und '$:' -- ein SOLL-Pfad mit solchen Bytes trifft im Fallback build.ninja nicht (falsches ROT,
+# fail-closed; compile_commands.json wird bevorzugt und traegt den Pfad roh). Gesetzt, sobald die IST-Art feststeht.
+IST_GRENZE=""
 
 # ---------------------------------------------------------------------------
 # IST-QUELLE: der GEBAUTE Baum. compile_commands.json ist generator-unabhaengig
@@ -869,6 +961,11 @@ else
     echo "         Das ist fail-closed und ausdruecklich KEIN Gruen." >&2 || :
     exit 2
 fi
+case "$IST_ART" in
+    compile_commands.json) IST_GRENZE='"' ;;
+    build.ninja)           IST_GRENZE='([[:space:]]|\||:|$)' ;;
+    *) werkzeug_abbruch "IST-Art '$IST_ART' ohne Pfadgrenze (Fehler dieser Wache)" 1 ;;
+esac
 
 # ---------------------------------------------------------------------------
 # MESSGERAET-GEGENPROBE (V4): bevor ein Nullbefund etwas bedeutet, muss belegt
@@ -882,9 +979,12 @@ if [ ! -f "$GEGENPROBE" ]; then
     echo "         Ohne Gegenprobe ist ein Nullbefund nicht von einem kaputten Muster zu trennen." >&2 || :
     exit 2
 fi
-# Mit rechter Pfadgrenze wie der Abgleich unten (Folge (16e)): die Gegenprobe misst dasselbe Muster wie die Messung.
-ere_literal "$GEGENPROBE"
-grep_in_datei /dev/null "Gegenprobe '$GEGENPROBE' in $IST_ART" -q -E -- "/$ERE_LITERAL$IST_GRENZE" "$IST_DATEI"
+# Mit beiden Pfadgrenzen wie der Abgleich unten (Folgen (16e), (17c), (17d)): die Gegenprobe misst dasselbe Muster
+# wie die Messung -- an der Repo-Wurzel verankert. Ein Baum, der unter einer ANDEREN Schreibweise der Wurzel
+# konfiguriert wurde (Symlink-Pfad, andere Kopie), faellt hier durch: ABBRUCH statt eines stillen Nullbefunds.
+ere_literal "$WURZEL/$GEGENPROBE"
+grep_in_datei /dev/null "Gegenprobe '$GEGENPROBE' in $IST_ART" -q -E -- "$IST_LINKS$ERE_LITERAL$IST_GRENZE" \
+    "$IST_DATEI"
 if [ "$GREP_RC" -ne 0 ]; then
     echo "ABBRUCH: die Gegenprobe '$GEGENPROBE' steht NICHT in $IST_ART." >&2 || :
     echo "         Entweder ist der Baum nicht konfiguriert, oder das Suchmuster trifft nicht." >&2 || :
@@ -921,12 +1021,16 @@ ALLOWLIST="scripts/ci_test_registrierungs_allowlist.txt"
 # (Lens C r4 LC3W-17, Fix-r6, Folge (13g); Probe messungen/fix-r6/trap/).
 # DER PFAD STEHT FEST, BEVOR ETWAS ENTSTEHT (Fix-r9, Lens C r7 LC7W-09, Kopf Folge (16d)): bei 'TMP=$(mktemp -d)' war
 # TMP erst NACH der Kommandosubstitution gesetzt -- fuer den EXIT-trap gab es ein Fenster, in dem das Verzeichnis
-# schon bestand und TMP noch leer war (POSIX schiebt einen trap zwar hinter das laufende Kommando, die Wache haengt
-# aber nicht an dieser Feinheit je Shell). Jetzt liefert 'mktemp -u -d' nur den NAMEN (legt nichts an), TMP ist
-# gesetzt und der trap kennt ihn, und erst dann legt 'mkdir -m 700' an -- ein Fehler dort (auch EEXIST) ist Exit 2.
+# schon bestand und TMP noch leer war; am VOR-Stand a5d14a25 blieb bei einem Signal an die PROZESSGRUPPE waehrend
+# mktemp (CI-Cancel, Strg-C: timeout ohne --foreground) ein Rest liegen -- Probe W08g in dash und bash (Fix-r10,
+# Lens A r10 LA10-02; nur ein Signal an die Shell ALLEIN wird hinter das Kommando geschoben, das war die Fix-r9-
+# Messung W08). Jetzt liefert 'mktemp -u -d' nur den NAMEN (legt nichts an), TMP ist gesetzt und der trap kennt ihn,
+# und erst dann legt 'mkdir -m 700' an -- ein Fehler dort (auch EEXIST an einem fremden Eintrag) ist Exit 2, und
+# aufraeumen entfernt den fremden Eintrag NICHT (TMP_ANGELEGT erst nach dem mkdir, Fix-r10 Folge (17b)).
 TMP=$(mktemp -u -d) || werkzeug_abbruch "'mktemp -u -d' (Name des Zwischenverzeichnisses)" "$?"
 [ -n "$TMP" ] || werkzeug_abbruch "'mktemp -u -d' lieferte keinen Namen" 1
 mkdir -m 700 "$TMP" 2>/dev/null || werkzeug_abbruch "'mkdir -m 700' $TMP (Zwischenverzeichnis)" "$?"
+TMP_ANGELEGT=1
 
 # Glied fuer Glied mit Status (Kopf, Folge (6)); 'sort -u', weil 'git ls-files' im
 # MERGE-KONFLIKT eine Datei je Index-Stufe listet (Lens A LA3-06: "4 getrackte" fuer drei).
@@ -981,13 +1085,13 @@ grep_in_datei "$TMP/archiv_anker_roh.txt" "-E ueber den Index (ARCHIV-Anker)" \
 datei_leeren "$TMP/archiv_anker.txt"
 datei_leeren "$TMP/anker_unpruefbar.txt"
 datei_leeren "$TMP/anker_konflikt.txt"
-_nA=0; _bA=0
+_nA=0; _bA=0; _lr=0
 lese_oeffnen "$TMP/archiv_anker_roh.txt" 3
-while :; do
+while [ "$_lr" -eq 0 ]; do
     z=""; _lr=0; IFS= read -r z || _lr=$?
     if [ "$_lr" -ne 0 ] && [ -z "$z" ]; then break; fi
     if [ "$_lr" -eq 0 ]; then _nA=$((_nA + 1)); _bA=$((_bA + ${#z} + 1)); else _bA=$((_bA + ${#z})); fi
-    if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/archiv_anker_roh.txt"; fi
+    if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/archiv_anker_roh.txt" "$_bA"; fi
     [ -n "$z" ] || continue
     _am=${z%% *}
     _as=${z#* }; _as=${_as%% *}
@@ -1100,13 +1204,13 @@ grep_in_datei "$TMP/quotiert_anker.txt" "-E 'VERMERK.md\"' (quotiert)" \
 zeilen_zaehlen "$TMP/quotiert_soll.txt"; QUOT_SOLL_N=$ZAHL
 zeilen_zaehlen "$TMP/quotiert_anker.txt"; QUOT_ANKER_N=$ZAHL
 datei_leeren "$TMP/quotiert_unpruefbar.txt"
-_nQ=0; _bQ=0
+_nQ=0; _bQ=0; _lr=0
 lese_oeffnen "$TMP/quotiert_soll.txt" 3
-while :; do
+while [ "$_lr" -eq 0 ]; do
     _q=""; _lr=0; IFS= read -r _q || _lr=$?
     if [ "$_lr" -ne 0 ] && [ -z "$_q" ]; then break; fi
     if [ "$_lr" -eq 0 ]; then _nQ=$((_nQ + 1)); _bQ=$((_bQ + ${#_q} + 1)); else _bQ=$((_bQ + ${#_q})); fi
-    if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/quotiert_soll.txt"; fi
+    if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/quotiert_soll.txt" "$_bQ"; fi
     [ -n "$_q" ] || continue
     _msg="UNPRUEFBAR: Test-Quelldatei, deren Pfad git auch mit core.quotePath=false quotiert (Tabulator,"
     _msg="$_msg Steuerzeichen, Anfuehrungszeichen oder Backslash) -- die Wache kann sie weder im SOLL zaehlen"
@@ -1115,13 +1219,13 @@ while :; do
 done <&3
 lese_schliessen 3
 lese_abgleich "$TMP/quotiert_soll.txt" "$_nQ" "$_bQ"
-_nQ2=0; _bQ2=0
+_nQ2=0; _bQ2=0; _lr=0
 lese_oeffnen "$TMP/quotiert_anker.txt" 3
-while :; do
+while [ "$_lr" -eq 0 ]; do
     _q=""; _lr=0; IFS= read -r _q || _lr=$?
     if [ "$_lr" -ne 0 ] && [ -z "$_q" ]; then break; fi
     if [ "$_lr" -eq 0 ]; then _nQ2=$((_nQ2 + 1)); _bQ2=$((_bQ2 + ${#_q} + 1)); else _bQ2=$((_bQ2 + ${#_q})); fi
-    if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/quotiert_anker.txt"; fi
+    if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/quotiert_anker.txt" "$_bQ2"; fi
     [ -n "$_q" ] || continue
     _msg="UNPRUEFBARER ANKER: Pfad von git auch mit core.quotePath=false quotiert (Tabulator, Steuerzeichen,"
     _msg="$_msg Anfuehrungszeichen oder Backslash) -- ankert nichts, die Dateien seines Ordners bleiben fuer"
@@ -1134,13 +1238,13 @@ QUOT_UNPR_N=$((QUOT_SOLL_N + QUOT_ANKER_N))
 
 datei_leeren "$TMP/archiv.txt"
 datei_leeren "$TMP/soll.txt"
-_nS=0; _bS=0
+_nS=0; _bS=0; _lr=0
 lese_oeffnen "$TMP/soll_roh.txt" 3
-while :; do
+while [ "$_lr" -eq 0 ]; do
     f=""; _lr=0; IFS= read -r f || _lr=$?
     if [ "$_lr" -ne 0 ] && [ -z "$f" ]; then break; fi
     if [ "$_lr" -eq 0 ]; then _nS=$((_nS + 1)); _bS=$((_bS + ${#f} + 1)); else _bS=$((_bS + ${#f})); fi
-    if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/soll_roh.txt"; fi
+    if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/soll_roh.txt" "$_bS"; fi
     [ -n "$f" ] || continue
     _arch=nein
     case "$f" in
@@ -1171,13 +1275,13 @@ ARCHIV_ORD_N=0
 if [ "$ARCHIV_N" -gt 0 ]; then
     # Der <ordner> ist das dritte Pfadsegment -- per Parametererweiterung statt sed (Folge (6)).
     datei_leeren "$TMP/archiv_ordner_roh.txt"
-    _nO=0; _bO=0
+    _nO=0; _bO=0; _lr=0
     lese_oeffnen "$TMP/archiv.txt" 3
-    while :; do
+    while [ "$_lr" -eq 0 ]; do
         _af=""; _lr=0; IFS= read -r _af || _lr=$?
         if [ "$_lr" -ne 0 ] && [ -z "$_af" ]; then break; fi
         if [ "$_lr" -eq 0 ]; then _nO=$((_nO + 1)); _bO=$((_bO + ${#_af} + 1)); else _bO=$((_bO + ${#_af})); fi
-        if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/archiv.txt"; fi
+        if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/archiv.txt" "$_bO"; fi
         _ao=${_af#tests/deprecated/}
         anhaengen "$TMP/archiv_ordner_roh.txt" "${_ao%%/*}"
     done <&3
@@ -1202,18 +1306,20 @@ fi
 # treffen (gemessen 09.08.2026: 0 vs. 10 Treffer -- die Verankerung trennt).
 # ---------------------------------------------------------------------------
 datei_leeren "$TMP/fehlend.txt"
-_nF=0; _bF=0
+_nF=0; _bF=0; _lr=0
 lese_oeffnen "$TMP/soll.txt" 3
-while :; do
+while [ "$_lr" -eq 0 ]; do
     f=""; _lr=0; IFS= read -r f || _lr=$?
     if [ "$_lr" -ne 0 ] && [ -z "$f" ]; then break; fi
     if [ "$_lr" -eq 0 ]; then _nF=$((_nF + 1)); _bF=$((_bF + ${#f} + 1)); else _bF=$((_bF + ${#f})); fi
-    if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/soll.txt"; fi
+    if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/soll.txt" "$_bF"; fi
     [ -n "$f" ] || continue
     # RECHTE PFADGRENZE (Fix-r9, Folge (16e)): '-F' traf auch '/pfad.extra.cpp'; jetzt '-E' mit literalem Pfad und
-    # der Grenze IST_GRENZE dahinter (ere_literal oben).
-    ere_literal "$f"
-    grep_in_datei /dev/null "-E '/$f' + Grenze in $IST_ART (Abgleich)" -q -E -- "/$ERE_LITERAL$IST_GRENZE" "$IST_DATEI"
+    # der Grenze IST_GRENZE dahinter (ere_literal oben). LINKE PFADGRENZE (Fix-r10, Folge (17c)): der Pfad ist an der
+    # Repo-Wurzel verankert, IST_LINKS davor -- 'ext/sub/<pfad>' oder eine Kopie unter anderem Praefix trifft nicht.
+    ere_literal "$WURZEL/$f"
+    grep_in_datei /dev/null "-E '$WURZEL/$f' + Grenzen in $IST_ART (Abgleich)" -q -E -- \
+        "$IST_LINKS$ERE_LITERAL$IST_GRENZE" "$IST_DATEI"
     if [ "$GREP_RC" -ne 0 ]; then
         anhaengen "$TMP/fehlend.txt" "$f"
     fi
@@ -1443,7 +1549,9 @@ index_eintrag() {
     # 1-3 steht, ist ein Gitlink -- in MINDESTENS EINEM Merge-Ausgang bleibt der Pfad darunter
     # erreichbar, und 'erreichbar' ist hier die Vorsichtsregel: TOT waere die starke Behauptung, die
     # Zeile koennte im anderen Ausgang erloeschen; Lead-Entscheid O-12 Teil 1, Wortlaut berichtigt mit
-    # Fix-r6, Lens A r6 LA6-05 = Lens B r5 LB5-I3); weichen die Typen je Stufe ab, ist es ein 'konflikt'
+    # Fix-r6, Lens A r6 LA6-05 = Lens B r5 LB5-I3) [seit Fix-r10 nur fuer {2,3} und {1,2,3}: ein Gitlink
+    # nur auf der Basis-Stufe, nur auf einer Seite oder mit fehlender Ausgangsstufe ist 'konflikt' =
+    # UNPRUEFBAR wie die Datei, Folge (17g), Lens C r8 LC8W-06]; weichen die Typen je Stufe ab, ist es ein 'konflikt'
     # (die Antwort haengt vom Ausgang ab) -- ebenso, wenn neben dem exakten Eintrag Eintraege DARUNTER
     # liegen (D/F, Fix-r6): dann ist der Pfad in einem Ausgang ein Verzeichnis, im anderen nicht.
     # Ein Modus ausserhalb der vier, die git in den Index schreibt, ist kein Datenbefund: Exit 2.
@@ -1459,13 +1567,13 @@ index_eintrag() {
     INDEX_TYPEN=""
     INDEX_KONFLIKT=""
     _gtyp=""; _gtl=""; _ginh=nein; _ginhs=""; _gkst=""
-    _nG=0; _bG=0
+    _nG=0; _bG=0; _lr4=0
     lese_oeffnen "$TMP/index_eintrag.txt" 4
-    while :; do
-        _gl=""; _lr=0; IFS= read -r _gl || _lr=$?
-        if [ "$_lr" -ne 0 ] && [ -z "$_gl" ]; then break; fi
-        if [ "$_lr" -eq 0 ]; then _nG=$((_nG + 1)); _bG=$((_bG + ${#_gl} + 1)); else _bG=$((_bG + ${#_gl})); fi
-        if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/index_eintrag.txt"; fi
+    while [ "$_lr4" -eq 0 ]; do
+        _gl=""; _lr4=0; IFS= read -r _gl || _lr4=$?
+        if [ "$_lr4" -ne 0 ] && [ -z "$_gl" ]; then break; fi
+        if [ "$_lr4" -eq 0 ]; then _nG=$((_nG + 1)); _bG=$((_bG + ${#_gl} + 1)); else _bG=$((_bG + ${#_gl})); fi
+        if [ "$_lr4" -ne 0 ]; then lese_rest_ende "$TMP/index_eintrag.txt" "$_bG"; fi
         [ -n "$_gl" ] || continue
         if [ "$INDEX_ART" = leer ]; then INDEX_ART=inhalt; fi
         _gm=${_gl%% *}
@@ -1514,7 +1622,7 @@ index_eintrag() {
                 INDEX_KONFLIKT="einem Eintrag gegen Eintraege DARUNTER (D/F)"
             fi
         fi
-        if [ "$_gtyp" = datei ] && [ "$_gkst" != " 0" ]; then
+        if { [ "$_gtyp" = datei ] || [ "$_gtyp" = gitlink ]; } && [ "$_gkst" != " 0" ]; then
             # DATEI NUR AUF KONFLIKTSTUFEN (Fix-r8, Lens C r6 LC6W-06, Kopf Folge (15i); BERICHTIGT mit Fix-r9, Lens A
             # r9 LA9-01 = Lens C r7 LC7W-05/06, Folge (16g)): welche Stufen belegt sind, entscheidet nach der Bedeutung
             # der Stufen (1 = Basis, 2 = ours, 3 = theirs):
@@ -1524,26 +1632,31 @@ index_eintrag() {
             #     Datei-Ahnen -- 'konflikt', UNPRUEFBAR (Probe R8-09; TOT waere die starke Behauptung).
             #   {1} (beide Seiten loeschen), {2} (nur ours, 'added by us'), {3} (nur theirs, 'added by them'):
             #     'konflikt' mit dem Etikett der git-Klasse -- bis a5d14a25 hiessen sie alle 'modify/delete'.
-            # Fuer den Gitlink bleibt die Vorsichtsregel 'erreichbar' (Folge (11)), fuer den Symlink gilt UNPRUEFBAR.
+            # Fuer den Symlink gilt UNPRUEFBAR. DER GITLINK NIMMT DIESELBE STUFENLOGIK (Fix-r10, Lens C r8 LC8W-06, Kopf
+            # Folge (17g)): bis 0f0d0fb6 blieb ein Gitlink nur auf Stufe 1 (beide Seiten loeschen ihn), nur auf ours
+            # oder theirs oder mit fehlender Ausgangsstufe 'gitlink' = erreichbar -- die Begruendung lief fail-open
+            # (Probe W06). {2,3} und {1,2,3} bleiben Gitlink (jeder Ausgang traegt ihn). Das Wort in der Meldung folgt
+            # dem Typ ('die Datei' / 'den Gitlink').
+            if [ "$_gtyp" = gitlink ]; then _gob="den Gitlink"; else _gob="die Datei"; fi
             _g1=nein; _g2=nein; _g3=nein
             case " $_gkst " in *" 1 "*) _g1=ja ;; esac
             case " $_gkst " in *" 2 "*) _g2=ja ;; esac
             case " $_gkst " in *" 3 "*) _g3=ja ;; esac
             if [ "$_g1$_g2$_g3" = jajaja ] || [ "$_g1$_g2$_g3" = neinjaja ]; then
-                : # drei Stufen oder add/add: jeder Ausgang traegt die Datei, 'datei' bleibt (TOT)
+                : # drei Stufen oder add/add: jeder Ausgang traegt den Eintrag -- 'datei' (TOT) bzw. 'gitlink' bleibt
             elif [ "$_g1" = ja ] && [ "$_g2$_g3" != neinnein ]; then
                 _gtyp=konflikt; INDEX_KONFLIKT="fehlender Ausgangsstufe (modify/delete)"
                 if [ "$_g2" = nein ]; then _gf=2; else _gf=3; fi
-                INDEX_TYPEN="$INDEX_TYPEN; Stufe $_gf fehlt (modify/delete: ein Ausgang loescht die Datei)"
+                INDEX_TYPEN="$INDEX_TYPEN; Stufe $_gf fehlt (modify/delete: ein Ausgang loescht $_gob)"
             elif [ "$_g1$_g2$_g3" = janeinnein ]; then
-                _gtyp=konflikt; INDEX_KONFLIKT="nur der Basis-Stufe (beide Seiten loeschen die Datei)"
-                INDEX_TYPEN="$INDEX_TYPEN; Stufe 2, Stufe 3 fehlen (beide Seiten loeschen die Datei)"
+                _gtyp=konflikt; INDEX_KONFLIKT="nur der Basis-Stufe (beide Seiten loeschen $_gob)"
+                INDEX_TYPEN="$INDEX_TYPEN; Stufe 2, Stufe 3 fehlen (beide Seiten loeschen $_gob)"
             elif [ "$_g2" = ja ]; then
-                _gtyp=konflikt; INDEX_KONFLIKT="nur einer Seite (ours traegt die Datei, 'added by us')"
-                INDEX_TYPEN="$INDEX_TYPEN; Stufe 1, Stufe 3 fehlen (nur ours traegt die Datei)"
+                _gtyp=konflikt; INDEX_KONFLIKT="nur einer Seite (ours traegt $_gob, 'added by us')"
+                INDEX_TYPEN="$INDEX_TYPEN; Stufe 1, Stufe 3 fehlen (nur ours traegt $_gob)"
             else
-                _gtyp=konflikt; INDEX_KONFLIKT="nur einer Seite (theirs traegt die Datei, 'added by them')"
-                INDEX_TYPEN="$INDEX_TYPEN; Stufe 1, Stufe 2 fehlen (nur theirs traegt die Datei)"
+                _gtyp=konflikt; INDEX_KONFLIKT="nur einer Seite (theirs traegt $_gob, 'added by them')"
+                INDEX_TYPEN="$INDEX_TYPEN; Stufe 1, Stufe 2 fehlen (nur theirs traegt $_gob)"
             fi
         fi
         INDEX_ART=$_gtyp
@@ -1886,13 +1999,13 @@ allow_zeile() {
     # kehrte die Funktion beim ersten Treffer aus der Schleife zurueck -- VOR dem Abgleich; ein Lesefehler, der
     # die Trefferzeile als Teilrest lieferte, blieb so unentdeckt. Jetzt liest sie die Datei zu Ende, gleicht
     # Zeilen und Bytes ab und antwortet erst danach.
-    _nL=0; _bL=0; _atreffer=""
+    _nL=0; _bL=0; _lr4=0; _atreffer=""
     lese_oeffnen "$ALLOWLIST" 4
-    while :; do
-        _az=""; _lr=0; IFS= read -r _az || _lr=$?
-        if [ "$_lr" -ne 0 ] && [ -z "$_az" ]; then break; fi
-        if [ "$_lr" -eq 0 ]; then _nL=$((_nL + 1)); _bL=$((_bL + ${#_az} + 1)); else _bL=$((_bL + ${#_az})); fi
-        if [ "$_lr" -ne 0 ]; then lese_rest_ende "$ALLOWLIST"; fi
+    while [ "$_lr4" -eq 0 ]; do
+        _az=""; _lr4=0; IFS= read -r _az || _lr4=$?
+        if [ "$_lr4" -ne 0 ] && [ -z "$_az" ]; then break; fi
+        if [ "$_lr4" -eq 0 ]; then _nL=$((_nL + 1)); _bL=$((_bL + ${#_az} + 1)); else _bL=$((_bL + ${#_az})); fi
+        if [ "$_lr4" -ne 0 ]; then lese_rest_ende "$ALLOWLIST" "$_bL"; fi
         [ -z "$_atreffer" ] || continue
         case "$_az" in ''|'#'*) continue ;; esac
         felder "$_az"
@@ -1904,13 +2017,13 @@ allow_zeile() {
     ALLOW_Z="$_atreffer"
 }
 
-_nZ=0; _bZ=0
+_nZ=0; _bZ=0; _lr=0
 lese_oeffnen "$TMP/fehlend.txt" 3
-while :; do
+while [ "$_lr" -eq 0 ]; do
     f=""; _lr=0; IFS= read -r f || _lr=$?
     if [ "$_lr" -ne 0 ] && [ -z "$f" ]; then break; fi
     if [ "$_lr" -eq 0 ]; then _nZ=$((_nZ + 1)); _bZ=$((_bZ + ${#f} + 1)); else _bZ=$((_bZ + ${#f})); fi
-    if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/fehlend.txt"; fi
+    if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/fehlend.txt" "$_bZ"; fi
     [ -n "$f" ] || continue
     allow_zeile "$f"
     if [ -z "$ALLOW_Z" ]; then
@@ -2058,13 +2171,13 @@ GEIST_ZEILE_N=0
 DOPPEL_ZEILE_N=0
 FORM_ZEILE_N=0
 if [ -f "$ALLOWLIST" ]; then
-    _nN=0; _bN=0
+    _nN=0; _bN=0; _lr=0
     lese_oeffnen "$ALLOWLIST" 3
-    while :; do
+    while [ "$_lr" -eq 0 ]; do
         z=""; _lr=0; IFS= read -r z || _lr=$?
         if [ "$_lr" -ne 0 ] && [ -z "$z" ]; then break; fi
         if [ "$_lr" -eq 0 ]; then _nN=$((_nN + 1)); _bN=$((_bN + ${#z} + 1)); else _bN=$((_bN + ${#z})); fi
-        if [ "$_lr" -ne 0 ]; then lese_rest_ende "$ALLOWLIST"; fi
+        if [ "$_lr" -ne 0 ]; then lese_rest_ende "$ALLOWLIST" "$_bN"; fi
         case "$z" in ''|'#'*) continue ;; esac
         case "$z" in *[![:space:]]*) ;; *) continue ;; esac
         felder "$z"
@@ -2135,13 +2248,13 @@ if [ -f "$ALLOWLIST" ]; then
         werkzeug_abbruch "'sort' ueber Feld 1 der Allowlist" "$?"
     uniq -d "$TMP/zeilen_feld1_sortiert.txt" > "$TMP/zeilen_doppelt.txt" ||
         werkzeug_abbruch "'uniq -d' ueber Feld 1 der Allowlist" "$?"
-    _nD=0; _bD=0
+    _nD=0; _bD=0; _lr=0
     lese_oeffnen "$TMP/zeilen_doppelt.txt" 3
-    while :; do
+    while [ "$_lr" -eq 0 ]; do
         _dd=""; _lr=0; IFS= read -r _dd || _lr=$?
         if [ "$_lr" -ne 0 ] && [ -z "$_dd" ]; then break; fi
         if [ "$_lr" -eq 0 ]; then _nD=$((_nD + 1)); _bD=$((_bD + ${#_dd} + 1)); else _bD=$((_bD + ${#_dd})); fi
-        if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/zeilen_doppelt.txt"; fi
+        if [ "$_lr" -ne 0 ]; then lese_rest_ende "$TMP/zeilen_doppelt.txt" "$_bD"; fi
         [ -n "$_dd" ] || continue
         grep_in_datei "$TMP/zeilen_doppelt_treffer.txt" "-F -x ueber Feld 1 (DOPPELT)" \
             -F -x -- "$_dd" "$TMP/zeilen_feld1.txt"
@@ -2274,6 +2387,7 @@ if [ "$_rmrc" -ne 0 ]; then
     werkzeug_abbruch "Zwischenverzeichnis $TMP nicht entfernt (rm -rf) -- kein Gruen vor dem Aufraeumen" "$_rmrc"
 fi
 TMP=""
+TMP_ANGELEGT=0
 aus "TEST-REGISTRIERUNGS-WACHE: OK ($SOLL_N Quelldateien, $UNBEGR_N ohne Begruendung ausserhalb," \
      "$ARCHIV_N archiviert)."
 exit 0
