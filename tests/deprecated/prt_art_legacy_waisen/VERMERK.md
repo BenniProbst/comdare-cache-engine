@@ -223,3 +223,17 @@ Fuer DIESEN Ordner gemessen am Fix-r9-Stand (`sh scripts/ci_test_registrierungs_
 build-clang-release, sh = dash, ebenso bash --posix und busybox sh): weiterhin 544 getrackt, 4 ARCHIV in 1 Ordner,
 SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4; die Bilanz ohne Heute-Zeile ist byte-gleich zu Fix-r7 und Fix-r8
 (md5 09ddc181 gcc / f644b9fb clang; messungen/fix-r9c/bilanz/tafel-r9c-v2.out).
+
+## NACHTRAG 6b (Fix-r10: Lens B r9 LB9-03; 2026-09-20; additiv, nichts geloescht)
+
+KLAMMER ZU NACHTRAG 6a, ERSTER ABSATZ (Lens B r9 LB9-03): "BERICHTIGUNG ZU NACHTRAG 1, ZEILEN 99-100" meint den
+Abschnitt "## OV-2-NACHTRAG (Owner-Entscheid 2026-09-17, Order 206)" ab Zeile 80 -- er traegt in dieser Datei keine
+Nummer; die Zaehlung "NACHTRAG 1" ist die des Fix-r9-Berichts (OV-2-NACHTRAG = NACHTRAG 1), und die Zeilen 99-100
+liegen in diesem Abschnitt. NACHTRAG 6a bleibt unveraendert stehen.
+
+Fix-r10 der Wache (Teilrest per Byte-Vergleich, aufraeumen nur fuer Eigenes, Pfadgrenzen links/rechts je Bauweg-Art,
+Close-Status, /dev/null-Weg, Gitlink-Stufenlogik, Ende ohne Urteil = Exit 2) ohne Wirkung auf diesen Ordner. Fuer
+DIESEN Ordner gemessen am Fix-r10-Stand (`sh scripts/ci_test_registrierungs_wache.sh build-gcc-release` und
+build-clang-release, sh = dash, ebenso bash --posix und busybox sh): weiterhin 544 getrackt, 4 ARCHIV in 1 Ordner,
+SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4; die Bilanz ohne Heute-Zeile ist byte-gleich zu Fix-r7, r8 und r9
+(md5 09ddc181 gcc / f644b9fb clang; messungen/fix-r10/bilanz/tafel-r10-final.out).
