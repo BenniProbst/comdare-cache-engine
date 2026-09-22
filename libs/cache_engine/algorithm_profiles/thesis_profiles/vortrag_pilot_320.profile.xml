@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- comdare_thesis_profile - VORTRAGS-NACHBAU vortrag_pilot_320 (Owner-Orders 400 + 403, 2026-09-22).
+     ZWECK: baut die drei Ergebnis-Experimente des Verteidigungs-Vortrags (Folien 12-14, historischer
+     Pilot vom 18.06.2026) als ECHTE Thesis-Messung nach. Permutation ueber GENAU VIER Organ-Achsen
+     (search_algo, node_type, memory_layout, prefetch); die uebrigen 14 Organ-Haupt-Achsen sind auf die
+     m3v2-Baseline (Index 0 je Achse) gepinnt, damit jede gemessene Differenz der variierten Achse
+     zurechenbar bleibt (Geschwister-Paarung: identisch in ALLEN Achsen ausser genau einer,
+     super Code/04_csv_to_latex/csv_to_latex.cpp aggregate_exchange).
+     NENNER: 4 (search_algo) x 4 (node_type) x 5 (memory_layout) x 4 (prefetch) x 1^14 = 320 Binaries.
+     MESS-ZELLEN: 320 Binaries x 21 Lastprofile x 3 Wiederholungen = 20160
+     (1 thread_count x 1 hw_prefetcher x 1 working_set; V400-4 schlank).
+     VORBILD: m3v2_smoke.profile.xml. Die <permute_axes> sind byte-gleich zum Vorbild (Registry-Slot-
+     Reihenfolge T00..T17, Werte in Registry-Reihenfolge, cache_engine_axis_registry.xml), also entstehen
+     dieselben 320 binary_ids wie in der m3v2-Familie (profile_to_tree.hpp baut die Ebenen in
+     Profil-Reihenfolge; die Ordnung ist damit Teil der Identitaet und wird hier nicht umgestellt).
+     ABWEICHUNGEN vom Vorbild, je mit Grund (KARTE-400 C.1):
+       - KEINE base_tiers, KEINE axis_sweeps, KEIN sota_series_set: alle drei sind Mengen-Multiplikatoren
+         ueber die Permutation hinaus und wuerden den Nenner 320 verlassen (Muster base_pilot: ohne
+         base_tiers emittiert build_axis_levels kein tier-Level, die binary_id bleibt die 18-Slot-Form).
+       - run_options cap="0" = KEIN Cap (SCHEMA.md, profile_effective_cap): alle 320 Basis-Zellen.
+       - resume="false": kein Alt-Bestand darf den Lauf gruen machen (Lehre f1_durchstich).
+       - workloads = ALLE 21 Lastprofile aus algorithm_profiles/load_profiles/ (V400-2, Opt-out-Doktrin).
+       - repetitions count="3": die Folien zeigen drei Marker je Variante, nie gemittelt.
+       - run_methodology measure = 1-Thread/deterministisch (die golden-Messung), nicht debug.
+       - platform linux-x86_64 (amd-Lane prod1), build_version vortrag-320.
+     KEIN fixed_conditions-Element: m3v2_smoke/m3v2_study tragen keines; die Messbedingungen bleiben
+     damit die der m3v2-Familie.
+     AUSWERTUNG: super csv-to-latex (Schalter exchange) bildet je Achse die Geschwister-Paare
+     (Erwartung 480/480/640/480 fuer search_algo/node_type/memory_layout/prefetch).
+     Der Vollbau (##49) folgt NACH dem Vortrag (Order 403, Board #285); dieses Profil ersetzt ihn nicht. -->
+<comdare_thesis_profile id="vortrag_pilot_320" schema_version="1">
+
+  <!-- Alle 18 Organ-Haupt-Achsen in Registry-Slot-Reihenfolge (T00..T17). Vier davon mit ALLEN Werten
+       (in Registry-Reihenfolge), vierzehn mit genau EINEM Wert = m3v2-Baseline (Index 0). -->
+  <permute_axes>
+    <axis ref="search_algo">
+      <value>k_ary</value><value>interpolation</value><value>eytzinger</value><value>linear_scan</value>
+    </axis>
+    <axis ref="cache_traversal"><value>linear_fanout</value></axis>
+    <axis ref="mapping"><value>direct_placement</value></axis>
+    <axis ref="path_compression"><value>path_compression_none</value></axis>
+    <axis ref="node_type">
+      <value>node4</value><value>node16</value><value>node48</value><value>node256</value>
+    </axis>
+    <axis ref="memory_layout">
+      <value>memory_layout_cache_line_aligned</value><value>memory_layout_aos_strict</value>
+      <value>memory_layout_soa</value><value>memory_layout_packed_bitmap</value><value>memory_layout_aosoa</value>
+    </axis>
+    <axis ref="allocator"><value>std_malloc</value></axis>
+    <axis ref="prefetch">
+      <value>prefetch_none</value><value>prefetch_distance_estimator</value>
+      <value>prefetch_hardware</value><value>prefetch_path_oriented</value>
+    </axis>
+    <axis ref="concurrency"><value>concurrency_none</value></axis>
+    <axis ref="serialization"><value>serialization_raw_binary</value></axis>
+    <axis ref="value_handle"><value>value_handle_inline</value></axis>
+    <axis ref="index_organization"><value>index_org_heap</value></axis>
+    <axis ref="io_dispatch"><value>io_in_memory_only</value></axis>
+    <axis ref="migration_policy"><value>migration_none</value></axis>
+    <axis ref="filter"><value>filter_bloom</value></axis>
+    <axis ref="queuing_q1"><value>no_buffer</value></axis>
+    <axis ref="queuing_q2"><value>eager_flush</value></axis>
+    <!-- STRUKT-R ORG-18: 18. Organ-Haupt-Achse, EIN Wert (Q-1 FALL B: disk_writeback ist AUS). -->
+    <axis ref="persistence_target"><value>persistence_memory_only</value></axis>
+  </permute_axes>
+
+  <!-- KEINE axis_sweeps, KEIN sota_series_set, KEINE base_tiers: Mengen-Multiplikatoren, s. Kopf. -->
+
+  <!-- EIN Working-Set-Wert (Cache-nah, wie m3v2_smoke). -->
+  <working_set_sweep>4096</working_set_sweep>
+
+  <compile_dims>
+    <!-- ALLE 21 Lastprofile (V400-2), Reihenfolge wie m3_smoke_coverage. EINE Zeile: die CI-Wache
+         ci/durchstich_wache.sh lastprofile liest nur die einzeilige Form (mehrzeilig = Abbruch rc=2);
+         die Zeilenbreite ist fuer *.xml in scripts/ci_diff_ascii_width_guard.sh freigestellt, ASCII gilt. -->
+    <workloads>ycsb_a ycsb_b ycsb_c ycsb_d ycsb_e ycsb_f lp_balanced_5050 lp_bulk_insert lp_concurrent_rmw lp_delete_heavy lp_dynamic_trace lp_mixed_oltp lp_range_scan lp_read_uniform ih lh coco_p04_neg0 coco_p04_neg25 coco_p04_neg50 coco_p04_neg75 coco_p04_neg100</workloads>
+    <telemetry mode="on" silent="true"/>
+  </compile_dims>
+
+  <runtime_dynamic>
+    <thread_count>1</thread_count>
+    <hw_prefetcher>all_on</hw_prefetcher>
+  </runtime_dynamic>
+
+  <!-- Drei Wiederholungen, NIE gemittelt: die Folien zeichnen drei Marker je Variante. -->
+  <repetitions count="3" interpolate="false" overlay_in_chart="true"/>
+
+  <!-- cap="0" = KEIN Cap (SCHEMA.md run_options): alle 320 Basis-Zellen werden real gebaut.
+       resume="false": kein Alt-Bestand darf den Lauf gruen machen. -->
+  <run_options cap="0" platform="linux-x86_64" build_version="vortrag-320" resume="false"/>
+
+  <modes>
+    <!-- active_axes = alle 18 Organ-Haupt-Achsen. Der Attributwert ist umgebrochen; XML normalisiert
+         Whitespace in Attributwerten, die Achsenliste bleibt dieselbe (Beweis: planner validate/simulate). -->
+    <mode name="vortrag_base" merge="Verbund1_CeOnly"
+          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout
+                       allocator prefetch concurrency serialization value_handle index_organization
+                       io_dispatch migration_policy filter queuing_q1 queuing_q2 persistence_target"/>
+  </modes>
+
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+
+  <!-- Mess-Unter-Achsen, binary_id-neutral. measure = 1-Thread/deterministisch = die golden-Messung. -->
+  <run_methodology>
+    <method value="measure"/>
+  </run_methodology>
+  <measurement_framework name="ycsb"/>
+  <!-- csv UND xlsx: xlsx ist der Standard (Owner-KERN 26.07.), csv ist waehlbar und beide zusammen sind
+       zulaessig (Owner 09.08.); die super-Wachen lesen die measurements.csv (Muster m3v2_smoke). -->
+  <writeback_methods>
+    <method value="csv"/>
+    <method value="xlsx"/>
+  </writeback_methods>
+  <measurement_tooling>
+    <combo tools="wallclock"/>
+  </measurement_tooling>
+</comdare_thesis_profile>
