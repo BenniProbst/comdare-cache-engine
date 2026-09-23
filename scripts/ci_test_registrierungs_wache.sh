@@ -2187,8 +2187,13 @@ DOPPEL_ZEILE_N=0
 FORM_ZEILE_N=0
 # NENNER der fuenf Zaehler (Lens C r8 LC8W-10, Fix-474 (c)): gelesene Allowlist-DATENZEILEN, im selben
 # Durchlauf gezaehlt, in dem sie entstehen -- sonst ist '0 Zeile(n)' nicht von 'nicht gelesen' zu trennen.
+# FEHLT die Datei, wird der Nachscan uebersprungen und ALLOW_GELESEN bleibt 'nein' (Fix-r12, Lens A r11 LA11-01
+# = Lens B r10 LB10-02, Kopf Folge (18c)): die Bilanz sagt dann 'NICHT gelesen ... FEHLT' statt '0 gelesen' --
+# eine Null fuer eine nie gelesene Datei waere genau die Falsch-Null, gegen die diese Zeile gebaut ist.
 ALLOW_ZEILEN_N=0
+ALLOW_GELESEN=nein
 if [ -f "$ALLOWLIST" ]; then
+    ALLOW_GELESEN=ja
     _nN=0; _bN=0; _lr=0
     lese_oeffnen "$ALLOWLIST" 3
     while [ "$_lr" -eq 0 ]; do
@@ -2359,7 +2364,11 @@ aus "  dazu UNPRUEFBAR ohne Bezug zum Bauweg: $ANKER_UNPR_N ARCHIV-Anker ohne In
      "ohne wirksamen Anker, $GEIST_ZEILE_N ohne Gegenstand im SOLL-Bestand, $DOPPEL_ZEILE_N Pfad(e) mit" \
      "doppelter Zeile, $FORM_ZEILE_N mit Formfehler fuer Dateien im Bauweg, $QUOT_UNPR_N mit von git" \
      "quotiertem Pfad."
-aus "  Allowlist gelesen: $ALLOW_ZEILEN_N Datenzeile(n) in $ALLOWLIST (Kommentar- und Leerzeilen abgezogen)."
+if [ "$ALLOW_GELESEN" = ja ]; then
+    aus "  Allowlist gelesen: $ALLOW_ZEILEN_N Datenzeile(n) in $ALLOWLIST (Kommentar- und Leerzeilen abgezogen)."
+else
+    aus "  Allowlist NICHT gelesen: $ALLOWLIST FEHLT -- Nachscan uebersprungen ($ALLOW_ZEILEN_N Datenzeile(n))."
+fi
 aus "  Quotierte Index-Pfade: $QUOT_N von git auch mit core.quotePath=false quotiert (Tabulator," \
      "Steuerzeichen, Anfuehrungszeichen, Backslash), davon $QUOT_SOLL_N im SOLL-Muster und $QUOT_ANKER_N als" \
      "VERMERK.md-Anker (beide UNPRUEFBAR)."

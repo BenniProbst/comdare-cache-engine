@@ -286,6 +286,13 @@ public:
         aus << "# absichtlich ohne Zeile fuer den Koeder\n";
     }
 
+    /// GAR KEINE Allowlist-Datei (Fix-r12, Lens A r11 LA11-01 = Lens B r10 LB10-02): die Wache toleriert das
+    /// (allow_zeile liefert keine Zeile, der Nachscan wird uebersprungen) und muss es in der Bilanz SAGEN.
+    void allowlist_entfernen() const {
+        std::error_code ec;
+        fs::remove(wurzel_ / "scripts" / "ci_test_registrierungs_allowlist.txt", ec);
+    }
+
     [[nodiscard]] Lauf fahren() const {
         return schale("cd \"" + wurzel_.string() + "\" && " + umgebung() +
                       " sh scripts/ci_test_registrierungs_wache.sh baum 2>&1");
@@ -610,6 +617,41 @@ TEST(MtL4RegistrierungsWacheIsa, OhneAllowlistZeileIstDerKoederEinBefund) {
                                           "scripts/ci_test_registrierungs_allowlist.txt "
                                           "(Kommentar- und Leerzeilen abgezogen)."))
         << "Die Nullseite der Nenner-Zeile muss als ganze Zeile stehen. Ausgabe:\n"
+        << lauf.ausgabe;
+    // GEGENRICHTUNG zu Fall (7b): die Datei IST da -- die FEHLT-Form darf hier nicht stehen.
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "Allowlist NICHT gelesen"))
+        << "Eine vorhandene Datei ohne Datenzeile ist GELESEN (0), nicht FEHLT. Ausgabe:\n"
+        << lauf.ausgabe;
+}
+
+// ===========================================================================================
+// (7b) OHNE ALLOWLIST-DATEI SAGT DIE BILANZ 'NICHT GELESEN', NICHT '0 GELESEN' (Fix-r12, Lens A r11 LA11-01
+//      = Lens B r10 LB10-02; Lens-Kennung 'Fall (8b)'). Die Wache toleriert eine fehlende Allowlist (Vorbestand:
+//      allow_zeile liefert keine Zeile, der Nachscan wird uebersprungen); bis 1fa2f50b lautete die Nenner-Zeile
+//      dann 'Allowlist gelesen: 0 Datenzeile(n) in ...' -- byte-gleich zur VORHANDENEN Datei ohne Datenzeile
+//      (Fall (7)), obwohl nichts gelesen wurde: genau die Falsch-Null, gegen die die Zeile gebaut ist (Lens C
+//      r8 LC8W-10 'N Datenzeilen / FEHLT'). Jetzt traegt die Bilanz die eigene Form 'Allowlist NICHT gelesen:
+//      <pfad> FEHLT -- Nachscan uebersprungen (0 Datenzeile(n)).'; Urteil (ROT: der Koeder ist ohne
+//      Begruendung) und Exit-Vertrag sind unveraendert. Beide Richtungen: Fall (7) verlangt die Null-Form und
+//      verbietet die FEHLT-Form, dieser Fall umgekehrt.
+// ===========================================================================================
+TEST(MtL4RegistrierungsWacheIsa, OhneAllowlistDateiHeisstDieBilanzNichtGelesenStattNull) {
+    std::string const marke = koeder_marke();
+    SynthBaum         baum{marke};
+    baum.cache_ehrlich(/*avx2=*/true, /*avx512f=*/true);
+    baum.allowlist_entfernen();
+
+    Lauf const lauf = baum.fahren();
+    berichten("keine Allowlist-DATEI -> ROT + 'NICHT gelesen'", lauf, baum);
+    EXPECT_EQ(lauf.code, 1) << "Ohne Allowlist ist der Koeder ohne Begruendung -- Befund-Code 1. Ausgabe:\n"
+                            << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "1 von 2 ohne Begruendung")) << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, "Allowlist NICHT gelesen: scripts/ci_test_registrierungs_allowlist.txt "
+                                          "FEHLT -- Nachscan uebersprungen (0 Datenzeile(n))."))
+        << "Die Bilanz muss die fehlende Datei als NICHT gelesen ausweisen. Ausgabe:\n"
+        << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "Allowlist gelesen: 0 Datenzeile(n)"))
+        << "Die Null-Form gehoert der VORHANDENEN Datei ohne Datenzeile (Fall (7)), nicht der fehlenden. Ausgabe:\n"
         << lauf.ausgabe;
 }
 
