@@ -68,10 +68,236 @@ Archiv-Commits b39d62a2 ist dessen shortstat-Zeile "7 files changed" = 4 R100-Re
 
 ## Frist und Reaktivierungs-Weg
 
-Die `frist:2026-09-15`-Zeilen der vier Dateien bleiben in
+Die `frist:2026-09-15`-Zeilen [Stand W-B 15.08.; seit `57757fe3` (Owner 15.09., Frage 1)
+`frist:2026-09-18`; am 17.09. mit OV-2 entfernt, s. Nachtrag unten] der vier Dateien bleiben in
 `scripts/ci_test_registrierungs_allowlist.txt` (SOLL ist am DATEINAMEN verankert, Pfad in Feld 1
 nachgezogen; `tests/unit/test_pa1_tote_ausnahme.cpp` kGeparkt ebenso). Die Frist gehoert dem Owner
 und deckt jetzt die ENDGUELTIGE Form: Archiv bestaetigen ODER Loeschung mit eigenem Owner-GO.
 Eine Neu-Deckung der drei Luecken laeuft ueber neue Tests gegen die heutige Slot-Welt bzw. eine
 neue Faehigkeit im ce-Kontrakt (`COMDARE_PRUEFLING_BEKANNTE_FAEHIGKEITEN`), nicht ueber Reanimation
 dieser Dateien.
+
+## OV-2-NACHTRAG (Owner-Entscheid 2026-09-17, Order 206)
+
+Owner verbatim: "OV-2 Archiv-Variante gilt und frist Zeilen entfernen".
+
+Damit ist der Abschnitt "Frist und Reaktivierungs-Weg" oben UEBERHOLT, soweit er die `frist:`-Zeilen
+betrifft: die vier Zeilen sind aus `scripts/ci_test_registrierungs_allowlist.txt` ENTFERNT. Das
+Archiv ist BESTAETIGT, die vier Dateien bleiben liegen -- die Loeschung braucht weiter ein eigenes
+Owner-GO. Alles uebrige oben (Zaehlung, die drei aufgegebenen Deckungs-Luecken, Bedingung (a)) gilt
+unveraendert fort.
+
+**Diese Datei ist ab jetzt ein ANKER, nicht nur ein Vermerk.**
+`scripts/ci_test_registrierungs_wache.sh` nimmt eine getrackte Test-Quelldatei unter
+`tests/deprecated/<ordner>/` aus ihrem SOLL, wenn und nur wenn `tests/deprecated/<ordner>/VERMERK.md`
+im Git-Index liegt UND die Form eines Ankers hat (regulaeres Blob 100644/100755 auf Index-Stufe 0,
+lesbar, mit mindestens einem Nicht-Leerraum-Zeichen; NACHTRAG 2, 3 und 4 unten). Wird diese Datei aus
+dem Index genommen (`git rm`, `git mv`; massgeblich ist
+allein der INDEX -- ein blosses `rm` im Arbeitsbaum laesst den Index-Eintrag stehen und die Wache
+lokal gruen, in CI ohne Wirkung, weil dort frisch ausgecheckt wird; Lens A LA-05), fallen die
+vier `.cpp` sofort in den SOLL zurueck, und die Wache meldet sie als OHNE BEGRUENDUNG (rot). Die
+Archiv-Menge steht bei jedem Wachen-Lauf sichtbar in der Ausgabe, im Nenner und in der Endzeile --
+die Ablage ist damit nicht leiser als die Frist es war, nur ohne Ablaufdatum.
+
+Beweis am Objekt (2026-09-17): `tests/unit/test_pa1_tote_ausnahme.cpp`, Faelle
+`EchteAllowlistTraegtKeineToteZeile` (die vier hier, gegen das echte Repo) und
+`ArchivOrdnerZaehltNurMitVermerkAnker` (Wegwerf-Repo: ohne Anker rot, Anker im NACHBARordner rot,
+mit eigenem Anker gruen -- erst die Nachbar-Stufe macht aus dem "wenn" ein "wenn und nur wenn").
+
+## NACHTRAG 2 (Lens-Funde r1, 2026-09-18)
+
+Der Anker muss INHALT UND FORM haben: ein `VERMERK.md` mit 0 Byte, nur aus Leerraum, als Symlink
+oder Gitlink, oder im Merge-Konflikt (Index-Stufe 1-3) ankert NICHT (Wache: UNPRUEFBARER ANKER, rot;
+Faelle `ArchivAnkerOhneInhaltOderFormAnkertNicht` und `ArchivAnkerImMergeKonfliktAnkertNicht`). Eine
+Allowlist-Zeile fuer eine der vier Dateien ist eine Ausnahme OHNE ANLASS (unpruefbar, rot; Fall
+`ArchivOrdnerZaehltNurMitVermerkAnker`, Stufe d). Die drei Grenzen der Regel -- Datei direkt unter
+`tests/deprecated/` bleibt im SOLL, ein Anker tiefer als das dritte Pfadsegment ankert nichts, ein
+Anker nur im Arbeitsbaum ankert nichts -- tragen je einen eigenen Fall (`ArchivGrenze...`).
+
+## NACHTRAG 3 (Fix-r2: Lens A r3, Lens B r2, Lens C r2; 2026-09-18)
+
+Beleg am Objekt -- die Wache am Worktree-Stand nach Fix-r2, `sh scripts/ci_test_registrierungs_wache.sh
+build-gcc-release` (sh = dash), Nenner und Endzeile literal (Lens C LCT-05-Rest, Mitnahme M5):
+
+    544 getrackte Test-Quelldatei(en) im Baum (ohne ext/).
+    davon 4 ARCHIV-Datei(en) in 1 Ordner(n) unter tests/deprecated/ mit VERMERK.md-Anker abgezogen -- SOLL: 540.
+    TEST-REGISTRIERUNGS-WACHE: OK (540 Quelldateien, 0 ohne Begruendung ausserhalb, 4 archiviert).
+
+Die 4 ARCHIV-Dateien sind die vier dieses Ordners (Tabelle oben), der 1 Ordner ist dieser; der SOLL der
+Wache ist 540 = 544 - 4. Fall `EchteAllowlistTraegtKeineToteZeile` pinnt genau diese drei Zeilen mit den
+selbst gemessenen Zahlen. Seit Fix-r2 ist eine Allowlist-Zeile fuer einen Pfad unter `tests/deprecated/`
+auch OHNE Anker unpruefbar (rot): der Archiv-Ort kennt nur diesen Anker (Wache, Kopf Folge (3); Fall
+`AllowlistZeileFuerPfadUnterDeprecatedIstUnpruefbar`).
+
+## NACHTRAG 4 (Fix-r3: Lens C r3 LC3W-01..08; 2026-09-18)
+
+Die Anker-Form ist um das OBJEKT ergaenzt: der Index-Modus 100644/100755 verspricht ein Blob, prueft es
+aber nicht (`git update-index --cacheinfo` legt jedes Objekt unter jedem Modus ab). Die Wache fragt jetzt
+`git cat-file -e` (fehlt das Objekt, ist der Anker UNPRUEFBAR) und `git cat-file -t` == blob (ein Tree oder
+Commit unter 100644 ankert nicht); scheitert git selbst, ist das Exit 2, kein Befund (Fall
+`ArchivAnkerMussBlobInDerObjektdatenbankSein`). Werkzeug-Ausfaelle sind durchgehend Exit 2 (grep-Status 2,
+git 128 in der Erreichbarkeits-Probe, date; cut, sed und tr sind aus der Wache entfernt), ISA-Belege
+muessen eindeutig sein (ein leeres Teilmerkmal wie `+avx2` ist ein Formfehler), und die Form einer
+Allowlist-Zeile gilt auch fuer Dateien im Bauweg (sechstes Nenner-Feld "mit Formfehler fuer Dateien im
+Bauweg"). Fuer DIESEN Ordner aendert sich nichts: die Wache am Worktree-Stand nach Fix-r3 meldet weiterhin
+die drei Zeilen aus NACHTRAG 3 (544 getrackt, 4 ARCHIV in 1 Ordner, SOLL 540, Endzeile OK 540/0/4); die
+Nenner-Zeile "dazu UNPRUEFBAR ohne Bezug zum Bauweg" endet neu auf "0 mit Formfehler fuer Dateien im
+Bauweg." Am Objekt gefunden: `git check-ignore` stirbt fuer Pfade unter einem Submodul-Gitlink mit 128
+(kein Werkzeugfehler, eine Datenlage) -- die Wache prueft die Gitlink-Ahnenreihe deshalb zuerst (Fall
+`SubmodulGitlinkIstErreichbar`).
+
+## NACHTRAG 5 (Fix-r7: Lens A r7, Lens B r6, Lens C r5; 2026-09-19)
+
+Die zwei Anker-Unterfaelle aus NACHTRAG 2 ("Gitlink" = Index-Modus 160000, und ein Commit-Objekt unter
+Modus 100644) sind seit Fix-r7 direkte Google-Stufen (Fall `ArchivAnkerMussBlobInDerObjektdatenbankSein`,
+Stufen (d) und (e)): `git update-index --cacheinfo` legt beide Formen an (Machbarkeitsprobe im Beweisort,
+FIX-r7.md), die Wache meldet je UNPRUEFBARER ANKER mit Exit 1. Der Satz "oder Gitlink [...] ankert NICHT"
+ist damit am Google-Test belegt, nicht nur an Shell-Proben. Neu in JEDER Ausgabe der Wache steht die
+Nenner-Zeile "Quotierte Index-Pfade: N von git auch mit core.quotePath=false quotiert (Tabulator,
+Steuerzeichen, Anfuehrungszeichen, Backslash), davon S im SOLL-Muster und A als VERMERK.md-Anker (beide
+UNPRUEFBAR)." -- solche Pfade fielen bis 8ae59179 still aus dem SOLL, jetzt sind sie eine eigene
+UNPRUEFBAR-Klasse (Exit 1). Fuer DIESEN Ordner: 0/0/0, die vier Dateien und der Anker tragen ASCII-Namen
+ohne Anfuehrungszeichen, Backslash oder Tabulator; die drei Zeilen aus NACHTRAG 3 bleiben (544 getrackt,
+4 ARCHIV in 1 Ordner, SOLL 540, Endzeile OK 540/0/4). Ebenfalls ohne Wirkung auf diesen Ordner: die
+Ahnenreihe eines Allowlist-Gegenstands wird bis zur Wurzel geprueft (Rangfolge UNPRUEFBAR vor TOT vor
+Gitlink), ein `..` zaehlt per Tiefenzaehler (verlaesst die Wurzel = Grenze (a), repo-intern aufgeloest =
+UNPRUEFBAR), und die Existenzprobe der Allowlist-Datei nimmt auch einen Symlink an (`[ -e ] || [ -L ]`).
+
+## NACHTRAG 6 (Fix-r8: Lens A r8, Lens B r7, Lens C r6; 2026-09-19)
+
+BERICHTIGUNG ZU NACHTRAG 5 (Lens B r7 LB7-04 = Lens C r6 LC6T-04): der Satz "Die zwei Anker-Unterfaelle aus NACHTRAG 2
+(Gitlink = Index-Modus 160000, und ein Commit-Objekt unter Modus 100644)" ordnet den Commit-Fall falsch zu. NACHTRAG 2
+nennt "als Symlink oder Gitlink, oder im Merge-Konflikt" -- keinen Commit; der Commit unter 100644 steht erst in
+NACHTRAG 4 ("ein Tree oder Commit unter 100644 ankert nicht"). Richtig lautet der Satz: die zwei Anker-Unterfaelle
+aus NACHTRAG 2 (Gitlink = Index-Modus 160000) und NACHTRAG 4 (Commit-Objekt unter Modus 100644). Der Gitlink-Teil war
+richtig. NACHTRAG 5 bleibt unveraendert stehen; dieser Nachtrag gilt.
+
+BERICHTIGUNG ZU NACHTRAG 5, ZWEITER SATZ (Lens B r7 LB7-05 = Lens C r6 LC6T-05): "Neu in JEDER Ausgabe der Wache steht
+die Nenner-Zeile" ist zu weit. Die Zeile "Quotierte Index-Pfade: ..." steht in jedem VOLLSTAENDIGEN Wachen-Bericht
+(Exit 0 oder 1); Abbrueche mit Exit 2 (AUFRUF ohne Argument, kein Verzeichnis, Werkzeug-Ausfall, Signal) enden VOR dem
+Nenner-Block und tragen sie nicht (Lens B r7, Proben B1a/B1b/B1c/B2: je rc=2, Quotierte-Zeile=0).
+
+Die Stufen-Etiketten des Falls `ArchivAnkerMussBlobInDerObjektdatenbankSein` sind seit Fix-r8 eindeutig: (a) Tree,
+(b) Fantasie-SHA, (c) echtes Blob, (d) Commit unter 100644, (e) Index-Modus 160000, (f) git-Koeder 'cat-file -t'
+128 (Lens B r7 LB7-03; bis 89cf7103 hiessen Commit und git-Koeder beide "(d)"). Der Verweis "Stufen (d) und (e)" in
+NACHTRAG 5 meint damit genau Commit und Modus 160000.
+
+Fix-r8 der Wache ohne Wirkung auf diesen Ordner: (a) ein VERMERK.md auf Index-Stufe 0 gegen Eintraege DARUNTER
+(`VERMERK.md/...` auf Stufe 1-3, D/F-Konflikt) ankert NICHT mehr (UNPRUEFBARER ANKER; Lens C r6 LC6W-01, Fall (27g4)
+zeigt die Form am Ahnen); (b) jede Eingabe-Umleitung, der Berichtskanal stdout, der Abbruchkanal stderr und das Signal
+PIPE sind im 0/1/2-Vertrag (Lens A r8 LA8-01..04; Google-Faelle (32) und (33)); (c) der Lese-Abgleich zaehlt auch
+Bytes; (d) die OK-Zeile steht erst nach dem Aufraeumen des Zwischenverzeichnisses. Fuer DIESEN Ordner gemessen am
+Fix-r8-Stand (`sh scripts/ci_test_registrierungs_wache.sh build-gcc-release`, sh = dash, ebenso bash --posix und
+busybox sh): weiterhin 544 getrackt, 4 ARCHIV in 1 Ordner, SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4; die Bilanz
+ohne Heute-Zeile ist byte-gleich zu Fix-r7 (md5 09ddc181 gcc / f644b9fb clang).
+
+## NACHTRAG 6a (Fix-r9: Lens B r8 LB8-05, Lens C r7 LC7T-10; 2026-09-20; additiv, nichts geloescht)
+
+BERICHTIGUNG ZU NACHTRAG 1, ZEILEN 99-100 (Lens C r7 LC7T-10): "Die Archiv-Menge steht bei jedem Wachen-Lauf sichtbar
+in der Ausgabe, im Nenner und in der Endzeile" ist zu weit -- dieselbe Einschraenkung wie in NACHTRAG 6 zur
+Quotiert-Zeile gilt auch hier: die Archiv-Zeile "davon N ARCHIV-Datei(en) in M Ordner(n) unter tests/deprecated/ mit
+VERMERK.md-Anker abgezogen -- SOLL: S." und die Endzeile stehen in jedem VOLLSTAENDIGEN Wachen-Bericht (Exit 0 oder 1);
+Abbrueche mit Exit 2 (AUFRUF ohne Argument, kein oder nicht betretbares Verzeichnis, Werkzeug-Ausfall, Signal) enden
+VOR dem Nenner-Block und tragen weder Archiv-Zeile noch Endzeile. Richtig lautet der Satz: die Archiv-Menge steht in
+jedem vollstaendigen Wachen-Bericht sichtbar in der Ausgabe, im Nenner und in der Endzeile. NACHTRAG 1 bleibt stehen.
+
+BERICHTIGUNG ZU NACHTRAG 6, ERSTER ABSATZ (Lens B r8 LB8-05): das dort wiedergegebene Zitat aus NACHTRAG 5 laesst die
+Innen-Anfuehrungszeichen weg. NACHTRAG 5 lautet woertlich: "Die zwei Anker-Unterfaelle aus NACHTRAG 2 ("Gitlink" =
+Index-Modus 160000, und ein Commit-Objekt unter Modus 100644)". Die Berichtigung von NACHTRAG 6 (Commit-Fall gehoert
+zu NACHTRAG 4, Gitlink-Fall zu NACHTRAG 2) gilt unveraendert; nur das Zitat war ungenau.
+
+ERGAENZUNG ZU NACHTRAG 6, LETZTER ABSATZ (Lens B r8 LB8-05): die Fix-r8-Klassen (a) und (c) sind seit Fixer r8b auch
+als Google-Stufen gepinnt -- (a) ARCHIV-Anker auf Stufe 0 gegen einen Eintrag DARUNTER = UNPRUEFBARER ANKER: Fall (34a)
+`AnkerDFTeilrestGrepZielModifyDeleteGitlinkLinkSindUnpruefbarOderExit2` (eigener Wegwerf-Fall mit Waise im
+Archiv-Ordner, wie Fall (12d)); (c) Byte-Abgleich der Allowlist: Stufe (34b) derselben Fall-Funktion (wc -c um 1 Byte
+zu hoch = Exit 2), seit Fix-r9 dazu (34b2) (zaehlender wc-Koeder, nur der zweite Aufruf +1) und (34b3) (echtes
+NUL-Byte in der Datenzeile = Exit 2).
+
+Fix-r9 der Wache ohne Wirkung auf diesen Ordner: (a) jeder open-Fehler einer Eingabe-Umleitung und des grep-Ziels ist
+ABBRUCH + Exit 2 (Lens C r7 LC7W-03/04); (b) ein transienter Lesefehler mit Teilrest ist Exit 2, kein Dateiende
+(LC7W-02); (c) der IST-Abgleich hat eine rechte Pfadgrenze -- `test_x.cpp.extra.cpp` deckt `test_x.cpp` nicht mehr
+(LC7W-10); (d) ein nicht betretbares Bau-Verzeichnis traegt eine ABBRUCH-Zeile (Lens A r9 LA9-03); (e) die Index-
+Konfliktarten am Ahnen heissen nach ihrer git-Klasse, add/add (Datei auf Stufe 2 UND 3) ist TOT (LA9-01); (f) das
+Zwischenverzeichnis entsteht per `mktemp -u -d` + `mkdir -m 700`, der Pfad steht vor der Erzeugung fest (LC7W-09).
+Fuer DIESEN Ordner gemessen am Fix-r9-Stand (`sh scripts/ci_test_registrierungs_wache.sh build-gcc-release` und
+build-clang-release, sh = dash, ebenso bash --posix und busybox sh): weiterhin 544 getrackt, 4 ARCHIV in 1 Ordner,
+SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4; die Bilanz ohne Heute-Zeile ist byte-gleich zu Fix-r7 und Fix-r8
+(md5 09ddc181 gcc / f644b9fb clang; messungen/fix-r9c/bilanz/tafel-r9c-v2.out).
+
+## NACHTRAG 6b (Fix-r10: Lens B r9 LB9-03; 2026-09-20; additiv, nichts geloescht)
+
+KLAMMER ZU NACHTRAG 6a, ERSTER ABSATZ (Lens B r9 LB9-03): "BERICHTIGUNG ZU NACHTRAG 1, ZEILEN 99-100" meint den
+Abschnitt "## OV-2-NACHTRAG (Owner-Entscheid 2026-09-17, Order 206)" ab Zeile 80 -- er traegt in dieser Datei keine
+Nummer; die Zaehlung "NACHTRAG 1" ist die des Fix-r9-Berichts (OV-2-NACHTRAG = NACHTRAG 1), und die Zeilen 99-100
+liegen in diesem Abschnitt. NACHTRAG 6a bleibt unveraendert stehen.
+
+Fix-r10 der Wache (Teilrest per Byte-Vergleich, aufraeumen nur fuer Eigenes, Pfadgrenzen links/rechts je Bauweg-Art,
+Close-Status, /dev/null-Weg, Gitlink-Stufenlogik, Ende ohne Urteil = Exit 2) ohne Wirkung auf diesen Ordner. Fuer
+DIESEN Ordner gemessen am Fix-r10-Stand (`sh scripts/ci_test_registrierungs_wache.sh build-gcc-release` und
+build-clang-release, sh = dash, ebenso bash --posix und busybox sh): weiterhin 544 getrackt, 4 ARCHIV in 1 Ordner,
+SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4; die Bilanz ohne Heute-Zeile ist byte-gleich zu Fix-r7, r8 und r9
+(md5 09ddc181 gcc / f644b9fb clang; messungen/fix-r10/bilanz/tafel-r10-final.out).
+
+## NACHTRAG 6c (Fix-474 + Fix-r12: Lens A r11, Lens B r10 LB10-03; 2026-09-23; additiv, nichts geloescht)
+
+Fix-474 (Commits b98e1273/b207a011/1fa2f50b: Test 474 test_mt_l4_registrierungs_wache_isa nach EXPLORE-474-DESIGN-K282
+Option A -- Attrappe in der CI-Form von ninja an der von git GEMELDETEN Wurzel; Kopf (17h) nennt die r10b-Stufe (35f);
+Nenner-Zeile 'Allowlist gelesen: N Datenzeile(n) in scripts/ci_test_registrierungs_allowlist.txt (Kommentar- und
+Leerzeilen abgezogen).' hinter der UNPRUEFBAR-Zeile, Lens C r8 LC8W-10) und Fix-r12 (Commits fc311425/8fb3b068/6e15b306:
+Pins der Nenner-Zeile in Test 474 Fall (7) und test_pa1 Faelle (8)/(13)/(16); eine FEHLENDE Allowlist-Datei heisst
+jetzt 'Allowlist NICHT gelesen: <allowlist> FEHLT -- Nachscan uebersprungen (0 Datenzeile(n)).' statt '0 gelesen',
+Google-Stufe Test 474 Fall (7b); Kopf-Folge (18)) sind ohne Wirkung auf diesen Ordner: die vier Dateien bleiben ARCHIV
+ueber diesen VERMERK.md-Anker, die Allowlist traegt fuer sie keine Zeile. Fuer DIESEN Ordner gemessen am Fix-r12-Stand
+(`sh scripts/ci_test_registrierungs_wache.sh build-gcc-release` und build-clang-release, sh = dash, ebenso bash --posix
+und busybox sh): weiterhin 544 getrackt, 4 ARCHIV in 1 Ordner, SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4; die
+Bilanz traegt gegenueber Fix-r10 GENAU EINE Zeile mehr ('Allowlist gelesen: 1 Datenzeile(n) ...' -- die committete
+Allowlist hat nach Order 206 genau eine Datenzeile, die 'isa:'-Zeile), sonst ist sie byte-gleich: md5 ohne Heute-Zeile
+1379e85d gcc / 7b95136c clang (Fix-r10-Referenz 09ddc181 / f644b9fb + diese eine Zeile; messungen/lens-k290/fix-r12/
+wache-6x/BILANZ-r12.txt). Der Verweis 'VERMERK.md NACHTRAG 6b' in Kopf (17h) der Wache bleibt der Fix-r10-Posten;
+Fix-474/Fix-r12 verweisen auf diesen NACHTRAG 6c (Kopf Folge (18)).
+
+## NACHTRAG 6d (Fix-r13: Lens A r12 LA12-01/I1/I2, Lens B r11 LB11-01/I01/I09; 2026-09-23; additiv, nichts geloescht)
+
+Fix-r13 (Commits f3aa23e7/f93549ab/37c8db8f: ein BELEGTER Nicht-Datei-Pfad am Allowlist-Ort -- Verzeichnis, FIFO,
+Socket, Symlink ohne Ziel -- heisst in der Bilanz jetzt 'Allowlist NICHT gelesen: <allowlist> ist VORHANDEN, aber
+keine regulaere Datei (<Art>) -- Nachscan uebersprungen (0 Datenzeile(n)).' statt 'FEHLT' (Klassifikation
+ALLOW_PFAD_ART im Nachscan, Kopf-Folge (19), Google-Stufe Test 474 Fall (7c) mit Verzeichnis und Symlink ohne Ziel);
+die Null in beiden 'NICHT gelesen'-Formen ist ein Literal; Test 474 Fall (8) liest Leerraum wie die Wache (Space, Tab,
+CR, VT, FF) und Fall (7b) prueft seine Vorbedingung 'nichts am Pfad' selbst) ist ohne Wirkung auf diesen Ordner: die
+vier Dateien bleiben ARCHIV ueber diesen VERMERK.md-Anker, und die Allowlist ist am echten Baum eine regulaere Datei,
+die gelesen wird. Fuer DIESEN Ordner gemessen am Fix-r13-Stand (`sh scripts/ci_test_registrierungs_wache.sh
+build-gcc-release` und build-clang-release, sh = dash, ebenso bash --posix und busybox sh): weiterhin 544 getrackt,
+4 ARCHIV in 1 Ordner, SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4, Zeile 'Allowlist gelesen: 1 Datenzeile(n) ...'
+unveraendert; die Bilanz ohne Heute-Zeile ist byte-gleich zu Fix-r12 (md5 1379e85d gcc / 7b95136c clang;
+messungen/lens-k290/fix-r13/wache-6x/BILANZ-r13.txt) -- die neue Form erscheint am echten Baum nicht.
+
+KLARSTELLUNG ZU NACHTRAG 5, LETZTER SATZ (Lens B r11 LB11-I09): "die Existenzprobe der Allowlist-Datei nimmt auch
+einen Symlink an (`[ -e ] || [ -L ]`)" meint den 'datei:'-GEGENSTAND einer Allowlist-Zeile (die Probe, ob die dort
+genannte Datei existiert), NICHT die Allowlist-Datei selbst: deren Lese-Probe ist in allow_zeile und im Nachscan
+'-f' (eine regulaere Datei, auch ueber einen Symlink mit Ziel); ein Symlink OHNE Ziel am Allowlist-Pfad wurde bis
+Fix-r12 als FEHLT gemeldet und heisst seit Fix-r13 'VORHANDEN, aber keine regulaere Datei (Symlink ohne Ziel)'.
+NACHTRAG 5 bleibt unveraendert stehen; dieser Nachtrag gilt.
+
+## NACHTRAG 6e (Fix-r14: Lens A r13 LA13-01/I1, Lens B r12 LB12-01/I03/I04; 2026-09-23; additiv, nichts geloescht)
+
+ERGAENZUNG ZU NACHTRAG 6d, ERSTER ABSATZ (Lens B r12 LB12-I03): "Verzeichnis, FIFO, Socket, Symlink ohne Ziel" nennt
+vier der SECHS Nicht-Datei-Arten, die die Wache seit Fix-r13 am Allowlist-Pfad unterscheidet (Kopf Folge (19a), Variable
+ALLOW_PFAD_ART): Verzeichnis, FIFO, Socket, Geraetedatei, Eintrag unbekannter Art, Symlink ohne Ziel -- daneben 'datei'
+(gelesen) und 'fehlt' (FEHLT-Form). Eine Geraetedatei ist ohne Privileg nur als Symlink auf /dev/null herstellbar; ein
+'Eintrag unbekannter Art' ist auf Linux unerreichbar (jeder '-e'-Eintrag ist f/d/p/S/b/c) und nur unter einem Mutanten
+der Wache sichtbar (LB12-I02). NACHTRAG 6d bleibt unveraendert stehen.
+
+Fix-r14 (Commit 4ad7be76 Test-Seite + dieser Nachtrag mit Kopf Folge (20); KEIN Wache-Code, keine Allowlist-Aenderung)
+schliesst zwei Google-Deckungsluecken der Klassifikation aus Fix-r13: Test 474 Fall (7c) hat die dritte Stufe (c)
+'Symlink auf /dev/null = Geraetedatei' (Lens B r12 LB12-01: ein Klon-Mutant ohne den Zweig -b/-c ueberlebte 474 11/11
+und nannte den Pfad 'Eintrag unbekannter Art'), und der neue Fall (7d) 'SymlinkMitZielAmAllowlistPfadWirdGelesen' pinnt,
+dass ein Symlink MIT Ziel am Allowlist-Pfad GELESEN wird (ganze Nenner-Zeile 'Allowlist gelesen: 1 Datenzeile(n) ...',
+Verbot der VORHANDEN-Form; Lens A r13 LA13-01: der Reihenfolge-Mutant ML mit '-L' als erster Probe ueberlebte 474
+11/11). Beide Mutanten sind seit Fix-r14 rot, die HEAD-Wache ist gruen (12 Google-Faelle unter POSIX; FIX-r14.md Abschn.
+2). Etikett (Lens A r13 LA13-I1 = Lens B r12 LB12-I04): 'PSOCK' in Kopf (19a) meint die Klasse Socket, der Beleg ist der
+Kunstbaum PSOCK2 (Kopf Folge (20b)). Fuer DIESEN Ordner ohne Wirkung: die vier Dateien bleiben ARCHIV ueber diesen
+VERMERK.md-Anker, die Allowlist ist am echten Baum eine regulaere Datei, die gelesen wird. Gemessen am Fix-r14-Stand
+(`sh scripts/ci_test_registrierungs_wache.sh build-gcc-release` und build-clang-release, sh = dash, ebenso bash --posix
+und busybox sh): weiterhin 544 getrackt, 4 ARCHIV in 1 Ordner, SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4, Zeile
+'Allowlist gelesen: 1 Datenzeile(n) ...' unveraendert; die Bilanz ohne Heute-Zeile ist byte-gleich zu Fix-r12 und
+Fix-r13 (md5 1379e85d gcc / 7b95136c clang; messungen/lens-k290/fix-r14/wache-6x/BILANZ-r14.txt).

@@ -22,8 +22,10 @@
 #
 # DREI ARTEN VON GEGENSTAND, und das PRAEFIX benennt die Art (2026-08-10):
 #
-#   datei:<pfad>                Die Ausnahme traegt, solange der Pfad NICHT existiert.
-#                               Geprueft mit '[ -e ]' im Arbeitsbaum -- UND der Pfad muss
+#   datei:<pfad>                Die Ausnahme traegt, solange der Pfad NICHT existiert und
+#                               nicht belegt ist. Geprueft mit '[ -e ] || [ -L ]' im
+#                               Arbeitsbaum (auch ein Symlink ohne Ziel belegt den Pfad;
+#                               Fix-r6 LA6-06, Wortlaut Fix-r7 LC5W-08) -- UND der Pfad muss
 #                               ueberhaupt entstehen koennen (s. TOTE AUSNAHME unten).
 #   isa:<merkmal>[+<merkmal>]   Die Ausnahme traegt, solange MINDESTENS EIN Merkmal auf
 #                               dem Bau-Host fehlt. Bekannt sind genau zwei: avx2 und
@@ -37,6 +39,19 @@
 #                               die niemand je belegen kann. Sie ist die SCHWAECHSTE Form:
 #                               wer sie benutzt, muss in Feld 3 sagen, wem der Posten
 #                               gehoert und woran er haengt.
+#
+# FORMREGELN JE ZEILE (2026-09-18, Fix-r2 des OV-2-Zuges, Lens C LCW-08/LCW-09; Fix-r3 LC3W-05/LC3W-07):
+# Feld 3 darf nicht leer sein -- eine Ausnahme ohne Begruendungstext ist keine und ist UNPRUEFBAR
+# (rot); je Test-Quelldatei steht genau EINE Zeile -- die Wache laese nur die erste, jede weitere
+# schliefe; ein mehrfach genannter Pfad ist UNPRUEFBAR (rot). Eine Zeile nur aus Leerraum gilt als
+# Leerzeile; ein Kommentar beginnt in Spalte 1 (eingerueckt ist er eine Datenzeile ohne Gegenstand,
+# rot). Die letzte Zeile darf ohne Zeilenumbruch enden -- sie wird trotzdem gelesen. Ein 'isa:'-
+# Ausdruck hat kein leeres Teilmerkmal: '+avx2', 'avx2+' und 'avx2++avx512f' sind UNPRUEFBAR (rot),
+# nicht 'avx2'. DIE FORM GILT FUER JEDE DATENZEILE, auch fuer eine Datei, die IM Bauweg steht: eine
+# solche Zeile ist stumm (sie wird nie ausgewertet -- die 'isa:'-Zeile unten ist es auf einem AVX-512-
+# Host), aber ein Formfehler darin (leeres Feld 3, unbekannte Art, leeres oder unbekanntes Merkmal,
+# kein Datum) ist UNPRUEFBAR (rot) und steht im Nenner als eigene Klasse ("mit Formfehler fuer Dateien
+# im Bauweg"); bis Fix-r3 lag er in Reserve, bis die Datei einmal fehlte.
 #
 # WARUM ES DIE ZWEITE ART GIBT (Pipeline 15517, ce/development ROT): Feld 2 kannte bis
 # dahin nur einen Pfad. Der erste echte Fang der Wache haengt aber an keiner Datei,
@@ -73,8 +88,49 @@
 # WAS DAS NICHT BEWEIST, ausdruecklich: nicht, dass der Gegenstand nie existieren KANN.
 # Jemand kann ihn morgen 'git add'en, ein Pruefling-Repo kann eingehaengt werden, ein
 # CI-Job kann ihn hineinkopieren. Gemessen ist nur, dass ihn HEUTE keine Quelle dieses
-# Repos nennt. Ein Pfad AUSSERHALB des Repos (absolut oder mit '..'-Segment) wird gar
-# nicht beurteilt und nie als tot gemeldet; die Wache weist ihre Zahl im Nenner aus.
+# Repos nennt. Ein Pfad AUSSERHALB des Repos (absolut, oder mit '..'-Segmenten, die ueber
+# die Repo-Wurzel HINAUSFUEHREN -- Tiefenzaehler, Fix-r7 LA7-02) wird gar nicht beurteilt
+# und nie als tot gemeldet; die Wache weist ihre Zahl im Nenner aus. Ein '..', das
+# INNERHALB des Repos aufloest ('ext/x/../y'), ist dagegen eine nicht kanonische
+# Schreibweise und UNPRUEFBAR (rot), s. u.
+#
+# WAS EIN VORFAHR SEIN MUSS, DAMIT ER TRAEGT (2026-09-19, Fix-r5 des OV-2-Zuges; Lens A r5 LA5-01/02/03/06,
+# Lens B r4 LB4-01/03; Wache, Kopf Folgen (11) und (12)): 'vorhandenes Verzeichnis' heisst ein Verzeichnis
+# MIT getracktem Inhalt. Eine getrackte DATEI als Vorfahr ('ext/README.md/x.hpp') traegt NICHT -- unter einer
+# Datei kann nie ein Kind entstehen, die Zeile ist TOT (rot; bis Fix-r5 galt sie als erreichbar). Ein SYMLINK
+# als Vorfahr und ein Pfad, der im Index im Merge-Konflikt mit ungleichen Typen je Stufe steht (Datei gegen
+# Gitlink), sind UNPRUEFBAR (rot): die Wache loest keinen Link auf und raet keinen Merge-Ausgang; ein Gitlink
+# zaehlt dagegen auf jeder Index-Stufe. DIE FORM DES PFADS: ein 'datei:'-Pfad ist kanonisch und repo-relativ
+# geschrieben -- kein './', kein '//', kein '/' am Ende, kein Segment '.' -- und enthaelt kein Zeichen, das
+# git in seiner Ausgabe quotiert (Tabulator, Steuerzeichen, Anfuehrungszeichen, Backslash); sonst ist die
+# Zeile UNPRUEFBAR (rot), auch als stumme Zeile einer Datei im Bauweg. Leerzeichen und Nicht-ASCII-Zeichen
+# im Pfad sind erlaubt (die Wache liest den Index mit core.quotePath=false) -- diese Datei selbst bleibt
+# nach Hausregel ASCII. Alle Klassen sind mit Koeder belegt (Faelle (27d-f), (28), (29)).
+# [Ergaenzt 2026-09-19, Fix-r6 des OV-2-Zuges; Lens A r6 LA6-01/02/03/06, Lens C r4 LC3W-15..18; Wache, Kopf
+# Folge (13)]: UNPRUEFBAR (rot) ist auch ein Vorfahr, der im Index im Merge-Konflikt als EINTRAG GEGEN EIN
+# VERZEICHNIS darunter steht (D/F: Gitlink oder Datei auf einer Stufe, Eintraege darunter auf einer anderen) --
+# die Meldung nennt die Stufen und Typen, nicht mehr fest 'Datei gegen Gitlink' --, und ein Vorfahr, der NUR im
+# Arbeitsbaum ein Symlink ist (nicht im Index). Die Formregel fuer den 'datei:'-Pfad gilt nur INNERHALB des Repos:
+# ein absoluter Pfad und ein Pfad, der per '..' ueber die Wurzel hinausfuehrt, werden wie bisher gar nicht beurteilt
+# (Nenner-Zeile 'AUSSERHALB', s. o.); ein '..', das innerhalb des Repos aufloest, ist seit Fix-r7 UNPRUEFBAR (LA7-02,
+# Faelle (5b)-(5e); '(5d)' bis 89cf7103, berichtigt mit Fix-r8, Lens A r8 LA8-06). Ein Gegenstand, der als Symlink
+# ohne Ziel vorliegt, ist ERLOSCHEN (der Pfad ist belegt).
+# Nicht-ASCII-Pfade zaehlen seit Fix-r6 auch im SOLL und am VERMERK.md-Anker (die Wache liest beide roh; bis
+# 9223cbd5 fielen sie dort STILL heraus). Faelle (6b), (27e2/e3/f2), (27g)-(27g3), (27h), (28f), (31).]
+# [Ergaenzt 2026-09-20, Fix-r9 des OV-2-Zuges; Lens A r9 LA9-04 = Lens C r7 LC7W-06b; Wache, Kopf Folgen (15i), (15j),
+# (16g)]: UNPRUEFBAR (rot) ist auch ein Vorfahr, der im Index als DATEI nur auf der Basis-Stufe und EINER Seite steht
+# (modify/delete: ein Merge-Ausgang loescht ihn), nur auf der Basis-Stufe (beide Seiten loeschen), nur auf ours oder
+# nur auf theirs -- die Meldung nennt die Art des Konflikts; eine Datei auf Stufe 2 UND 3 (add/add) oder auf allen
+# drei Stufen ist eine DATEI, die Zeile TOT (rot). UNPRUEFBAR ist ebenso ein Vorfahr, der im Index eine DATEI oder
+# ein GITLINK, im Arbeitsbaum aber ein Symlink ist (Index und Arbeitsbaum widersprechen sich). Faelle (27k), (34d),
+# (34d2), (34e).]
+# [Ergaenzt 2026-09-20, Fix-r10; Lens A r10 LA10-05, Lens C r8 LC8W-06/LC8W-09; Wache, Kopf Folge (17g)]: der add/add-
+# Satz gilt mit Vorbehalt -- {2,3} ist nur LOKAL eine Datei: liegen unter demselben Ahnen zugleich Eintraege DARUNTER
+# (D/F-Untereintraege), ist er ein KONFLIKT (UNPRUEFBAR), und ein anderer unpruefbarer Ahne in der Reihe schlaegt TOT
+# (Rangfolge UNPRUEFBAR vor TOT vor Gitlink). Ein GITLINK nur auf der Basis-Stufe, nur auf ours oder nur auf theirs
+# oder mit fehlender Ausgangsstufe ist seit Fix-r10 ebenfalls UNPRUEFBAR (bis 0f0d0fb6 galt er als erreichbar);
+# {2,3} und {1,2,3} bleiben Gitlink = erreichbar. Fall (34f). Die Etiketten (34a) und (34e) stehen seit Fix-r10 als
+# Stufen-Etiketten im Google-Test (Fall (34), Stufen (a) und (e)).]
 #
 # -----------------------------------------------------------------------------
 # prt-art-Legacy: VIER GEPARKTE POSTEN. Frueher stand hier
@@ -131,17 +187,64 @@
 # W-B-NACHTRAG (2026-08-15, Vorlage-B2-GO "Aufraeumen (a)"): die vier Dateien sind per
 # 'git mv' nach tests/deprecated/prt_art_legacy_waisen/ archiviert -- NICHT geloescht;
 # Begruendung, Messungen und die drei aufgegebenen Deckungs-Luecken stehen dort in
-# VERMERK.md. Der SOLL dieser Wache ist 'git ls-files' mit DATEINAMEN-Anker, die vier
+# VERMERK.md.
+# [UEBERHOLT ab dem naechsten Satz "Der SOLL dieser Wache ..." bis zum Ende dieses Nachtrags,
+#  Frist-Saetze eingeschlossen -- OV-2-NACHTRAG unten (2026-09-17, Marker nachgezogen 2026-09-18,
+#  vor den ueberholten Satz gestellt 2026-09-18 Fix-r2 F4, Lens B LB2-04 / Lens A LA3-09).]
+# Der SOLL dieser Wache ist 'git ls-files' mit DATEINAMEN-Anker, die vier
 # bleiben also im SOLL; ihre 'frist:'-Zeilen tragen deshalb weiter, nur mit dem neuen
 # Pfad in Feld 1 (tests/unit/test_pa1_tote_ausnahme.cpp kGeparkt ist nachgezogen).
 # Die Frist 2026-09-15 bleibt unveraendert: sie gehoert dem Owner und deckt jetzt die
 # ENDGUELTIGE Form (Archiv bestaetigen und Wachen-SOLL-Frage klaeren ODER Loeschung mit
 # eigenem Owner-GO) -- der Posten soll weiterhin nicht lautlos alt werden koennen.
+#
+# OV-2-NACHTRAG (2026-09-17, Owner-Order 206 verbatim: "OV-2 Archiv-Variante gilt und frist Zeilen
+# entfernen"): die im W-B-Nachtrag offen gelassene Wachen-SOLL-Frage ist damit GEKLAERT, und die vier
+# 'frist:2026-09-18'-Zeilen sind ENTFERNT -- sie standen bis zu dieser Fassung unmittelbar unter
+# diesem Absatz. UEBERHOLT ist deshalb der W-B-Nachtrag ab "Der SOLL dieser Wache ist 'git ls-files'
+# mit DATEINAMEN-Anker, die vier bleiben also im SOLL; ihre 'frist:'-Zeilen tragen deshalb weiter"
+# bis zu seinem Ende, die Frist-Saetze eingeschlossen (die Frist hiess 2026-09-15 und seit 57757fe3,
+# Owner 15.09. Frage 1, 2026-09-18; es gibt sie nicht mehr). Alles DAVOR am W-B-Nachtrag gilt fort
+# (Archiv statt Loeschung, VERMERK.md, Messungen, die drei aufgegebenen Deckungs-Luecken).
+# [Berichtigt 2026-09-18, Lens A LA-03: die vorige Fassung dieses Absatzes zitierte den ueberholten
+# Satz mit dem Wortlaut aus tests/unit/test_pa1_tote_ausnahme.cpp:122 statt aus dieser Datei und
+# liess die Frist-Saetze des W-B-Nachtrags ohne Marker stehen.]
+# [Berichtigt 2026-09-19, Lens B r4 LB4-I2 (Fix-r5): die Zeilennummer ':122' im vorigen Klammersatz gilt
+# fuer die Fassung fe692d47 und wandert mit jedem Kopf-NACHTRAG des Tests (am Stand c62cfc7e ist :122 eine
+# Trennzeile). Gemeint ist ohne Zeilennummer: der W-B-Absatz ueber der Konstante kGeparkt in
+# tests/unit/test_pa1_tote_ausnahme.cpp ("Der SOLL ist am DATEINAMEN verankert, die vier bleiben also im
+# SOLL und in der Allowlist"), dort seit 2026-09-17 mit UEBERHOLT-Marker.]
+#
+# WAS AN IHRE STELLE TRITT -- ein ORT, keine Ausnahme: scripts/ci_test_registrierungs_wache.sh nimmt
+# eine getrackte Test-Quelldatei unter tests/deprecated/<ordner>/ aus ihrem SOLL, wenn und nur wenn
+# tests/deprecated/<ordner>/VERMERK.md im Git-Index liegt UND die Form eines Ankers hat (regulaeres
+# Blob 100644/100755 auf Index-Stufe 0, dessen Objekt in der Objektdatenbank liegt und ein Blob IST,
+# lesbar, mit mindestens einem Nicht-Leerraum-Zeichen; seit 2026-09-18, Lens-Funde r1/r2, Lens C
+# LCW-06, Fix-r3 LC3W-06), und weist die Archiv-Menge bei jedem Lauf mit Zahl,
+# Ordner-Zahl und Dateinamen aus (Nenner und Endzeile). Die vier Dateien brauchen deshalb hier keine
+# Zeile mehr: eine Ausnahme OHNE ANLASS faenge nur das naechste echte Verschwinden desselben Namens
+# lautlos weg -- dieselbe Begruendung wie bei der T-6-Schwesterliste oben.
+#
+# WAS DAMIT NICHT ENTSCHIEDEN IST: die LOESCHUNG der vier Dateien. Sie braucht weiter ein eigenes
+# Owner-GO. Die Begruendung des Archivs steht in tests/deprecated/prt_art_legacy_waisen/VERMERK.md;
+# faellt diese Datei aus dem INDEX (git rm, git mv -- massgeblich ist der Index, ein blosses rm im
+# Arbeitsbaum aendert ihn nicht; Lens A LA-05), fallen die vier .cpp in den SOLL zurueck und die
+# Wache wird ROT. Seit 2026-09-18 (Lens-Funde r1/r2) gilt zudem: ein VERMERK.md ohne Nicht-Leerraum-
+# Inhalt, als Symlink oder Gitlink, oder im Merge-Konflikt (Index-Stufe 1-3) ankert NICHT
+# (UNPRUEFBARER ANKER, rot); eine Allowlist-Zeile fuer einen Pfad unter tests/deprecated/ -- die vier
+# ARCHIV-Dateien eingeschlossen, mit oder ohne Anker -- ist UNPRUEFBAR (rot): diese Liste darf sie nie
+# tragen, der Archiv-Ort kennt nur den Anker (Lens C LCW-05). Ebenso rot: zwei Zeilen fuer denselben
+# Pfad, ein leeres Feld 3, eine Zeile, deren Feld 1 keine Datei des SOLL-Bestands nennt, ein Formfehler
+# in der stummen Zeile einer Datei im Bauweg, und ein VERMERK.md, dessen Index-Eintrag auf ein fehlendes
+# Objekt oder auf kein Blob (Tree, Commit) zeigt (Fix-r3, Lens C LC3W-05/LC3W-06). Werkzeug-Ausfaelle
+# der Wache (grep, git, wc, sort, uniq, date, mktemp) sind Exit 2, nie ein Befund (LC3W-01..04).
+# [Ergaenzt 2026-09-20, Fix-r9; Lens A r9 LA9-04; Wache, Kopf Folge (15e)]: ein VERMERK.md auf Index-Stufe 0, unter
+# dem der Index Eintraege DARUNTER ('VERMERK.md/...' auf Stufe 1-3, D/F-Konflikt) fuehrt, ankert NICHT (UNPRUEFBARER
+# ANKER, rot) -- in einem Merge-Ausgang waere der Pfad ein Verzeichnis, kein Blob. Fall (34a). Seit Fix-r9 zaehlt
+# auch 'mkdir' zu den Werkzeugen der Wache (Zwischenverzeichnis, Folge (16d)); seit Fix-r10 nennt auch der Exit-2-
+# Vertrag der Wache 'mkdir' (Lens A r10 LA10-04), und aufraeumen entfernt nur, was die Wache selbst angelegt hat
+# (Folge (17b), Fall (32g)).]
 # -----------------------------------------------------------------------------
-tests/deprecated/prt_art_legacy_waisen/test_concepts_compile.cpp | frist:2026-09-18 | PA-3 8a8f6877; Archiv W-B
-tests/deprecated/prt_art_legacy_waisen/test_value_handle.cpp | frist:2026-09-18 | PA-3 8a8f6877; Archiv W-B
-tests/deprecated/prt_art_legacy_waisen/test_three_layer_audit.cpp | frist:2026-09-18 | PA-3 8a8f6877; Archiv W-B
-tests/deprecated/prt_art_legacy_waisen/test_six_page_structures.cpp | frist:2026-09-18 | PA-3 8a8f6877; Archiv W-B
 
 # -----------------------------------------------------------------------------
 # HOST-ISA-GATTER: EINE Test-QUELLDATEI haengt an der ISA des Bau-Hosts.
