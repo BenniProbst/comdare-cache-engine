@@ -2098,9 +2098,9 @@ TEST(Pa1ToteAusnahme, IsaBelegeMuessenEindeutigSein) {
     ASSERT_EQ(gesund.code, 0) << "Das Arrangement ist falsch: der ehrliche Cache traegt nicht.\n" << gesund.ausgabe;
 
     struct Stufe {
-        char const* name;
+        char const* name = nullptr;
         std::string cache;
-        char const* meldung;
+        char const* meldung = nullptr;
     };
     std::vector<Stufe> const stufen{
         {"_COMPILED-doppelt", gesund_cache + "COMDARE_HOST_RUNS_AVX512F_COMPILED:INTERNAL=FALSE\n",
@@ -2546,7 +2546,7 @@ TEST(Pa1ToteAusnahme, AllowlistFormfehlerFuerDateiImBauwegIstUnpruefbar) {
     std::string const gebaut   = kGegenprobe; // steht im Bauweg des Falls
 
     struct Stufe {
-        char const* name;
+        char const* name = nullptr;
         std::string zeile;
         std::string meldung;
     };
