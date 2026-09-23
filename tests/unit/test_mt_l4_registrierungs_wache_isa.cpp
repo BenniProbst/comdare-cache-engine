@@ -278,11 +278,7 @@ public:
     }
 
     /// Genau EINE Allowlist-Zeile fuer den Koeder; 'feld2' ist der Prueflig.
-    void allowlist(std::string const& feld2) const {
-        std::ofstream aus{wurzel_ / "scripts" / "ci_test_registrierungs_allowlist.txt"};
-        aus << "# gewuerfelt von test_mt_l4_registrierungs_wache_isa\n";
-        aus << koeder_ << " | " << feld2 << " | Begruendungstext\n";
-    }
+    void allowlist(std::string const& feld2) const { allowlist_schreiben(allowlist_pfad(), feld2); }
 
     void allowlist_leer() const {
         std::ofstream aus{wurzel_ / "scripts" / "ci_test_registrierungs_allowlist.txt"};
@@ -326,6 +322,25 @@ public:
         fs::create_symlink("ziel_ohne_datei.txt", allowlist_pfad(), ec);
     }
 
+    /// EIN SYMLINK AUF /dev/null am Allowlist-Pfad (Fix-r14, Lens B r12 LB12-01): '-e' wahr, '-f' falsch, '-c' wahr
+    /// = Geraetedatei -- die einzige Form dieser Klasse ohne Privileg (mknod braeuchte root). Die Wache oeffnet den
+    /// Pfad nie: '-f' ist falsch, die Klassifikation kommt ohne open aus.
+    void allowlist_als_symlink_auf_geraetedatei() const {
+        std::error_code ec;
+        fs::remove(allowlist_pfad(), ec);
+        fs::create_symlink("/dev/null", allowlist_pfad(), ec);
+    }
+
+    /// EIN SYMLINK MIT ZIEL am Allowlist-Pfad (Fix-r14, Lens A r13 LA13-01): die Allowlist liegt als regulaere Datei
+    /// unter 'ci_test_registrierungs_allowlist.real.txt', der Allowlist-Pfad ist ein RELATIVER Symlink darauf. '-f'
+    /// folgt dem Link: die Wache muss die Datei LESEN -- die Gegenrichtung zu allowlist_als_symlink_ohne_ziel().
+    void allowlist_als_symlink_auf_datei(std::string const& feld2) const {
+        std::error_code ec;
+        fs::remove(allowlist_pfad(), ec);
+        allowlist_schreiben(wurzel_ / "scripts" / "ci_test_registrierungs_allowlist.real.txt", feld2);
+        fs::create_symlink("ci_test_registrierungs_allowlist.real.txt", allowlist_pfad(), ec);
+    }
+
     [[nodiscard]] Lauf fahren() const {
         return schale("cd \"" + wurzel_.string() + "\" && " + umgebung() +
                       " sh scripts/ci_test_registrierungs_wache.sh baum 2>&1");
@@ -341,6 +356,14 @@ public:
     }
 
 private:
+    /// Die Allowlist-Form aller Faelle (eine Kommentar-, eine Datenzeile) an einen beliebigen Pfad -- fuer den
+    /// Allowlist-Pfad selbst (allowlist()) und fuer das Ziel eines Symlinks (allowlist_als_symlink_auf_datei()).
+    void allowlist_schreiben(fs::path const& pfad, std::string const& feld2) const {
+        std::ofstream aus{pfad};
+        aus << "# gewuerfelt von test_mt_l4_registrierungs_wache_isa\n";
+        aus << koeder_ << " | " << feld2 << " | Begruendungstext\n";
+    }
+
     fs::path    wurzel_;
     std::string koeder_;
     std::string gemeldete_wurzel_;
@@ -707,6 +730,9 @@ TEST(MtL4RegistrierungsWacheIsa, OhneAllowlistDateiHeisstDieBilanzNichtGelesenSt
 //      (b) Symlink ohne Ziel ('-e' folgt dem Link und sieht nichts, '-L' sieht den Link). Eine FIFO deckt NUR die
 //      Shell-Probe (FIX-r13 Abschn. 7): ein Leser an einer FIFO ohne Schreiber blockiert -- unter einem
 //      '-f'-Mutanten hinge dieser Prozess statt rot zu werden.
+//      DRITTE STUFE (Fix-r14, Lens B r12 LB12-01): (c) ein Symlink auf /dev/null -- '-e' wahr, '-f' falsch, '-c'
+//      wahr = Geraetedatei, ohne Privileg herstellbar. Der Klon-Mutant M-C (Geraetedatei-Zweig :2245-2246 der Wache
+//      entfernt) nannte ihn 'Eintrag unbekannter Art' und ueberlebte (a)+(b) 11/11; seit (c) ist er rot.
 // ===========================================================================================
 TEST(MtL4RegistrierungsWacheIsa, BelegterNichtDateiPfadHeisstVorhandenStattFehlt) {
     std::string const marke = koeder_marke();
@@ -745,6 +771,51 @@ TEST(MtL4RegistrierungsWacheIsa, BelegterNichtDateiPfadHeisstVorhandenStattFehlt
     ASSERT_TRUE(fs::is_symlink(baum.allowlist_pfad())) << "Aufbau: kein Symlink am Allowlist-Pfad.";
     ASSERT_FALSE(fs::exists(baum.allowlist_pfad())) << "Aufbau: der Symlink hat ein Ziel -- er soll keines haben.";
     pruefen("Allowlist-Pfad ist ein SYMLINK OHNE ZIEL", "Symlink ohne Ziel", baum.fahren());
+
+    // (c) SYMLINK AUF /dev/null: '-e' wahr, '-f' falsch, '-c' wahr = Geraetedatei (Lens B r12 LB12-01, Vorlage
+    //     mut/M-D-test.diff). Ohne diese Stufe hiesse der Pfad unter dem Mutanten M-C 'Eintrag unbekannter Art'.
+    baum.allowlist_als_symlink_auf_geraetedatei();
+    ASSERT_TRUE(fs::is_symlink(baum.allowlist_pfad())) << "Aufbau: kein Symlink am Allowlist-Pfad.";
+    ASSERT_TRUE(fs::is_character_file(baum.allowlist_pfad())) << "Aufbau: /dev/null ist keine Geraetedatei.";
+    pruefen("Allowlist-Pfad ist ein SYMLINK AUF /dev/null", "Geraetedatei", baum.fahren());
+}
+
+// ===========================================================================================
+// (7d) EIN SYMLINK MIT ZIEL AM ALLOWLIST-PFAD WIRD GELESEN (Fix-r14, Lens A r13 LA13-01). Die Gegenrichtung zu
+//      (7c)(b): '-f' folgt dem Link, dahinter liegt eine regulaere Datei -- SIE ist die Allowlist, die Bilanz sagt
+//      'Allowlist gelesen: 1 Datenzeile(n) ...', und der so begruendete Koeder traegt (Exit 0 wie Fall (1)). Gedeckt
+//      war das bis 1f144115 nur ueber die Shell-Probe PLINK: kein Google-Fall legte einen Symlink MIT Ziel an. Der
+//      Reihenfolge-Mutant ML der Wache ('-L' als ERSTE Probe, der letzte '-L'-Zweig entfernt) nannte diesen Pfad
+//      'VORHANDEN, aber keine regulaere Datei (Symlink ohne Ziel)', uebersprang den Nachscan (3/3 Shells am echten
+//      Baum) und ueberlebte 474 11/11 -- eine falsche Aussage ueber einen vorhandenen Eintrag PLUS eine ignorierte
+//      Allowlist. Die Pins, die ML toeten, sind die GANZE Nenner-Zeile und das Verbot der VORHANDEN-Form; der Exit
+//      allein deckt ihn nicht (allow_zeile liest weiter ueber '-f'). ROT zuerst gegen ML: FIX-r14.md Abschn. 2.
+// ===========================================================================================
+TEST(MtL4RegistrierungsWacheIsa, SymlinkMitZielAmAllowlistPfadWirdGelesen) {
+    std::string const marke = koeder_marke();
+    SynthBaum         baum{marke};
+    baum.cache_ehrlich(/*avx2=*/true, /*avx512f=*/false);
+    baum.allowlist_als_symlink_auf_datei("isa:avx2+avx512f");
+    ASSERT_TRUE(fs::is_symlink(baum.allowlist_pfad())) << "Aufbau: kein Symlink am Allowlist-Pfad.";
+    ASSERT_TRUE(fs::is_regular_file(baum.allowlist_pfad()))
+        << "Aufbau: der Symlink zeigt auf keine regulaere Datei -- der Fall misst dann nicht 'Symlink MIT Ziel'.";
+
+    Lauf const lauf = baum.fahren();
+    berichten("Allowlist-Pfad ist ein SYMLINK AUF EINE DATEI: gelesen, GRUEN", lauf, baum);
+    EXPECT_EQ(lauf.code, 0) << "Der Koeder ist ueber die verlinkte Allowlist begruendet -- Exit 0. Ausgabe:\n"
+                            << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "ABWESEND, ABER BEGRUENDET")) << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, "Allowlist gelesen: 1 Datenzeile(n) in "
+                                          "scripts/ci_test_registrierungs_allowlist.txt "
+                                          "(Kommentar- und Leerzeilen abgezogen)."))
+        << "Die Wache muss die verlinkte Allowlist als GELESEN ausweisen (Mutant ML: 'Symlink ohne Ziel'). Ausgabe:\n"
+        << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "keine regulaere Datei"))
+        << "Ein Symlink MIT Ziel ist eine lesbare regulaere Datei -- die VORHANDEN-Form gehoert Fall (7c). Ausgabe:\n"
+        << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "Allowlist NICHT gelesen"))
+        << "Nichts an diesem Pfad ist 'NICHT gelesen'. Ausgabe:\n"
+        << lauf.ausgabe;
 }
 
 // ===========================================================================================
