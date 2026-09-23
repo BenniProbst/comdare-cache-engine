@@ -353,6 +353,14 @@ TEST(MtL4RegistrierungsWacheIsa, IsaAusnahmeTraegtOhneDasMerkmalUndErlischtMitIh
     EXPECT_TRUE(enthaelt(ohne.ausgabe, "avx2=ja avx512f=nein")) << "Die Wache muss die ISA-Antwort BENENNEN, "
                                                                    "nicht nur verwenden. Ausgabe:\n"
                                                                 << ohne.ausgabe;
+    // NENNER DER ALLOWLIST (Lens C r8 LC8W-10, Fix-474 (c)): die Wache nennt, wie viele Datenzeilen sie
+    // gelesen hat -- sonst ist '0 Allowlist-Zeile(n) fuer ARCHIV-Dateien' nicht von 'gar nicht gelesen'
+    // zu trennen. Dieser Baum: eine Kommentar- und eine Datenzeile -> genau 1.
+    EXPECT_TRUE(enthaelt(ohne.ausgabe, "Allowlist gelesen: 1 Datenzeile(n) in "
+                                       "scripts/ci_test_registrierungs_allowlist.txt "
+                                       "(Kommentar- und Leerzeilen abgezogen)."))
+        << "Die Wache muss den NENNER der Allowlist nennen. Ausgabe:\n"
+        << ohne.ausgabe;
 
     // DER BISS: derselbe Baum, aber der Bau-Host HATTE beide Merkmale. Dann waere das
     // Gatter wahr gewesen und die Datei haette uebersetzt werden muessen -- die

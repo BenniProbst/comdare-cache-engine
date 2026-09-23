@@ -2185,6 +2185,9 @@ ORT_ZEILE_N=0
 GEIST_ZEILE_N=0
 DOPPEL_ZEILE_N=0
 FORM_ZEILE_N=0
+# NENNER der fuenf Zaehler (Lens C r8 LC8W-10, Fix-474 (c)): gelesene Allowlist-DATENZEILEN, im selben
+# Durchlauf gezaehlt, in dem sie entstehen -- sonst ist '0 Zeile(n)' nicht von 'nicht gelesen' zu trennen.
+ALLOW_ZEILEN_N=0
 if [ -f "$ALLOWLIST" ]; then
     _nN=0; _bN=0; _lr=0
     lese_oeffnen "$ALLOWLIST" 3
@@ -2195,6 +2198,7 @@ if [ -f "$ALLOWLIST" ]; then
         if [ "$_lr" -ne 0 ]; then lese_rest_ende "$ALLOWLIST" "$_bN"; fi
         case "$z" in ''|'#'*) continue ;; esac
         case "$z" in *[![:space:]]*) ;; *) continue ;; esac
+        ALLOW_ZEILEN_N=$((ALLOW_ZEILEN_N + 1))
         felder "$z"
         _d=$FELD1
         if [ -z "$_d" ]; then
@@ -2355,6 +2359,7 @@ aus "  dazu UNPRUEFBAR ohne Bezug zum Bauweg: $ANKER_UNPR_N ARCHIV-Anker ohne In
      "ohne wirksamen Anker, $GEIST_ZEILE_N ohne Gegenstand im SOLL-Bestand, $DOPPEL_ZEILE_N Pfad(e) mit" \
      "doppelter Zeile, $FORM_ZEILE_N mit Formfehler fuer Dateien im Bauweg, $QUOT_UNPR_N mit von git" \
      "quotiertem Pfad."
+aus "  Allowlist gelesen: $ALLOW_ZEILEN_N Datenzeile(n) in $ALLOWLIST (Kommentar- und Leerzeilen abgezogen)."
 aus "  Quotierte Index-Pfade: $QUOT_N von git auch mit core.quotePath=false quotiert (Tabulator," \
      "Steuerzeichen, Anfuehrungszeichen, Backslash), davon $QUOT_SOLL_N im SOLL-Muster und $QUOT_ANKER_N als" \
      "VERMERK.md-Anker (beide UNPRUEFBAR)."
