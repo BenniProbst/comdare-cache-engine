@@ -414,6 +414,14 @@ void berichten(char const* fall, Lauf const& lauf, std::string const& marke) {
     return "Erreichbarkeit: " + z(n) + " der " + z(begruendet) + " begruendeten nennen einen Gegenstand AUSSERHALB";
 }
 
+// Die Nenner-Zeile der gelesenen Allowlist-DATENZEILEN (Fix-474 (c), Lens C r8 LC8W-10; als Pin seit Fix-r12, Lens B
+// r10 LB10-01): Kommentarzeilen in Spalte 1, Leerzeilen und Zeilen nur aus Leerraum sind abgezogen, ein EINGERUECKTER
+// Kommentar zaehlt (Datenzeile ohne Gegenstand, Fall (13d)). Der Pfad ist der relative Wert von ALLOWLIST in der Wache.
+[[nodiscard]] std::string nenner_allowlist(std::size_t n) {
+    return "Allowlist gelesen: " + z(n) + " Datenzeile(n) in scripts/ci_test_registrierungs_allowlist.txt" +
+           " (Kommentar- und Leerzeilen abgezogen).";
+}
+
 // ---------------------------------------------------------------------------
 // ZEILEN-PINS (Lens C r4 LC3T-04, Fix-r6). enthaelt() findet den Text auch mitten in einer laengeren oder
 // praefigierten Zeile -- ein Mutant, der an eine Nenner-Zeile etwas anhaengt (Probe: " (Vorbehalt)") oder eine
@@ -1131,6 +1139,23 @@ TEST(Pa1ToteAusnahme, EchteAllowlistTraegtKeineToteZeile) {
         << "Nicht alle vier geparkten Dateien standen im SOLL -- der Fall maesse etwas anderes.";
     std::size_t const soll_n = alle.size() - weggelassen;
 
+    // NENNER DER ALLOWLIST-DATENZEILEN (Fix-r12, Lens B r10 LB10-01): die Wache zaehlt im Nachscan die Datenzeilen
+    // der committeten Allowlist und nennt sie in der Bilanz (Fix-474 (c)); bis 1fa2f50b pinnte dieser Fall jede
+    // Nenner-Zeile WOERTLICH ausser dieser. Gezaehlt wird hier SELBST, mit demselben Filter wie in der Wache
+    // (Kommentar in Spalte 1, Leerzeile, Zeile nur aus Leerraum = abgezogen) -- kein Literal, das beim naechsten
+    // Allowlist-Zug nachzuziehen waere; ein Mutant mit fester Zahl ueberlebte sonst 39/39 (WM2, LENS-B-r10.md).
+    std::size_t allow_daten_n = 0;
+    {
+        std::ifstream ein{fs::path{repo_wurzel()} / "scripts" / "ci_test_registrierungs_allowlist.txt"};
+        ASSERT_TRUE(ein.good()) << "Die committete Allowlist ist nicht lesbar -- ohne sie hat der Pin keinen Nenner.";
+        std::string zl;
+        while (std::getline(ein, zl)) {
+            if (zl.empty() || zl.front() == '#') { continue; }
+            if (zl.find_first_not_of(" \t\r\v\f") == std::string::npos) { continue; }
+            ++allow_daten_n;
+        }
+    }
+
     Lauf const lauf = fahre("cd " + zitiert(fs::path{repo_wurzel()}) + " && " + WegwerfRepo::umgebung() + " sh " +
                             zitiert(wachen_pfad()) + " " + zitiert(baum));
     // ETIKETT (Lens B LB-05, 2026-09-18): 'alle' ist der ROH-Bestand aus git ls-files; der SOLL der Wache
@@ -1139,7 +1164,7 @@ TEST(Pa1ToteAusnahme, EchteAllowlistTraegtKeineToteZeile) {
     std::cout << "  [PA-1] Fall 'EchteAllowlistTraegtKeineToteZeile' | getrackt " << alle.size() << " | SOLL "
               << (alle.size() - weggelassen) << " | ARCHIV " << weggelassen
               << " (die vier Archiv-Dateien fehlen dem Baum) | NICHT geprueft: die 'isa:'-Zeile"
-              << " | Exit " << lauf.code << "\n";
+              << " | Allowlist-Datenzeilen " << allow_daten_n << " | Exit " << lauf.code << "\n";
 
     EXPECT_EQ(lauf.code, 0) << "Die committete Allowlist traegt eine Zeile, die nie erloeschen kann.\n" << lauf.ausgabe;
     // GANZE davon-ZEILE statt "0 TOTE AUSNAHME" (Lens C r4 LC3T-03, Fix-r6): keine dem Bauweg fehlende Datei des
@@ -1174,6 +1199,9 @@ TEST(Pa1ToteAusnahme, EchteAllowlistTraegtKeineToteZeile) {
     // druckt, ueberlebte 33/33 (M-LB7-quot-nullseite-stumm). Am echten Baum gibt es keinen quotierten Pfad.
     EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_quotiert(0, 0, 0)))
         << "Die Quote-Nenner-Zeile muss auch mit 0/0/0 stehen (Klasse gehoert leer in den Nenner).\n"
+        << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, nenner_allowlist(allow_daten_n)))
+        << "Die Nenner-Zeile der Allowlist muss die selbst gezaehlten Datenzeilen der committeten Datei nennen.\n"
         << lauf.ausgabe;
     EXPECT_TRUE(zeile_exakt(lauf.ausgabe, endzeile_ok(soll_n, weggelassen)))
         << "Die Endzeile muss den SOLL und den Archiv-Nenner mit den gemessenen Zahlen tragen.\n"
@@ -1710,6 +1738,10 @@ TEST(Pa1ToteAusnahme, AllowlistZeileOhneGegenstandImSollBestandIstUnpruefbar) {
     EXPECT_TRUE(zeile_exakt(mit.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << mit.ausgabe;
     EXPECT_TRUE(zeile_exakt(mit.ausgabe, nenner_ohne_bauweg(0, 0, 0, 1, 0))) << mit.ausgabe;
     EXPECT_TRUE(zeile_exakt(mit.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << mit.ausgabe;
+    // ZAEHL-SEMANTIK DER NENNER-ZEILE (Fix-r12, Lens B r10 LB10-01, Mehrzeilen-Pin): Kopfkommentar abgezogen,
+    // tragende + Geist-Zeile = 2; ohne Geist 1; Leerraum-Zeilen abgezogen = 1; ein eingerueckter Kommentar ist eine
+    // Datenzeile = 2 (dieselbe Lesung wie der Nachscan, Wache Kopf 'Eine Zeile nur aus Leerraum ist eine Leerzeile').
+    EXPECT_TRUE(zeile_exakt(mit.ausgabe, nenner_allowlist(2))) << mit.ausgabe;
 
     ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
                                      "# Allowlist des Falls " + marke + "\n" + tragend));
@@ -1719,6 +1751,7 @@ TEST(Pa1ToteAusnahme, AllowlistZeileOhneGegenstandImSollBestandIstUnpruefbar) {
     EXPECT_TRUE(zeile_exakt(ohne.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << ohne.ausgabe;
     EXPECT_TRUE(zeile_exakt(ohne.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << ohne.ausgabe;
     EXPECT_TRUE(zeile_exakt(ohne.ausgabe, endzeile_ok(2, 0))) << ohne.ausgabe;
+    EXPECT_TRUE(zeile_exakt(ohne.ausgabe, nenner_allowlist(1))) << ohne.ausgabe;
 
     // (c) Zeilen nur aus Leerraum (drei Leerzeichen; ein Tab) zwischen Kopf und tragender Zeile: Leerzeilen.
     ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
@@ -1728,6 +1761,7 @@ TEST(Pa1ToteAusnahme, AllowlistZeileOhneGegenstandImSollBestandIstUnpruefbar) {
     EXPECT_EQ(leerraum.code, 0) << "Eine Zeile nur aus Leerraum ist eine Leerzeile, kein Befund.\n" << leerraum.ausgabe;
     EXPECT_TRUE(zeile_exakt(leerraum.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << leerraum.ausgabe;
     EXPECT_TRUE(zeile_exakt(leerraum.ausgabe, endzeile_ok(2, 0))) << leerraum.ausgabe;
+    EXPECT_TRUE(zeile_exakt(leerraum.ausgabe, nenner_allowlist(1))) << leerraum.ausgabe;
 
     // (d) ein eingerueckter Kommentar ist eine Datenzeile ohne Gegenstand -- rot, mit der Ursache im Text.
     ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
@@ -1744,6 +1778,7 @@ TEST(Pa1ToteAusnahme, AllowlistZeileOhneGegenstandImSollBestandIstUnpruefbar) {
         << eingerueckt.ausgabe;
     EXPECT_TRUE(zeile_exakt(eingerueckt.ausgabe, nenner_ohne_bauweg(0, 0, 0, 1, 0))) << eingerueckt.ausgabe;
     EXPECT_TRUE(zeile_exakt(eingerueckt.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << eingerueckt.ausgabe;
+    EXPECT_TRUE(zeile_exakt(eingerueckt.ausgabe, nenner_allowlist(2))) << eingerueckt.ausgabe;
 }
 
 // =============================================================================
@@ -1868,6 +1903,9 @@ TEST(Pa1ToteAusnahme, AllowlistDoppelteZeileJePfadIstUnpruefbar) {
     EXPECT_TRUE(zeile_exakt(doppelt.ausgabe, nenner_davon(1, 0, 0, 0, 0))) << doppelt.ausgabe;
     EXPECT_TRUE(zeile_exakt(doppelt.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 1))) << doppelt.ausgabe;
     EXPECT_TRUE(zeile_exakt(doppelt.ausgabe, endzeile_rot(0, 2, 0, 0, 1, 0))) << doppelt.ausgabe;
+    // MEHRZEILEN-PIN (Fix-r12, Lens B r10 LB10-01): beide Zeilen sind GELESEN (die zweite wird nicht AUSGEWERTET,
+    // s. oben) -- der Nenner zaehlt 2; die Gegenrichtung unten 1.
+    EXPECT_TRUE(zeile_exakt(doppelt.ausgabe, nenner_allowlist(2))) << doppelt.ausgabe;
 
     // GEGENRICHTUNG: dieselbe Allowlist mit genau EINER Zeile fuer den Pfad -> GRUEN.
     ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
@@ -1877,6 +1915,7 @@ TEST(Pa1ToteAusnahme, AllowlistDoppelteZeileJePfadIstUnpruefbar) {
     EXPECT_EQ(einfach.code, 0) << "Eine Zeile je Pfad muss tragen.\n" << einfach.ausgabe;
     EXPECT_TRUE(zeile_exakt(einfach.ausgabe, nenner_ohne_bauweg(0, 0, 0, 0, 0))) << einfach.ausgabe;
     EXPECT_TRUE(zeile_exakt(einfach.ausgabe, endzeile_ok(2, 0))) << einfach.ausgabe;
+    EXPECT_TRUE(zeile_exakt(einfach.ausgabe, nenner_allowlist(1))) << einfach.ausgabe;
 }
 
 // =============================================================================

@@ -118,6 +118,20 @@ struct Lauf {
     return heuhaufen.find(nadel) != std::string::npos;
 }
 
+// GANZE ZEILE (Fix-r12, Lens B r10 LB10-01; Vorbild zeile_exakt() in test_pa1_tote_ausnahme.cpp): enthaelt()
+// traefe den Text auch mitten in einer laengeren oder praefigierten Zeile. Eine Nenner-Zeile wird deshalb als
+// GANZE Zeile verlangt -- wahlweise mit der zweistelligen Einrueckung des Nenner-Blocks der Wache.
+[[nodiscard]] bool zeile_exakt(std::string const& ausgabe, std::string const& text) {
+    for (std::size_t start = 0; start <= ausgabe.size();) {
+        std::size_t const ende = ausgabe.find('\n', start);
+        std::string const zl   = ausgabe.substr(start, ende == std::string::npos ? std::string::npos : ende - start);
+        if (zl == text || zl == "  " + text) { return true; }
+        if (ende == std::string::npos) { break; }
+        start = ende + 1;
+    }
+    return false;
+}
+
 [[nodiscard]] Lauf schale(std::string const& befehl) {
     Lauf  ergebnis;
     FILE* rohr = ::popen(befehl.c_str(), "r");
@@ -588,6 +602,15 @@ TEST(MtL4RegistrierungsWacheIsa, OhneAllowlistZeileIstDerKoederEinBefund) {
     EXPECT_TRUE(enthaelt(lauf.ausgabe, baum.koeder())) << lauf.ausgabe;
     // NENNER (V-1): die Wache nennt beide Zahlen, nicht nur den Befund.
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "1 von 2 ohne Begruendung")) << lauf.ausgabe;
+    // NULLSEITE DER NENNER-ZEILE (Fix-r12, Lens B r10 LB10-01): eine VORHANDENE Allowlist ohne Datenzeile (nur
+    // die Kommentarzeile von allowlist_leer()) zaehlt 0 -- als GANZE Zeile gepinnt. Ein Mutant mit fester Zahl
+    // (WM2: ALLOW_ZEILEN_N=1) oder stummer Zeile bei 0 (WM2b) ueberlebte Fall (1) allein 9/9 + test_pa1 39/39
+    // (LENS-B-r10.md Abschn. 2.6); dieser Pin und die test_pa1-Pins (Fall (8), Mehrzeilen) machen beide rot.
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, "Allowlist gelesen: 0 Datenzeile(n) in "
+                                          "scripts/ci_test_registrierungs_allowlist.txt "
+                                          "(Kommentar- und Leerzeilen abgezogen)."))
+        << "Die Nullseite der Nenner-Zeile muss als ganze Zeile stehen. Ausgabe:\n"
+        << lauf.ausgabe;
 }
 
 // ===========================================================================================
