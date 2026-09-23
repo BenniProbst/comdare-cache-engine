@@ -237,3 +237,21 @@ DIESEN Ordner gemessen am Fix-r10-Stand (`sh scripts/ci_test_registrierungs_wach
 build-clang-release, sh = dash, ebenso bash --posix und busybox sh): weiterhin 544 getrackt, 4 ARCHIV in 1 Ordner,
 SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4; die Bilanz ohne Heute-Zeile ist byte-gleich zu Fix-r7, r8 und r9
 (md5 09ddc181 gcc / f644b9fb clang; messungen/fix-r10/bilanz/tafel-r10-final.out).
+
+## NACHTRAG 6c (Fix-474 + Fix-r12: Lens A r11, Lens B r10 LB10-03; 2026-09-23; additiv, nichts geloescht)
+
+Fix-474 (Commits b98e1273/b207a011/1fa2f50b: Test 474 test_mt_l4_registrierungs_wache_isa nach EXPLORE-474-DESIGN-K282
+Option A -- Attrappe in der CI-Form von ninja an der von git GEMELDETEN Wurzel; Kopf (17h) nennt die r10b-Stufe (35f);
+Nenner-Zeile 'Allowlist gelesen: N Datenzeile(n) in scripts/ci_test_registrierungs_allowlist.txt (Kommentar- und
+Leerzeilen abgezogen).' hinter der UNPRUEFBAR-Zeile, Lens C r8 LC8W-10) und Fix-r12 (Commits fc311425/8fb3b068/6e15b306:
+Pins der Nenner-Zeile in Test 474 Fall (7) und test_pa1 Faelle (8)/(13)/(16); eine FEHLENDE Allowlist-Datei heisst
+jetzt 'Allowlist NICHT gelesen: <allowlist> FEHLT -- Nachscan uebersprungen (0 Datenzeile(n)).' statt '0 gelesen',
+Google-Stufe Test 474 Fall (7b); Kopf-Folge (18)) sind ohne Wirkung auf diesen Ordner: die vier Dateien bleiben ARCHIV
+ueber diesen VERMERK.md-Anker, die Allowlist traegt fuer sie keine Zeile. Fuer DIESEN Ordner gemessen am Fix-r12-Stand
+(`sh scripts/ci_test_registrierungs_wache.sh build-gcc-release` und build-clang-release, sh = dash, ebenso bash --posix
+und busybox sh): weiterhin 544 getrackt, 4 ARCHIV in 1 Ordner, SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4; die
+Bilanz traegt gegenueber Fix-r10 GENAU EINE Zeile mehr ('Allowlist gelesen: 1 Datenzeile(n) ...' -- die committete
+Allowlist hat nach Order 206 genau eine Datenzeile, die 'isa:'-Zeile), sonst ist sie byte-gleich: md5 ohne Heute-Zeile
+1379e85d gcc / 7b95136c clang (Fix-r10-Referenz 09ddc181 / f644b9fb + diese eine Zeile; messungen/lens-k290/fix-r12/
+wache-6x/BILANZ-r12.txt). Der Verweis 'VERMERK.md NACHTRAG 6b' in Kopf (17h) der Wache bleibt der Fix-r10-Posten;
+Fix-474/Fix-r12 verweisen auf diesen NACHTRAG 6c (Kopf Folge (18)).
