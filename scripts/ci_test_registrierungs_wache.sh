@@ -2014,6 +2014,11 @@ allow_zeile() {
     # EINE VARIABLE, nicht ueber stdout (Fix-r7): ein werkzeug_abbruch in '$( )' beendete nur die Subshell
     # (dieselbe Falle wie bei der ISA-Gegenprobe oben).
     ALLOW_Z=""
+    # '-f' = genau die Probe, mit der der Nachscan den Pfad als 'datei' klassifiziert (ALLOW_PFAD_ART, Fix-r13,
+    # Kopf Folge (19a)): beide lesen dieselbe Menge. Ein belegter Pfad anderer Art (Verzeichnis, FIFO, Symlink
+    # ohne Ziel) liefert hier keine Zeile -- jede dem Bauweg fehlende Quelldatei bleibt dann OHNE BEGRUENDUNG =
+    # ROT -- und wird in der Bilanz mit seiner Art benannt; ein Abbruch (Exit 2) dafuer waere eine
+    # Vertragsaenderung (Lead-Entscheid, FIX-r12 O-1).
     [ -f "$ALLOWLIST" ] || return 0
     # Ein Pfad unter tests/deprecated/ hat per Definition keine Allowlist-Zeile: der Archiv-Ort
     # kennt nur den VERMERK.md-Anker (Kopf, Folge (3)); eine Zeile dafuer meldet der Nachscan.
@@ -2201,9 +2206,34 @@ FORM_ZEILE_N=0
 # FEHLT die Datei, wird der Nachscan uebersprungen und ALLOW_GELESEN bleibt 'nein' (Fix-r12, Lens A r11 LA11-01
 # = Lens B r10 LB10-02, Kopf Folge (18c)): die Bilanz sagt dann 'NICHT gelesen ... FEHLT' statt '0 gelesen' --
 # eine Null fuer eine nie gelesene Datei waere genau die Falsch-Null, gegen die diese Zeile gebaut ist.
+# DER PFAD WIRD KLASSIFIZIERT, NICHT NUR GEPRUEFT (Fix-r13, Lens A r12 LA12-01 = Lens B r11 LB11-01, Kopf Folge
+# (19a)): gelesen wird genau eine REGULAERE Datei ('-f', dieselbe Probe wie in allow_zeile; ein Symlink auf eine
+# Datei zaehlt dazu). Ein Pfad, der belegt ist, aber keine regulaere Datei (Verzeichnis, FIFO, Socket,
+# Geraetedatei, Symlink ohne Ziel), hiess bis 2c5f8b00 in der Bilanz 'FEHLT' -- eine falsche Aussage ueber einen
+# vorhandenen Eintrag (Kunstbaeume PDIR/PFIFO/PBROKEN in 3 Shells). '-e' folgt einem Symlink; ein Symlink ohne
+# Ziel ist nur ueber '-L' sichtbar (dieselbe Zweiteilung wie am 'datei:'-Gegenstand, Fix-r6 LA6-06). Die
+# Reihenfolge der Proben ist Teil der Aussage: '-L' steht ZULETZT, weil -d/-p/-S/-b/-c/-e dem Link folgen und
+# fuer ein totes Ziel alle falsch sind. Urteil, Exit-Vertrag und die Toleranz (kein Abbruch fuer einen nicht
+# lesbaren Allowlist-Pfad) sind unveraendert -- Exit 2 dafuer waere eine Vertragsaenderung (Lead, FIX-r12 O-1).
 ALLOW_ZEILEN_N=0
 ALLOW_GELESEN=nein
+ALLOW_PFAD_ART=fehlt
 if [ -f "$ALLOWLIST" ]; then
+    ALLOW_PFAD_ART=datei
+elif [ -d "$ALLOWLIST" ]; then
+    ALLOW_PFAD_ART=Verzeichnis
+elif [ -p "$ALLOWLIST" ]; then
+    ALLOW_PFAD_ART=FIFO
+elif [ -S "$ALLOWLIST" ]; then
+    ALLOW_PFAD_ART=Socket
+elif [ -b "$ALLOWLIST" ] || [ -c "$ALLOWLIST" ]; then
+    ALLOW_PFAD_ART=Geraetedatei
+elif [ -e "$ALLOWLIST" ]; then
+    ALLOW_PFAD_ART="Eintrag unbekannter Art"
+elif [ -L "$ALLOWLIST" ]; then
+    ALLOW_PFAD_ART="Symlink ohne Ziel"
+fi
+if [ "$ALLOW_PFAD_ART" = datei ]; then
     ALLOW_GELESEN=ja
     _nN=0; _bN=0; _lr=0
     lese_oeffnen "$ALLOWLIST" 3
@@ -2375,10 +2405,16 @@ aus "  dazu UNPRUEFBAR ohne Bezug zum Bauweg: $ANKER_UNPR_N ARCHIV-Anker ohne In
      "ohne wirksamen Anker, $GEIST_ZEILE_N ohne Gegenstand im SOLL-Bestand, $DOPPEL_ZEILE_N Pfad(e) mit" \
      "doppelter Zeile, $FORM_ZEILE_N mit Formfehler fuer Dateien im Bauweg, $QUOT_UNPR_N mit von git" \
      "quotiertem Pfad."
+# Drei Formen (Kopf Folgen (18c) + (19a)): gelesen (N) | FEHLT (nichts am Pfad) | VORHANDEN, aber keine regulaere
+# Datei (<Art> aus ALLOW_PFAD_ART). In beiden 'NICHT gelesen'-Formen steht die Null als LITERAL: der Nachscan lief
+# nicht, es gibt nichts zu zaehlen -- eine Variable fuer eine Konstante saehe wie ein Messwert aus (LA12-I2).
 if [ "$ALLOW_GELESEN" = ja ]; then
     aus "  Allowlist gelesen: $ALLOW_ZEILEN_N Datenzeile(n) in $ALLOWLIST (Kommentar- und Leerzeilen abgezogen)."
+elif [ "$ALLOW_PFAD_ART" = fehlt ]; then
+    aus "  Allowlist NICHT gelesen: $ALLOWLIST FEHLT -- Nachscan uebersprungen (0 Datenzeile(n))."
 else
-    aus "  Allowlist NICHT gelesen: $ALLOWLIST FEHLT -- Nachscan uebersprungen ($ALLOW_ZEILEN_N Datenzeile(n))."
+    aus "  Allowlist NICHT gelesen: $ALLOWLIST ist VORHANDEN, aber keine regulaere Datei ($ALLOW_PFAD_ART) --" \
+         "Nachscan uebersprungen (0 Datenzeile(n))."
 fi
 aus "  Quotierte Index-Pfade: $QUOT_N von git auch mit core.quotePath=false quotiert (Tabulator," \
      "Steuerzeichen, Anfuehrungszeichen, Backslash), davon $QUOT_SOLL_N im SOLL-Muster und $QUOT_ANKER_N als" \

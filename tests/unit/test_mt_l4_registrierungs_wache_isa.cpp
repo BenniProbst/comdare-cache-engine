@@ -296,6 +296,36 @@ public:
         fs::remove(wurzel_ / "scripts" / "ci_test_registrierungs_allowlist.txt", ec);
     }
 
+    /// DER ALLOWLIST-PFAD dieses Baums (Fix-r13): fuer die Vorbedingungen der Faelle (7b)/(7c) und die zwei
+    /// Nicht-Datei-Formen darunter.
+    [[nodiscard]] fs::path allowlist_pfad() const {
+        return wurzel_ / "scripts" / "ci_test_registrierungs_allowlist.txt";
+    }
+
+    /// Liegt am Allowlist-Pfad IRGENDETWAS? exists() folgt einem Symlink; ein Symlink ohne Ziel ist nur ueber
+    /// is_symlink() sichtbar -- dieselbe Zweiteilung wie '[ -e ] || [ -L ]' in der Wache.
+    [[nodiscard]] bool allowlist_pfad_belegt() const {
+        std::error_code ec_e;
+        std::error_code ec_l;
+        return fs::exists(allowlist_pfad(), ec_e) || fs::is_symlink(allowlist_pfad(), ec_l);
+    }
+
+    /// EIN VERZEICHNIS am Allowlist-Pfad (Fix-r13, Lens A r12 LA12-01 = Lens B r11 LB11-01): der Pfad ist belegt,
+    /// aber keine regulaere Datei -- die Wache darf ihn weder lesen noch 'FEHLT' nennen.
+    void allowlist_als_verzeichnis() const {
+        std::error_code ec;
+        fs::remove(allowlist_pfad(), ec);
+        fs::create_directory(allowlist_pfad(), ec);
+    }
+
+    /// EIN SYMLINK OHNE ZIEL am Allowlist-Pfad (dieselbe Klasse; fuer '-e' unsichtbar, fuer '-L' belegt). Das Ziel
+    /// ist ein Name, den es im Baum nie gibt -- er erscheint in keiner Ausgabe der Wache.
+    void allowlist_als_symlink_ohne_ziel() const {
+        std::error_code ec;
+        fs::remove(allowlist_pfad(), ec);
+        fs::create_symlink("ziel_ohne_datei.txt", allowlist_pfad(), ec);
+    }
+
     [[nodiscard]] Lauf fahren() const {
         return schale("cd \"" + wurzel_.string() + "\" && " + umgebung() +
                       " sh scripts/ci_test_registrierungs_wache.sh baum 2>&1");
@@ -656,6 +686,57 @@ TEST(MtL4RegistrierungsWacheIsa, OhneAllowlistDateiHeisstDieBilanzNichtGelesenSt
     EXPECT_FALSE(enthaelt(lauf.ausgabe, "Allowlist gelesen: 0 Datenzeile(n)"))
         << "Die Null-Form gehoert der VORHANDENEN Datei ohne Datenzeile (Fall (7)), nicht der fehlenden. Ausgabe:\n"
         << lauf.ausgabe;
+}
+
+// ===========================================================================================
+// (7c) EIN BELEGTER NICHT-DATEI-PFAD IST KEIN 'FEHLT' (Fix-r13, Lens A r12 LA12-01 = Lens B r11 LB11-01). Die
+//      FEHLT-Form aus (7b) stand bis 2c5f8b00 auch fuer ein VERZEICHNIS, eine FIFO und einen Symlink ohne Ziel am
+//      Allowlist-Pfad -- der Pfad ist dann belegt, nur keine regulaere Datei (Kunstbaeume PDIR / PFIFO / PBROKEN
+//      bzw. P-DIR / P-DANGLING, je 3 Shells; Klon-Mutanten WM-E / MB2 '-f' nach '-e' ueberlebten 10/10 + 39/39).
+//      Jetzt klassifiziert die Wache den Pfad (ALLOW_PFAD_ART) und sagt 'ist VORHANDEN, aber keine regulaere
+//      Datei (<Art>)'. Toleranz und Exit-Vertrag bleiben: ROT nur, weil der Koeder ohne Begruendung ist; Exit 2
+//      fuer diese Klasse waere eine Vertragsaenderung (Lead-Entscheid O-1). Zwei Stufen: (a) Verzeichnis,
+//      (b) Symlink ohne Ziel ('-e' folgt dem Link und sieht nichts, '-L' sieht den Link). Eine FIFO deckt NUR die
+//      Shell-Probe (FIX-r13 Abschn. 7): ein Leser an einer FIFO ohne Schreiber blockiert -- unter einem
+//      '-f'-Mutanten hinge dieser Prozess statt rot zu werden.
+// ===========================================================================================
+TEST(MtL4RegistrierungsWacheIsa, BelegterNichtDateiPfadHeisstVorhandenStattFehlt) {
+    std::string const marke = koeder_marke();
+    SynthBaum         baum{marke};
+    baum.cache_ehrlich(/*avx2=*/true, /*avx512f=*/true);
+
+    auto const pruefen = [&baum](char const* was, char const* art, Lauf const& lauf) {
+        berichten(was, lauf, baum);
+        EXPECT_EQ(lauf.code, 1) << "(" << was
+                                << ") Ohne lesbare Allowlist ist der Koeder ohne Begruendung -- Befund-Code 1, "
+                                   "kein Abbruch. Ausgabe:\n"
+                                << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, "1 von 2 ohne Begruendung")) << "(" << was << ") " << lauf.ausgabe;
+        EXPECT_TRUE(zeile_exakt(lauf.ausgabe,
+                                std::string{"Allowlist NICHT gelesen: scripts/ci_test_registrierungs_allowlist.txt "
+                                            "ist VORHANDEN, aber keine regulaere Datei ("} +
+                                    art + ") -- Nachscan uebersprungen (0 Datenzeile(n))."))
+            << "(" << was << ") Die Bilanz muss den belegten Pfad mit seiner Art nennen. Ausgabe:\n"
+            << lauf.ausgabe;
+        EXPECT_FALSE(enthaelt(lauf.ausgabe, " FEHLT -- Nachscan uebersprungen"))
+            << "(" << was << ") 'FEHLT' gehoert dem leeren Pfad (Fall (7b)), nicht dem belegten. Ausgabe:\n"
+            << lauf.ausgabe;
+        EXPECT_FALSE(enthaelt(lauf.ausgabe, "Allowlist gelesen: 0 Datenzeile(n)"))
+            << "(" << was << ") Nichts wurde gelesen -- die Null-Form waere die Falsch-Null. Ausgabe:\n"
+            << lauf.ausgabe;
+    };
+
+    // (a) VERZEICHNIS: '-e' wahr, '-f' falsch.
+    baum.allowlist_als_verzeichnis();
+    ASSERT_TRUE(fs::is_directory(baum.allowlist_pfad())) << "Aufbau: kein Verzeichnis am Allowlist-Pfad.";
+    pruefen("Allowlist-Pfad ist ein VERZEICHNIS", "Verzeichnis", baum.fahren());
+
+    // (b) SYMLINK OHNE ZIEL: '-e' falsch (folgt dem Link), '-L' wahr -- fuer eine Probe nur mit '-e' saehe der
+    //     Pfad leer aus, und die Bilanz sagte wieder FEHLT.
+    baum.allowlist_als_symlink_ohne_ziel();
+    ASSERT_TRUE(fs::is_symlink(baum.allowlist_pfad())) << "Aufbau: kein Symlink am Allowlist-Pfad.";
+    ASSERT_FALSE(fs::exists(baum.allowlist_pfad())) << "Aufbau: der Symlink hat ein Ziel -- er soll keines haben.";
+    pruefen("Allowlist-Pfad ist ein SYMLINK OHNE ZIEL", "Symlink ohne Ziel", baum.fahren());
 }
 
 // ===========================================================================================
