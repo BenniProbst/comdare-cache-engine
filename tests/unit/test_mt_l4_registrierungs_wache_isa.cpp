@@ -146,6 +146,18 @@ struct Lauf {
 // waere jeder Fall eine Aussage ueber 459 fremde Dateien; hier sind es genau zwei --
 // die Messgeraet-Gegenprobe, die die Wache selbst verlangt (test_pressure_state.cpp),
 // und der gewuerfelte Koeder. Nur der Koeder fehlt im Bauweg.
+//
+// DER WURZEL-VERTRAG DER WACHE (Fix-474, 2026-09-23, EXPLORE-474-DESIGN-K282 Option A):
+// seit Fix-r10 (Kopf der Wache, Folgen (17c)/(17d)) sucht die Wache jeden Quellpfad im
+// Bauweg an der ABSOLUTEN Repo-Wurzel verankert ('git rev-parse --show-toplevel'), mit
+// einer linken Grenze davor und einer rechten Grenze dahinter. Eine Attrappe unter der
+// Phantasie-Wurzel '/x/' traf dieses Muster nicht mehr: die Messgeraet-Gegenprobe fiel
+// durch (ABBRUCH, Exit 2) und sieben der neun Faelle starben VOR jeder Allowlist-
+// Auswertung. Deshalb: erst 'git init', dann die von git GEMELDETE Wurzel holen und
+// gegen den eigenen Pfad halten (sonst misst der Fall still den falschen Baum), dann
+// die Attrappe in der CI-Form von ninja schreiben -- Objektpfad build-relativ links,
+// Quellpfad absolut unter der gemeldeten Wurzel rechts, einmal vor ' || deps' und einmal
+// am Zeilenende (beide rechten Grenzen). Der Koeder steht weiterhin NICHT darin (K13).
 // ---------------------------------------------------------------------------
 class SynthBaum {
 public:
@@ -166,17 +178,52 @@ public:
             aus << "int main() { return 0; }\n";
         }
 
-        // IST-Quelle: nur die Gegenprobe steht im Bauweg, der Koeder NICHT. Genau das
-        // ist der Zustand, den ein uebersprungenes add_executable() erzeugt.
-        {
-            std::ofstream aus{wurzel_ / "baum" / "build.ninja"};
-            aus << "build /x/tests/unit/test_pressure_state.cpp.o: CXX "
-                << "/x/tests/unit/test_pressure_state.cpp\n";
-        }
+        // Das Repo entsteht VOR der Attrappe: die Attrappe braucht die Wurzel, die git meldet.
+        // Jeder git-Aufruf faehrt isoliert von der globalen und der System-Konfiguration des
+        // Bau-Hosts -- so wie die Wache selbst in fahren() (sonst laese ihr 'git rev-parse'
+        // eine andere Konfiguration als dieser Aufbau).
+        (void)schale(umgebung() + " git -C \"" + wurzel_.string() + "\" init -q 2>&1");
+        (void)schale(umgebung() + " git -C \"" + wurzel_.string() + "\" add -- tests/unit/test_pressure_state.cpp \"" +
+                     koeder_ + "\" 2>&1");
 
-        (void)schale("git -C \"" + wurzel_.string() + "\" init -q 2>&1");
-        (void)schale("git -C \"" + wurzel_.string() + "\" add -- tests/unit/test_pressure_state.cpp \"" + koeder_ +
-                     "\" 2>&1");
+        // DIE VON GIT GEMELDETE WURZEL, nicht wurzel_.string(): 'git rev-parse --show-toplevel'
+        // ist die Quelle der Wache; nur ein byte-gleicher Pfad trifft ihr Muster. Weicht die
+        // Meldung ab oder scheitert sie, misst der Fall den falschen Baum -- das ist ein
+        // Fehler dieses Aufbaus, kein Urteil der Wache, und wird als solcher gemeldet.
+        Lauf const meldung = schale(umgebung() + " git -C \"" + wurzel_.string() + "\" rev-parse --show-toplevel 2>&1");
+        std::string gemeldet = meldung.ausgabe;
+        while (!gemeldet.empty() && (gemeldet.back() == '\n' || gemeldet.back() == '\r')) { gemeldet.pop_back(); }
+        if (meldung.code != 0 || gemeldet.empty()) {
+            ADD_FAILURE() << "git rev-parse --show-toplevel in '" << wurzel_.string() << "' fehlgeschlagen (Exit "
+                          << meldung.code << "):\n"
+                          << meldung.ausgabe;
+        } else {
+            std::error_code ec_erwartet;
+            std::error_code ec_ist;
+            fs::path const  erwartet = fs::canonical(wurzel_, ec_erwartet);
+            fs::path const  ist      = fs::canonical(fs::path{gemeldet}, ec_ist);
+            if (ec_erwartet || ec_ist || erwartet != ist) {
+                ADD_FAILURE() << "git meldet die Wurzel '" << gemeldet << "', erwartet war '" << wurzel_.string()
+                              << "' -- der Fall wuerde den falschen Baum messen.";
+            }
+        }
+        gemeldete_wurzel_ = gemeldet;
+
+        // IST-Quelle: nur die Gegenprobe steht im Bauweg, der Koeder NICHT. Genau das
+        // ist der Zustand, den ein uebersprungenes add_executable() erzeugt. CI-Form von
+        // ninja (Vorbild test_pa1_tote_ausnahme.cpp, bauweg_schreiben): links der
+        // build-relative Objektpfad, rechts der absolute Quellpfad unter der gemeldeten
+        // Wurzel -- in der ersten Zeile vor ' || deps', in der zweiten am Zeilenende, damit
+        // beide rechten Grenzen der Wache hier gedeckt sind; das Leerzeichen davor ist
+        // ihre linke Grenze.
+        {
+            std::string const quelle = gemeldete_wurzel_ + "/tests/unit/test_pressure_state.cpp";
+            std::ofstream     aus{wurzel_ / "baum" / "build.ninja"};
+            aus << "build CMakeFiles/x.dir/a.o: CXX_COMPILER__x_Release " << quelle
+                << " || cmake_object_order_depends_target_x\n";
+            aus << "build CMakeFiles/x.dir/tests/unit/test_pressure_state.cpp.o: CXX_COMPILER__x_Release " << quelle
+                << "\n";
+        }
     }
 
     SynthBaum(SynthBaum const&)            = delete;
@@ -226,14 +273,23 @@ public:
     }
 
     [[nodiscard]] Lauf fahren() const {
-        return schale("cd \"" + wurzel_.string() + "\" && sh scripts/ci_test_registrierungs_wache.sh baum 2>&1");
+        return schale("cd \"" + wurzel_.string() + "\" && " + umgebung() +
+                      " sh scripts/ci_test_registrierungs_wache.sh baum 2>&1");
     }
 
     [[nodiscard]] std::string const& koeder() const { return koeder_; }
 
+    // Dieselbe Isolation wie WegwerfRepo::umgebung() der Werkbank (support/wachen_werkbank.hpp):
+    // ohne sie hinge jeder Fall an der globalen git-Konfiguration des Bau-Hosts. Der Umzug
+    // dieses Baums AUF die Werkbank ist ein eigener Zug (Board #253), nicht dieser Fix.
+    [[nodiscard]] static std::string umgebung() {
+        return "GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_TERMINAL_PROMPT=0";
+    }
+
 private:
     fs::path    wurzel_;
     std::string koeder_;
+    std::string gemeldete_wurzel_;
 };
 
 void berichten(char const* fall, Lauf const& lauf, SynthBaum const& baum) {
