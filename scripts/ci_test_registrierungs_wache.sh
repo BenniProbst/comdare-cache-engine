@@ -509,6 +509,17 @@
 #       Status 0 ohne dieses Zeichen, macht der EXIT-trap daraus ABBRUCH + Exit 2. dash und busybox verweigern unter
 #       demselben Deckel schon den Start mit eigenem Status 2 ('Invalid argument' am Deskriptor 3) -- kein Urteil, kein
 #       Gruen; W09u misst VOR/NEU in allen drei Shells (FIX-r10.md Abschn. 3).
+#   (18) FIX-474 + FIX-R12 (2026-09-23; Lens C r8 LC8W-10, EXPLORE-474-DESIGN-K282 Abschn. 5; Lens A r11 LA11-01/02;
+#       Lens B r10 LB10-01/02/03): (a) (17h) nennt die r10b-Stufe (35f) Spiegel-Praefix. (b) NENNER DER ALLOWLIST-
+#       DATENZEILEN (LC8W-10, Fix-474 (c)): ALLOW_ZEILEN_N zaehlt im Nachscan hinter dem Kommentar-/Leerraum-Filter
+#       und steht als EINE Bilanz-Zeile 'Allowlist gelesen: N Datenzeile(n) in <allowlist> (...)' -- Google-Stufen
+#       Test 474 Faelle (1) und (7), test_pa1 Faelle (8), (13), (16) (Fix-r12, LB10-01). (c) EINE FEHLENDE ALLOWLIST
+#       IST KEINE NULL (LA11-01 = LB10-02): ohne Datei lautete die Zeile '0 Datenzeile(n)', byte-gleich zur Datei
+#       ohne Datenzeile -- 'gelesen' fuer eine nie gelesene Datei (Falsch-Null, gemessen in 3 Shells). Jetzt traegt
+#       ALLOW_GELESEN (ja|nein) den Unterschied: 'Allowlist NICHT gelesen: <allowlist> FEHLT -- Nachscan
+#       uebersprungen (0 Datenzeile(n)).' Urteil, Exit-Vertrag und die Toleranz der fehlenden Datei (allow_zeile)
+#       sind unveraendert; eine strengere Form (fehlende Allowlist = Exit 2) waere eine Vertragsaenderung = Lead-
+#       Entscheid. Google-Stufe Test 474 Fall (7b). VERMERK.md NACHTRAG 6c.
 #
 # DER GEMESSENE BAUM MUSS DERSELBE SEIN WIE DER DER CI (J-0b, am Objekt 2026-09-17): der CI-Baum
 # build-covguard wird MIT -DCOMDARE_CE_PRUEFLINGE=<repo>/tests/pruefling_fixture konfiguriert, und

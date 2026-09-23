@@ -227,9 +227,12 @@ public:
         // ist der Zustand, den ein uebersprungenes add_executable() erzeugt. CI-Form von
         // ninja (Vorbild test_pa1_tote_ausnahme.cpp, bauweg_schreiben): links der
         // build-relative Objektpfad, rechts der absolute Quellpfad unter der gemeldeten
-        // Wurzel -- in der ersten Zeile vor ' || deps', in der zweiten am Zeilenende, damit
-        // beide rechten Grenzen der Wache hier gedeckt sind; das Leerzeichen davor ist
-        // ihre linke Grenze.
+        // Wurzel -- in der ersten Zeile vor ' || deps', in der zweiten am Zeilenende: beide
+        // FORMEN der rechten Grenze stehen in der Attrappe, das Leerzeichen davor ist die
+        // linke. BERICHTIGT (Fix-r12, Lens B r10 LB10-I02): 'gedeckt' sind die Grenzen hier
+        // NICHT einzeln -- jede der beiden Zeilen allein erfuellt die Gegenprobe, ein Mutant
+        // ohne '$' oder ohne '[[:space:]]' in IST_GRENZE ueberlebt diesen Test 9/9; die
+        // Deckung JE Grenze traegt test_pa1_tote_ausnahme (35b)/(35d).
         {
             std::string const quelle = gemeldete_wurzel_ + "/tests/unit/test_pressure_state.cpp";
             std::ofstream     aus{wurzel_ / "baum" / "build.ninja"};
