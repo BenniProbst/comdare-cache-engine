@@ -534,6 +534,19 @@
 #       beiden 'NICHT gelesen'-Formen ist ein Literal (LA12-I2). (c) Test 474 Fall (8) liest Leerraum wie diese
 #       Wache (Space, Tab, CR, VT, FF; LA12-I1), Fall (7b) prueft seine Vorbedingung 'nichts am Pfad' selbst
 #       (LB11-I01). VERMERK.md NACHTRAG 6d (dort auch die Klarstellung zu NACHTRAG 5, LB11-I09).
+#   (20) FIX-R14 (2026-09-23; Lens A r13 LA13-01/I1, Lens B r12 LB12-01/I03/I04; NUR Test- und Doku-Seite, KEIN
+#       Wache-Code, keine Allowlist-Aenderung): (a) ZWEI GOOGLE-STUFEN ZU (19a): Test 474 Fall (7c) hat die dritte
+#       Stufe (c) 'Symlink auf /dev/null' = Geraetedatei (LB12-01: der Zweig -b/-c war ungedeckt -- ein Klon-Mutant
+#       ohne ihn ueberlebte 474 11/11 und nannte den Pfad 'Eintrag unbekannter Art'); der neue Fall (7d) pinnt die
+#       Gegenrichtung 'ein Symlink MIT Ziel am Allowlist-Pfad wird GELESEN' als ganze Nenner-Zeile 'Allowlist
+#       gelesen: 1 Datenzeile(n) ...' plus Verbot der VORHANDEN-Form (LA13-01: der Reihenfolge-Mutant ML mit '-L'
+#       als ERSTER Probe ueberlebte 474 11/11 und nannte einen Symlink MIT Ziel 'Symlink ohne Ziel' -- die
+#       Reihenfolge der Proben aus (19a) ist damit Google-gedeckt, nicht nur Shell-gedeckt; der Exit allein deckt
+#       ML nicht, weil allow_zeile weiter ueber '-f' liest). FIFO und Socket bleiben Shell-Proben (LB12-I15, Lead).
+#       (b) ETIKETT: 'PSOCK' in (19a) meint die KLASSE Socket; der Beleg ist der Kunstbaum PSOCK2 (relatives bind,
+#       'srwxrwxr-x'), PSOCK selbst war ein Aufbau-Fehler ('AF_UNIX path too long', Bild = P1; LA13-I1 = LB12-I04).
+#       (c) Alle sechs Arten aus (19a) stehen in VERMERK.md NACHTRAG 6e (LB12-I03: 6d nannte vier). Commit-Paar
+#       Fix-r14: Test 4ad7be76 + dieser Kopf mit VERMERK.md.
 #
 # DER GEMESSENE BAUM MUSS DERSELBE SEIN WIE DER DER CI (J-0b, am Objekt 2026-09-17): der CI-Baum
 # build-covguard wird MIT -DCOMDARE_CE_PRUEFLINGE=<repo>/tests/pruefling_fixture konfiguriert, und

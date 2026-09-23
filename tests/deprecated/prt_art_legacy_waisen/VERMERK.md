@@ -277,3 +277,27 @@ genannte Datei existiert), NICHT die Allowlist-Datei selbst: deren Lese-Probe is
 '-f' (eine regulaere Datei, auch ueber einen Symlink mit Ziel); ein Symlink OHNE Ziel am Allowlist-Pfad wurde bis
 Fix-r12 als FEHLT gemeldet und heisst seit Fix-r13 'VORHANDEN, aber keine regulaere Datei (Symlink ohne Ziel)'.
 NACHTRAG 5 bleibt unveraendert stehen; dieser Nachtrag gilt.
+
+## NACHTRAG 6e (Fix-r14: Lens A r13 LA13-01/I1, Lens B r12 LB12-01/I03/I04; 2026-09-23; additiv, nichts geloescht)
+
+ERGAENZUNG ZU NACHTRAG 6d, ERSTER ABSATZ (Lens B r12 LB12-I03): "Verzeichnis, FIFO, Socket, Symlink ohne Ziel" nennt
+vier der SECHS Nicht-Datei-Arten, die die Wache seit Fix-r13 am Allowlist-Pfad unterscheidet (Kopf Folge (19a), Variable
+ALLOW_PFAD_ART): Verzeichnis, FIFO, Socket, Geraetedatei, Eintrag unbekannter Art, Symlink ohne Ziel -- daneben 'datei'
+(gelesen) und 'fehlt' (FEHLT-Form). Eine Geraetedatei ist ohne Privileg nur als Symlink auf /dev/null herstellbar; ein
+'Eintrag unbekannter Art' ist auf Linux unerreichbar (jeder '-e'-Eintrag ist f/d/p/S/b/c) und nur unter einem Mutanten
+der Wache sichtbar (LB12-I02). NACHTRAG 6d bleibt unveraendert stehen.
+
+Fix-r14 (Commit 4ad7be76 Test-Seite + dieser Nachtrag mit Kopf Folge (20); KEIN Wache-Code, keine Allowlist-Aenderung)
+schliesst zwei Google-Deckungsluecken der Klassifikation aus Fix-r13: Test 474 Fall (7c) hat die dritte Stufe (c)
+'Symlink auf /dev/null = Geraetedatei' (Lens B r12 LB12-01: ein Klon-Mutant ohne den Zweig -b/-c ueberlebte 474 11/11
+und nannte den Pfad 'Eintrag unbekannter Art'), und der neue Fall (7d) 'SymlinkMitZielAmAllowlistPfadWirdGelesen' pinnt,
+dass ein Symlink MIT Ziel am Allowlist-Pfad GELESEN wird (ganze Nenner-Zeile 'Allowlist gelesen: 1 Datenzeile(n) ...',
+Verbot der VORHANDEN-Form; Lens A r13 LA13-01: der Reihenfolge-Mutant ML mit '-L' als erster Probe ueberlebte 474
+11/11). Beide Mutanten sind seit Fix-r14 rot, die HEAD-Wache ist gruen (12 Google-Faelle unter POSIX; FIX-r14.md Abschn.
+2). Etikett (Lens A r13 LA13-I1 = Lens B r12 LB12-I04): 'PSOCK' in Kopf (19a) meint die Klasse Socket, der Beleg ist der
+Kunstbaum PSOCK2 (Kopf Folge (20b)). Fuer DIESEN Ordner ohne Wirkung: die vier Dateien bleiben ARCHIV ueber diesen
+VERMERK.md-Anker, die Allowlist ist am echten Baum eine regulaere Datei, die gelesen wird. Gemessen am Fix-r14-Stand
+(`sh scripts/ci_test_registrierungs_wache.sh build-gcc-release` und build-clang-release, sh = dash, ebenso bash --posix
+und busybox sh): weiterhin 544 getrackt, 4 ARCHIV in 1 Ordner, SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4, Zeile
+'Allowlist gelesen: 1 Datenzeile(n) ...' unveraendert; die Bilanz ohne Heute-Zeile ist byte-gleich zu Fix-r12 und
+Fix-r13 (md5 1379e85d gcc / 7b95136c clang; messungen/lens-k290/fix-r14/wache-6x/BILANZ-r14.txt).
