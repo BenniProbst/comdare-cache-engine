@@ -520,6 +520,20 @@
 #       uebersprungen (0 Datenzeile(n)).' Urteil, Exit-Vertrag und die Toleranz der fehlenden Datei (allow_zeile)
 #       sind unveraendert; eine strengere Form (fehlende Allowlist = Exit 2) waere eine Vertragsaenderung = Lead-
 #       Entscheid. Google-Stufe Test 474 Fall (7b). VERMERK.md NACHTRAG 6c.
+#   (19) FIX-R13 (2026-09-23; Lens A r12 LA12-01/I1/I2, Lens B r11 LB11-01/I01/I09): (a) EIN BELEGTER PFAD IST
+#       KEIN 'FEHLT' (LA12-01 = LB11-01): die FEHLT-Form aus (18c) stand auch fuer ein Verzeichnis, eine FIFO, einen
+#       Socket und einen Symlink ohne Ziel am Allowlist-Pfad (Kunstbaeume PDIR/PFIFO/PSOCK/PBROKEN je 3 Shells;
+#       Klon-Mutanten WM-E/MB2 '-f' nach '-e' ueberlebten 474 10/10 + 499 39/39). Jetzt klassifiziert der Nachscan
+#       den Pfad (ALLOW_PFAD_ART: datei | Verzeichnis | FIFO | Socket | Geraetedatei | Eintrag unbekannter Art |
+#       Symlink ohne Ziel | fehlt; '-L' zuletzt, weil die anderen Proben dem Link folgen) und die Bilanz sagt
+#       'Allowlist NICHT gelesen: <allowlist> ist VORHANDEN, aber keine regulaere Datei (<Art>) -- Nachscan
+#       uebersprungen (0 Datenzeile(n)).'; FEHLT bleibt dem leeren Pfad. Gelesen wird weiter genau eine regulaere
+#       Datei ('-f', wie allow_zeile). Urteil, Exit-Vertrag, Toleranz unveraendert (Exit 2 fuer diese Klasse =
+#       Lead-Entscheid, FIX-r12 O-1). Google-Stufe Test 474 Fall (7c): (a) Verzeichnis, (b) Symlink ohne Ziel;
+#       FIFO und Socket nur als Shell-Probe (ein Leser an einer FIFO ohne Schreiber blockiert). (b) die Null in
+#       beiden 'NICHT gelesen'-Formen ist ein Literal (LA12-I2). (c) Test 474 Fall (8) liest Leerraum wie diese
+#       Wache (Space, Tab, CR, VT, FF; LA12-I1), Fall (7b) prueft seine Vorbedingung 'nichts am Pfad' selbst
+#       (LB11-I01). VERMERK.md NACHTRAG 6d (dort auch die Klarstellung zu NACHTRAG 5, LB11-I09).
 #
 # DER GEMESSENE BAUM MUSS DERSELBE SEIN WIE DER DER CI (J-0b, am Objekt 2026-09-17): der CI-Baum
 # build-covguard wird MIT -DCOMDARE_CE_PRUEFLINGE=<repo>/tests/pruefling_fixture konfiguriert, und
