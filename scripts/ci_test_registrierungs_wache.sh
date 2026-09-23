@@ -2189,8 +2189,10 @@ lese_abgleich "$TMP/fehlend.txt" "$_nZ" "$_bZ"
 #            leeres oder unbekanntes Merkmal, kein Datum -- geprueft mit demselben
 #            feld_form wie in der Schleife. Zeilen fuer dem Bauweg FEHLENDE Dateien hat die
 #            Schleife schon geprueft (die erste je Pfad; jede weitere ist DOPPELT).
-# Eine Zeile nur aus Leerraum ist eine Leerzeile, keine Datenzeile (Lens A LA3-03; so
-# liest sie auch test_mt_l4_registrierungs_wache_isa Fall (8)). Alle Klassen zaehlen
+# Eine Zeile nur aus Leerraum ist eine Leerzeile, keine Datenzeile (Lens A LA3-03;
+# Leerraum = [[:space:]] unter LC_ALL=C: Space, Tab, CR, VT, FF -- so lesen sie auch
+# test_mt_l4_registrierungs_wache_isa Fall (8) und test_pa1_tote_ausnahme Fall (8) mit
+# dem Filter " \t\r\v\f", Fix-r13 Lens A r12 LA12-I1). Alle Klassen zaehlen
 # als UNPRUEFBAR, in derselben Liste wie eine Zeile mit unbekannter Art: eine
 # Begruendung ohne Gegenstand ist keine. Abhilfe: die Zeile loeschen bzw. berichtigen.
 # ---------------------------------------------------------------------------

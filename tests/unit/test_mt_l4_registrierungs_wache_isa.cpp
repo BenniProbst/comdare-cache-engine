@@ -360,7 +360,10 @@ void berichten(char const* fall, Lauf const& lauf, SynthBaum const& baum) {
     std::string              z;
     while (std::getline(ein, z)) {
         if (z.empty() || z.front() == '#') { continue; }
-        if (z.find_first_not_of(" \t") == std::string::npos) { continue; }
+        // LEERRAUM WIE DIE WACHE (Fix-r13, Lens A r12 LA12-I1): '*[![:space:]]*' unter LC_ALL=C kennt Space, Tab,
+        // CR, VT, FF -- ein Helfer nur mit Space/Tab machte aus einer CR- oder VT-Zeile eine Wertzeile mit einem
+        // Feld (ASSERT_GE felder 3 = falsches ROT); derselbe Filter wie in test_pa1_tote_ausnahme Fall (8).
+        if (z.find_first_not_of(" \t\r\v\f") == std::string::npos) { continue; }
         zeilen.push_back(z);
     }
     return zeilen;
@@ -673,6 +676,11 @@ TEST(MtL4RegistrierungsWacheIsa, OhneAllowlistDateiHeisstDieBilanzNichtGelesenSt
     SynthBaum         baum{marke};
     baum.cache_ehrlich(/*avx2=*/true, /*avx512f=*/true);
     baum.allowlist_entfernen();
+    // VORBEDINGUNG SICHTBAR (Fix-r13, Lens B r11 LB11-I01): der Konstruktor schreibt heute keine Allowlist, der
+    // Aufruf darueber ist defensiv (Klon-Mutant MT1 ohne ihn ueberlebte 10/10). Der Fall misst 'nichts am Pfad'
+    // -- und prueft das, statt es vom Konstruktor-Default zu erben.
+    ASSERT_FALSE(baum.allowlist_pfad_belegt()) << "Aufbau: am Allowlist-Pfad liegt etwas -- der Fall misst dann "
+                                                  "nicht 'keine Datei'.";
 
     Lauf const lauf = baum.fahren();
     berichten("keine Allowlist-DATEI -> ROT + 'NICHT gelesen'", lauf, baum);
