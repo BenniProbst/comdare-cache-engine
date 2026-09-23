@@ -501,7 +501,7 @@
 #       und {1,2,3} bleiben Gitlink. Rangfolge im Ahnenscan unveraendert: UNPRUEFBAR vor TOT vor Gitlink (Folge (14a)).
 #       (h) DOKU: 'mkdir' steht in der Werkzeugliste des Exit-2-Vertrags (LA10-04); der Allowlist-Kopf zitiert die
 #       realen Google-Faelle und traegt die add/add-Vorbehalte (LA10-05, LC8W-09). Google-Stufen (32g), (34f), (35b)-
-#       (35e) -- tests/unit/test_pa1_tote_ausnahme.cpp; VERMERK.md NACHTRAG 6b.
+#       (35e), (35f) Spiegel-Praefix (r10b) -- tests/unit/test_pa1_tote_ausnahme.cpp; VERMERK.md NACHTRAG 6b.
 #       (i) EIN ENDE OHNE URTEIL IST EXIT 2 (eigener Fund Fix-r10, Probe W09u): unter 'ulimit -n 6' endete bash --posix
 #       mit 'cannot allocate new file descriptor for bash input' -- Status 0, weder OK-Zeile noch ABBRUCH (gemessen am
 #       Zwischenstand 0e601128 mit (17f); bei 0f0d0fb6 lag der Ausfall an anderer Stelle und war Exit 2). Status 0 ohne
