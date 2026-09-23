@@ -118,6 +118,20 @@ struct Lauf {
     return heuhaufen.find(nadel) != std::string::npos;
 }
 
+// GANZE ZEILE (Fix-r12, Lens B r10 LB10-01; Vorbild zeile_exakt() in test_pa1_tote_ausnahme.cpp): enthaelt()
+// traefe den Text auch mitten in einer laengeren oder praefigierten Zeile. Eine Nenner-Zeile wird deshalb als
+// GANZE Zeile verlangt -- wahlweise mit der zweistelligen Einrueckung des Nenner-Blocks der Wache.
+[[nodiscard]] bool zeile_exakt(std::string const& ausgabe, std::string const& text) {
+    for (std::size_t start = 0; start <= ausgabe.size();) {
+        std::size_t const ende = ausgabe.find('\n', start);
+        std::string const zl   = ausgabe.substr(start, ende == std::string::npos ? std::string::npos : ende - start);
+        if (zl == text || zl == "  " + text) { return true; }
+        if (ende == std::string::npos) { break; }
+        start = ende + 1;
+    }
+    return false;
+}
+
 [[nodiscard]] Lauf schale(std::string const& befehl) {
     Lauf  ergebnis;
     FILE* rohr = ::popen(befehl.c_str(), "r");
@@ -146,6 +160,18 @@ struct Lauf {
 // waere jeder Fall eine Aussage ueber 459 fremde Dateien; hier sind es genau zwei --
 // die Messgeraet-Gegenprobe, die die Wache selbst verlangt (test_pressure_state.cpp),
 // und der gewuerfelte Koeder. Nur der Koeder fehlt im Bauweg.
+//
+// DER WURZEL-VERTRAG DER WACHE (Fix-474, 2026-09-23, EXPLORE-474-DESIGN-K282 Option A):
+// seit Fix-r10 (Kopf der Wache, Folgen (17c)/(17d)) sucht die Wache jeden Quellpfad im
+// Bauweg an der ABSOLUTEN Repo-Wurzel verankert ('git rev-parse --show-toplevel'), mit
+// einer linken Grenze davor und einer rechten Grenze dahinter. Eine Attrappe unter der
+// Phantasie-Wurzel '/x/' traf dieses Muster nicht mehr: die Messgeraet-Gegenprobe fiel
+// durch (ABBRUCH, Exit 2) und sieben der neun Faelle starben VOR jeder Allowlist-
+// Auswertung. Deshalb: erst 'git init', dann die von git GEMELDETE Wurzel holen und
+// gegen den eigenen Pfad halten (sonst misst der Fall still den falschen Baum), dann
+// die Attrappe in der CI-Form von ninja schreiben -- Objektpfad build-relativ links,
+// Quellpfad absolut unter der gemeldeten Wurzel rechts, einmal vor ' || deps' und einmal
+// am Zeilenende (beide rechten Grenzen). Der Koeder steht weiterhin NICHT darin (K13).
 // ---------------------------------------------------------------------------
 class SynthBaum {
 public:
@@ -166,17 +192,55 @@ public:
             aus << "int main() { return 0; }\n";
         }
 
-        // IST-Quelle: nur die Gegenprobe steht im Bauweg, der Koeder NICHT. Genau das
-        // ist der Zustand, den ein uebersprungenes add_executable() erzeugt.
-        {
-            std::ofstream aus{wurzel_ / "baum" / "build.ninja"};
-            aus << "build /x/tests/unit/test_pressure_state.cpp.o: CXX "
-                << "/x/tests/unit/test_pressure_state.cpp\n";
-        }
+        // Das Repo entsteht VOR der Attrappe: die Attrappe braucht die Wurzel, die git meldet.
+        // Jeder git-Aufruf faehrt isoliert von der globalen und der System-Konfiguration des
+        // Bau-Hosts -- so wie die Wache selbst in fahren() (sonst laese ihr 'git rev-parse'
+        // eine andere Konfiguration als dieser Aufbau).
+        (void)schale(umgebung() + " git -C \"" + wurzel_.string() + "\" init -q 2>&1");
+        (void)schale(umgebung() + " git -C \"" + wurzel_.string() + "\" add -- tests/unit/test_pressure_state.cpp \"" +
+                     koeder_ + "\" 2>&1");
 
-        (void)schale("git -C \"" + wurzel_.string() + "\" init -q 2>&1");
-        (void)schale("git -C \"" + wurzel_.string() + "\" add -- tests/unit/test_pressure_state.cpp \"" + koeder_ +
-                     "\" 2>&1");
+        // DIE VON GIT GEMELDETE WURZEL, nicht wurzel_.string(): 'git rev-parse --show-toplevel'
+        // ist die Quelle der Wache; nur ein byte-gleicher Pfad trifft ihr Muster. Weicht die
+        // Meldung ab oder scheitert sie, misst der Fall den falschen Baum -- das ist ein
+        // Fehler dieses Aufbaus, kein Urteil der Wache, und wird als solcher gemeldet.
+        Lauf const meldung = schale(umgebung() + " git -C \"" + wurzel_.string() + "\" rev-parse --show-toplevel 2>&1");
+        std::string gemeldet = meldung.ausgabe;
+        while (!gemeldet.empty() && (gemeldet.back() == '\n' || gemeldet.back() == '\r')) { gemeldet.pop_back(); }
+        if (meldung.code != 0 || gemeldet.empty()) {
+            ADD_FAILURE() << "git rev-parse --show-toplevel in '" << wurzel_.string() << "' fehlgeschlagen (Exit "
+                          << meldung.code << "):\n"
+                          << meldung.ausgabe;
+        } else {
+            std::error_code ec_erwartet;
+            std::error_code ec_ist;
+            fs::path const  erwartet = fs::canonical(wurzel_, ec_erwartet);
+            fs::path const  ist      = fs::canonical(fs::path{gemeldet}, ec_ist);
+            if (ec_erwartet || ec_ist || erwartet != ist) {
+                ADD_FAILURE() << "git meldet die Wurzel '" << gemeldet << "', erwartet war '" << wurzel_.string()
+                              << "' -- der Fall wuerde den falschen Baum messen.";
+            }
+        }
+        gemeldete_wurzel_ = gemeldet;
+
+        // IST-Quelle: nur die Gegenprobe steht im Bauweg, der Koeder NICHT. Genau das
+        // ist der Zustand, den ein uebersprungenes add_executable() erzeugt. CI-Form von
+        // ninja (Vorbild test_pa1_tote_ausnahme.cpp, bauweg_schreiben): links der
+        // build-relative Objektpfad, rechts der absolute Quellpfad unter der gemeldeten
+        // Wurzel -- in der ersten Zeile vor ' || deps', in der zweiten am Zeilenende: beide
+        // FORMEN der rechten Grenze stehen in der Attrappe, das Leerzeichen davor ist die
+        // linke. BERICHTIGT (Fix-r12, Lens B r10 LB10-I02): 'gedeckt' sind die Grenzen hier
+        // NICHT einzeln -- jede der beiden Zeilen allein erfuellt die Gegenprobe, ein Mutant
+        // ohne '$' oder ohne '[[:space:]]' in IST_GRENZE ueberlebt diesen Test 9/9; die
+        // Deckung JE Grenze traegt test_pa1_tote_ausnahme (35b)/(35d).
+        {
+            std::string const quelle = gemeldete_wurzel_ + "/tests/unit/test_pressure_state.cpp";
+            std::ofstream     aus{wurzel_ / "baum" / "build.ninja"};
+            aus << "build CMakeFiles/x.dir/a.o: CXX_COMPILER__x_Release " << quelle
+                << " || cmake_object_order_depends_target_x\n";
+            aus << "build CMakeFiles/x.dir/tests/unit/test_pressure_state.cpp.o: CXX_COMPILER__x_Release " << quelle
+                << "\n";
+        }
     }
 
     SynthBaum(SynthBaum const&)            = delete;
@@ -214,26 +278,95 @@ public:
     }
 
     /// Genau EINE Allowlist-Zeile fuer den Koeder; 'feld2' ist der Prueflig.
-    void allowlist(std::string const& feld2) const {
-        std::ofstream aus{wurzel_ / "scripts" / "ci_test_registrierungs_allowlist.txt"};
-        aus << "# gewuerfelt von test_mt_l4_registrierungs_wache_isa\n";
-        aus << koeder_ << " | " << feld2 << " | Begruendungstext\n";
-    }
+    void allowlist(std::string const& feld2) const { allowlist_schreiben(allowlist_pfad(), feld2); }
 
     void allowlist_leer() const {
         std::ofstream aus{wurzel_ / "scripts" / "ci_test_registrierungs_allowlist.txt"};
         aus << "# absichtlich ohne Zeile fuer den Koeder\n";
     }
 
+    /// GAR KEINE Allowlist-Datei (Fix-r12, Lens A r11 LA11-01 = Lens B r10 LB10-02): die Wache toleriert das
+    /// (allow_zeile liefert keine Zeile, der Nachscan wird uebersprungen) und muss es in der Bilanz SAGEN.
+    void allowlist_entfernen() const {
+        std::error_code ec;
+        fs::remove(wurzel_ / "scripts" / "ci_test_registrierungs_allowlist.txt", ec);
+    }
+
+    /// DER ALLOWLIST-PFAD dieses Baums (Fix-r13): fuer die Vorbedingungen der Faelle (7b)/(7c) und die zwei
+    /// Nicht-Datei-Formen darunter.
+    [[nodiscard]] fs::path allowlist_pfad() const {
+        return wurzel_ / "scripts" / "ci_test_registrierungs_allowlist.txt";
+    }
+
+    /// Liegt am Allowlist-Pfad IRGENDETWAS? exists() folgt einem Symlink; ein Symlink ohne Ziel ist nur ueber
+    /// is_symlink() sichtbar -- dieselbe Zweiteilung wie '[ -e ] || [ -L ]' in der Wache.
+    [[nodiscard]] bool allowlist_pfad_belegt() const {
+        std::error_code ec_e;
+        std::error_code ec_l;
+        return fs::exists(allowlist_pfad(), ec_e) || fs::is_symlink(allowlist_pfad(), ec_l);
+    }
+
+    /// EIN VERZEICHNIS am Allowlist-Pfad (Fix-r13, Lens A r12 LA12-01 = Lens B r11 LB11-01): der Pfad ist belegt,
+    /// aber keine regulaere Datei -- die Wache darf ihn weder lesen noch 'FEHLT' nennen.
+    void allowlist_als_verzeichnis() const {
+        std::error_code ec;
+        fs::remove(allowlist_pfad(), ec);
+        fs::create_directory(allowlist_pfad(), ec);
+    }
+
+    /// EIN SYMLINK OHNE ZIEL am Allowlist-Pfad (dieselbe Klasse; fuer '-e' unsichtbar, fuer '-L' belegt). Das Ziel
+    /// ist ein Name, den es im Baum nie gibt -- er erscheint in keiner Ausgabe der Wache.
+    void allowlist_als_symlink_ohne_ziel() const {
+        std::error_code ec;
+        fs::remove(allowlist_pfad(), ec);
+        fs::create_symlink("ziel_ohne_datei.txt", allowlist_pfad(), ec);
+    }
+
+    /// EIN SYMLINK AUF /dev/null am Allowlist-Pfad (Fix-r14, Lens B r12 LB12-01): '-e' wahr, '-f' falsch, '-c' wahr
+    /// = Geraetedatei -- die einzige Form dieser Klasse ohne Privileg (mknod braeuchte root). Die Wache oeffnet den
+    /// Pfad nie: '-f' ist falsch, die Klassifikation kommt ohne open aus.
+    void allowlist_als_symlink_auf_geraetedatei() const {
+        std::error_code ec;
+        fs::remove(allowlist_pfad(), ec);
+        fs::create_symlink("/dev/null", allowlist_pfad(), ec);
+    }
+
+    /// EIN SYMLINK MIT ZIEL am Allowlist-Pfad (Fix-r14, Lens A r13 LA13-01): die Allowlist liegt als regulaere Datei
+    /// unter 'ci_test_registrierungs_allowlist.real.txt', der Allowlist-Pfad ist ein RELATIVER Symlink darauf. '-f'
+    /// folgt dem Link: die Wache muss die Datei LESEN -- die Gegenrichtung zu allowlist_als_symlink_ohne_ziel().
+    void allowlist_als_symlink_auf_datei(std::string const& feld2) const {
+        std::error_code ec;
+        fs::remove(allowlist_pfad(), ec);
+        allowlist_schreiben(wurzel_ / "scripts" / "ci_test_registrierungs_allowlist.real.txt", feld2);
+        fs::create_symlink("ci_test_registrierungs_allowlist.real.txt", allowlist_pfad(), ec);
+    }
+
     [[nodiscard]] Lauf fahren() const {
-        return schale("cd \"" + wurzel_.string() + "\" && sh scripts/ci_test_registrierungs_wache.sh baum 2>&1");
+        return schale("cd \"" + wurzel_.string() + "\" && " + umgebung() +
+                      " sh scripts/ci_test_registrierungs_wache.sh baum 2>&1");
     }
 
     [[nodiscard]] std::string const& koeder() const { return koeder_; }
 
+    // Dieselbe Isolation wie WegwerfRepo::umgebung() der Werkbank (support/wachen_werkbank.hpp):
+    // ohne sie hinge jeder Fall an der globalen git-Konfiguration des Bau-Hosts. Der Umzug
+    // dieses Baums AUF die Werkbank ist ein eigener Zug (Board #253), nicht dieser Fix.
+    [[nodiscard]] static std::string umgebung() {
+        return "GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_TERMINAL_PROMPT=0";
+    }
+
 private:
+    /// Die Allowlist-Form aller Faelle (eine Kommentar-, eine Datenzeile) an einen beliebigen Pfad -- fuer den
+    /// Allowlist-Pfad selbst (allowlist()) und fuer das Ziel eines Symlinks (allowlist_als_symlink_auf_datei()).
+    void allowlist_schreiben(fs::path const& pfad, std::string const& feld2) const {
+        std::ofstream aus{pfad};
+        aus << "# gewuerfelt von test_mt_l4_registrierungs_wache_isa\n";
+        aus << koeder_ << " | " << feld2 << " | Begruendungstext\n";
+    }
+
     fs::path    wurzel_;
     std::string koeder_;
+    std::string gemeldete_wurzel_;
 };
 
 void berichten(char const* fall, Lauf const& lauf, SynthBaum const& baum) {
@@ -250,7 +383,10 @@ void berichten(char const* fall, Lauf const& lauf, SynthBaum const& baum) {
     std::string              z;
     while (std::getline(ein, z)) {
         if (z.empty() || z.front() == '#') { continue; }
-        if (z.find_first_not_of(" \t") == std::string::npos) { continue; }
+        // LEERRAUM WIE DIE WACHE (Fix-r13, Lens A r12 LA12-I1): '*[![:space:]]*' unter LC_ALL=C kennt Space, Tab,
+        // CR, VT, FF -- ein Helfer nur mit Space/Tab machte aus einer CR- oder VT-Zeile eine Wertzeile mit einem
+        // Feld (ASSERT_GE felder 3 = falsches ROT); derselbe Filter wie in test_pa1_tote_ausnahme Fall (8).
+        if (z.find_first_not_of(" \t\r\v\f") == std::string::npos) { continue; }
         zeilen.push_back(z);
     }
     return zeilen;
@@ -297,6 +433,14 @@ TEST(MtL4RegistrierungsWacheIsa, IsaAusnahmeTraegtOhneDasMerkmalUndErlischtMitIh
     EXPECT_TRUE(enthaelt(ohne.ausgabe, "avx2=ja avx512f=nein")) << "Die Wache muss die ISA-Antwort BENENNEN, "
                                                                    "nicht nur verwenden. Ausgabe:\n"
                                                                 << ohne.ausgabe;
+    // NENNER DER ALLOWLIST (Lens C r8 LC8W-10, Fix-474 (c)): die Wache nennt, wie viele Datenzeilen sie
+    // gelesen hat -- sonst ist '0 Allowlist-Zeile(n) fuer ARCHIV-Dateien' nicht von 'gar nicht gelesen'
+    // zu trennen. Dieser Baum: eine Kommentar- und eine Datenzeile -> genau 1.
+    EXPECT_TRUE(enthaelt(ohne.ausgabe, "Allowlist gelesen: 1 Datenzeile(n) in "
+                                       "scripts/ci_test_registrierungs_allowlist.txt "
+                                       "(Kommentar- und Leerzeilen abgezogen)."))
+        << "Die Wache muss den NENNER der Allowlist nennen. Ausgabe:\n"
+        << ohne.ausgabe;
 
     // DER BISS: derselbe Baum, aber der Bau-Host HATTE beide Merkmale. Dann waere das
     // Gatter wahr gewesen und die Datei haette uebersetzt werden muessen -- die
@@ -524,6 +668,154 @@ TEST(MtL4RegistrierungsWacheIsa, OhneAllowlistZeileIstDerKoederEinBefund) {
     EXPECT_TRUE(enthaelt(lauf.ausgabe, baum.koeder())) << lauf.ausgabe;
     // NENNER (V-1): die Wache nennt beide Zahlen, nicht nur den Befund.
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "1 von 2 ohne Begruendung")) << lauf.ausgabe;
+    // NULLSEITE DER NENNER-ZEILE (Fix-r12, Lens B r10 LB10-01): eine VORHANDENE Allowlist ohne Datenzeile (nur
+    // die Kommentarzeile von allowlist_leer()) zaehlt 0 -- als GANZE Zeile gepinnt. Ein Mutant mit fester Zahl
+    // (WM2: ALLOW_ZEILEN_N=1) oder stummer Zeile bei 0 (WM2b) ueberlebte Fall (1) allein 9/9 + test_pa1 39/39
+    // (LENS-B-r10.md Abschn. 2.6); dieser Pin und die test_pa1-Pins (Fall (8), Mehrzeilen) machen beide rot.
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, "Allowlist gelesen: 0 Datenzeile(n) in "
+                                          "scripts/ci_test_registrierungs_allowlist.txt "
+                                          "(Kommentar- und Leerzeilen abgezogen)."))
+        << "Die Nullseite der Nenner-Zeile muss als ganze Zeile stehen. Ausgabe:\n"
+        << lauf.ausgabe;
+    // GEGENRICHTUNG zu Fall (7b): die Datei IST da -- die FEHLT-Form darf hier nicht stehen.
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "Allowlist NICHT gelesen"))
+        << "Eine vorhandene Datei ohne Datenzeile ist GELESEN (0), nicht FEHLT. Ausgabe:\n"
+        << lauf.ausgabe;
+}
+
+// ===========================================================================================
+// (7b) OHNE ALLOWLIST-DATEI SAGT DIE BILANZ 'NICHT GELESEN', NICHT '0 GELESEN' (Fix-r12, Lens A r11 LA11-01
+//      = Lens B r10 LB10-02; Lens-Kennung 'Fall (8b)'). Die Wache toleriert eine fehlende Allowlist (Vorbestand:
+//      allow_zeile liefert keine Zeile, der Nachscan wird uebersprungen); bis 1fa2f50b lautete die Nenner-Zeile
+//      dann 'Allowlist gelesen: 0 Datenzeile(n) in ...' -- byte-gleich zur VORHANDENEN Datei ohne Datenzeile
+//      (Fall (7)), obwohl nichts gelesen wurde: genau die Falsch-Null, gegen die die Zeile gebaut ist (Lens C
+//      r8 LC8W-10 'N Datenzeilen / FEHLT'). Jetzt traegt die Bilanz die eigene Form 'Allowlist NICHT gelesen:
+//      <pfad> FEHLT -- Nachscan uebersprungen (0 Datenzeile(n)).'; Urteil (ROT: der Koeder ist ohne
+//      Begruendung) und Exit-Vertrag sind unveraendert. Beide Richtungen: Fall (7) verlangt die Null-Form und
+//      verbietet die FEHLT-Form, dieser Fall umgekehrt.
+// ===========================================================================================
+TEST(MtL4RegistrierungsWacheIsa, OhneAllowlistDateiHeisstDieBilanzNichtGelesenStattNull) {
+    std::string const marke = koeder_marke();
+    SynthBaum         baum{marke};
+    baum.cache_ehrlich(/*avx2=*/true, /*avx512f=*/true);
+    baum.allowlist_entfernen();
+    // VORBEDINGUNG SICHTBAR (Fix-r13, Lens B r11 LB11-I01): der Konstruktor schreibt heute keine Allowlist, der
+    // Aufruf darueber ist defensiv (Klon-Mutant MT1 ohne ihn ueberlebte 10/10). Der Fall misst 'nichts am Pfad'
+    // -- und prueft das, statt es vom Konstruktor-Default zu erben.
+    ASSERT_FALSE(baum.allowlist_pfad_belegt()) << "Aufbau: am Allowlist-Pfad liegt etwas -- der Fall misst dann "
+                                                  "nicht 'keine Datei'.";
+
+    Lauf const lauf = baum.fahren();
+    berichten("keine Allowlist-DATEI -> ROT + 'NICHT gelesen'", lauf, baum);
+    EXPECT_EQ(lauf.code, 1) << "Ohne Allowlist ist der Koeder ohne Begruendung -- Befund-Code 1. Ausgabe:\n"
+                            << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "1 von 2 ohne Begruendung")) << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, "Allowlist NICHT gelesen: scripts/ci_test_registrierungs_allowlist.txt "
+                                          "FEHLT -- Nachscan uebersprungen (0 Datenzeile(n))."))
+        << "Die Bilanz muss die fehlende Datei als NICHT gelesen ausweisen. Ausgabe:\n"
+        << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "Allowlist gelesen: 0 Datenzeile(n)"))
+        << "Die Null-Form gehoert der VORHANDENEN Datei ohne Datenzeile (Fall (7)), nicht der fehlenden. Ausgabe:\n"
+        << lauf.ausgabe;
+}
+
+// ===========================================================================================
+// (7c) EIN BELEGTER NICHT-DATEI-PFAD IST KEIN 'FEHLT' (Fix-r13, Lens A r12 LA12-01 = Lens B r11 LB11-01). Die
+//      FEHLT-Form aus (7b) stand bis 2c5f8b00 auch fuer ein VERZEICHNIS, eine FIFO und einen Symlink ohne Ziel am
+//      Allowlist-Pfad -- der Pfad ist dann belegt, nur keine regulaere Datei (Kunstbaeume PDIR / PFIFO / PBROKEN
+//      bzw. P-DIR / P-DANGLING, je 3 Shells; Klon-Mutanten WM-E / MB2 '-f' nach '-e' ueberlebten 10/10 + 39/39).
+//      Jetzt klassifiziert die Wache den Pfad (ALLOW_PFAD_ART) und sagt 'ist VORHANDEN, aber keine regulaere
+//      Datei (<Art>)'. Toleranz und Exit-Vertrag bleiben: ROT nur, weil der Koeder ohne Begruendung ist; Exit 2
+//      fuer diese Klasse waere eine Vertragsaenderung (Lead-Entscheid O-1). Zwei Stufen: (a) Verzeichnis,
+//      (b) Symlink ohne Ziel ('-e' folgt dem Link und sieht nichts, '-L' sieht den Link). Eine FIFO deckt NUR die
+//      Shell-Probe (FIX-r13 Abschn. 7): ein Leser an einer FIFO ohne Schreiber blockiert -- unter einem
+//      '-f'-Mutanten hinge dieser Prozess statt rot zu werden.
+//      DRITTE STUFE (Fix-r14, Lens B r12 LB12-01): (c) ein Symlink auf /dev/null -- '-e' wahr, '-f' falsch, '-c'
+//      wahr = Geraetedatei, ohne Privileg herstellbar. Der Klon-Mutant M-C (Geraetedatei-Zweig :2245-2246 der Wache
+//      entfernt) nannte ihn 'Eintrag unbekannter Art' und ueberlebte (a)+(b) 11/11; seit (c) ist er rot.
+// ===========================================================================================
+TEST(MtL4RegistrierungsWacheIsa, BelegterNichtDateiPfadHeisstVorhandenStattFehlt) {
+    std::string const marke = koeder_marke();
+    SynthBaum         baum{marke};
+    baum.cache_ehrlich(/*avx2=*/true, /*avx512f=*/true);
+
+    auto const pruefen = [&baum](char const* was, char const* art, Lauf const& lauf) {
+        berichten(was, lauf, baum);
+        EXPECT_EQ(lauf.code, 1) << "(" << was
+                                << ") Ohne lesbare Allowlist ist der Koeder ohne Begruendung -- Befund-Code 1, "
+                                   "kein Abbruch. Ausgabe:\n"
+                                << lauf.ausgabe;
+        EXPECT_TRUE(enthaelt(lauf.ausgabe, "1 von 2 ohne Begruendung")) << "(" << was << ") " << lauf.ausgabe;
+        EXPECT_TRUE(zeile_exakt(lauf.ausgabe,
+                                std::string{"Allowlist NICHT gelesen: scripts/ci_test_registrierungs_allowlist.txt "
+                                            "ist VORHANDEN, aber keine regulaere Datei ("} +
+                                    art + ") -- Nachscan uebersprungen (0 Datenzeile(n))."))
+            << "(" << was << ") Die Bilanz muss den belegten Pfad mit seiner Art nennen. Ausgabe:\n"
+            << lauf.ausgabe;
+        EXPECT_FALSE(enthaelt(lauf.ausgabe, " FEHLT -- Nachscan uebersprungen"))
+            << "(" << was << ") 'FEHLT' gehoert dem leeren Pfad (Fall (7b)), nicht dem belegten. Ausgabe:\n"
+            << lauf.ausgabe;
+        EXPECT_FALSE(enthaelt(lauf.ausgabe, "Allowlist gelesen: 0 Datenzeile(n)"))
+            << "(" << was << ") Nichts wurde gelesen -- die Null-Form waere die Falsch-Null. Ausgabe:\n"
+            << lauf.ausgabe;
+    };
+
+    // (a) VERZEICHNIS: '-e' wahr, '-f' falsch.
+    baum.allowlist_als_verzeichnis();
+    ASSERT_TRUE(fs::is_directory(baum.allowlist_pfad())) << "Aufbau: kein Verzeichnis am Allowlist-Pfad.";
+    pruefen("Allowlist-Pfad ist ein VERZEICHNIS", "Verzeichnis", baum.fahren());
+
+    // (b) SYMLINK OHNE ZIEL: '-e' falsch (folgt dem Link), '-L' wahr -- fuer eine Probe nur mit '-e' saehe der
+    //     Pfad leer aus, und die Bilanz sagte wieder FEHLT.
+    baum.allowlist_als_symlink_ohne_ziel();
+    ASSERT_TRUE(fs::is_symlink(baum.allowlist_pfad())) << "Aufbau: kein Symlink am Allowlist-Pfad.";
+    ASSERT_FALSE(fs::exists(baum.allowlist_pfad())) << "Aufbau: der Symlink hat ein Ziel -- er soll keines haben.";
+    pruefen("Allowlist-Pfad ist ein SYMLINK OHNE ZIEL", "Symlink ohne Ziel", baum.fahren());
+
+    // (c) SYMLINK AUF /dev/null: '-e' wahr, '-f' falsch, '-c' wahr = Geraetedatei (Lens B r12 LB12-01, Vorlage
+    //     mut/M-D-test.diff). Ohne diese Stufe hiesse der Pfad unter dem Mutanten M-C 'Eintrag unbekannter Art'.
+    baum.allowlist_als_symlink_auf_geraetedatei();
+    ASSERT_TRUE(fs::is_symlink(baum.allowlist_pfad())) << "Aufbau: kein Symlink am Allowlist-Pfad.";
+    ASSERT_TRUE(fs::is_character_file(baum.allowlist_pfad())) << "Aufbau: /dev/null ist keine Geraetedatei.";
+    pruefen("Allowlist-Pfad ist ein SYMLINK AUF /dev/null", "Geraetedatei", baum.fahren());
+}
+
+// ===========================================================================================
+// (7d) EIN SYMLINK MIT ZIEL AM ALLOWLIST-PFAD WIRD GELESEN (Fix-r14, Lens A r13 LA13-01). Die Gegenrichtung zu
+//      (7c)(b): '-f' folgt dem Link, dahinter liegt eine regulaere Datei -- SIE ist die Allowlist, die Bilanz sagt
+//      'Allowlist gelesen: 1 Datenzeile(n) ...', und der so begruendete Koeder traegt (Exit 0 wie Fall (1)). Gedeckt
+//      war das bis 1f144115 nur ueber die Shell-Probe PLINK: kein Google-Fall legte einen Symlink MIT Ziel an. Der
+//      Reihenfolge-Mutant ML der Wache ('-L' als ERSTE Probe, der letzte '-L'-Zweig entfernt) nannte diesen Pfad
+//      'VORHANDEN, aber keine regulaere Datei (Symlink ohne Ziel)', uebersprang den Nachscan (3/3 Shells am echten
+//      Baum) und ueberlebte 474 11/11 -- eine falsche Aussage ueber einen vorhandenen Eintrag PLUS eine ignorierte
+//      Allowlist. Die Pins, die ML toeten, sind die GANZE Nenner-Zeile und das Verbot der VORHANDEN-Form; der Exit
+//      allein deckt ihn nicht (allow_zeile liest weiter ueber '-f'). ROT zuerst gegen ML: FIX-r14.md Abschn. 2.
+// ===========================================================================================
+TEST(MtL4RegistrierungsWacheIsa, SymlinkMitZielAmAllowlistPfadWirdGelesen) {
+    std::string const marke = koeder_marke();
+    SynthBaum         baum{marke};
+    baum.cache_ehrlich(/*avx2=*/true, /*avx512f=*/false);
+    baum.allowlist_als_symlink_auf_datei("isa:avx2+avx512f");
+    ASSERT_TRUE(fs::is_symlink(baum.allowlist_pfad())) << "Aufbau: kein Symlink am Allowlist-Pfad.";
+    ASSERT_TRUE(fs::is_regular_file(baum.allowlist_pfad()))
+        << "Aufbau: der Symlink zeigt auf keine regulaere Datei -- der Fall misst dann nicht 'Symlink MIT Ziel'.";
+
+    Lauf const lauf = baum.fahren();
+    berichten("Allowlist-Pfad ist ein SYMLINK AUF EINE DATEI: gelesen, GRUEN", lauf, baum);
+    EXPECT_EQ(lauf.code, 0) << "Der Koeder ist ueber die verlinkte Allowlist begruendet -- Exit 0. Ausgabe:\n"
+                            << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "ABWESEND, ABER BEGRUENDET")) << lauf.ausgabe;
+    EXPECT_TRUE(zeile_exakt(lauf.ausgabe, "Allowlist gelesen: 1 Datenzeile(n) in "
+                                          "scripts/ci_test_registrierungs_allowlist.txt "
+                                          "(Kommentar- und Leerzeilen abgezogen)."))
+        << "Die Wache muss die verlinkte Allowlist als GELESEN ausweisen (Mutant ML: 'Symlink ohne Ziel'). Ausgabe:\n"
+        << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "keine regulaere Datei"))
+        << "Ein Symlink MIT Ziel ist eine lesbare regulaere Datei -- die VORHANDEN-Form gehoert Fall (7c). Ausgabe:\n"
+        << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "Allowlist NICHT gelesen"))
+        << "Nichts an diesem Pfad ist 'NICHT gelesen'. Ausgabe:\n"
+        << lauf.ausgabe;
 }
 
 // ===========================================================================================
