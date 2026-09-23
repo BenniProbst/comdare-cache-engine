@@ -255,3 +255,25 @@ Allowlist hat nach Order 206 genau eine Datenzeile, die 'isa:'-Zeile), sonst ist
 1379e85d gcc / 7b95136c clang (Fix-r10-Referenz 09ddc181 / f644b9fb + diese eine Zeile; messungen/lens-k290/fix-r12/
 wache-6x/BILANZ-r12.txt). Der Verweis 'VERMERK.md NACHTRAG 6b' in Kopf (17h) der Wache bleibt der Fix-r10-Posten;
 Fix-474/Fix-r12 verweisen auf diesen NACHTRAG 6c (Kopf Folge (18)).
+
+## NACHTRAG 6d (Fix-r13: Lens A r12 LA12-01/I1/I2, Lens B r11 LB11-01/I01/I09; 2026-09-23; additiv, nichts geloescht)
+
+Fix-r13 (Commits f3aa23e7/f93549ab/37c8db8f: ein BELEGTER Nicht-Datei-Pfad am Allowlist-Ort -- Verzeichnis, FIFO,
+Socket, Symlink ohne Ziel -- heisst in der Bilanz jetzt 'Allowlist NICHT gelesen: <allowlist> ist VORHANDEN, aber
+keine regulaere Datei (<Art>) -- Nachscan uebersprungen (0 Datenzeile(n)).' statt 'FEHLT' (Klassifikation
+ALLOW_PFAD_ART im Nachscan, Kopf-Folge (19), Google-Stufe Test 474 Fall (7c) mit Verzeichnis und Symlink ohne Ziel);
+die Null in beiden 'NICHT gelesen'-Formen ist ein Literal; Test 474 Fall (8) liest Leerraum wie die Wache (Space, Tab,
+CR, VT, FF) und Fall (7b) prueft seine Vorbedingung 'nichts am Pfad' selbst) ist ohne Wirkung auf diesen Ordner: die
+vier Dateien bleiben ARCHIV ueber diesen VERMERK.md-Anker, und die Allowlist ist am echten Baum eine regulaere Datei,
+die gelesen wird. Fuer DIESEN Ordner gemessen am Fix-r13-Stand (`sh scripts/ci_test_registrierungs_wache.sh
+build-gcc-release` und build-clang-release, sh = dash, ebenso bash --posix und busybox sh): weiterhin 544 getrackt,
+4 ARCHIV in 1 Ordner, SOLL 540, Quotierte 0/0/0, Endzeile OK 540/0/4, Zeile 'Allowlist gelesen: 1 Datenzeile(n) ...'
+unveraendert; die Bilanz ohne Heute-Zeile ist byte-gleich zu Fix-r12 (md5 1379e85d gcc / 7b95136c clang;
+messungen/lens-k290/fix-r13/wache-6x/BILANZ-r13.txt) -- die neue Form erscheint am echten Baum nicht.
+
+KLARSTELLUNG ZU NACHTRAG 5, LETZTER SATZ (Lens B r11 LB11-I09): "die Existenzprobe der Allowlist-Datei nimmt auch
+einen Symlink an (`[ -e ] || [ -L ]`)" meint den 'datei:'-GEGENSTAND einer Allowlist-Zeile (die Probe, ob die dort
+genannte Datei existiert), NICHT die Allowlist-Datei selbst: deren Lese-Probe ist in allow_zeile und im Nachscan
+'-f' (eine regulaere Datei, auch ueber einen Symlink mit Ziel); ein Symlink OHNE Ziel am Allowlist-Pfad wurde bis
+Fix-r12 als FEHLT gemeldet und heisst seit Fix-r13 'VORHANDEN, aber keine regulaere Datei (Symlink ohne Ziel)'.
+NACHTRAG 5 bleibt unveraendert stehen; dieser Nachtrag gilt.
